@@ -1,12 +1,20 @@
 #ifndef CPU_HPP
 #define CPU_HPP
 
+#include "instructions.hpp"
 #include <cstdint>
-#include <string>
 #include <functional>
+#include <string>
 
 namespace gbaemu
 {
+
+// TODO verify bitmasks
+static const uint32_t CPSR_N_FLAG_BITMASK = 0x80000000;
+static const uint32_t CPSR_Z_FLAG_BITMASK = 0x40000000;
+static const uint32_t CPSR_C_FLAG_BITMASK = 0x20000000;
+static const uint32_t CPSR_V_FLAG_BITMASK = 0x10000000;
+static const uint32_t CPSR_THUMB_FLAG_BITMASK = 0x00000010;
 
 enum ConditionOPCode : uint8_t {
     // Equal Z==1
@@ -43,67 +51,68 @@ enum ConditionOPCode : uint8_t {
     NV
 };
 
-// TODO verify bitmasks
-static const uint32_t CPSR_N_FLAP_BITMASK = 0x00000008;
-static const uint32_t CPSR_Z_FLAP_BITMASK = 0x00000004;
-static const uint32_t CPSR_V_FLAP_BITMASK = 0x00000002;
-static const uint32_t CPSR_C_FLAP_BITMASK = 0x00000001;
+// THUMB INSTRUCTION SET
+/*
+*/
+// Move shifted register
+static const uint16_t MASK_THUMB_MOV_SHIFT = 0b1110000000000000;
+static const uint16_t VAL_THUMB_MOV_SHIFT = 0b0000000000000000;
+// Add and subtract
+static const uint16_t MASK_THUMB_ADD_SUB = 0b1111110000000000;
+static const uint16_t VAL_THUMB_ADD_SUB = 0b0001110000000000;
+// Move, compare, add, and subtract immediate
+static const uint16_t MASK_THUMB_MOV_CMP_ADD_SUB_IMM = 0b1110000000000000;
+static const uint16_t VAL_THUMB_MOV_CMP_ADD_SUB_IMM = 0b0010000000000000;
+// ALU operation
+static const uint16_t MASK_THUMB_ALU_OP = 0b1111110000000000;
+static const uint16_t VAL_THUMB_ALU_OP = 0b0100000000000000;
+// High register operations and branch exchange
+static const uint16_t MASK_THUMB_BR_XCHG = 0b1111110000000000;
+static const uint16_t VAL_THUMB_BR_XCHG = 0b0100010000000000;
+// PC-relative load
+static const uint16_t MASK_THUMB_PC_LD = 0b1111100000000000;
+static const uint16_t VAL_THUMB_PC_LD = 0b0100100000000000;
+// Load and store with relative offset
+static const uint16_t MASK_THUMB_LD_ST_REL_OFF = 0b1111001000000000;
+static const uint16_t VAL_THUMB_LD_ST_REL_OFF = 0b0101000000000000;
+// Load and store sign-extended byte and halfword
+static const uint16_t MASK_THUMB_LD_ST_SIGN_EXT = 0b1111001000000000;
+static const uint16_t VAL_THUMB_LD_ST_SIGN_EXT = 0b0101001000000000;
+// Load and store with immediate offset
+static const uint16_t MASK_THUMB_LD_ST_IMM_OFF = 0b1110000000000000;
+static const uint16_t VAL_THUMB_LD_ST_IMM_OFF = 0b0110000000000000;
+// Load and store halfword
+static const uint16_t MASK_THUMB_LD_ST_HW = 0b1111000000000000;
+static const uint16_t VAL_THUMB_LD_ST_HW = 0b1000000000000000;
+//SP-relative load and store
+static const uint16_t MASK_THUMB_LD_ST_REL_SP = 0b1111000000000000;
+static const uint16_t VAL_THUMB_LD_ST_REL_SP = 0b1001000000000000;
+// Load address
+static const uint16_t MASK_THUMB_LOAD_ADDR = 0b1111000000000000;
+static const uint16_t VAL_THUMB_LOAD_ADDR = 0b1010000000000000;
+// Add offset to stack pointer
+static const uint16_t MASK_THUMB_ADD_OFFSET_TO_STACK_PTR = 0b1111111100000000;
+static const uint16_t VAL_THUMB_ADD_OFFSET_TO_STACK_PTR = 0b1011000000000000;
+// Push and pop registers
+static const uint16_t MASK_THUMB_PUSH_POP_REG = 0b1111011000000000;
+static const uint16_t VAL_THUMB_PUSH_POP_REG = 0b1011010000000000;
+// Multiple load and store
+static const uint16_t MASK_THUMB_MULT_LOAD_STORE = 0b1111000000000000;
+static const uint16_t VAL_THUMB_MULT_LOAD_STORE = 01100000000000000;
+// Conditional Branch
+static const uint16_t MASK_THUMB_COND_BRANCH = 0b1111000000000000;
+static const uint16_t VAL_THUMB_COND_BRANCH = 0b1101000000000000;
+// Software interrupt
+static const uint16_t MASK_THUMB_SOFTWARE_INTERRUPT = 0b1111111100000000;
+static const uint16_t VAL_THUMB_SOFTWARE_INTERRUPT = 0b1101111100000000;
+// Unconditional branch
+static const uint16_t MASK_THUMB_UNCONDITIONAL_BRANCH = 0b1111100000000000;
+static const uint16_t VAL_THUMB_UNCONDITIONAL_BRANCH = 0b1110000000000000;
+// Long branch with link
+static const uint16_t MASK_THUMB_LONG_BRANCH_WITH_LINK = 0b1111000000000000;
+static const uint16_t VAL_THUMB_LONG_BRANCH_WITH_LINK = 0b1111000000000000;
 
-// Multiply (accumulate) cond 000000 A S Rd Rn Rs 1 0 0 1 Rm
-static const uint32_t MASK_MUL_ACC = 0b00001111110000000000000011110000;
-static const uint32_t VAL_MUL_ACC = 0b00000000000000000000000010010000;
-// Multiply (accumulate) long   cond 00001UAS Rd_MSW Rd_LSW Rn 1001Rm
-static const uint32_t MASK_MUL_ACC_LONG = 0b00001111100000000000000011110000;
-static const uint32_t VAL_MUL_ACC_LONG = 0b00000000100000000000000010010000;
-// Branch and exchangecond0001001011 1 1 111111110001Rn
-static const uint32_t MASK_BR_XCHG = 0b00001111111111111111111111110000;
-static const uint32_t VAL_BR_XCHG = 0b00000001001011111111111100010000;
-// Single data swap   cond 00010B00Rn Rd 00001001Rm
-static const uint32_t MASK_DATA_SWP = 0b00001111101100000000111111110000;
-static const uint32_t VAL_DATA_SWP = 0b00000001000000000000000010010000;
-
-// Halfword data transfer, register offset   cond 000PU0WLRn Rd 00001011Rm
-static const uint32_t MASK_HW_TRANS_REG_OFF = 0b00001110010000000000111111110000;
-static const uint32_t VAL_HW_TRANS_REG_OFF = 0b00000000000000000000000010110000;
-// Halfword data transfer, immediate offset   cond 000PU1WLRn Rd offset 1011    offset
-static const uint32_t MASK_HW_TRANS_IMM_OFF = 0b00001110010000000000000011110000;
-static const uint32_t VAL_HW_TRANS_IMM_OFF = 0b00000000010000000000000010110000;
-// Signed data transfer (byte/halfword)   cond 000PUBWLRn Rd addr_mode11H1addr_mod
-static const uint32_t MASK_SIGN_TRANS = 0b00001110000000000000000011010000;
-static const uint32_t VAL_SIGN_TRANS = 0b00000000000000000000000011010000;
-// Data processing and PSR transfercond   0  Iopcode SRn Rd operand2 
-static const uint32_t MASK_DATA_PROC_PSR_TRANS = 0b00001100000000000000000000000000;
-static const uint32_t VAL_DATA_PROC_PSR_TRANS = 0b00000000000000000000000000000000;
-
-//  Load/store register/unsigned bytecond
-static const uint32_t MASK_LS_REG_UBYTE = 0b00001100000000000000000000000000;
-static const uint32_t VAL_LS_REG_UBYTE  = 0b00000100000000000000000000000000;
-// Undefined cond 01 1 1
-static const uint32_t MASK_UNDEFINED  = 0b 00001110000000000000000000010000;
-static const uint32_t VAL_UNDEFINED  = 0b 00000110000000000000000000010000;
-// Block data transfercond100PU0WLRnregisterli
-static const uint32_t MASK_BLOCK_DATA_TRANSFER  = 0b 00001110010000000000000000000000;
-static const uint32_t VAL_BLOCK_DATA_TRANSFER = 0b 00001000000000000000000000000000;
-//Branch cond 1 01 L offset
-static const uint32_t MASK_BRANCH = 0b 00001110000000000000000000000000;
-static const uint32_t VAL_BRANCH = 0b 00001010000000000000000000000000;
-
-// Coprocessor data transfer cond 1 1 0 P U N W L Rn CRd CP# offset
-static const uint32_t MASK_COPROC_DATA_TRANSF 0b 00001110000000000000000000000000;
-static const uint32_t VAL_COPROC_DATA_TRANSF 0b 00001100000000000000000000000000;
-
-// Coprocessor data operationcond1110CP opcodeCRn CRd CP# CP 0CRm
-static const uint32_t MASK_COPROC_OP 0b 0000 1111 0000 0000 0000 0000 0001 0000;
-static const uint32_t VAL_COPROC_OP 0b 0000 1110 0000 0000 0000 0000 0000 0000;
-
-// Coprocessor register transfercond1110 CP opc   LCRn Rd CP# CP 1CRm
-static const uint32_t MASK_COPROC_REG_TRANS 0b 0000 1111 0000 0000 0000 0000 0001 0000;
-static const uint32_t VAL_COPROC_REG_TRANS 0b 0000 1110 0000 0000 0000 0000 0001 0000;
-
-// Software interrupt cond 1 1 1 1 ignored by processor
-static const uint32_t MASK_ 0b 0000 1111 0000 0000 0000 0000 0000 0000;
-static const uint32_t value 0b 0000 1111 0000 0000 0000 0000 0000 0000;
-
+// ARM INSTRUCTION SET
 /*  NOTE: comparison order is important!
 
     Multiply (accumulate) cond 000000 A S Rd Rn Rs 1 0 0 1 Rm
@@ -170,80 +179,128 @@ static const uint32_t value 0b 0000 1111 0000 0000 0000 0000 0000 0000;
     mask  0b 0000 1111 0000 0000 0000 0000 0000 0000
     value 0b 0000 1111 0000 0000 0000 0000 0000 0000
  */
-static bool
-executeMe(uint32_t instruction, uint32_t CPSR)
+// Multiply (accumulate) cond 000000 A S Rd Rn Rs 1 0 0 1 Rm
+static const uint32_t MASK_MUL_ACC = 0b00001111110000000000000011110000;
+static const uint32_t VAL_MUL_ACC = 0b00000000000000000000000010010000;
+// Multiply (accumulate) long   cond 00001UAS Rd_MSW Rd_LSW Rn 1001Rm
+static const uint32_t MASK_MUL_ACC_LONG = 0b00001111100000000000000011110000;
+static const uint32_t VAL_MUL_ACC_LONG = 0b00000000100000000000000010010000;
+// Branch and exchangecond0001001011 1 1 111111110001Rn
+static const uint32_t MASK_BRANCH_XCHG = 0b00001111111111111111111111110000;
+static const uint32_t VAL_BRANCH_XCHG = 0b00000001001011111111111100010000;
+// Single data swap   cond 00010B00Rn Rd 00001001Rm
+static const uint32_t MASK_DATA_SWP = 0b00001111101100000000111111110000;
+static const uint32_t VAL_DATA_SWP = 0b00000001000000000000000010010000;
+// Halfword data transfer, register offset   cond 000PU0WLRn Rd 00001011Rm
+static const uint32_t MASK_HW_TRANSF_REG_OFF = 0b00001110010000000000111111110000;
+static const uint32_t VAL_HW_TRANSF_REG_OFF = 0b00000000000000000000000010110000;
+// Halfword data transfer, immediate offset   cond 000PU1WLRn Rd offset 1011    offset
+static const uint32_t MASK_HW_TRANSF_IMM_OFF = 0b00001110010000000000000011110000;
+static const uint32_t VAL_HW_TRANSF_IMM_OFF = 0b00000000010000000000000010110000;
+// Signed data transfer (byte/halfword)   cond 000PUBWLRn Rd addr_mode11H1addr_mod
+static const uint32_t MASK_SIGN_TRANSF = 0b00001110000000000000000011010000;
+static const uint32_t VAL_SIGN_TRANSF = 0b00000000000000000000000011010000;
+// Data processing and PSR transfercond   0  Iopcode SRn Rd operand2
+static const uint32_t MASK_DATA_PROC_PSR_TRANSF = 0b00001100000000000000000000000000;
+static const uint32_t VAL_DATA_PROC_PSR_TRANSF = 0b00000000000000000000000000000000;
+//  Load/store register/unsigned bytecond
+static const uint32_t MASK_LS_REG_UBYTE = 0b00001100000000000000000000000000;
+static const uint32_t VAL_LS_REG_UBYTE = 0b00000100000000000000000000000000;
+// Undefined cond 01 1 1
+static const uint32_t MASK_UNDEFINED = 0b00001110000000000000000000010000;
+static const uint32_t VAL_UNDEFINED = 0b00000110000000000000000000010000;
+// Block data transfercond100PU0WLRnregisterli
+static const uint32_t MASK_BLOCK_DATA_TRANSF = 0b00001110010000000000000000000000;
+static const uint32_t VAL_BLOCK_DATA_TRANSF = 0b00001000000000000000000000000000;
+//Branch cond 1 01 L offset
+static const uint32_t MASK_BRANCH = 0b00001110000000000000000000000000;
+static const uint32_t VAL_BRANCH = 0b00001010000000000000000000000000;
+// Coprocessor data transfer cond 1 1 0 P U N W L Rn CRd CP# offset
+static const uint32_t MASK_COPROC_DATA_TRANSF = 0b00001110000000000000000000000000;
+static const uint32_t VAL_COPROC_DATA_TRANSF = 0b00001100000000000000000000000000;
+// Coprocessor data operationcond1110CP opcodeCRn CRd CP# CP 0CRm
+static const uint32_t MASK_COPROC_OP = 0b00001111000000000000000000010000;
+static const uint32_t VAL_COPROC_OP = 0b00001110000000000000000000000000;
+// Coprocessor register transfercond1110 CP opc   LCRn Rd CP# CP 1CRm
+static const uint32_t MASK_COPROC_REG_TRANSF = 0b00001111000000000000000000010000;
+static const uint32_t VAL_COPROC_REG_TRANSF = 0b00001110000000000000000000010000;
+// Software interrupt cond 1 1 1 1 ignored by processor
+static const uint32_t MASK_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
+static const uint32_t VAL_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
+
+static bool executeMe(uint32_t instruction, uint32_t CPSR)
 {
 
     ConditionOPCode executeCondition = static_cast<ConditionOPCode>(instruction >> 28);
     switch (executeCondition) {
         // Equal Z==1
         case EQ:
-            return CPSR & CPSR_Z_FLAP_BITMASK;
+            return CPSR & CPSR_Z_FLAG_BITMASK;
             break;
 
         // Not equal Z==0
         case NE:
-            return (CPSR & CPSR_Z_FLAP_BITMASK) == 0;
+            return (CPSR & CPSR_Z_FLAG_BITMASK) == 0;
             break;
 
         // Carry set / unsigned higher or same C==1
         case CS_HS:
-            return CPSR & CPSR_C_FLAP_BITMASK;
+            return CPSR & CPSR_C_FLAG_BITMASK;
             break;
 
         // Carry clear / unsigned lower C==0
         case CC_LO:
-            return (CPSR & CPSR_C_FLAP_BITMASK) == 0;
+            return (CPSR & CPSR_C_FLAG_BITMASK) == 0;
             break;
 
         // Minus / negative N==1
         case MI:
-            return CPSR & CPSR_N_FLAP_BITMASK;
+            return CPSR & CPSR_N_FLAG_BITMASK;
             break;
 
         // Plus / positive or zero N==0
         case PL:
-            return (CPSR & CPSR_N_FLAP_BITMASK) == 0;
+            return (CPSR & CPSR_N_FLAG_BITMASK) == 0;
             break;
 
         // Overflow V==1
         case VS:
-            return CPSR & CPSR_V_FLAP_BITMASK;
+            return CPSR & CPSR_V_FLAG_BITMASK;
             break;
 
         // No overflow V==0
         case VC:
-            return (CPSR & CPSR_V_FLAP_BITMASK) == 0;
+            return (CPSR & CPSR_V_FLAG_BITMASK) == 0;
             break;
 
         // Unsigned higher (C==1) AND (Z==0)
         case HI:
-            return (CPSR & CPSR_C_FLAP_BITMASK) && (CPSR & CPSR_Z_FLAP_BITMASK);
+            return (CPSR & CPSR_C_FLAG_BITMASK) && (CPSR & CPSR_Z_FLAG_BITMASK);
             break;
 
         // Unsigned lower or same (C==0) OR (Z==1)
         case LS:
-            return (CPSR & CPSR_C_FLAP_BITMASK) == 0 || (CPSR & CPSR_Z_FLAP_BITMASK);
+            return (CPSR & CPSR_C_FLAG_BITMASK) == 0 || (CPSR & CPSR_Z_FLAG_BITMASK);
             break;
 
         // Signed greater than or equal N == V
         case GE:
-            return (bool)(CPSR & CPSR_N_FLAP_BITMASK) == (bool)(CPSR & CPSR_V_FLAP_BITMASK);
+            return (bool)(CPSR & CPSR_N_FLAG_BITMASK) == (bool)(CPSR & CPSR_V_FLAG_BITMASK);
             break;
 
         // Signed less than N != V
         case LT:
-            return (bool)(CPSR & CPSR_N_FLAP_BITMASK) != (bool)(CPSR & CPSR_V_FLAP_BITMASK);
+            return (bool)(CPSR & CPSR_N_FLAG_BITMASK) != (bool)(CPSR & CPSR_V_FLAG_BITMASK);
             break;
 
         // Signed greater than (Z==0) AND (N==V)
         case GT:
-            return (CPSR & CPSR_Z_FLAP_BITMASK) == 0 && (bool)(CPSR & CPSR_Z_FLAP_BITMASK) == (bool)(CPSR & CPSR_V_FLAP_BITMASK);
+            return (CPSR & CPSR_Z_FLAG_BITMASK) == 0 && (bool)(CPSR & CPSR_Z_FLAG_BITMASK) == (bool)(CPSR & CPSR_V_FLAG_BITMASK);
             break;
 
         // Signed less than or equal (Z==1) OR (N!=V)
         case LE:
-            return (CPSR & CPSR_Z_FLAP_BITMASK) || (bool)(CPSR & CPSR_Z_FLAP_BITMASK) != (bool)(CPSR & CPSR_V_FLAP_BITMASK);
+            return (CPSR & CPSR_Z_FLAG_BITMASK) || (bool)(CPSR & CPSR_Z_FLAG_BITMASK) != (bool)(CPSR & CPSR_V_FLAG_BITMASK);
             break;
 
         // Always (unconditional) Not applicable
@@ -256,7 +313,6 @@ executeMe(uint32_t instruction, uint32_t CPSR)
         default:
             return false;
             break;
-
     }
 }
 
@@ -272,6 +328,8 @@ struct CPUState {
     // Register R0 is shared in all modes
 
     /* constants */
+    static const size_t SP_OFFSET = 13;
+    static const size_t LR_OFFSET = 14;
     static const size_t PC_OFFSET = 15;
     static const size_t CPSR_OFFSET = 16;
 
@@ -376,7 +434,7 @@ class CPU
     void fetch()
     {
 
-        // TODO: flush if branch happened, else continue normally
+        // TODO: flush if branch happened?, else continue normally
 
         // propagate pipeline
         state.pipeline.fetch.lastInstruction = state.pipeline.fetch.instruction;
@@ -390,10 +448,89 @@ class CPU
 
     void decode()
     {
-        if (executeMe(state.pipeline.fetch.instruction, *(state.regsHacks[CPUState::CPSR_OFFSET]))) {
-            //TODO set decoded opcode function
+
+        uint32_t lastInst = state.pipeline.fetch.lastInstruction;
+        ConditionOPCode executeCondition = static_cast<ConditionOPCode>(lastInst >> 28);
+
+        InstructionID id = InstructionID::INVALID;
+
+        if (lastInst & MASK_MUL_ACC == VAL_MUL_ACC) {
+            //TODO
+        } else if (lastInst & MASK_MUL_ACC_LONG == VAL_MUL_ACC_LONG) {
+            //TODO
+        } else if (lastInst & MASK_BRANCH_XCHG == VAL_BRANCH_XCHG) {
+            id = InstructionID::BX;
+        } else if (lastInst & MASK_DATA_SWP == VAL_DATA_SWP) {
+            //TODO
+        } else if (lastInst & MASK_HW_TRANSF_REG_OFF == VAL_HW_TRANSF_REG_OFF) {
+            //TODO
+        } else if (lastInst & MASK_HW_TRANSF_IMM_OFF == VAL_HW_TRANSF_IMM_OFF) {
+            //TODO
+        } else if (lastInst & MASK_SIGN_TRANSF == VAL_SIGN_TRANSF) {
+            //TODO
+        } else if (lastInst & MASK_DATA_PROC_PSR_TRANSF == VAL_DATA_PROC_PSR_TRANSF) {
+            uint32_t opCode = (lastInst >> 21) & 0x0F;
+            uint32_t rn = (lastInst >> 16) & 0x0F;
+            uint32_t rd = (lastInst >> 12) & 0x0F;
+            /* often shifter */
+            uint32_t operand2 = lastInst & 0x0FFF;
+            bool i = lastInst & (1 << 25);
+            bool s = lastInst & (1 << 20);
+
+//TODO take a sek
+            switch (opCode) {
+                case 0b0101:
+                    id = InstructionID::ADC;
+                case 0b0100:
+                    id = InstructionID::ADD;
+                case 0b0000:
+                    id = InstructionID::AND;
+                case 0b1010:
+                    id = InstructionID::CMP;
+                case 0b1011:
+                    id = InstructionID::CMN;
+                case 0b0001:
+                    id = InstructionID::EOR;
+                case 0b1101:
+                    id = InstructionID::MOV;
+                case 0b1110:
+                    id = InstructionID::BIC;
+                case 0b1111:
+                    id = InstructionID::MVN;
+                case 0b1100:
+                    id = InstructionID::ORR;
+                case 0b0011:
+                    id = InstructionID::RSB;
+                case 0b0111:
+                    id = InstructionID::RSC;
+                case 0b0110:
+                    id = InstructionID::SBC;
+                case 0b0010:
+                    id = InstructionID::SUB;
+                case 0b1001:
+                    id = InstructionID::TEQ;
+                case 0b1000:
+                    id = InstructionID::TST;
+            }
+        } else if (lastInst & MASK_LS_REG_UBYTE == VAL_LS_REG_UBYTE) {
+            //TODO
+        } else if (lastInst & MASK_UNDEFINED == VAL_UNDEFINED) {
+            //TODO
+        } else if (lastInst & MASK_BLOCK_DATA_TRANSF == VAL_BLOCK_DATA_TRANSF) {
+            //TODO
+        } else if (lastInst & MASK_BRANCH == VAL_BRANCH) {
+            uint32_t offset = lastInst & 0x00FFFFFF;
+            id = InstructionID::B;
+        } else if (lastInst & MASK_COPROC_DATA_TRANSF == VAL_COPROC_DATA_TRANSF) {
+            //TODO
+        } else if (lastInst & MASK_COPROC_OP == VAL_COPROC_OP) {
+            //TODO
+        } else if (lastInst & MASK_COPROC_REG_TRANSF == VAL_COPROC_REG_TRANSF) {
+            //TODO
+        } else if (lastInst & MASK_SOFTWARE_INTERRUPT == VAL_SOFTWARE_INTERRUPT) {
+            //TODO
         } else {
-            //TODO set nop
+            //TODO error no match!
         }
     }
 
@@ -401,7 +538,18 @@ class CPU
     {
         // TODO: Handle thumb / arm instructions
         // ARM: Bit 20:27 + 4:7 encode the instruction
-        
+        if (executeMe(state.pipeline.fetch.instruction, *(state.regsHacks[CPUState::CPSR_OFFSET]))) {
+            //TODO execute
+            Instruction instruction;
+
+//TODO how to handle flags?... those need to be set
+            if (multiplyAcc) {
+                state.regsHacks[instruction.params.multiply.rd] = state.regsHacks[instruction.params.multiply.rn] +
+                                                                  state.regsHacks[instruction.params.multiply.rs] * state.regsHacks[instruction.params.multiply.rm];
+            }
+        } else {
+            //TODO execute nop
+        }
     }
 
     void step()
