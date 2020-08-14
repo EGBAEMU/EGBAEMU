@@ -1,0 +1,4 @@
+https://www.copetti.org/projects/consoles/game-boy-advance/
+https://medium.com/@raphaelstaebler/building-a-gameboy-from-scratch-part-1-51d05496783e
+https://problemkaputt.de/gbatek.htm
+https://github.com/gbdev/awesome-gbdev
