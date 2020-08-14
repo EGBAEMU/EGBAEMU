@@ -466,8 +466,26 @@ class CPU
             //TODO
         } else if (lastInst & MASK_HW_TRANSF_IMM_OFF == VAL_HW_TRANSF_IMM_OFF) {
             //TODO
+            bool p = (lastInst >> 24) & 1;
+            bool u = (lastInst >> 23) & 1;
+            bool w = (lastInst >> 21) & 1;
+            bool l = (lastInst >> 20) & 1;
+
+            uint32_t rn = (lastInst >> 16) & 0xF;
+            uint32_t rd = (lastInst >> 12) & 0xF;
+
+            /* called addr_mode in detailed doc but is really offset because immediate flag I is 1 */
+            uint32_t offset = ((lastInst >> 8) & 0xF) | (lastInst & 0xF);
+
+            if (l) {
+                id = InstructionID::LDRH;
+            } else {
+                id = InstructionID::STRH;
+            }
         } else if (lastInst & MASK_SIGN_TRANSF == VAL_SIGN_TRANSF) {
             //TODO
+            
+
         } else if (lastInst & MASK_DATA_PROC_PSR_TRANSF == VAL_DATA_PROC_PSR_TRANSF) {
             uint32_t opCode = (lastInst >> 21) & 0x0F;
             uint32_t rn = (lastInst >> 16) & 0x0F;
@@ -477,7 +495,7 @@ class CPU
             bool i = lastInst & (1 << 25);
             bool s = lastInst & (1 << 20);
 
-//TODO take a sek
+//TODO take a second look
             switch (opCode) {
                 case 0b0101:
                     id = InstructionID::ADC;
@@ -514,10 +532,35 @@ class CPU
             }
         } else if (lastInst & MASK_LS_REG_UBYTE == VAL_LS_REG_UBYTE) {
             //TODO
+            bool p = (lastInst >> 24) & 1;
+            bool u = (lastInst >> 23) & 1;
+            bool b = (lastInst >> 22) & 1;
+            bool w = (lastInst >> 21) & 1;
+            bool l = (lastInst >> 20) & 1;
+
+            uint32_t rn = (lastInst >> 16) & 0xF;
+            uint32_t rd = (lastInst >> 12) & 0xF;
+            uint32_t addrMode = lastInst & 0xFF;
+
+            if (!b && l) {
+                id = InstructionID::LDR;
+            } else if (b && l) {
+                id = InstructionID::LDRB;
+            }
         } else if (lastInst & MASK_UNDEFINED == VAL_UNDEFINED) {
             //TODO
         } else if (lastInst & MASK_BLOCK_DATA_TRANSF == VAL_BLOCK_DATA_TRANSF) {
             //TODO
+            bool p = (lastInst >> 24) & 1;
+            bool u = (lastInst >> 23) & 1;
+            bool w = (lastInst >> 21) & 1;
+            bool l = (lastInst >> 20) & 1;
+
+            uint32_t rn = (lastInst >> 16) & 0xF;
+            uint32_t rList = lastInst & 0xFF;
+
+            /* docs say there are two more distinct instructions in this category */
+            id = InstructionID::LDM;
         } else if (lastInst & MASK_BRANCH == VAL_BRANCH) {
             uint32_t offset = lastInst & 0x00FFFFFF;
             id = InstructionID::B;
