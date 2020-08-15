@@ -628,6 +628,8 @@ class CPU
             }
         } else if (lastInst & MASK_BRANCH == VAL_BRANCH) {
             uint32_t offset = lastInst & 0x00FFFFFF;
+            bool l = (lastInst >> 24) & 1;
+
             id = InstructionID::B;
         } else if (lastInst & MASK_COPROC_DATA_TRANSF == VAL_COPROC_DATA_TRANSF) {
             //TODO
@@ -637,9 +639,9 @@ class CPU
             //TODO
         } else if (lastInst & MASK_SOFTWARE_INTERRUPT == VAL_SOFTWARE_INTERRUPT) {
             //TODO
+            id = InstructionID::SWI;
         } else {
             //TODO error no match!
-            id = InstructionID::SWI;
         }
     }
 

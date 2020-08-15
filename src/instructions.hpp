@@ -46,7 +46,7 @@ namespace gbaemu
         ADC,
         ADD,
         AND,
-        B,
+        B, /* includes BL */
         BIC,
         BX,
         CMN,
