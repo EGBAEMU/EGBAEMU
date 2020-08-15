@@ -456,14 +456,59 @@ class CPU
 
         if (lastInst & MASK_MUL_ACC == VAL_MUL_ACC) {
             //TODO
+            bool a = (lastInst >> 21) & 1;
+            bool s = (lastInst >> 20) & 1;
+
+            uint32_t rd = (lastInst >> 16) & 0xF;
+            uint32_t rn = (lastInst >> 12) & 0xF;
+            uint32_t rs = (lastInst >> 8) & 0xF;
+            uint32_t rm = lastInst & 0xF;
+
+            if (a) {
+                id = InstructionID::MLA;
+            } else {
+                id = InstructionID::MUL;
+            }
         } else if (lastInst & MASK_MUL_ACC_LONG == VAL_MUL_ACC_LONG) {
             //TODO
+            bool u = (lastInst >> 22) & 1;
+            bool a = (lastInst >> 21) & 1;
+            bool s = (lastInst >> 20) & 1;
+
+            uint32_t rd_msw = (lastInst >> 16) & 0xF;
+            uint32_t rd_lsw = (lastInst >> 12) & 0xF;
+            uint32_t rn = (lastInst >> 8) & 0xF;
+            uint32_t rm = lastInst & 0xF;
+
+            if (u && a) {
+                id = InstructionID::SMLAL;
+            } else if (u && !a) {
+                id = InstructionID::SMULL;
+            } else if (!u && a) {
+                id = InstructionID::UMLAL;
+            } else {
+                id = InstructionID::UMULL;
+            }
         } else if (lastInst & MASK_BRANCH_XCHG == VAL_BRANCH_XCHG) {
             id = InstructionID::BX;
         } else if (lastInst & MASK_DATA_SWP == VAL_DATA_SWP) {
             //TODO
+            /* also called b */
+            bool b = (lastInst >> 22) & 1;
+
+            uint32_t rn = (lastInst >> 16) & 0xF;
+            uint32_t rd = (lastInst >> 12) & 0xF;
+            uint32_t rm = lastInst & 0xFF;
+
+            if (!b) {
+                id = InstructionID::SWP;
+            } else {
+                id = InstructionID::SWPB;
+            }
         } else if (lastInst & MASK_HW_TRANSF_REG_OFF == VAL_HW_TRANSF_REG_OFF) {
             //TODO
+
+
         } else if (lastInst & MASK_HW_TRANSF_IMM_OFF == VAL_HW_TRANSF_IMM_OFF) {
             //TODO
             bool p = (lastInst >> 24) & 1;
@@ -484,8 +529,20 @@ class CPU
             }
         } else if (lastInst & MASK_SIGN_TRANSF == VAL_SIGN_TRANSF) {
             //TODO
-            
+            bool p = (lastInst >> 24) & 1;
+            bool u = (lastInst >> 23) & 1;
+            bool w = (lastInst >> 21) & 1;
+            bool l = (lastInst >> 20) & 1;
+            bool h = (lastInst >> 5) & 1;
 
+            uint32_t rn = (lastInst >> 16) & 0xF;
+            uint32_t rd = (lastInst >> 12) & 0xF;
+            
+            if (l && !h) {
+                id = InstructionID::LDRSB;
+            } else if (l && h) {
+                id = InstructionID::LDRSH;
+            }
         } else if (lastInst & MASK_DATA_PROC_PSR_TRANSF == VAL_DATA_PROC_PSR_TRANSF) {
             uint32_t opCode = (lastInst >> 21) & 0x0F;
             uint32_t rn = (lastInst >> 16) & 0x0F;
@@ -546,6 +603,10 @@ class CPU
                 id = InstructionID::LDR;
             } else if (b && l) {
                 id = InstructionID::LDRB;
+            } else if (!b && !l) {
+                id = InstructionID::STR;
+            } else {
+                id = InstructionID::STRB;
             }
         } else if (lastInst & MASK_UNDEFINED == VAL_UNDEFINED) {
             //TODO
@@ -560,7 +621,11 @@ class CPU
             uint32_t rList = lastInst & 0xFF;
 
             /* docs say there are two more distinct instructions in this category */
-            id = InstructionID::LDM;
+            if (l) {
+                id = InstructionID::LDM;
+            } else {
+                id = InstructionID::STM;
+            }
         } else if (lastInst & MASK_BRANCH == VAL_BRANCH) {
             uint32_t offset = lastInst & 0x00FFFFFF;
             id = InstructionID::B;
@@ -574,6 +639,7 @@ class CPU
             //TODO
         } else {
             //TODO error no match!
+            id = InstructionID::SWI;
         }
     }
 
