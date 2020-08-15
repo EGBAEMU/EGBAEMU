@@ -9,27 +9,90 @@ namespace gbaemu
 const char *instructionIDToString(ARMInstructionID id)
 {
     switch (id) {
-        case ADC: return "ADC"; case ADD: return "ADD";
-        case AND: return "AND"; case B: return "B";
-        case BIC: return "BIC"; case BX: return "BX";
-        case CMN: return "CMN"; case CMP: return "CMP";
-        case EOR: return "EOR"; case LDM: return "LDM";
-        case LDR: return "LDR"; case LDRB: return "LDRB";
-        case LDRH: return "LDRH"; case LDRSB: return "LDRSB";
-        case LDRSH: return "LDRSH"; case LDRD: return "LDRD";
-        case MLA: return "MLA"; case MOV: return "MOV";
-        case MRS: return "MRS"; case MSR: return "MSR";
-        case MUL: return "MUL"; case MVN: return "MVN";
-        case ORR: return "ORR"; case RSB: return "RSB";
-        case RSC: return "RSC"; case SBC: return "SBC";
-        case SMLAL: return "SMLAL"; case SMULL: return "SMULL";
-        case STM: return "STM"; case STR: return "STR";
-        case STRB: return "STRB"; case STRH: return "STRH";
-        case STRD: return "STRD"; case SUB: return "SUB";
-        case SWI: return "SWI"; case SWP: return "SWP";
-        case SWPB: return "SWPB"; case TEQ: return "TEQ";
-        case TST: return "TST"; case UMLAL: return "UMLAL";
-        case UMULL: return "UMULL"; case INVALID: return "INVALID";
+        case ADC:
+            return "ADC";
+        case ADD:
+            return "ADD";
+        case AND:
+            return "AND";
+        case B:
+            return "B";
+        case BIC:
+            return "BIC";
+        case BX:
+            return "BX";
+        case CMN:
+            return "CMN";
+        case CMP:
+            return "CMP";
+        case EOR:
+            return "EOR";
+        case LDM:
+            return "LDM";
+        case LDR:
+            return "LDR";
+        case LDRB:
+            return "LDRB";
+        case LDRH:
+            return "LDRH";
+        case LDRSB:
+            return "LDRSB";
+        case LDRSH:
+            return "LDRSH";
+        case LDRD:
+            return "LDRD";
+        case MLA:
+            return "MLA";
+        case MOV:
+            return "MOV";
+        case MRS:
+            return "MRS";
+        case MSR:
+            return "MSR";
+        case MUL:
+            return "MUL";
+        case MVN:
+            return "MVN";
+        case ORR:
+            return "ORR";
+        case RSB:
+            return "RSB";
+        case RSC:
+            return "RSC";
+        case SBC:
+            return "SBC";
+        case SMLAL:
+            return "SMLAL";
+        case SMULL:
+            return "SMULL";
+        case STM:
+            return "STM";
+        case STR:
+            return "STR";
+        case STRB:
+            return "STRB";
+        case STRH:
+            return "STRH";
+        case STRD:
+            return "STRD";
+        case SUB:
+            return "SUB";
+        case SWI:
+            return "SWI";
+        case SWP:
+            return "SWP";
+        case SWPB:
+            return "SWPB";
+        case TEQ:
+            return "TEQ";
+        case TST:
+            return "TST";
+        case UMLAL:
+            return "UMLAL";
+        case UMULL:
+            return "UMULL";
+        case INVALID:
+            return "INVALID";
     }
 
     return "NULL";
@@ -40,17 +103,17 @@ std::string ARMInstruction::toString() const
     std::stringstream ss;
 
     if (cat == ARMInstructionCategory::DATA_PROC_PSR_TRANSF)
-        ss << name << ' ' << params.data_proc_psr_transf.rd << ' ' <<
-            params.data_proc_psr_transf.rn;
+        ss << instructionIDToString(id) << ' ' << params.data_proc_psr_transf.rd << ' ' << params.data_proc_psr_transf.rn;
     else
-        ss << name;
+        ss << instructionIDToString(id);
 
     return ss.str();
 }
 
-ARMInstruction ARMInstructionDecoder::decode(uint32_t lastInst)
+Instruction *ARMInstructionDecoder::decode(uint32_t lastInst) const
 {
-    ARMInstruction instruction;
+    ARMInstruction* insPtr = new ARMInstruction;
+    ARMInstruction &instruction = *insPtr;
 
     // Default the instruction id to invalid
     instruction.id = ARMInstructionID::INVALID;
@@ -352,82 +415,80 @@ ARMInstruction ARMInstructionDecoder::decode(uint32_t lastInst)
     if (instruction.id != ARMInstructionID::SWI && instruction.id != ARMInstructionID::INVALID)
         std::cout << instructionIDToString(instruction.id) << std::endl;
 
-    return instruction;
+    return insPtr;
 }
 
-bool ARMInstructionDecoder::conditionSatisfied(const ARMInstruction &inst, uint32_t CPSR)
+bool ARMInstruction::conditionSatisfied(ConditionOPCode executeCondition, uint32_t CPSR)
 {
-    ConditionOPCode executeCondition = static_cast<ConditionOPCode>(inst.cond);
-
     switch (executeCondition) {
         // Equal Z==1
         case EQ:
-            return CPSR & CPSR_Z_FLAG_BITMASK;
+            return CPSR & cpsr_flags::Z_FLAG_BITMASK;
             break;
 
         // Not equal Z==0
         case NE:
-            return (CPSR & CPSR_Z_FLAG_BITMASK) == 0;
+            return (CPSR & cpsr_flags::Z_FLAG_BITMASK) == 0;
             break;
 
         // Carry set / unsigned higher or same C==1
         case CS_HS:
-            return CPSR & CPSR_C_FLAG_BITMASK;
+            return CPSR & cpsr_flags::C_FLAG_BITMASK;
             break;
 
         // Carry clear / unsigned lower C==0
         case CC_LO:
-            return (CPSR & CPSR_C_FLAG_BITMASK) == 0;
+            return (CPSR & cpsr_flags::C_FLAG_BITMASK) == 0;
             break;
 
         // Minus / negative N==1
         case MI:
-            return CPSR & CPSR_N_FLAG_BITMASK;
+            return CPSR & cpsr_flags::N_FLAG_BITMASK;
             break;
 
         // Plus / positive or zero N==0
         case PL:
-            return (CPSR & CPSR_N_FLAG_BITMASK) == 0;
+            return (CPSR & cpsr_flags::N_FLAG_BITMASK) == 0;
             break;
 
         // Overflow V==1
         case VS:
-            return CPSR & CPSR_V_FLAG_BITMASK;
+            return CPSR & cpsr_flags::V_FLAG_BITMASK;
             break;
 
         // No overflow V==0
         case VC:
-            return (CPSR & CPSR_V_FLAG_BITMASK) == 0;
+            return (CPSR & cpsr_flags::V_FLAG_BITMASK) == 0;
             break;
 
         // Unsigned higher (C==1) AND (Z==0)
         case HI:
-            return (CPSR & CPSR_C_FLAG_BITMASK) && (CPSR & CPSR_Z_FLAG_BITMASK);
+            return (CPSR & cpsr_flags::C_FLAG_BITMASK) && (CPSR & cpsr_flags::Z_FLAG_BITMASK);
             break;
 
         // Unsigned lower or same (C==0) OR (Z==1)
         case LS:
-            return (CPSR & CPSR_C_FLAG_BITMASK) == 0 || (CPSR & CPSR_Z_FLAG_BITMASK);
+            return (CPSR & cpsr_flags::C_FLAG_BITMASK) == 0 || (CPSR & cpsr_flags::Z_FLAG_BITMASK);
             break;
 
         // Signed greater than or equal N == V
         case GE:
-            return (bool)(CPSR & CPSR_N_FLAG_BITMASK) == (bool)(CPSR & CPSR_V_FLAG_BITMASK);
+            return (bool)(CPSR & cpsr_flags::N_FLAG_BITMASK) == (bool)(CPSR & cpsr_flags::V_FLAG_BITMASK);
             break;
 
         // Signed less than N != V
         case LT:
-            return (bool)(CPSR & CPSR_N_FLAG_BITMASK) != (bool)(CPSR & CPSR_V_FLAG_BITMASK);
+            return (bool)(CPSR & cpsr_flags::N_FLAG_BITMASK) != (bool)(CPSR & cpsr_flags::V_FLAG_BITMASK);
             break;
 
         // Signed greater than (Z==0) AND (N==V)
         case GT:
-            return (CPSR & CPSR_Z_FLAG_BITMASK) == 0 && (bool)(CPSR & CPSR_Z_FLAG_BITMASK) == (bool)(CPSR & CPSR_V_FLAG_BITMASK);
+            return (CPSR & cpsr_flags::Z_FLAG_BITMASK) == 0 && (bool)(CPSR & cpsr_flags::Z_FLAG_BITMASK) == (bool)(CPSR & cpsr_flags::V_FLAG_BITMASK);
             break;
 
         // Signed less than or equal (Z==1) OR (N!=V)
         case LE:
-            return (CPSR & CPSR_Z_FLAG_BITMASK) || (bool)(CPSR & CPSR_Z_FLAG_BITMASK) != (bool)(CPSR & CPSR_V_FLAG_BITMASK);
+            return (CPSR & cpsr_flags::Z_FLAG_BITMASK) || (bool)(CPSR & cpsr_flags::Z_FLAG_BITMASK) != (bool)(CPSR & cpsr_flags::V_FLAG_BITMASK);
             break;
 
         // Always (unconditional) Not applicable
@@ -440,6 +501,14 @@ bool ARMInstructionDecoder::conditionSatisfied(const ARMInstruction &inst, uint3
         default:
             return false;
             break;
+    }
+}
+
+void ARMInstruction::execute(CPUState *state)
+{
+    if (conditionSatisfied(condition, state->accessReg(regs::CPSR_OFFSET))) {
+
+        //TODO implement
     }
 }
 

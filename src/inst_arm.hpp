@@ -1,6 +1,9 @@
 #ifndef INST_ARM_HPP
 #define INST_ARM_HPP
 
+#include "cpu_state.hpp"
+#include "inst.hpp"
+#include "regs.hpp"
 #include <cstdint>
 #include <functional>
 
@@ -56,60 +59,51 @@ enum ARMInstructionCategory {
 };
 
 enum ARMInstructionID : uint8_t {
-    ADC, ADD, AND, B, /* includes BL */ BIC,
-    BX, CMN, CMP, EOR, LDM,
-    LDR, LDRB, LDRH, LDRSB, LDRSH,
-    LDRD, MLA, MOV, MRS, MSR,
-    MUL, MVN, ORR, RSB, RSC,
-    SBC, SMLAL, SMULL, STM, STR,
-    STRB, STRH, STRD, SUB, SWI,
-    SWP, SWPB, TEQ, TST, UMLAL,
-    UMULL, INVALID
+    ADC,
+    ADD,
+    AND,
+    B,
+    /* includes BL */ BIC,
+    BX,
+    CMN,
+    CMP,
+    EOR,
+    LDM,
+    LDR,
+    LDRB,
+    LDRH,
+    LDRSB,
+    LDRSH,
+    LDRD,
+    MLA,
+    MOV,
+    MRS,
+    MSR,
+    MUL,
+    MVN,
+    ORR,
+    RSB,
+    RSC,
+    SBC,
+    SMLAL,
+    SMULL,
+    STM,
+    STR,
+    STRB,
+    STRH,
+    STRD,
+    SUB,
+    SWI,
+    SWP,
+    SWPB,
+    TEQ,
+    TST,
+    UMLAL,
+    UMULL,
+    INVALID
 };
 
 const char *instructionIDToString(ARMInstructionID id);
-
-// TODO verify bitmasks
-static const uint32_t CPSR_N_FLAG_BITMASK = 0x80000000;
-static const uint32_t CPSR_Z_FLAG_BITMASK = 0x40000000;
-static const uint32_t CPSR_C_FLAG_BITMASK = 0x20000000;
-static const uint32_t CPSR_V_FLAG_BITMASK = 0x10000000;
-static const uint32_t CPSR_THUMB_FLAG_BITMASK = 0x00000010;
-
-enum ConditionOPCode : uint8_t {
-    // Equal Z==1
-    EQ,
-    // Not equal Z==0
-    NE,
-    // Carry set / unsigned higher or same C==1
-    CS_HS,
-    // Carry clear / unsigned lower C==0
-    CC_LO,
-    // Minus / negative N==1
-    MI,
-    // Plus / positive or zero N==0
-    PL,
-    // Overflow V==1
-    VS,
-    // No overflow V==0
-    VC,
-    // Unsigned higher (C==1) AND (Z==0)
-    HI,
-    // Unsigned lower or same (C==0) OR (Z==1)
-    LS,
-    // Signed greater than or equal N == V
-    GE,
-    // Signed less than N != V
-    LT,
-    // Signed greater than (Z==0) AND (N==V)
-    GT,
-    // Signed less than or equal (Z==1) OR (N!=V)
-    LE,
-    // Always (unconditional) Not applicable
-    AL,
-    // Never Obsolete, unpredictable in ARM7TDMI
-    NV
-};
 
 // ARM INSTRUCTION SET
 /*  NOTE: comparison order is important!
@@ -227,13 +221,12 @@ static const uint32_t VAL_COPROC_REG_TRANSF = 0b00001110000000000000000000010000
 static const uint32_t MASK_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
 static const uint32_t VAL_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
 
-struct ARMInstruction {
+class ARMInstruction : public Instruction
+{
+  public:
     ARMInstructionID id;
     ARMInstructionCategory cat;
     ConditionOPCode condition;
-    const char *name;
-
-    uint8_t cond;
 
     union {
         struct {
@@ -291,15 +284,17 @@ struct ARMInstruction {
         } software_interrupt;
     } params;
 
-    std::string toString() const;
+    virtual void execute(CPUState *state);
+    virtual std::string toString() const;
+
+  private:
+    static bool conditionSatisfied(ConditionOPCode executeCondition, uint32_t CPSR);
 };
 
-class ARMInstructionDecoder
+class ARMInstructionDecoder : public InstructionDecoder
 {
   public:
-    static ARMInstruction decode(uint32_t inst);
-    /* TODO: maybe move this somewhere else? */
-    static bool conditionSatisfied(const ARMInstruction& inst, uint32_t CPSR);
+    virtual Instruction *decode(uint32_t inst) const;
 };
 
 } // namespace gbaemu

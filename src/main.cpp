@@ -24,13 +24,18 @@ int main(int argc, const char **argv)
 
     std::cout << "read " << buf.size() << " bytes\n";
 
-    const uint32_t *mem = reinterpret_cast<uint32_t *>(buf.data());
     gbaemu::CPU cpu;
+    gbaemu::ARMInstructionDecoder armDecoder;
+    cpu.state.decoder = &armDecoder;
+    cpu.state.memory.mem = buf.data();
+    cpu.state.memory.memSize = buf.size();
+    cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = 0x204;
 
     /*
         https://onlinedisassembler.com/odaweb/
         armv4 + force thumb yielded the best results
      */
+    /*
     for (size_t i = 0x204; i < 0x204 + 20; ++i) {
         uint32_t read = mem[i];
         uint32_t flipped = (read & 0x000000FF) << 24 |
@@ -39,7 +44,9 @@ int main(int argc, const char **argv)
                            (read & 0xFF000000) >> 24;
         std::cout << std::hex << flipped << std::endl;
         cpu.decode(read);
-    }
+    }*/
+    for (;;)
+        cpu.step();
 
     return 0;
 }
