@@ -583,11 +583,18 @@ class CPU
                     id = InstructionID::AND;
                     break;
                 case 0b1010:
-                    if (s)
+                    if (s) {
                         id = InstructionID::CMP;
+                    } else {
+                        id = InstructionID::MRS;
+                    }
                     break;
                 case 0b1011:
-                    id = InstructionID::CMN;
+                    if (s) {
+                        id = InstructionID::CMN;
+                    } else {
+                        id = InstructionID::MSR;
+                    }
                     break;
                 case 0b0001:
                     id = InstructionID::EOR;
@@ -617,16 +624,18 @@ class CPU
                     id = InstructionID::SUB;
                     break;
                 case 0b1001:
-                    if (s)
+                    if (s) {
                         id = InstructionID::TEQ;
-                    else
+                    } else {
                         id = InstructionID::MSR;
+                    }
                     break;
                 case 0b1000:
-                    if (s)
+                    if (s) {
                         id = InstructionID::TST;
-                    else
-                        id = InstructionID::MSR;
+                    } else {
+                        id = InstructionID::MRS;
+                    }
                     break;
             }
         } else if ((lastInst & MASK_LS_REG_UBYTE) == VAL_LS_REG_UBYTE) {
@@ -651,7 +660,7 @@ class CPU
                 id = InstructionID::STRB;
             }
         } else if ((lastInst & MASK_UNDEFINED) == VAL_UNDEFINED) {
-            //TODO
+            //TODO warning
         } else if ((lastInst & MASK_BLOCK_DATA_TRANSF) == VAL_BLOCK_DATA_TRANSF) {
             //TODO
             bool p = (lastInst >> 24) & 1;
