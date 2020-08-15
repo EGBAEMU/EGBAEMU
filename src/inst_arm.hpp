@@ -41,52 +41,33 @@ namespace gbaemu
         |_Cond__|1_1_1_1|_____________Ignored_by_Processor______________| SWI
      */
 
-enum InstructionID : uint8_t{
-    ADC,
-    ADD,
-    AND,
-    B, /* includes BL */
-    BIC,
-    BX,
-    CMN,
-    CMP,
-    EOR,
-    LDM,
-    LDR,
-    LDRB,
-    LDRH,
-    LDRSB,
-    LDRSH,
-    LDRD,
-    MLA,
-    MOV,
-    MRS,
-    MSR,
-    MUL,
-    MVN,
-    ORR,
-    RSB,
-    RSC,
-    SBC,
-    SMLAL,
-    SMULL,
-    STM,
-    STR,
-    STRB,
-    STRH,
-    STRD,
-    SUB,
-    SWI,
-    SWP,
-    SWPB,
-    TEQ,
-    TST,
-    UMLAL,
-    UMULL,
-    INVALID
+enum ARMInstructionCategory {
+    MUL_ACC,
+    MUL_ACC_LONG,
+    DATA_SWP,
+    HW_TRANSF_REG_OFF,
+    HW_TRANSF_IMM_OFF,
+    SIGN_TRANSF,
+    DATA_PROC_PSR_TRANSF,
+    LS_REG_UBYTE,
+    BLOCK_DATA_TRANSF,
+    BRANCH,
+    SOFTWARE_INTERRUPT
 };
 
-const char *instructionIDToString(InstructionID id);
+enum ARMInstructionID : uint8_t{
+    ADC, ADD, AND, B, /* includes BL */ BIC,
+    BX, CMN, CMP, EOR, LDM,
+    LDR, LDRB, LDRH, LDRSB, LDRSH,
+    LDRD, MLA, MOV, MRS, MSR,
+    MUL, MVN, ORR, RSB, RSC,
+    SBC, SMLAL, SMULL, STM, STR,
+    STRB, STRH, STRD, SUB, SWI,
+    SWP, SWPB, TEQ, TST, UMLAL,
+    UMULL, INVALID
+};
+
+const char *instructionIDToString(ARMInstructionID id);
 
 // TODO verify bitmasks
 static const uint32_t CPSR_N_FLAG_BITMASK = 0x80000000;
@@ -247,7 +228,9 @@ static const uint32_t MASK_SOFTWARE_INTERRUPT = 0b000011110000000000000000000000
 static const uint32_t VAL_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
 
 struct ARMInstruction {
-    InstructionID id;
+    ARMInstructionID id;
+    ARMInstructionCategory cat;
+    ConditionOPCode condition;
     const char *name;
 
     uint8_t cond;
@@ -271,12 +254,12 @@ struct ARMInstruction {
         struct {
             bool p, u, w, l;
             uint32_t rm;
-        } hw_trans_reg_off;
+        } hw_transf_reg_off;
 
         struct {
             bool p, u, w, l;
             uint32_t rn, rd, offset;
-        } hw_trans_imm_off;
+        } hw_transf_imm_off;
 
         struct {
             bool p, u, b, w, l, h;
@@ -316,7 +299,7 @@ class ARMInstructionDecoder
   public:
     static ARMInstruction decode(uint32_t inst);
     /* TODO: maybe move this somewhere else? */
-    static bool conditionSatisfied(const ARMInstruction& inst, uint32_t CPSR) const;
+    static bool conditionSatisfied(const ARMInstruction& inst, uint32_t CPSR);
 };
 
 } // namespace gbaemu

@@ -90,7 +90,7 @@ struct CPUState {
         struct {
             // TODO: create parent to unify that shit
             ARMInstruction instruction;
-            ThumbInstruction instruction;
+            ThumbInstruction instruction2;
         } decode;
         /*
         struct {
@@ -167,6 +167,28 @@ class CPU
         //decode();
         //execute();
     }
+
+    void execAdd(bool s, uint32_t rn, uint32_t rd, uint8_t shiftOperand) 
+    {
+        uint8_t currentMode = 2;
+        
+        auto currentRegs = reinterpret_cast<int32_t*const*const>(state.regsHacks[currentMode]);
+        // Get the value of the rn register
+        int32_t rnValue = *currentRegs[rn];
+
+        // Construt the sum
+        int32_t result = rnValue + shiftOperand;
+
+        // Write the value back to rd
+        *currentRegs[rd] = static_cast<uint32_t>(result);
+
+        // If s is set, we have to update the N, Z, V and C Flag
+        if (s) {
+
+        }
+
+    }
+
 };
 
 } // namespace gbaemu

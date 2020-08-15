@@ -1,11 +1,12 @@
 #include "inst_arm.hpp"
 
 #include <iostream>
+#include <sstream>
 
+namespace gbaemu
+{
 
-namespace gbaemu {
-
-const char *instructionIDToString(InstructionID id)
+const char *instructionIDToString(ARMInstructionID id)
 {
     switch (id) {
         case ADC:
@@ -97,19 +98,26 @@ const char *instructionIDToString(InstructionID id)
     return "NULL";
 }
 
-std::string ARMInstruction::toString() const {
-    return std::string(name);
+std::string ARMInstruction::toString() const
+{
+    std::stringstream ss;
+
+    if (cat == ARMInstructionCategory::DATA_PROC_PSR_TRANSF)
+        ss << name << ' ' << params.data_proc_psr_transf.rd << ' ' <<
+            params.data_proc_psr_transf.rn;
+    else
+        ss << name;
+
+    return ss.str();
 }
 
-
-ARMInstruction ARMInstructionDecoder::decode(uint32_t lastInst) const {
-
-    //uint32_t lastInst = state.pipeline.fetch.lastInstruction;
-    ConditionOPCode executeCondition = static_cast<ConditionOPCode>(lastInst >> 28);
-    
+ARMInstruction ARMInstructionDecoder::decode(uint32_t lastInst)
+{
     ARMInstruction instruction;
+
     // Default the instruction id to invalid
-    instruction.id = InstructionID::INVALID;
+    instruction.id = ARMInstructionID::INVALID;
+    instruction.condition = static_cast<ConditionOPCode>(lastInst >> 28);
 
     if ((lastInst & MASK_MUL_ACC) == VAL_MUL_ACC) {
 
@@ -124,13 +132,13 @@ ARMInstruction ARMInstructionDecoder::decode(uint32_t lastInst) const {
         instruction.params.mul_acc.rm = lastInst & 0x0F;
 
         if (a) {
-            instruction.id = InstructionID::MLA;
+            instruction.id = ARMInstructionID::MLA;
         } else {
-            instruction.id = InstructionID::MUL;
+            instruction.id = ARMInstructionID::MUL;
         }
 
     } else if ((lastInst & MASK_MUL_ACC_LONG) == VAL_MUL_ACC_LONG) {
-        
+
         bool u = (lastInst >> 22) & 1;
         bool a = (lastInst >> 21) & 1;
         bool s = (lastInst >> 20) & 1;
@@ -145,19 +153,19 @@ ARMInstruction ARMInstructionDecoder::decode(uint32_t lastInst) const {
         instruction.params.mul_acc_long.rm = lastInst & 0x0F;
 
         if (u && a) {
-            instruction.id = InstructionID::SMLAL;
+            instruction.id = ARMInstructionID::SMLAL;
         } else if (u && !a) {
-            instruction.id = InstructionID::SMULL;
+            instruction.id = ARMInstructionID::SMULL;
         } else if (!u && a) {
-            instruction.id = InstructionID::UMLAL;
+            instruction.id = ARMInstructionID::UMLAL;
         } else {
-            instruction.id = InstructionID::UMULL;
+            instruction.id = ARMInstructionID::UMULL;
         }
-        
+
     } else if ((lastInst & MASK_BRANCH_XCHG) == VAL_BRANCH_XCHG) {
-        instruction.id = InstructionID::BX;
+        instruction.id = ARMInstructionID::BX;
     } else if ((lastInst & MASK_DATA_SWP) == VAL_DATA_SWP) {
-        
+
         /* also called b */
         bool b = (lastInst >> 22) & 1;
 
@@ -168,58 +176,58 @@ ARMInstruction ARMInstructionDecoder::decode(uint32_t lastInst) const {
         instruction.params.data_swp.rm = lastInst & 0x0FF;
 
         if (!b) {
-            instruction.id = InstructionID::SWP;
+            instruction.id = ARMInstructionID::SWP;
         } else {
-            instruction.id = InstructionID::SWPB;
+            instruction.id = ARMInstructionID::SWPB;
         }
 
     } else if ((lastInst & MASK_HW_TRANSF_REG_OFF) == VAL_HW_TRANSF_REG_OFF) {
-        
+
         bool p = (lastInst >> 24) & 1;
         bool u = (lastInst >> 23) & 1;
         bool w = (lastInst >> 21) & 1;
         bool l = (lastInst >> 20) & 1;
 
-        instruction.params.hw_trans_reg_off.p = p;
-        instruction.params.hw_trans_reg_off.u = u;
-        instruction.params.hw_trans_reg_off.w = w;
-        instruction.params.hw_trans_reg_off.l = l;
+        instruction.params.hw_transf_reg_off.p = p;
+        instruction.params.hw_transf_reg_off.u = u;
+        instruction.params.hw_transf_reg_off.w = w;
+        instruction.params.hw_transf_reg_off.l = l;
 
-        instruction.params.hw_trans_reg_off.rm = lastInst & 0x0FF;
+        instruction.params.hw_transf_reg_off.rm = lastInst & 0x0FF;
 
         // register offset variants
         if (l) {
-            instruction.id = InstructionID::LDRH;
+            instruction.id = ARMInstructionID::LDRH;
         } else {
-            instruction.id = InstructionID::STRH;
+            instruction.id = ARMInstructionID::STRH;
         }
 
     } else if ((lastInst & MASK_HW_TRANSF_IMM_OFF) == VAL_HW_TRANSF_IMM_OFF) {
-        
+
         bool p = (lastInst >> 24) & 1;
         bool u = (lastInst >> 23) & 1;
         bool w = (lastInst >> 21) & 1;
         bool l = (lastInst >> 20) & 1;
 
-        instruction.params.hw_trans_imm_off.p = p;
-        instruction.params.hw_trans_imm_off.u = u;
-        instruction.params.hw_trans_imm_off.w = w;
-        instruction.params.hw_trans_imm_off.l = l;
+        instruction.params.hw_transf_imm_off.p = p;
+        instruction.params.hw_transf_imm_off.u = u;
+        instruction.params.hw_transf_imm_off.w = w;
+        instruction.params.hw_transf_imm_off.l = l;
 
-        instruction.params.hw_trans_imm_off.rn = (lastInst >> 16) & 0x0F;
-        instruction.params.hw_trans_imm_off.rd = (lastInst >> 12) & 0x0F;
+        instruction.params.hw_transf_imm_off.rn = (lastInst >> 16) & 0x0F;
+        instruction.params.hw_transf_imm_off.rd = (lastInst >> 12) & 0x0F;
 
         /* called addr_mode in detailed doc but is really offset because immediate flag I is 1 */
-        instruction.params.hw_trans_imm_off.offset = ((lastInst >> 8) & 0x0F) | (lastInst & 0x0F);
+        instruction.params.hw_transf_imm_off.offset = ((lastInst >> 8) & 0x0F) | (lastInst & 0x0F);
 
         if (l) {
-            instruction.id = InstructionID::LDRH;
+            instruction.id = ARMInstructionID::LDRH;
         } else {
-            instruction.id = InstructionID::STRH;
+            instruction.id = ARMInstructionID::STRH;
         }
 
     } else if ((lastInst & MASK_SIGN_TRANSF) == VAL_SIGN_TRANSF) {
-        
+
         bool p = (lastInst >> 24) & 1;
         bool u = (lastInst >> 23) & 1;
         bool b = (lastInst >> 22) & 1;
@@ -239,17 +247,17 @@ ARMInstruction ARMInstructionDecoder::decode(uint32_t lastInst) const {
         instruction.params.sign_transf.rd = (lastInst >> 12) & 0x0F;
 
         if (l && !h) {
-            instruction.id = InstructionID::LDRSB;
+            instruction.id = ARMInstructionID::LDRSB;
         } else if (l && h) {
-            instruction.id = InstructionID::LDRSH;
+            instruction.id = ARMInstructionID::LDRSH;
         } else if (!l && h) {
-            instruction.id = InstructionID::STRD;
+            instruction.id = ARMInstructionID::STRD;
         } else if (!l && !h) {
-            instruction.id = InstructionID::LDRD;
+            instruction.id = ARMInstructionID::LDRD;
         }
 
     } else if ((lastInst & MASK_DATA_PROC_PSR_TRANSF) == VAL_DATA_PROC_PSR_TRANSF) {
-        
+
         uint32_t opCode = (lastInst >> 21) & 0x0F;
         bool i = lastInst & (1 << 25);
         bool s = lastInst & (1 << 20);
@@ -262,77 +270,76 @@ ARMInstruction ARMInstructionDecoder::decode(uint32_t lastInst) const {
         instruction.params.data_proc_psr_transf.rd = (lastInst >> 12) & 0x0F;
         /* often shifter */
         instruction.params.data_proc_psr_transf.operand2 = lastInst & 0x0FFF;
-        
 
         //TODO take a second look
         switch (opCode) {
             case 0b0101:
-                instruction.id = InstructionID::ADC;
+                instruction.id = ARMInstructionID::ADC;
                 break;
             case 0b0100:
-                instruction.id = InstructionID::ADD;
+                instruction.id = ARMInstructionID::ADD;
                 break;
             case 0b0000:
-                instruction.id = InstructionID::AND;
+                instruction.id = ARMInstructionID::AND;
                 break;
             case 0b1010:
                 if (s) {
-                    instruction.id = InstructionID::CMP;
+                    instruction.id = ARMInstructionID::CMP;
                 } else {
-                    instruction.id = InstructionID::MRS;
+                    instruction.id = ARMInstructionID::MRS;
                 }
                 break;
             case 0b1011:
                 if (s) {
-                    instruction.id = InstructionID::CMN;
+                    instruction.id = ARMInstructionID::CMN;
                 } else {
-                    instruction.id = InstructionID::MSR;
+                    instruction.id = ARMInstructionID::MSR;
                 }
                 break;
             case 0b0001:
-                instruction.id = InstructionID::EOR;
+                instruction.id = ARMInstructionID::EOR;
                 break;
             case 0b1101:
-                instruction.id = InstructionID::MOV;
+                instruction.id = ARMInstructionID::MOV;
                 break;
             case 0b1110:
-                instruction.id = InstructionID::BIC;
+                instruction.id = ARMInstructionID::BIC;
                 break;
             case 0b1111:
-                instruction.id = InstructionID::MVN;
+                instruction.id = ARMInstructionID::MVN;
                 break;
             case 0b1100:
-                instruction.id = InstructionID::ORR;
+                instruction.id = ARMInstructionID::ORR;
                 break;
             case 0b0011:
-                instruction.id = InstructionID::RSB;
+                instruction.id = ARMInstructionID::RSB;
                 break;
             case 0b0111:
-                instruction.id = InstructionID::RSC;
+                instruction.id = ARMInstructionID::RSC;
                 break;
             case 0b0110:
-                instruction.id = InstructionID::SBC;
+                instruction.id = ARMInstructionID::SBC;
                 break;
             case 0b0010:
-                instruction.id = InstructionID::SUB;
+                instruction.id = ARMInstructionID::SUB;
                 break;
             case 0b1001:
                 if (s) {
-                    instruction.id = InstructionID::TEQ;
+                    instruction.id = ARMInstructionID::TEQ;
                 } else {
-                    instruction.id = InstructionID::MSR;
+                    instruction.id = ARMInstructionID::MSR;
                 }
                 break;
             case 0b1000:
                 if (s) {
-                    instruction.id = InstructionID::TST;
+                    instruction.id = ARMInstructionID::TST;
                 } else {
-                    instruction.id = InstructionID::MRS;
+                    instruction.id = ARMInstructionID::MRS;
                 }
                 break;
         }
     } else if ((lastInst & MASK_LS_REG_UBYTE) == VAL_LS_REG_UBYTE) {
-        
+
         bool p = (lastInst >> 24) & 1;
         bool u = (lastInst >> 23) & 1;
         bool b = (lastInst >> 22) & 1;
@@ -350,13 +357,13 @@ ARMInstruction ARMInstructionDecoder::decode(uint32_t lastInst) const {
         instruction.params.ls_reg_ubyte.addrMode = lastInst & 0x0FF;
 
         if (!b && l) {
-            instruction.id = InstructionID::LDR;
+            instruction.id = ARMInstructionID::LDR;
         } else if (b && l) {
-            instruction.id = InstructionID::LDRB;
+            instruction.id = ARMInstructionID::LDRB;
         } else if (!b && !l) {
-            instruction.id = InstructionID::STR;
+            instruction.id = ARMInstructionID::STR;
         } else {
-            instruction.id = InstructionID::STRB;
+            instruction.id = ARMInstructionID::STRB;
         }
 
     } else if ((lastInst & MASK_UNDEFINED) == VAL_UNDEFINED) {
@@ -378,19 +385,19 @@ ARMInstruction ARMInstructionDecoder::decode(uint32_t lastInst) const {
 
         /* docs say there are two more distinct instructions in this category */
         if (l) {
-            instruction.id = InstructionID::LDM;
+            instruction.id = ARMInstructionID::LDM;
         } else {
-            instruction.id = InstructionID::STM;
+            instruction.id = ARMInstructionID::STM;
         }
 
     } else if ((lastInst & MASK_BRANCH) == VAL_BRANCH) {
-        
+
         bool l = (lastInst >> 24) & 1;
-        
+
         instruction.params.branch.l = l;
         instruction.params.branch.offset = lastInst & 0x00FFFFFF;
 
-        instruction.id = InstructionID::B;
+        instruction.id = ARMInstructionID::B;
 
     } else if ((lastInst & MASK_COPROC_DATA_TRANSF) == VAL_COPROC_DATA_TRANSF) {
         //TODO
@@ -400,19 +407,21 @@ ARMInstruction ARMInstructionDecoder::decode(uint32_t lastInst) const {
         //TODO
     } else if ((lastInst & MASK_SOFTWARE_INTERRUPT) == VAL_SOFTWARE_INTERRUPT) {
         //TODO
-        instruction.id = InstructionID::SWI;
+        instruction.id = ARMInstructionID::SWI;
     } else {
         std::cerr << "ERROR: Could not decode instruction: " << std::hex << lastInst << std::endl;
     }
 
-    if (instruction.id != InstructionID::SWI && instruction.id != InstructionID::INVALID)
+    if (instruction.id != ARMInstructionID::SWI && instruction.id != ARMInstructionID::INVALID)
         std::cout << instructionIDToString(instruction.id) << std::endl;
 
+    return instruction;
 }
 
-bool ARMInstructionDecoder::conditionSatisfied(const ARMInstruction& inst, uint32_t CPSR) {
+bool ARMInstructionDecoder::conditionSatisfied(const ARMInstruction &inst, uint32_t CPSR)
+{
     ConditionOPCode executeCondition = static_cast<ConditionOPCode>(inst.cond);
-    
+
     switch (executeCondition) {
         // Equal Z==1
         case EQ:
@@ -494,7 +503,7 @@ bool ARMInstructionDecoder::conditionSatisfied(const ARMInstruction& inst, uint3
         default:
             return false;
             break;
+    }
 }
 
-}
-
+} // namespace gbaemu
