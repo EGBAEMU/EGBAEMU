@@ -55,7 +55,7 @@ enum ARMInstructionCategory {
     SOFTWARE_INTERRUPT
 };
 
-enum ARMInstructionID : uint8_t{
+enum ARMInstructionID : uint8_t {
     ADC, ADD, AND, B, /* includes BL */ BIC,
     BX, CMN, CMP, EOR, LDM,
     LDR, LDRB, LDRH, LDRSB, LDRSH,
