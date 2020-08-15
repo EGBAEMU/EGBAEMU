@@ -41,7 +41,7 @@ namespace gbaemu
         |_Cond__|1_1_1_1|_____________Ignored_by_Processor______________| SWI
      */
 
-enum InstructionID {
+enum InstructionID : uint8_t{
     ADC,
     ADD,
     AND,
@@ -86,107 +86,239 @@ enum InstructionID {
     INVALID
 };
 
-const char *instructionIDToString(InstructionID id)
-{
-    switch (id) {
-        case ADC:
-            return "ADC";
-        case ADD:
-            return "ADD";
-        case AND:
-            return "AND";
-        case B:
-            return "B";
-        case BIC:
-            return "BIC";
-        case BX:
-            return "BX";
-        case CMN:
-            return "CMN";
-        case CMP:
-            return "CMP";
-        case EOR:
-            return "EOR";
-        case LDM:
-            return "LDM";
-        case LDR:
-            return "LDR";
-        case LDRB:
-            return "LDRB";
-        case LDRH:
-            return "LDRH";
-        case LDRSB:
-            return "LDRSB";
-        case LDRSH:
-            return "LDRSH";
-        case MLA:
-            return "MLA";
-        case MOV:
-            return "MOV";
-        case MRS:
-            return "MRS";
-        case MSR:
-            return "MSR";
-        case MUL:
-            return "MUL";
-        case MVN:
-            return "MVN";
-        case ORR:
-            return "ORR";
-        case RSB:
-            return "RSB";
-        case RSC:
-            return "RSC";
-        case SBC:
-            return "SBC";
-        case SMLAL:
-            return "SMLAL";
-        case SMULL:
-            return "SMULL";
-        case STM:
-            return "STM";
-        case STR:
-            return "STR";
-        case STRB:
-            return "STRB";
-        case STRH:
-            return "STRH";
-        case SUB:
-            return "SUB";
-        case SWI:
-            return "SWI";
-        case SWP:
-            return "SWP";
-        case SWPB:
-            return "SWPB";
-        case TEQ:
-            return "TEQ";
-        case TST:
-            return "TST";
-        case UMLAL:
-            return "UMLAL";
-        case UMULL:
-            return "UMULL";
-        case INVALID:
-            return "INVALID";
-    }
+const char *instructionIDToString(InstructionID id);
 
-    return "NULL";
-}
+// TODO verify bitmasks
+static const uint32_t CPSR_N_FLAG_BITMASK = 0x80000000;
+static const uint32_t CPSR_Z_FLAG_BITMASK = 0x40000000;
+static const uint32_t CPSR_C_FLAG_BITMASK = 0x20000000;
+static const uint32_t CPSR_V_FLAG_BITMASK = 0x10000000;
+static const uint32_t CPSR_THUMB_FLAG_BITMASK = 0x00000010;
 
-class InstructionFunctions
-{
-  public:
+enum ConditionOPCode : uint8_t {
+    // Equal Z==1
+    EQ,
+    // Not equal Z==0
+    NE,
+    // Carry set / unsigned higher or same C==1
+    CS_HS,
+    // Carry clear / unsigned lower C==0
+    CC_LO,
+    // Minus / negative N==1
+    MI,
+    // Plus / positive or zero N==0
+    PL,
+    // Overflow V==1
+    VS,
+    // No overflow V==0
+    VC,
+    // Unsigned higher (C==1) AND (Z==0)
+    HI,
+    // Unsigned lower or same (C==0) OR (Z==1)
+    LS,
+    // Signed greater than or equal N == V
+    GE,
+    // Signed less than N != V
+    LT,
+    // Signed greater than (Z==0) AND (N==V)
+    GT,
+    // Signed less than or equal (Z==1) OR (N!=V)
+    LE,
+    // Always (unconditional) Not applicable
+    AL,
+    // Never Obsolete, unpredictable in ARM7TDMI
+    NV
 };
 
-struct Instruction {
+// ARM INSTRUCTION SET
+/*  NOTE: comparison order is important!
+
+    Multiply (accumulate) cond 000000 A S Rd Rn Rs 1 0 0 1 Rm
+    mask  0b0000_1111_1100_0000_0000_0000_1111_0000
+    value 0b0000_0000_0000_0000_0000_0000_1001_0000
+    
+    Multiply (accumulate) long   cond 00001UAS Rd_MSW Rd_LSW Rn 1001Rm
+    mask  0b0000_1111_1000_0000_0000_0000_1111_0000
+    value 0b0000_0000_1000_0000_0000_0000_1001_0000
+    
+    Branch and exchangecond0001001011 1 1 111111110001Rn
+    mask  0b0000_1111_1111_1111_1111_1111_1111_0000
+    value 0b0000_0001_0010_1111_1111_1111_0001_0000
+
+    Single data swap   cond 00010B00Rn Rd 00001001Rm
+    mask  0b0000_1111_1011_0000_0000_1111_1111_0000
+    value 0b0000_0001_0000_0000_0000_0000_1001_0000
+    
+    Halfword data transfer, register offset   cond 000PU0WLRn Rd 00001011Rm
+    mask  0b0000_1110_0100_0000_0000_1111_1111_0000
+    value 0b0000_0000_0000_0000_0000_0000_1011_0000
+    
+    Halfword data transfer, immediate offset   cond 000PU1WLRn Rd offset 1011    offset 
+    mask  0b0000_1110_0100_0000_0000_0000_1111_0000
+    value 0b0000_0000_0100_0000_0000_0000_1011_0000
+    
+    Signed data transfer (byte/halfword)   cond 000PUBWLRn Rd addr_mode11H1addr_mod
+    mask  0b0000_1110_0000_0000_0000_0000_1101_0000
+    value 0b0000_0000_0000_0000_0000_0000_1101_0000
+    
+    Data processing and PSR transfercond 0   0   Iopcode SRn Rd operand2 
+    mask  0b0000_1100_0000_0000_0000_0000_0000_0000
+    value 0b0000_0000_0000_0000_0000_0000_0000_0000
+    
+    Load/store register/unsigned bytecond    0 1 I P U B W L Rn Rd addr_mode
+    mask  0b 0000 1100 0000 0000 0000 0000 0000 0000
+    value 0b 0000 0100 0000 0000 0000 0000 0000 0000
+    
+    Undefined cond 0 1 1 1
+    mask  0b 0000 1110 0000 0000 0000 0000 0001 0000
+    value 0b 0000 0110 0000 0000 0000 0000 0001 0000
+    
+    Block data transfercond100PU0WLRnregisterli
+    mask  0b 0000 1110 0100 0000 0000 0000 0000 0000
+    value 0b 0000 1000 0000 0000 0000 0000 0000 0000
+
+    Branch cond 1 0 1 L offset
+    mask  0b 0000 1110 0000 0000 0000 0000 0000 0000
+    value 0b 0000 1010 0000 0000 0000 0000 0000 0000
+    
+    Coprocessor data transfer cond 1 1 0 P U N W L Rn CRd CP# offset
+    mask  0b 0000 1110 0000 0000 0000 0000 0000 0000
+    value 0b 0000 1100 0000 0000 0000 0000 0000 0000
+    
+    Coprocessor data operationcond1110CP opcodeCRn CRd CP# CP 0CRm
+    mask  0b 0000 1111 0000 0000 0000 0000 0001 0000
+    value 0b 0000 1110 0000 0000 0000 0000 0000 0000
+    
+    Coprocessor register transfercond1110 CP opc   LCRn Rd CP# CP 1CRm
+    mask  0b 0000 1111 0000 0000 0000 0000 0001 0000
+    value 0b 0000 1110 0000 0000 0000 0000 0001 0000
+    
+    Software interrupt cond 1 1 1 1 ignored by processor
+    mask  0b 0000 1111 0000 0000 0000 0000 0000 0000
+    value 0b 0000 1111 0000 0000 0000 0000 0000 0000
+ */
+// Multiply (accumulate) cond 000000 A S Rd Rn Rs 1 0 0 1 Rm
+static const uint32_t MASK_MUL_ACC = 0b00001111110000000000000011110000;
+static const uint32_t VAL_MUL_ACC = 0b00000000000000000000000010010000;
+// Multiply (accumulate) long   cond 00001UAS Rd_MSW Rd_LSW Rn 1001Rm
+static const uint32_t MASK_MUL_ACC_LONG = 0b00001111100000000000000011110000;
+static const uint32_t VAL_MUL_ACC_LONG = 0b00000000100000000000000010010000;
+// Branch and exchangecond0001001011 1 1 111111110001Rn
+static const uint32_t MASK_BRANCH_XCHG = 0b00001111111111111111111111110000;
+static const uint32_t VAL_BRANCH_XCHG = 0b00000001001011111111111100010000;
+// Single data swap   cond 00010B00Rn Rd 00001001Rm
+static const uint32_t MASK_DATA_SWP = 0b00001111101100000000111111110000;
+static const uint32_t VAL_DATA_SWP = 0b00000001000000000000000010010000;
+// Halfword data transfer, register offset   cond 000PU0WLRn Rd 00001011Rm
+static const uint32_t MASK_HW_TRANSF_REG_OFF = 0b00001110010000000000111111110000;
+static const uint32_t VAL_HW_TRANSF_REG_OFF = 0b00000000000000000000000010110000;
+// Halfword data transfer, immediate offset   cond 000PU1WLRn Rd offset 1011    offset
+static const uint32_t MASK_HW_TRANSF_IMM_OFF = 0b00001110010000000000000011110000;
+static const uint32_t VAL_HW_TRANSF_IMM_OFF = 0b00000000010000000000000010110000;
+// Signed data transfer (byte/halfword)   cond 000PUBWLRn Rd addr_mode11H1addr_mod
+static const uint32_t MASK_SIGN_TRANSF = 0b00001110000000000000000011010000;
+static const uint32_t VAL_SIGN_TRANSF = 0b00000000000000000000000011010000;
+// Data processing and PSR transfercond   0  Iopcode SRn Rd operand2
+static const uint32_t MASK_DATA_PROC_PSR_TRANSF = 0b00001100000000000000000000000000;
+static const uint32_t VAL_DATA_PROC_PSR_TRANSF = 0b00000000000000000000000000000000;
+//  Load/store register/unsigned bytecond
+static const uint32_t MASK_LS_REG_UBYTE = 0b00001100000000000000000000000000;
+static const uint32_t VAL_LS_REG_UBYTE = 0b00000100000000000000000000000000;
+// Undefined cond 01 1 1
+static const uint32_t MASK_UNDEFINED = 0b00001110000000000000000000010000;
+static const uint32_t VAL_UNDEFINED = 0b00000110000000000000000000010000;
+// Block data transfercond100PU0WLRnregisterli
+static const uint32_t MASK_BLOCK_DATA_TRANSF = 0b00001110010000000000000000000000;
+static const uint32_t VAL_BLOCK_DATA_TRANSF = 0b00001000000000000000000000000000;
+//Branch cond 1 01 L offset
+static const uint32_t MASK_BRANCH = 0b00001110000000000000000000000000;
+static const uint32_t VAL_BRANCH = 0b00001010000000000000000000000000;
+// Coprocessor data transfer cond 1 1 0 P U N W L Rn CRd CP# offset
+static const uint32_t MASK_COPROC_DATA_TRANSF = 0b00001110000000000000000000000000;
+static const uint32_t VAL_COPROC_DATA_TRANSF = 0b00001100000000000000000000000000;
+// Coprocessor data operationcond1110CP opcodeCRn CRd CP# CP 0CRm
+static const uint32_t MASK_COPROC_OP = 0b00001111000000000000000000010000;
+static const uint32_t VAL_COPROC_OP = 0b00001110000000000000000000000000;
+// Coprocessor register transfercond1110 CP opc   LCRn Rd CP# CP 1CRm
+static const uint32_t MASK_COPROC_REG_TRANSF = 0b00001111000000000000000000010000;
+static const uint32_t VAL_COPROC_REG_TRANSF = 0b00001110000000000000000000010000;
+// Software interrupt cond 1 1 1 1 ignored by processor
+static const uint32_t MASK_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
+static const uint32_t VAL_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
+
+struct ARMInstruction {
+    InstructionID id;
+    const char *name;
+
+    uint8_t cond;
+
     union {
         struct {
-            uint32_t cond, rd, rn, rs, rm;
             bool a, s;
-        } multiply;
+            uint32_t rd, rn, rs, rm;
+        } mul_acc;
+
+        struct {
+            bool u, a, s;
+            uint32_t rd_msw, rd_lsw, rn, rm;
+        } mul_acc_long;
+
+        struct {
+            bool b;
+            uint32_t rn, rd, rm;
+        } data_swp;
+
+        struct {
+            bool p, u, w, l;
+            uint32_t rm;
+        } hw_trans_reg_off;
+
+        struct {
+            bool p, u, w, l;
+            uint32_t rn, rd, offset;
+        } hw_trans_imm_off;
+
+        struct {
+            bool p, u, b, w, l, h;
+            uint32_t rn, rd;
+        } sign_transf;
+
+        struct {
+            bool i, s;
+            uint32_t opCode, rn, rd, operand2;
+        } data_proc_psr_transf;
+
+        struct {
+            bool p, u, b, w, l;
+            uint32_t rn, rd, addrMode;
+        } ls_reg_ubyte;
+
+        struct {
+            bool p, u, w, l;
+            uint32_t rn, rList;
+        } block_data_transf;
+
+        struct {
+            bool l;
+            uint32_t offset;
+        } branch;
+
+        struct {
+
+        } software_interrupt;
     } params;
-} __attribute__((packed));
+
+    std::string toString() const;
+};
+
+class ARMInstructionDecoder
+{
+  public:
+    static ARMInstruction decode(uint32_t inst);
+    /* TODO: maybe move this somewhere else? */
+    static bool conditionSatisfied(const ARMInstruction& inst, uint32_t CPSR) const;
+};
+
 } // namespace gbaemu
 
 #endif /* INST_ARM_HPP */
