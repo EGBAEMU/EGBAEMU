@@ -1,7 +1,7 @@
 #ifndef CPU_HPP
 #define CPU_HPP
 
-#include "instructions.hpp"
+#include "inst_arm.hpp"
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -98,7 +98,7 @@ static const uint16_t MASK_THUMB_PUSH_POP_REG = 0b1111011000000000;
 static const uint16_t VAL_THUMB_PUSH_POP_REG = 0b1011010000000000;
 // Multiple load and store
 static const uint16_t MASK_THUMB_MULT_LOAD_STORE = 0b1111000000000000;
-static const uint16_t VAL_THUMB_MULT_LOAD_STORE = 01100000000000000;
+static const uint16_t VAL_THUMB_MULT_LOAD_STORE = 0b1100000000000000;
 // Conditional Branch
 static const uint16_t MASK_THUMB_COND_BRANCH = 0b1111000000000000;
 static const uint16_t VAL_THUMB_COND_BRANCH = 0b1101000000000000;
@@ -446,10 +446,10 @@ class CPU
         state.pipeline.fetch.instruction = static_cast<uint32_t *>(state.memory.mem)[pc];
     }
 
-    void decode()
+    void decode(uint32_t lastInst)
     {
 
-        uint32_t lastInst = state.pipeline.fetch.lastInstruction;
+        //uint32_t lastInst = state.pipeline.fetch.lastInstruction;
         ConditionOPCode executeCondition = static_cast<ConditionOPCode>(lastInst >> 28);
 
         InstructionID id = InstructionID::INVALID;
@@ -556,36 +556,59 @@ class CPU
             switch (opCode) {
                 case 0b0101:
                     id = InstructionID::ADC;
+                    break;
                 case 0b0100:
                     id = InstructionID::ADD;
+                    break;
                 case 0b0000:
                     id = InstructionID::AND;
+                    break;
                 case 0b1010:
-                    id = InstructionID::CMP;
+                    if (s)
+                        id = InstructionID::CMP;
+                    break;
                 case 0b1011:
                     id = InstructionID::CMN;
+                    break;
                 case 0b0001:
                     id = InstructionID::EOR;
+                    break;
                 case 0b1101:
                     id = InstructionID::MOV;
+                    break;
                 case 0b1110:
                     id = InstructionID::BIC;
+                    break;
                 case 0b1111:
                     id = InstructionID::MVN;
+                    break;
                 case 0b1100:
                     id = InstructionID::ORR;
+                    break;
                 case 0b0011:
                     id = InstructionID::RSB;
+                    break;
                 case 0b0111:
                     id = InstructionID::RSC;
+                    break;
                 case 0b0110:
                     id = InstructionID::SBC;
+                    break;
                 case 0b0010:
                     id = InstructionID::SUB;
+                    break;
                 case 0b1001:
-                    id = InstructionID::TEQ;
+                    if (s)
+                        id = InstructionID::TEQ;
+                    else
+                        id = InstructionID::MSR;
+                    break;
                 case 0b1000:
-                    id = InstructionID::TST;
+                    if (s)
+                        id = InstructionID::TST;
+                    else
+                        id = InstructionID::MSR;
+                    break;
             }
         } else if (lastInst & MASK_LS_REG_UBYTE == VAL_LS_REG_UBYTE) {
             //TODO
@@ -643,12 +666,16 @@ class CPU
         } else {
             //TODO error no match!
         }
+
+        if (id != InstructionID::SWI && id != InstructionID::INVALID)
+            std::cout << instructionIDToString(id) << std::endl;
     }
 
     void execute()
     {
         // TODO: Handle thumb / arm instructions
         // ARM: Bit 20:27 + 4:7 encode the instruction
+        /*
         if (executeMe(state.pipeline.fetch.instruction, *(state.regsHacks[CPUState::CPSR_OFFSET]))) {
             //TODO execute
             Instruction instruction;
@@ -661,14 +688,15 @@ class CPU
         } else {
             //TODO execute nop
         }
+         */
     }
 
     void step()
     {
         // TODO: Check for interrupt here
-        fetch();
-        decode();
-        execute();
+        //fetch();
+        //decode();
+        //execute();
     }
 };
 
