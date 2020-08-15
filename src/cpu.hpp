@@ -454,7 +454,7 @@ class CPU
 
         InstructionID id = InstructionID::INVALID;
 
-        if (lastInst & MASK_MUL_ACC == VAL_MUL_ACC) {
+        if ((lastInst & MASK_MUL_ACC) == VAL_MUL_ACC) {
             //TODO
             bool a = (lastInst >> 21) & 1;
             bool s = (lastInst >> 20) & 1;
@@ -469,7 +469,8 @@ class CPU
             } else {
                 id = InstructionID::MUL;
             }
-        } else if (lastInst & MASK_MUL_ACC_LONG == VAL_MUL_ACC_LONG) {
+
+        } else if ((lastInst & MASK_MUL_ACC_LONG) == VAL_MUL_ACC_LONG) {
             //TODO
             bool u = (lastInst >> 22) & 1;
             bool a = (lastInst >> 21) & 1;
@@ -489,9 +490,9 @@ class CPU
             } else {
                 id = InstructionID::UMULL;
             }
-        } else if (lastInst & MASK_BRANCH_XCHG == VAL_BRANCH_XCHG) {
+        } else if ((lastInst & MASK_BRANCH_XCHG) == VAL_BRANCH_XCHG) {
             id = InstructionID::BX;
-        } else if (lastInst & MASK_DATA_SWP == VAL_DATA_SWP) {
+        } else if ((lastInst & MASK_DATA_SWP) == VAL_DATA_SWP) {
             //TODO
             /* also called b */
             bool b = (lastInst >> 22) & 1;
@@ -505,11 +506,10 @@ class CPU
             } else {
                 id = InstructionID::SWPB;
             }
-        } else if (lastInst & MASK_HW_TRANSF_REG_OFF == VAL_HW_TRANSF_REG_OFF) {
+        } else if ((lastInst & MASK_HW_TRANSF_REG_OFF) == VAL_HW_TRANSF_REG_OFF) {
             //TODO
 
-
-        } else if (lastInst & MASK_HW_TRANSF_IMM_OFF == VAL_HW_TRANSF_IMM_OFF) {
+        } else if ((lastInst & MASK_HW_TRANSF_IMM_OFF) == VAL_HW_TRANSF_IMM_OFF) {
             //TODO
             bool p = (lastInst >> 24) & 1;
             bool u = (lastInst >> 23) & 1;
@@ -527,7 +527,7 @@ class CPU
             } else {
                 id = InstructionID::STRH;
             }
-        } else if (lastInst & MASK_SIGN_TRANSF == VAL_SIGN_TRANSF) {
+        } else if ((lastInst & MASK_SIGN_TRANSF) == VAL_SIGN_TRANSF) {
             //TODO
             bool p = (lastInst >> 24) & 1;
             bool u = (lastInst >> 23) & 1;
@@ -537,13 +537,13 @@ class CPU
 
             uint32_t rn = (lastInst >> 16) & 0xF;
             uint32_t rd = (lastInst >> 12) & 0xF;
-            
+
             if (l && !h) {
                 id = InstructionID::LDRSB;
             } else if (l && h) {
                 id = InstructionID::LDRSH;
             }
-        } else if (lastInst & MASK_DATA_PROC_PSR_TRANSF == VAL_DATA_PROC_PSR_TRANSF) {
+        } else if ((lastInst & MASK_DATA_PROC_PSR_TRANSF) == VAL_DATA_PROC_PSR_TRANSF) {
             uint32_t opCode = (lastInst >> 21) & 0x0F;
             uint32_t rn = (lastInst >> 16) & 0x0F;
             uint32_t rd = (lastInst >> 12) & 0x0F;
@@ -552,7 +552,7 @@ class CPU
             bool i = lastInst & (1 << 25);
             bool s = lastInst & (1 << 20);
 
-//TODO take a second look
+            //TODO take a second look
             switch (opCode) {
                 case 0b0101:
                     id = InstructionID::ADC;
@@ -610,7 +610,7 @@ class CPU
                         id = InstructionID::MSR;
                     break;
             }
-        } else if (lastInst & MASK_LS_REG_UBYTE == VAL_LS_REG_UBYTE) {
+        } else if ((lastInst & MASK_LS_REG_UBYTE) == VAL_LS_REG_UBYTE) {
             //TODO
             bool p = (lastInst >> 24) & 1;
             bool u = (lastInst >> 23) & 1;
@@ -631,9 +631,9 @@ class CPU
             } else {
                 id = InstructionID::STRB;
             }
-        } else if (lastInst & MASK_UNDEFINED == VAL_UNDEFINED) {
+        } else if ((lastInst & MASK_UNDEFINED) == VAL_UNDEFINED) {
             //TODO
-        } else if (lastInst & MASK_BLOCK_DATA_TRANSF == VAL_BLOCK_DATA_TRANSF) {
+        } else if ((lastInst & MASK_BLOCK_DATA_TRANSF) == VAL_BLOCK_DATA_TRANSF) {
             //TODO
             bool p = (lastInst >> 24) & 1;
             bool u = (lastInst >> 23) & 1;
@@ -649,18 +649,18 @@ class CPU
             } else {
                 id = InstructionID::STM;
             }
-        } else if (lastInst & MASK_BRANCH == VAL_BRANCH) {
+        } else if ((lastInst & MASK_BRANCH) == VAL_BRANCH) {
             uint32_t offset = lastInst & 0x00FFFFFF;
             bool l = (lastInst >> 24) & 1;
 
             id = InstructionID::B;
-        } else if (lastInst & MASK_COPROC_DATA_TRANSF == VAL_COPROC_DATA_TRANSF) {
+        } else if ((lastInst & MASK_COPROC_DATA_TRANSF) == VAL_COPROC_DATA_TRANSF) {
             //TODO
-        } else if (lastInst & MASK_COPROC_OP == VAL_COPROC_OP) {
+        } else if ((lastInst & MASK_COPROC_OP) == VAL_COPROC_OP) {
             //TODO
-        } else if (lastInst & MASK_COPROC_REG_TRANSF == VAL_COPROC_REG_TRANSF) {
+        } else if ((lastInst & MASK_COPROC_REG_TRANSF) == VAL_COPROC_REG_TRANSF) {
             //TODO
-        } else if (lastInst & MASK_SOFTWARE_INTERRUPT == VAL_SOFTWARE_INTERRUPT) {
+        } else if ((lastInst & MASK_SOFTWARE_INTERRUPT) == VAL_SOFTWARE_INTERRUPT) {
             //TODO
             id = InstructionID::SWI;
         } else {
