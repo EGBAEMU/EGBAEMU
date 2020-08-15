@@ -459,10 +459,10 @@ class CPU
             bool a = (lastInst >> 21) & 1;
             bool s = (lastInst >> 20) & 1;
 
-            uint32_t rd = (lastInst >> 16) & 0xF;
-            uint32_t rn = (lastInst >> 12) & 0xF;
-            uint32_t rs = (lastInst >> 8) & 0xF;
-            uint32_t rm = lastInst & 0xF;
+            uint32_t rd = (lastInst >> 16) & 0x0F;
+            uint32_t rn = (lastInst >> 12) & 0x0F;
+            uint32_t rs = (lastInst >> 8) & 0x0F;
+            uint32_t rm = lastInst & 0x0F;
 
             if (a) {
                 id = InstructionID::MLA;
@@ -476,10 +476,10 @@ class CPU
             bool a = (lastInst >> 21) & 1;
             bool s = (lastInst >> 20) & 1;
 
-            uint32_t rd_msw = (lastInst >> 16) & 0xF;
-            uint32_t rd_lsw = (lastInst >> 12) & 0xF;
-            uint32_t rn = (lastInst >> 8) & 0xF;
-            uint32_t rm = lastInst & 0xF;
+            uint32_t rd_msw = (lastInst >> 16) & 0x0F;
+            uint32_t rd_lsw = (lastInst >> 12) & 0x0F;
+            uint32_t rn = (lastInst >> 8) & 0x0F;
+            uint32_t rm = lastInst & 0x0F;
 
             if (u && a) {
                 id = InstructionID::SMLAL;
@@ -497,9 +497,9 @@ class CPU
             /* also called b */
             bool b = (lastInst >> 22) & 1;
 
-            uint32_t rn = (lastInst >> 16) & 0xF;
-            uint32_t rd = (lastInst >> 12) & 0xF;
-            uint32_t rm = lastInst & 0xFF;
+            uint32_t rn = (lastInst >> 16) & 0x0F;
+            uint32_t rd = (lastInst >> 12) & 0x0F;
+            uint32_t rm = lastInst & 0x0FF;
 
             if (!b) {
                 id = InstructionID::SWP;
@@ -516,11 +516,11 @@ class CPU
             bool w = (lastInst >> 21) & 1;
             bool l = (lastInst >> 20) & 1;
 
-            uint32_t rn = (lastInst >> 16) & 0xF;
-            uint32_t rd = (lastInst >> 12) & 0xF;
+            uint32_t rn = (lastInst >> 16) & 0x0F;
+            uint32_t rd = (lastInst >> 12) & 0x0F;
 
             /* called addr_mode in detailed doc but is really offset because immediate flag I is 1 */
-            uint32_t offset = ((lastInst >> 8) & 0xF) | (lastInst & 0xF);
+            uint32_t offset = ((lastInst >> 8) & 0x0F) | (lastInst & 0x0F);
 
             if (l) {
                 id = InstructionID::LDRH;
@@ -535,8 +535,8 @@ class CPU
             bool l = (lastInst >> 20) & 1;
             bool h = (lastInst >> 5) & 1;
 
-            uint32_t rn = (lastInst >> 16) & 0xF;
-            uint32_t rd = (lastInst >> 12) & 0xF;
+            uint32_t rn = (lastInst >> 16) & 0x0F;
+            uint32_t rd = (lastInst >> 12) & 0x0F;
 
             if (l && !h) {
                 id = InstructionID::LDRSB;
@@ -618,9 +618,9 @@ class CPU
             bool w = (lastInst >> 21) & 1;
             bool l = (lastInst >> 20) & 1;
 
-            uint32_t rn = (lastInst >> 16) & 0xF;
-            uint32_t rd = (lastInst >> 12) & 0xF;
-            uint32_t addrMode = lastInst & 0xFF;
+            uint32_t rn = (lastInst >> 16) & 0x0F;
+            uint32_t rd = (lastInst >> 12) & 0x0F;
+            uint32_t addrMode = lastInst & 0x0FF;
 
             if (!b && l) {
                 id = InstructionID::LDR;
@@ -640,8 +640,8 @@ class CPU
             bool w = (lastInst >> 21) & 1;
             bool l = (lastInst >> 20) & 1;
 
-            uint32_t rn = (lastInst >> 16) & 0xF;
-            uint32_t rList = lastInst & 0xFF;
+            uint32_t rn = (lastInst >> 16) & 0x0F;
+            uint32_t rList = lastInst & 0x0FF;
 
             /* docs say there are two more distinct instructions in this category */
             if (l) {
