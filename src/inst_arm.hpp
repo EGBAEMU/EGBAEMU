@@ -4,10 +4,9 @@
 #include <cstdint>
 #include <functional>
 
-
 namespace gbaemu
 {
-    /*
+/*
         |..3 ..................2 ..................1 ..................0|
         |1_0_9_8_7_6_5_4_3_2_1_0_9_8_7_6_5_4_3_2_1_0_9_8_7_6_5_4_3_2_1_0|
         |_Cond__|0_0_0|___Op__|S|__Rn___|__Rd___|__Shift__|Typ|0|__Rm___| DataProc
@@ -42,111 +41,152 @@ namespace gbaemu
         |_Cond__|1_1_1_1|_____________Ignored_by_Processor______________| SWI
      */
 
-    enum InstructionID {
-        ADC,
-        ADD,
-        AND,
-        B, /* includes BL */
-        BIC,
-        BX,
-        CMN,
-        CMP,
-        EOR,
-        LDM,
-        LDR,
-        LDRB,
-        LDRH,
-        LDRSB,
-        LDRSH,
-        MLA,
-        MOV,
-        MRS,
-        MSR,
-        MUL,
-        MVN,
-        ORR,
-        RSB,
-        RSC,
-        SBC,
-        SMLAL,
-        SMULL,
-        STM,
-        STR,
-        STRB,
-        STRH,
-        SUB,
-        SWI,
-        SWP,
-        SWPB,
-        TEQ,
-        TST,
-        UMLAL,
-        UMULL,
-        INVALID
-    };
+enum InstructionID {
+    ADC,
+    ADD,
+    AND,
+    B, /* includes BL */
+    BIC,
+    BX,
+    CMN,
+    CMP,
+    EOR,
+    LDM,
+    LDR,
+    LDRB,
+    LDRH,
+    LDRSB,
+    LDRSH,
+    LDRD,
+    MLA,
+    MOV,
+    MRS,
+    MSR,
+    MUL,
+    MVN,
+    ORR,
+    RSB,
+    RSC,
+    SBC,
+    SMLAL,
+    SMULL,
+    STM,
+    STR,
+    STRB,
+    STRH,
+    STRD,
+    SUB,
+    SWI,
+    SWP,
+    SWPB,
+    TEQ,
+    TST,
+    UMLAL,
+    UMULL,
+    INVALID
+};
 
-    const char *instructionIDToString(InstructionID id) {
-        switch (id) {
-            case ADC: return "ADC";
-            case ADD: return "ADD";
-            case AND: return "AND";
-            case B: return "B";
-            case BIC: return "BIC";
-            case BX: return "BX";
-            case CMN: return "CMN";
-            case CMP: return "CMP";
-            case EOR: return "EOR";
-            case LDM: return "LDM";
-            case LDR: return "LDR";
-            case LDRB: return "LDRB";
-            case LDRH: return "LDRH";
-            case LDRSB: return "LDRSB";
-            case LDRSH: return "LDRSH";
-            case MLA: return "MLA";
-            case MOV: return "MOV";
-            case MRS: return "MRS";
-            case MSR: return "MSR";
-            case MUL: return "MUL";
-            case MVN: return "MVN";
-            case ORR: return "ORR";
-            case RSB: return "RSB";
-            case RSC: return "RSC";
-            case SBC: return "SBC";
-            case SMLAL: return "SMLAL";
-            case SMULL: return "SMULL";
-            case STM: return "STM";
-            case STR: return "STR";
-            case STRB: return "STRB";
-            case STRH: return "STRH";
-            case SUB: return "SUB";
-            case SWI: return "SWI";
-            case SWP: return "SWP";
-            case SWPB: return "SWPB";
-            case TEQ: return "TEQ";
-            case TST: return "TST";
-            case UMLAL: return "UMLAL";
-            case UMULL: return "UMULL";
-            case INVALID: return "INVALID";
-        }
-
-        return "NULL";
+const char *instructionIDToString(InstructionID id)
+{
+    switch (id) {
+        case ADC:
+            return "ADC";
+        case ADD:
+            return "ADD";
+        case AND:
+            return "AND";
+        case B:
+            return "B";
+        case BIC:
+            return "BIC";
+        case BX:
+            return "BX";
+        case CMN:
+            return "CMN";
+        case CMP:
+            return "CMP";
+        case EOR:
+            return "EOR";
+        case LDM:
+            return "LDM";
+        case LDR:
+            return "LDR";
+        case LDRB:
+            return "LDRB";
+        case LDRH:
+            return "LDRH";
+        case LDRSB:
+            return "LDRSB";
+        case LDRSH:
+            return "LDRSH";
+        case MLA:
+            return "MLA";
+        case MOV:
+            return "MOV";
+        case MRS:
+            return "MRS";
+        case MSR:
+            return "MSR";
+        case MUL:
+            return "MUL";
+        case MVN:
+            return "MVN";
+        case ORR:
+            return "ORR";
+        case RSB:
+            return "RSB";
+        case RSC:
+            return "RSC";
+        case SBC:
+            return "SBC";
+        case SMLAL:
+            return "SMLAL";
+        case SMULL:
+            return "SMULL";
+        case STM:
+            return "STM";
+        case STR:
+            return "STR";
+        case STRB:
+            return "STRB";
+        case STRH:
+            return "STRH";
+        case SUB:
+            return "SUB";
+        case SWI:
+            return "SWI";
+        case SWP:
+            return "SWP";
+        case SWPB:
+            return "SWPB";
+        case TEQ:
+            return "TEQ";
+        case TST:
+            return "TST";
+        case UMLAL:
+            return "UMLAL";
+        case UMULL:
+            return "UMULL";
+        case INVALID:
+            return "INVALID";
     }
 
-
-    class InstructionFunctions {
-    public:
-
-    };
-
-    struct Instruction
-    {
-        union {
-            struct {
-                uint32_t cond, rd, rn, rs, rm;
-                bool a, s;
-            } multiply;
-        } params;
-    } __attribute__((packed));
+    return "NULL";
 }
+
+class InstructionFunctions
+{
+  public:
+};
+
+struct Instruction {
+    union {
+        struct {
+            uint32_t cond, rd, rn, rs, rm;
+            bool a, s;
+        } multiply;
+    } params;
+} __attribute__((packed));
+} // namespace gbaemu
 
 #endif /* INST_ARM_HPP */

@@ -508,6 +508,19 @@ class CPU
             }
         } else if ((lastInst & MASK_HW_TRANSF_REG_OFF) == VAL_HW_TRANSF_REG_OFF) {
             //TODO
+            bool p = (lastInst >> 24) & 1;
+            bool u = (lastInst >> 23) & 1;
+            bool w = (lastInst >> 21) & 1;
+            bool l = (lastInst >> 20) & 1;
+
+            uint32_t rm = lastInst & 0x0FF;
+
+            // register offset variants
+            if (l) {
+                id = InstructionID::LDRH;
+            } else {
+                id = InstructionID::STRH;
+            }
 
         } else if ((lastInst & MASK_HW_TRANSF_IMM_OFF) == VAL_HW_TRANSF_IMM_OFF) {
             //TODO
@@ -531,7 +544,9 @@ class CPU
             //TODO
             bool p = (lastInst >> 24) & 1;
             bool u = (lastInst >> 23) & 1;
+            bool b = (lastInst >> 22) & 1;
             bool w = (lastInst >> 21) & 1;
+
             bool l = (lastInst >> 20) & 1;
             bool h = (lastInst >> 5) & 1;
 
@@ -542,6 +557,10 @@ class CPU
                 id = InstructionID::LDRSB;
             } else if (l && h) {
                 id = InstructionID::LDRSH;
+            } else if (!l && h) {
+                id = InstructionID::STRD;
+            } else if (!l && !h) {
+                id = InstructionID::LDRD;
             }
         } else if ((lastInst & MASK_DATA_PROC_PSR_TRANSF) == VAL_DATA_PROC_PSR_TRANSF) {
             uint32_t opCode = (lastInst >> 21) & 0x0F;
