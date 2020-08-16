@@ -1,27 +1,46 @@
 #include "memory.hpp"
 
 namespace gbaemu {
-    template <class T>
-    T Memory::read(size_t addr) const {
-        T val;
-        char *dst = reinterpret_cast<char *>(val);
-        const char *src = reinterpret_cast<char *>(buf);
+    uint8_t Memory::read8(size_t addr) const {
+        return buf[addr];
+    }
+    
+    uint16_t Memory::read16(size_t addr) const {
+        auto src = buf + addr;
 
-        for (size_t i = 0; i < sizeof(T); ++i)
-            dst[i] = src[addr + sizeof(T) - 1 - i];
+        return (static_cast<uint16_t>(src[0]) << 8) |
+                static_cast<uint16_t>(src[1]);
+    }
+    
+    uint32_t Memory::read32(size_t addr) const {
+        auto src = buf + addr;
 
-        return val;
+        return (static_cast<uint32_t>(src[0]) << 24) |
+               (static_cast<uint32_t>(src[1]) << 16) |
+               (static_cast<uint32_t>(src[2]) <<  8) |
+                static_cast<uint32_t>(src[3]);
     }
 
-    template <class T>
-    void Memory::write(size_t addr, T value) {
-        T val;
-        char *dst = reinterpret_cast<char *>(buf);
-        const char *src = reinterpret_cast<char *>(val);
+    void Memory::write8(size_t addr, uint8_t value) {
+        auto dst = buf + addr;
 
-        for (size_t i = 0; i < sizeof(T); ++i)
-            dst[addr + i] = src[sizeof(T) - 1 - i];
-
-        return val;
+        dst[0] = value;
     }
+    
+    void Memory::write16(size_t addr, uint16_t value) {
+        auto dst = buf + addr;
+
+        dst[0] = value & 0x00FF;
+        dst[1] = value & 0xFF00;
+    }
+    
+    void Memory::write32(size_t addr, uint32_t value) {
+        auto dst = buf + addr;
+
+        dst[0] = value & 0x000000FF;
+        dst[1] = value & 0x0000FF00;
+        dst[2] = value & 0x00FF0000;
+        dst[3] = value & 0xFF000000;
+    }
+
 }

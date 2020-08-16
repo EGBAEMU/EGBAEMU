@@ -135,8 +135,8 @@ namespace gbaemu
         void cpuFastSet(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
-            uint8_t *sourceAddr = *currentRegs[regs::R0_OFFSET] + static_cast<uint8_t *>(state->memory.buf);
-            uint8_t *destAddr = *currentRegs[regs::R1_OFFSET] + static_cast<uint8_t *>(state->memory.buf);
+            uint8_t *sourceAddr = *currentRegs[regs::R0_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
+            uint8_t *destAddr = *currentRegs[regs::R1_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
             uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
 
             uint32_t length = length_mode & 0x001FFFFF;
@@ -174,8 +174,8 @@ namespace gbaemu
         void cpuSet(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
-            uint8_t *sourceAddr = *currentRegs[regs::R0_OFFSET] + static_cast<uint8_t *>(state->memory.buf);
-            uint8_t *destAddr = *currentRegs[regs::R1_OFFSET] + static_cast<uint8_t *>(state->memory.buf);
+            uint8_t *sourceAddr = *currentRegs[regs::R0_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
+            uint8_t *destAddr = *currentRegs[regs::R1_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
             uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
 
             uint32_t length = length_mode & 0x001FFFFF;
@@ -233,9 +233,9 @@ namespace gbaemu
         void bitUnPack(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
-            uint8_t *sourceAddr = *currentRegs[regs::R0_OFFSET] + static_cast<uint8_t *>(state->memory.buf);
-            uint8_t *destAddr = *currentRegs[regs::R1_OFFSET] + static_cast<uint8_t *>(state->memory.buf);
-            uint32_t *unpackFormatPtr = reinterpret_cast<uint32_t *>(*currentRegs[regs::R2_OFFSET] + static_cast<uint8_t *>(state->memory.buf));
+            uint8_t *sourceAddr = *currentRegs[regs::R0_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
+            uint8_t *destAddr = *currentRegs[regs::R1_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
+            uint32_t *unpackFormatPtr = reinterpret_cast<uint32_t *>(*currentRegs[regs::R2_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf));
 
             uint32_t length_unitWidths = *unpackFormatPtr;
 
