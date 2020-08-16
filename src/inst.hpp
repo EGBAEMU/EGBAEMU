@@ -163,7 +163,7 @@ namespace gbaemu
             } branch;
 
             struct {
-
+                uint32_t comment;
             } software_interrupt;
         } params;
 

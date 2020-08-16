@@ -405,8 +405,8 @@ namespace gbaemu
         } else if ((lastInst & MASK_COPROC_REG_TRANSF) == VAL_COPROC_REG_TRANSF) {
             //TODO
         } else if ((lastInst & MASK_SOFTWARE_INTERRUPT) == VAL_SOFTWARE_INTERRUPT) {
-            //TODO
             instruction.id = ARMInstructionID::SWI;
+            instruction.params.software_interrupt.comment = lastInst & 0x00FFFFFF;
         } else {
             std::cerr << "ERROR: Could not decode instruction: " << std::hex << lastInst << std::endl;
         }
