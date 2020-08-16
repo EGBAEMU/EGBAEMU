@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <algorithm>
+#include <iostream>
 
 
 namespace gbaemu {
@@ -14,7 +15,8 @@ namespace gbaemu {
       public:
         Memory(): buf(nullptr), bufSize(0) { }
         
-        Memory (size_t size): buf(new char[size]), bufSize(size) { }
+        Memory (size_t size): buf(new char[size]), bufSize(size) {
+        }
         
         Memory(const char *src, size_t size): buf(new char[size]), bufSize(size) {
             std::copy_n(src, size, reinterpret_cast<char *>(buf));
@@ -22,6 +24,13 @@ namespace gbaemu {
 
         ~Memory() {
             delete[] buf;
+        }
+
+        void operator =(const Memory& other) {
+            buf = new char[other.bufSize];
+            bufSize = other.bufSize;
+
+            std::copy_n(other.buf, bufSize, buf);
         }
 
         uint8_t read8(size_t addr) const;
