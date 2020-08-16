@@ -75,8 +75,8 @@ namespace gbaemu
             } fetch;
 
             struct {
-                Instruction *instruction;
-                Instruction *lastInstruction;
+                Instruction instruction;
+                Instruction lastInstruction;
             } decode;
             /*
         struct {

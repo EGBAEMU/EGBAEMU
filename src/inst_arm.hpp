@@ -294,7 +294,7 @@ namespace gbaemu
     class ARMInstructionDecoder : public InstructionDecoder
     {
       public:
-        virtual Instruction *decode(uint32_t inst) const;
+        virtual Instruction decode(uint32_t inst) const override;
     };
 
 } // namespace gbaemu

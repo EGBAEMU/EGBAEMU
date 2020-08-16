@@ -47,14 +47,16 @@ namespace gbaemu
     class Instruction
     {
       public:
-        virtual void execute(CPUState *state) = 0;
-        virtual std::string toString() const = 0;
+        virtual void execute(CPUState *state) { }
+        virtual std::string toString() const {
+            return "";
+        }
     };
 
     class InstructionDecoder
     {
       public:
-        virtual Instruction *decode(uint32_t inst) const = 0;
+        virtual Instruction decode(uint32_t inst) const = 0;
     };
 
 } // namespace gbaemu

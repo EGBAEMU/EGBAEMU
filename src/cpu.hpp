@@ -46,7 +46,7 @@ namespace gbaemu
 
         void execute()
         {
-            state.pipeline.decode.lastInstruction->execute(&state);
+            state.pipeline.decode.lastInstruction.execute(&state);
         }
 
         void step()

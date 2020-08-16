@@ -73,14 +73,18 @@ namespace gbaemu
 
     class ThumbInstruction : public Instruction
     {
-        virtual void execute(CPUState *state);
-        virtual std::string toString() const;
+        virtual void execute(CPUState *state) { };
+        virtual std::string toString() const {
+            return "";
+        }
     };
 
-    class ThumbInstructionDecoder
+    class ThumbInstructionDecoder : public InstructionDecoder
     {
       public:
-        virtual Instruction *decode(uint32_t inst) const;
+        virtual Instruction decode(uint32_t inst) const override {
+            return ThumbInstruction();
+        }
     };
 
 } // namespace gbaemu

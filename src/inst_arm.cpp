@@ -110,10 +110,10 @@ namespace gbaemu
         return ss.str();
     }
 
-    Instruction *ARMInstructionDecoder::decode(uint32_t lastInst) const
+    Instruction ARMInstructionDecoder::decode(uint32_t lastInst) const
     {
-        ARMInstruction *insPtr = new ARMInstruction;
-        ARMInstruction &instruction = *insPtr;
+        ARMInstruction insPtr;
+        ARMInstruction &instruction = insPtr;
 
         // Default the instruction id to invalid
         instruction.id = ARMInstructionID::INVALID;
