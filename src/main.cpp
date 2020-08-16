@@ -29,6 +29,7 @@ int main(int argc, const char **argv)
     cpu.state.decoder = &armDecoder;
     cpu.state.memory.mem = buf.data();
     cpu.state.memory.memSize = buf.size();
+    //TODO are there conventions about inital reg values?
     cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = 0x204;
 
     /*

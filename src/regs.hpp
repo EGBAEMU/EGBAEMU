@@ -5,19 +5,20 @@
 
 namespace gbaemu
 {
-namespace regs
-{
-/* constants */
-static const uint32_t SP_OFFSET = 13;
-static const uint32_t LR_OFFSET = 14;
-static const uint32_t PC_OFFSET = 15;
-static const uint32_t CPSR_OFFSET = 16;
-static const uint32_t SPSR_OFFSET = 17;
-} // namespace regs
-namespace cpsr_flags {
+    namespace regs
+    {
+        /* constants */
+        static const uint32_t SP_OFFSET = 13;
+        static const uint32_t LR_OFFSET = 14;
+        static const uint32_t PC_OFFSET = 15;
+        static const uint32_t CPSR_OFFSET = 16;
+        static const uint32_t SPSR_OFFSET = 17;
+    } // namespace regs
+    namespace cpsr_flags
+    {
 
-// Flags: Z=zeroflag, N=sign, C=carry (except LSL#0: C=unchanged), V=unchanged.
-/*
+        // Flags: Z=zeroflag, N=sign, C=carry (except LSL#0: C=unchanged), V=unchanged.
+        /*
         Current Program Status Register (CPSR)
           Bit   Expl.
           31    N - Sign Flag       (0=Not Signed, 1=Signed)               ;\
@@ -61,23 +62,23 @@ namespace cpsr_flags {
                     11111b 1Fh 31 - System (privileged 'User' mode) (ARMv4 and up)
             Writing any other values into the Mode bits is not allowed. 
     */
-static const uint32_t FLAG_N_OFFSET = 31;
-static const uint32_t FLAG_Z_OFFSET = 30;
-static const uint32_t FLAG_C_OFFSET = 29;
-static const uint32_t FLAG_V_OFFSET = 28;
-static const uint32_t FLAG_Q_OFFSET = 27;
-static const uint32_t IRQ_DISABLE_OFFSET = 7;
-static const uint32_t FIQ_DISABLE_OFFSET = 6;
-static const uint32_t THUMB_STATE_OFFSET = 5;
-static const uint32_t MODE_BIT_MASK = 0x01F;
+        static const uint32_t FLAG_N_OFFSET = 31;
+        static const uint32_t FLAG_Z_OFFSET = 30;
+        static const uint32_t FLAG_C_OFFSET = 29;
+        static const uint32_t FLAG_V_OFFSET = 28;
+        static const uint32_t FLAG_Q_OFFSET = 27;
+        static const uint32_t IRQ_DISABLE_OFFSET = 7;
+        static const uint32_t FIQ_DISABLE_OFFSET = 6;
+        static const uint32_t THUMB_STATE_OFFSET = 5;
+        static const uint32_t MODE_BIT_MASK = 0x01F;
 
-// TODO verify bitmasks
-static const uint32_t N_FLAG_BITMASK = (1 << FLAG_N_OFFSET);
-static const uint32_t Z_FLAG_BITMASK = (1 << FLAG_Z_OFFSET);
-static const uint32_t C_FLAG_BITMASK = (1 << FLAG_C_OFFSET);
-static const uint32_t V_FLAG_BITMASK = (1 << FLAG_V_OFFSET);
-static const uint32_t THUMB_FLAG_BITMASK = (1 << THUMB_STATE_OFFSET);
-}
+        // TODO verify bitmasks
+        static const uint32_t N_FLAG_BITMASK = (1 << FLAG_N_OFFSET);
+        static const uint32_t Z_FLAG_BITMASK = (1 << FLAG_Z_OFFSET);
+        static const uint32_t C_FLAG_BITMASK = (1 << FLAG_C_OFFSET);
+        static const uint32_t V_FLAG_BITMASK = (1 << FLAG_V_OFFSET);
+        static const uint32_t THUMB_FLAG_BITMASK = (1 << THUMB_STATE_OFFSET);
+    } // namespace cpsr_flags
 
 } // namespace gbaemu
 
