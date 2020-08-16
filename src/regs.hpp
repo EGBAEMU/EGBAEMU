@@ -8,6 +8,20 @@ namespace gbaemu
     namespace regs
     {
         /* constants */
+        static const uint32_t R0_OFFSET = 0;
+        static const uint32_t R1_OFFSET = 1;
+        static const uint32_t R2_OFFSET = 2;
+        static const uint32_t R3_OFFSET = 3;
+        static const uint32_t R4_OFFSET = 4;
+        static const uint32_t R5_OFFSET = 5;
+        static const uint32_t R6_OFFSET = 6;
+        static const uint32_t R7_OFFSET = 7;
+        static const uint32_t R8_OFFSET = 8;
+        static const uint32_t R9_OFFSET = 9;
+        static const uint32_t R10_OFFSET = 10;
+        static const uint32_t R11_OFFSET = 11;
+        static const uint32_t R12_OFFSET = 12;
+
         static const uint32_t SP_OFFSET = 13;
         static const uint32_t LR_OFFSET = 14;
         static const uint32_t PC_OFFSET = 15;

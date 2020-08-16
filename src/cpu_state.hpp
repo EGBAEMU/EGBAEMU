@@ -92,7 +92,18 @@ namespace gbaemu
             size_t memSize;
         } memory;
 
+        // Inidcates if the execute stage processed an branch instruction and changed the pc
+        bool branchOccured = false;
+
         const InstructionDecoder *decoder;
+
+        uint32_t getCurrentPC()
+        {
+            // TODO: This is somewhat finshy as there are 3 active pc's due to pipelining. As the regs
+            // only get modified by the EXECUTE stage, this will return the pc for the exec stage.
+            // Fetch will be at +8 and decode at +4. Maybe encode this as option or so.
+            return accessReg(regs::PC_OFFSET);
+        }
 
         uint32_t *const *const getCurrentRegs()
         {
