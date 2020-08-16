@@ -10,16 +10,16 @@
 namespace gbaemu {
     class Memory {
       public:
-        char *buf;
+        uint8_t *buf;
         size_t bufSize;
       public:
         Memory(): buf(nullptr), bufSize(0) { }
         
-        Memory (size_t size): buf(new char[size]), bufSize(size) {
+        Memory (size_t size): buf(new uint8_t[size]), bufSize(size) {
         }
         
-        Memory(const char *src, size_t size): buf(new char[size]), bufSize(size) {
-            std::copy_n(src, size, reinterpret_cast<char *>(buf));
+        Memory(const char *src, size_t size): buf(new uint8_t[size]), bufSize(size) {
+            std::copy_n(src, size, reinterpret_cast<uint8_t *>(buf));
         }
 
         ~Memory() {
@@ -27,7 +27,7 @@ namespace gbaemu {
         }
 
         void operator =(const Memory& other) {
-            buf = new char[other.bufSize];
+            buf = new uint8_t[other.bufSize];
             bufSize = other.bufSize;
 
             std::copy_n(other.buf, bufSize, buf);

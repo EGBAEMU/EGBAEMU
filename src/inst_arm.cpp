@@ -414,7 +414,7 @@ namespace gbaemu
         //if (instruction.id != ARMInstructionID::SWI && instruction.id != ARMInstructionID::INVALID)
         //    std::cout << instructionIDToString(instruction.id) << std::endl;
 
-        std::cout << instruction.toString() << std::endl;
+        //std::cout << instruction.toString() << std::endl;
 
         return Instruction::fromARM(instruction);
     }
