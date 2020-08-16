@@ -45,7 +45,7 @@ namespace gbaemu
             uint32_t SPSR_abt;
             uint32_t SPSR_irq;
             uint32_t SPSR_und;
-        } __attribute__((packed)) regs;
+        } regs;
 
         // Complain to: tammo.muermann@stud.tu-darmstadt.de
         uint32_t *const regsHacks[7][18] = {
