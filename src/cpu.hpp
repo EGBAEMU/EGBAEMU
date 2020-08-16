@@ -136,6 +136,29 @@ namespace gbaemu
                 }
             }
         }
+
+        void execMOV(bool i, bool s, uint32_t rd, uint32_t op2) {
+            auto currentRegs = state.getCurrentRegs();
+
+            if (i) {
+                *currentRegs[rd] = op2;
+            } else {
+                bool shiftReg = (op2 >> 4) & 1;
+
+                if (shiftReg) {
+
+                } else {
+                    uint32_t amount = (op2 >> 7) & 0b11111;
+                }
+
+                uint32_t shiftType = (op2 >> 5) & 0b11;
+                
+            }
+
+            /* rd == R15 */
+            if (s && rd == regs::PC_OFFSET)
+                *currentRegs[regs::CPSR_OFFSET] = *currentRegs[regs::SPSR_OFFSET];
+        }
     };
 
 } // namespace gbaemu
