@@ -162,15 +162,38 @@ namespace gbaemu
             if (i) {
                 *currentRegs[rd] = op2;
             } else {
-                bool shiftReg = (op2 >> 4) & 1;
+                bool r = (op2 >> 4) & 1;
+                uint32_t shiftAmount;
 
-                if (shiftReg) {
-
+                if (r) {
+                    uint32_t rs = (op2 >> 8) & 0b1111;
+                    shiftAmount = *currentRegs[rs] & 0xFF;
                 } else {
-                    uint32_t amount = (op2 >> 7) & 0b11111;
+                    shiftAmount = (op2 >> 7) & 0b11111;
                 }
 
+                /* (0=LSL, 1=LSR, 2=ASR, 3=ROR) */
                 uint32_t shiftType = (op2 >> 5) & 0b11;
+                uint32_t rm = op2 & 0b1111;
+                uint32_t newValue = *currentRegs[rm];
+
+
+                switch (shiftType) {
+                    case 0:
+                        newValue <<= shiftAmount;
+                        break;
+                    case 1:
+                        newValue >>= shiftAmount;
+                        break;
+                    case 2:
+                        newValue = static_cast<uint32_t>(static_cast<int32_t>(newValue) >> shiftAmount);
+                        break;
+                    case 3:
+                        newValue = (newValue >> shiftAmount) | (newValue << (32 - shiftAmount));
+                        break;
+                }
+
+                *currentRegs[rd] = newValue;
             }
 
             /* rd == R15 */
