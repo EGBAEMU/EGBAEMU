@@ -127,6 +127,7 @@ namespace gbaemu
             auto currentRegs = state.getCurrentRegs();
             uint32_t rnValue = *currentRegs[rn];
 
+            //TODO this seems undone???
             uint32_t result = rnValue & shifterOperand;
         }
 
