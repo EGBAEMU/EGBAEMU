@@ -3,6 +3,7 @@
 
 #include "inst.hpp"
 #include "regs.hpp"
+#include "memory.hpp"
 #include <cstdint>
 #include <string>
 
@@ -86,11 +87,14 @@ namespace gbaemu
         } pipeline;
 
         /* memory */
+        /*
         struct {
-            /* keep it C-like */
             void *mem;
             size_t memSize;
         } memory;
+         */
+        Memory memory;
+
 
         // Inidcates if the execute stage processed an branch instruction and changed the pc
         bool branchOccured = false;

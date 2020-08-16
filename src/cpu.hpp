@@ -33,7 +33,7 @@ namespace gbaemu
             /* assume 26 ARM state here */
             /* pc is at [25:2] */
             uint32_t pc = (state.accessReg(regs::PC_OFFSET) >> 2) & 0x03FFFFFF;
-            state.pipeline.fetch.instruction = static_cast<uint32_t *>(state.memory.mem)[pc];
+            state.pipeline.fetch.instruction = state.memory.read<uint32_t>(pc * 4);
 
             //TODO where do we want to update pc? (+4)
         }

@@ -27,8 +27,7 @@ int main(int argc, const char **argv)
     gbaemu::CPU cpu;
     gbaemu::ARMInstructionDecoder armDecoder;
     cpu.state.decoder = &armDecoder;
-    cpu.state.memory.mem = buf.data();
-    cpu.state.memory.memSize = buf.size();
+    cpu.state.memory = gbaemu::Memory(buf.data(), buf.size());
     //TODO are there conventions about inital reg values?
     cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = 0x204;
 
@@ -52,7 +51,7 @@ int main(int argc, const char **argv)
      */
 
     for (size_t i = 0; i < 10; ++i) {
-        uint32_t bytes = reinterpret_cast<uint32_t *>(cpu.state.memory.mem)[i];
+        uint32_t bytes = reinterpret_cast<uint32_t *>(cpu.state.memory.buf)[i];
 
         auto inst = armDecoder.decode(bytes).arm;
         std::cout << std::hex << bytes << " -> " << inst.toString() << std::endl;
