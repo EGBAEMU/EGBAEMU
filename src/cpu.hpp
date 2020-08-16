@@ -5,6 +5,7 @@
 #include "inst_arm.hpp"
 #include "inst_thumb.hpp"
 #include "regs.hpp"
+#include "swi.hpp"
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -50,6 +51,15 @@ namespace gbaemu
                 ARMInstruction &armInst = state.pipeline.decode.lastInstruction.arm;
 
                 if (armInst.conditionSatisfied(state.accessReg(regs::CPSR_OFFSET))) {
+                    if (armInst.cat == ARMInstructionCategory::SOFTWARE_INTERRUPT) {
+                        /*
+                        SWIs can be called from both within THUMB and ARM mode. In ARM mode, only the upper 8bit of the 24bit comment field are interpreted.
+                        //TODO is switching needed?
+                        Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
+                        In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
+                        */
+                        swi::biosCallHandler[armInst.params.software_interrupt.comment >> 24](&state);
+                    }
                 }
             }
         }
@@ -57,6 +67,7 @@ namespace gbaemu
         void step()
         {
             // TODO: Check for interrupt here
+            // TODO: stall for certain instructions like wait for interrupt...
             // TODO: Fetch can be executed always. Decode and Execute stages might have been flushed after branch
             fetch();
             decode();
@@ -79,7 +90,7 @@ namespace gbaemu
             // Offset is given in units of 4. Thus we need to shift it first by two
             offset = offset << 2;
 
-            // TODO: Is there a nice way to add a signed to a unisgned. Plus might want to check for overflows.
+            // TODO: Is there a nice way to add a signed to a unsigned. Plus might want to check for overflows.
             // Although there probably is nothing we can do in those cases....
 
             // We need to handle the addition of pc and offset as signed as we jump back
@@ -176,7 +187,6 @@ namespace gbaemu
                 uint32_t shiftType = (op2 >> 5) & 0b11;
                 uint32_t rm = op2 & 0b1111;
                 uint32_t newValue = *currentRegs[rm];
-
 
                 switch (shiftType) {
                     case 0:
