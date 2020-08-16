@@ -76,6 +76,9 @@ namespace gbaemu
                 state.accessReg(regs::LR_OFFSET) = (pc - 4);
             }
 
+            // Offset is given in units of 4. Thus we need to shift it first by two
+            offset = offset << 2;
+
             // TODO: Is there a nice way to add a signed to a unisgned. Plus might want to check for overflows.
             // Although there probably is nothing we can do in those cases....
 
@@ -89,16 +92,31 @@ namespace gbaemu
         }
 
         // Executes instructions belonging to the branch and execute subsection
-        void handleBranchAndExchange(uint32_t rn)
+        void handleBranchAndExchange(uint32_t rm)
         {
             auto currentRegs = state.getCurrentRegs();
 
-            // Load the content of register given by rn
-            uint32_t rnValue = *currentRegs[rn];
+            // Load the content of register given by rm
+            uint32_t rmValue = *currentRegs[rm];
             // If the first bit of rn is set
-            bool changeToThumb = rnValue & 0x00000001;
+            bool changeToThumb = rmValue & 0x00000001;
 
-            // TODO
+            if (changeToThumb) {
+                // TODO: Flag change to thumb mode
+            }
+
+            // Change the PC to the address given by rm. Note that we have to mask out the thumb switch bit.
+            state.accessReg(regs::PC_OFFSET) = rmValue & 0xFFFFFFFE;
+            state.branchOccured = true;
+        }
+
+        void handleBitClear(uint8_t rn, uint8_t rd, uint8_t shifterOperand)
+        {
+
+            auto currentRegs = state.getCurrentRegs();
+            uint32_t rnValue = *currentRegs[rn];
+
+            uint32_t result = rnValue & shifterOperand;
         }
 
         void exec_add(bool s, uint32_t rn, uint32_t rd, uint32_t shiftOperand)
@@ -137,7 +155,8 @@ namespace gbaemu
             }
         }
 
-        void execMOV(bool i, bool s, uint32_t rd, uint32_t op2) {
+        void execMOV(bool i, bool s, uint32_t rd, uint32_t op2)
+        {
             auto currentRegs = state.getCurrentRegs();
 
             if (i) {
@@ -152,7 +171,6 @@ namespace gbaemu
                 }
 
                 uint32_t shiftType = (op2 >> 5) & 0b11;
-                
             }
 
             /* rd == R15 */
