@@ -15,10 +15,12 @@ namespace gbaemu {
     uint32_t Memory::read32(size_t addr) const {
         auto src = buf + addr;
 
-        return (static_cast<uint32_t>(src[0]) << 24) |
-               (static_cast<uint32_t>(src[1]) << 16) |
-               (static_cast<uint32_t>(src[2]) <<  8) |
-                static_cast<uint32_t>(src[3]);
+        //std::cout << std::hex << (uint32_t)src[0] << ' ' << (uint32_t)src[1] << ' ' << (uint32_t)src[2] << ' ' << (uint32_t)src[3] << std::endl;
+
+        return (static_cast<uint32_t>(src[0]) <<  0) |
+               (static_cast<uint32_t>(src[1]) <<  8) |
+               (static_cast<uint32_t>(src[2]) << 16) |
+               (static_cast<uint32_t>(src[3]) << 24);
     }
 
     void Memory::write8(size_t addr, uint8_t value) {

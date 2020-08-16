@@ -50,13 +50,11 @@ int main(int argc, const char **argv)
         cpu.step();
      */
 
-    std::cout << (void *)cpu.state.memory.buf << '\n' << cpu.state.memory.bufSize << std::endl;
-
-    for (size_t i = 0; i < 10; ++i) {
+    for (size_t i = 0; i < 0x100 + 16; ++i) {
         uint32_t bytes = cpu.state.memory.read32(i * 4);
 
         auto inst = armDecoder.decode(bytes).arm;
-        std::cout << std::hex << bytes << " -> " << inst.toString() << std::endl;
+        std::cout << std::hex << i * 4 << "    " << bytes << " -> " << inst.toString() << std::endl;
     }
 
     return 0;
