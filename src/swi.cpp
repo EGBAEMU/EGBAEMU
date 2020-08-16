@@ -11,12 +11,30 @@ namespace gbaemu
     namespace swi
     {
 
-        SWIHandler softReset;
-        SWIHandler registerRamReset;
-        SWIHandler halt;
-        SWIHandler stop;
-        SWIHandler intrWait;
-        SWIHandler vBlankIntrWait;
+        void softReset(CPUState *state)
+        {
+            //TODO implement
+        }
+        void registerRamReset(CPUState *state)
+        {
+            //TODO implement
+        }
+        void halt(CPUState *state)
+        {
+            //TODO implement
+        }
+        void stop(CPUState *state)
+        {
+            //TODO implement
+        }
+        void intrWait(CPUState *state)
+        {
+            //TODO implement
+        }
+        void vBlankIntrWait(CPUState *state)
+        {
+            //TODO implement
+        }
 
         /*
         Output:
@@ -26,7 +44,7 @@ namespace gbaemu
         */
         static void _div(uint32_t *const *const currentRegs, int32_t numerator, int32_t denominator)
         {
-            //TODO how to handly div by 0?
+            //TODO how to handle div by 0?
 
             int32_t div = numerator / denominator;
 
@@ -213,8 +231,14 @@ namespace gbaemu
             state->accessReg(regs::R0_OFFSET) = 0x0BAAE18F;
         }
 
-        SWIHandler bgAffineSet;
-        SWIHandler objAffineSet;
+        void bgAffineSet(CPUState *state)
+        {
+            //TODO implement
+        }
+        void objAffineSet(CPUState *state)
+        {
+            //TODO implement
+        }
 
         /*
         Used to increase the color depth of bitmaps or tile data. For example, to convert a 1bit monochrome font into 4bit or 8bit GBA tiles. The Unpack Info is specified separately, allowing to convert the same source data into different formats.
@@ -235,48 +259,123 @@ namespace gbaemu
             const auto currentRegs = state->getCurrentRegs();
             uint8_t *sourceAddr = *currentRegs[regs::R0_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
             uint8_t *destAddr = *currentRegs[regs::R1_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
-            uint32_t *unpackFormatPtr = reinterpret_cast<uint32_t *>(*currentRegs[regs::R2_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf));
+            uint32_t unpackFormatPtr = *currentRegs[regs::R2_OFFSET];
 
-            uint32_t length_unitWidths = *unpackFormatPtr;
-
-            //TODO i hate endians... how are the bytes stored?
-            uint16_t dataByteCount = static_cast<uint16_t>((length_unitWidths >> 16) & 0x0000FFFF);
-            uint8_t srcUnitWidth = static_cast<uint8_t>((length_unitWidths >> 8) & 0x000000FF);
-            uint8_t destUnitWidth = static_cast<uint8_t>((length_unitWidths & 0x000000FF));
-            uint32_t dataOffset = *(unpackFormatPtr + 1);
+            uint16_t srcByteCount = state->memory.read16(unpackFormatPtr);
+            uint8_t srcUnitWidth = state->memory.read8(unpackFormatPtr + 2);
+            uint8_t destUnitWidth = state->memory.read8(unpackFormatPtr + 3);
+            uint32_t dataOffset = state->memory.read32(unpackFormatPtr + 4);
             bool zeroDataOff = dataOffset & (1 << 31);
             dataOffset &= 0x7FFFFFF;
 
-//TODO implement unpacking... not sure how this is intended
+            //TODO implement unpacking... not sure how this is intended
         }
 
-        SWIHandler LZ77UnCompWRAM;
-        SWIHandler LZ77UnCompVRAM;
-        SWIHandler huffUnComp;
-        SWIHandler RLUnCompWRAM;
-        SWIHandler RLUnCompVRAM;
+        void LZ77UnCompWRAM(CPUState *state)
+        {
+            //TODO implement
+        }
+        void LZ77UnCompVRAM(CPUState *state)
+        {
+            //TODO implement
+        }
+        void huffUnComp(CPUState *state)
+        {
+            //TODO implement
+        }
+        void RLUnCompWRAM(CPUState *state)
+        {
+            //TODO implement
+        }
+        void RLUnCompVRAM(CPUState *state)
+        {
+            //TODO implement
+        }
 
-        SWIHandler diff8BitUnFilterWRAM;
-        SWIHandler diff8BitUnFilterVRAM;
-        SWIHandler diff16BitUnFilter;
-        SWIHandler soundBiasChange;
-        SWIHandler soundDriverInit;
-        SWIHandler soundDriverMode;
-        SWIHandler soundDriverMain;
-        SWIHandler soundDriverVSync;
-        SWIHandler soundChannelClear;
-        SWIHandler MIDIKey2Freq;
-        SWIHandler musicPlayerOpen;
-        SWIHandler musicPlayerStart;
-        SWIHandler musicPlayerStop;
-        SWIHandler musicPlayerContinue;
-        SWIHandler musicPlayerFadeOut;
-        SWIHandler multiBoot;
-        SWIHandler hardReset;
-        SWIHandler customHalt;
-        SWIHandler soundDriverVSyncOff;
-        SWIHandler soundDriverVSyncOn;
-        SWIHandler getJumpList;
+        void diff8BitUnFilterWRAM(CPUState *state)
+        {
+            //TODO implement
+        }
+        void diff8BitUnFilterVRAM(CPUState *state)
+        {
+            //TODO implement
+        }
+        void diff16BitUnFilter(CPUState *state)
+        {
+            //TODO implement
+        }
+        void soundBiasChange(CPUState *state)
+        {
+            //TODO implement
+        }
+        void soundDriverInit(CPUState *state)
+        {
+            //TODO implement
+        }
+        void soundDriverMode(CPUState *state)
+        {
+            //TODO implement
+        }
+        void soundDriverMain(CPUState *state)
+        {
+            //TODO implement
+        }
+        void soundDriverVSync(CPUState *state)
+        {
+            //TODO implement
+        }
+        void soundChannelClear(CPUState *state)
+        {
+            //TODO implement
+        }
+        void MIDIKey2Freq(CPUState *state)
+        {
+            //TODO implement
+        }
+        void musicPlayerOpen(CPUState *state)
+        {
+            //TODO implement
+        }
+        void musicPlayerStart(CPUState *state)
+        {
+            //TODO implement
+        }
+        void musicPlayerStop(CPUState *state)
+        {
+            //TODO implement
+        }
+        void musicPlayerContinue(CPUState *state)
+        {
+            //TODO implement
+        }
+        void musicPlayerFadeOut(CPUState *state)
+        {
+            //TODO implement
+        }
+        void multiBoot(CPUState *state)
+        {
+            //TODO implement
+        }
+        void hardReset(CPUState *state)
+        {
+            //TODO implement
+        }
+        void customHalt(CPUState *state)
+        {
+            //TODO implement
+        }
+        void soundDriverVSyncOff(CPUState *state)
+        {
+            //TODO implement
+        }
+        void soundDriverVSyncOn(CPUState *state)
+        {
+            //TODO implement
+        }
+        void getJumpList(CPUState *state)
+        {
+            //TODO implement
+        }
 
     } // namespace swi
 } // namespace gbaemu
