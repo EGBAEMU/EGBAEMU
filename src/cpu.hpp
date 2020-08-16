@@ -96,7 +96,7 @@ namespace gbaemu
             // Load the content of register given by rn
             uint32_t rnValue = *currentRegs[rn];
             // If the first bit of rn is set
-            bool changeToThumb = rnValue & 0x00000001
+            bool changeToThumb = rnValue & 0x00000001;
 
             // TODO
         }

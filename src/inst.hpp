@@ -167,6 +167,7 @@ namespace gbaemu
             } software_interrupt;
         } params;
 
+        /* implemented in inst_arm.cpp */
         std::string toString() const;
         bool conditionSatisfied(uint32_t CPSR) const;
     };
@@ -185,38 +186,14 @@ namespace gbaemu
         ThumbInstruction thumb;
         bool isArm = true;
       public:
-        
-        void setArmInstruction(ARMInstruction &armInstruction) {
-            arm = armInstruction;
-            isArm = true;
-        }
-
-        void setThumbInstruction(ThumbInstruction& thumbInstruction) {
-            thumb = thumbInstruction;
-            isArm = false;
-        }
-
-        bool isArmInstruction() const {
-            return isArm;
-        }
-
-        static Instruction fromARM(ARMInstruction& armInst) {
-            Instruction result;
-            result.arm = armInst;
-            result.isArm = true;
-            return result;
-        }
-
-        static Instruction fromThumb(ThumbInstruction& thumbInst) {
-            Instruction result;
-            result.thumb = thumbInst;
-            result.isArm = false;
-            return result;
-        }
+        void setArmInstruction(ARMInstruction &armInstruction);
+        void setThumbInstruction(ThumbInstruction& thumbInstruction);
+        bool isArmInstruction() const;
+        static Instruction fromARM(ARMInstruction& armInst);
+        static Instruction fromThumb(ThumbInstruction& thumbInst);
     };    
 
-    class InstructionDecoder
-    {
+    class InstructionDecoder {
       public:
         virtual Instruction decode(uint32_t inst) const = 0;
     };
