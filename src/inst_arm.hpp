@@ -1,7 +1,6 @@
 #ifndef INST_ARM_HPP
 #define INST_ARM_HPP
 
-#include "cpu_state.hpp"
 #include "inst.hpp"
 #include "regs.hpp"
 #include <cstdint>
@@ -44,64 +43,7 @@ namespace gbaemu
         |_Cond__|1_1_1_1|_____________Ignored_by_Processor______________| SWI
      */
 
-    enum ARMInstructionCategory {
-        MUL_ACC,
-        MUL_ACC_LONG,
-        DATA_SWP,
-        HW_TRANSF_REG_OFF,
-        HW_TRANSF_IMM_OFF,
-        SIGN_TRANSF,
-        DATA_PROC_PSR_TRANSF,
-        LS_REG_UBYTE,
-        BLOCK_DATA_TRANSF,
-        BRANCH,
-        SOFTWARE_INTERRUPT
-    };
-
-    enum ARMInstructionID : uint8_t {
-        ADC,
-        ADD,
-        AND,
-        B,
-        /* includes BL */ BIC,
-        BX,
-        CMN,
-        CMP,
-        EOR,
-        LDM,
-        LDR,
-        LDRB,
-        LDRH,
-        LDRSB,
-        LDRSH,
-        LDRD,
-        MLA,
-        MOV,
-        MRS,
-        MSR,
-        MUL,
-        MVN,
-        ORR,
-        RSB,
-        RSC,
-        SBC,
-        SMLAL,
-        SMULL,
-        STM,
-        STR,
-        STRB,
-        STRH,
-        STRD,
-        SUB,
-        SWI,
-        SWP,
-        SWPB,
-        TEQ,
-        TST,
-        UMLAL,
-        UMULL,
-        INVALID
-    };
+    
 
     const char *instructionIDToString(ARMInstructionID id);
 
@@ -221,80 +163,13 @@ namespace gbaemu
     static const uint32_t MASK_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
     static const uint32_t VAL_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
 
-    class ARMInstruction : public Instruction
-    {
-      public:
-        ARMInstructionID id;
-        ARMInstructionCategory cat;
-        ConditionOPCode condition;
-
-        union {
-            struct {
-                bool a, s;
-                uint32_t rd, rn, rs, rm;
-            } mul_acc;
-
-            struct {
-                bool u, a, s;
-                uint32_t rd_msw, rd_lsw, rn, rm;
-            } mul_acc_long;
-
-            struct {
-                bool b;
-                uint32_t rn, rd, rm;
-            } data_swp;
-
-            struct {
-                bool p, u, w, l;
-                uint32_t rm;
-            } hw_transf_reg_off;
-
-            struct {
-                bool p, u, w, l;
-                uint32_t rn, rd, offset;
-            } hw_transf_imm_off;
-
-            struct {
-                bool p, u, b, w, l, h;
-                uint32_t rn, rd;
-            } sign_transf;
-
-            struct {
-                bool i, s;
-                uint32_t opCode, rn, rd, operand2;
-            } data_proc_psr_transf;
-
-            struct {
-                bool p, u, b, w, l;
-                uint32_t rn, rd, addrMode;
-            } ls_reg_ubyte;
-
-            struct {
-                bool p, u, w, l;
-                uint32_t rn, rList;
-            } block_data_transf;
-
-            struct {
-                bool l;
-                uint32_t offset;
-            } branch;
-
-            struct {
-
-            } software_interrupt;
-        } params;
-
-        virtual void execute(CPUState *state);
-        virtual std::string toString() const;
-
-      private:
-        static bool conditionSatisfied(ConditionOPCode executeCondition, uint32_t CPSR);
-    };
+    
 
     class ARMInstructionDecoder : public InstructionDecoder
     {
       public:
         virtual Instruction decode(uint32_t inst) const override;
+        
     };
 
 } // namespace gbaemu

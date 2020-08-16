@@ -46,7 +46,13 @@ namespace gbaemu
 
         void execute()
         {
-            state.pipeline.decode.lastInstruction.execute(&state);
+            if (state.pipeline.decode.lastInstruction.isArmInstruction()) {
+                ARMInstruction& armInst = state.pipeline.decode.lastInstruction.arm;
+
+                if (armInst.conditionSatisfied(state.accessReg(regs::CPSR_OFFSET))) {
+
+                }
+            }
         }
 
         void step()

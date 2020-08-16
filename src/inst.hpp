@@ -44,14 +44,176 @@ namespace gbaemu
 
     struct CPUState;
 
-    class Instruction
+    
+    enum ARMInstructionCategory {
+        MUL_ACC,
+        MUL_ACC_LONG,
+        DATA_SWP,
+        HW_TRANSF_REG_OFF,
+        HW_TRANSF_IMM_OFF,
+        SIGN_TRANSF,
+        DATA_PROC_PSR_TRANSF,
+        LS_REG_UBYTE,
+        BLOCK_DATA_TRANSF,
+        BRANCH,
+        SOFTWARE_INTERRUPT
+    };
+
+    enum ARMInstructionID : uint8_t {
+        ADC,
+        ADD,
+        AND,
+        B, /* includes BL */
+        BIC,
+        BX,
+        CMN,
+        CMP,
+        EOR,
+        LDM,
+        LDR,
+        LDRB,
+        LDRH,
+        LDRSB,
+        LDRSH,
+        LDRD,
+        MLA,
+        MOV,
+        MRS,
+        MSR,
+        MUL,
+        MVN,
+        ORR,
+        RSB,
+        RSC,
+        SBC,
+        SMLAL,
+        SMULL,
+        STM,
+        STR,
+        STRB,
+        STRH,
+        STRD,
+        SUB,
+        SWI,
+        SWP,
+        SWPB,
+        TEQ,
+        TST,
+        UMLAL,
+        UMULL,
+        INVALID
+    };
+
+    class ARMInstruction
     {
       public:
-        virtual void execute(CPUState *state) { }
-        virtual std::string toString() const {
-            return "";
-        }
+        ARMInstructionID id;
+        ARMInstructionCategory cat;
+        ConditionOPCode condition;
+
+        union {
+            struct {
+                bool a, s;
+                uint32_t rd, rn, rs, rm;
+            } mul_acc;
+
+            struct {
+                bool u, a, s;
+                uint32_t rd_msw, rd_lsw, rn, rm;
+            } mul_acc_long;
+
+            struct {
+                bool b;
+                uint32_t rn, rd, rm;
+            } data_swp;
+
+            struct {
+                bool p, u, w, l;
+                uint32_t rm;
+            } hw_transf_reg_off;
+
+            struct {
+                bool p, u, w, l;
+                uint32_t rn, rd, offset;
+            } hw_transf_imm_off;
+
+            struct {
+                bool p, u, b, w, l, h;
+                uint32_t rn, rd;
+            } sign_transf;
+
+            struct {
+                bool i, s;
+                uint32_t opCode, rn, rd, operand2;
+            } data_proc_psr_transf;
+
+            struct {
+                bool p, u, b, w, l;
+                uint32_t rn, rd, addrMode;
+            } ls_reg_ubyte;
+
+            struct {
+                bool p, u, w, l;
+                uint32_t rn, rList;
+            } block_data_transf;
+
+            struct {
+                bool l;
+                uint32_t offset;
+            } branch;
+
+            struct {
+
+            } software_interrupt;
+        } params;
+
+        std::string toString() const;
+        bool conditionSatisfied(uint32_t CPSR) const;
     };
+
+    class ThumbInstruction
+    {
+    public:
+        std::string toString() const;
+    };
+
+
+    /* an object that can represent an ARM and a THUMB instruction */
+    class Instruction {
+      public:
+        ARMInstruction arm;
+        ThumbInstruction thumb;
+        bool isArm = true;
+      public:
+        
+        void setArmInstruction(ARMInstruction &armInstruction) {
+            arm = armInstruction;
+            isArm = true;
+        }
+
+        void setThumbInstruction(ThumbInstruction& thumbInstruction) {
+            thumb = thumbInstruction;
+            isArm = false;
+        }
+
+        bool isArmInstruction() const {
+            return isArm;
+        }
+
+        static Instruction fromARM(ARMInstruction& armInst) {
+            Instruction result;
+            result.arm = armInst;
+            result.isArm = true;
+            return result;
+        }
+
+        static Instruction fromThumb(ThumbInstruction& thumbInst) {
+            Instruction result;
+            result.thumb = thumbInst;
+            result.isArm = false;
+            return result;
+        }
+    };    
 
     class InstructionDecoder
     {

@@ -1,7 +1,6 @@
 #ifndef INST_THUMB_HPP
 #define INST_THUMB_HPP
 
-#include "cpu_state.hpp"
 #include "inst.hpp"
 #include "regs.hpp"
 #include <cstdint>
@@ -71,20 +70,12 @@ namespace gbaemu
     static const uint16_t MASK_THUMB_LONG_BRANCH_WITH_LINK = 0b1111000000000000;
     static const uint16_t VAL_THUMB_LONG_BRANCH_WITH_LINK = 0b1111000000000000;
 
-    class ThumbInstruction : public Instruction
-    {
-        virtual void execute(CPUState *state) { };
-        virtual std::string toString() const {
-            return "";
-        }
-    };
+    
 
     class ThumbInstructionDecoder : public InstructionDecoder
     {
       public:
-        virtual Instruction decode(uint32_t inst) const override {
-            return ThumbInstruction();
-        }
+        virtual Instruction decode(uint32_t inst) const override = 0;
     };
 
 } // namespace gbaemu

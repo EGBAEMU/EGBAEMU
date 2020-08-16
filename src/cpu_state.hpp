@@ -131,4 +131,5 @@ namespace gbaemu
     };
 
 } // namespace gbaemu
+
 #endif

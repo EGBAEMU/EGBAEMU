@@ -46,8 +46,17 @@ int main(int argc, const char **argv)
         std::cout << std::hex << flipped << std::endl;
         cpu.decode(read);
     }*/
+    /*
     for (;;)
         cpu.step();
+     */
+
+    for (size_t i = 0; i < 10; ++i) {
+        uint32_t bytes = reinterpret_cast<uint32_t *>(cpu.state.memory.mem)[i];
+
+        auto inst = armDecoder.decode(bytes).arm;
+        std::cout << std::hex << bytes << " -> " << inst.toString() << std::endl;
+    }
 
     return 0;
 }

@@ -112,8 +112,7 @@ namespace gbaemu
 
     Instruction ARMInstructionDecoder::decode(uint32_t lastInst) const
     {
-        ARMInstruction insPtr;
-        ARMInstruction &instruction = insPtr;
+        ARMInstruction instruction;
 
         // Default the instruction id to invalid
         instruction.id = ARMInstructionID::INVALID;
@@ -412,15 +411,17 @@ namespace gbaemu
             std::cerr << "ERROR: Could not decode instruction: " << std::hex << lastInst << std::endl;
         }
 
-        if (instruction.id != ARMInstructionID::SWI && instruction.id != ARMInstructionID::INVALID)
-            std::cout << instructionIDToString(instruction.id) << std::endl;
+        //if (instruction.id != ARMInstructionID::SWI && instruction.id != ARMInstructionID::INVALID)
+        //    std::cout << instructionIDToString(instruction.id) << std::endl;
 
-        return insPtr;
+        std::cout << instruction.toString() << std::endl;
+
+        return Instruction::fromARM(instruction);
     }
 
-    bool ARMInstruction::conditionSatisfied(ConditionOPCode executeCondition, uint32_t CPSR)
+    bool ARMInstruction::conditionSatisfied(uint32_t CPSR) const
     {
-        switch (executeCondition) {
+        switch (condition) {
             // Equal Z==1
             case EQ:
                 return CPSR & cpsr_flags::Z_FLAG_BITMASK;
@@ -503,13 +504,4 @@ namespace gbaemu
                 break;
         }
     }
-
-    void ARMInstruction::execute(CPUState *state)
-    {
-        if (conditionSatisfied(condition, state->accessReg(regs::CPSR_OFFSET))) {
-
-            //TODO implement
-        }
-    }
-
 } // namespace gbaemu
