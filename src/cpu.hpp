@@ -132,6 +132,13 @@ namespace gbaemu
                         case thumb::ThumbInstructionCategory::COND_BRANCH:
                             break;
                         case thumb::ThumbInstructionCategory::SOFTWARE_INTERRUPT:
+                            /*
+                                SWIs can be called from both within THUMB and ARM mode. In ARM mode, only the upper 8bit of the 24bit comment field are interpreted.
+                                //TODO is switching needed?
+                                Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
+                                In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
+                                */
+                            swi::biosCallHandler[thumbInst.params.software_interrupt.comment](&state);
                             break;
                         case thumb::ThumbInstructionCategory::UNCONDITIONAL_BRANCH:
                             break;
