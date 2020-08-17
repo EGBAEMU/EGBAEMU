@@ -51,7 +51,7 @@ int main(int argc, const char **argv)
         cpu.step();
      */
 
-    for (size_t i = 0x3B8 / 4; i < 0x420 / 4; ++i) {
+    for (size_t i = 0; i < buf.size() / 4; ++i) {
         uint32_t bytes = cpu.state.memory.read32(gbaemu::Memory::EXT_ROM_OFFSET + i * 4);
 
         auto b0 = cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + i * 4);
