@@ -185,9 +185,11 @@ namespace gbaemu
                 }
 
             } else if ((lastInst & MASK_BRANCH_XCHG) == VAL_BRANCH_XCHG) {
-                //TODO is here more needed?
+
                 instruction.cat = ARMInstructionCategory::BRANCH_XCHG;
                 instruction.id = ARMInstructionID::BX;
+                instruction.params.branch_xchg.rn = lastInst & 0x0F;
+
             } else if ((lastInst & MASK_DATA_SWP) == VAL_DATA_SWP) {
 
                 instruction.cat = ARMInstructionCategory::DATA_SWP;

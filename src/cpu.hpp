@@ -62,6 +62,7 @@ namespace gbaemu
                             case arm::ARMInstructionCategory::MUL_ACC_LONG:
                                 break;
                             case arm::ARMInstructionCategory::BRANCH_XCHG:
+                                handleBranchAndExchange(armInst.params.branch_xchg.rn);
                                 break;
                             case arm::ARMInstructionCategory::DATA_SWP:
                                 break;
@@ -78,6 +79,7 @@ namespace gbaemu
                             case arm::ARMInstructionCategory::BLOCK_DATA_TRANSF:
                                 break;
                             case arm::ARMInstructionCategory::BRANCH:
+                                handleBranch(armInst.params.branch.l, armInst.params.branch.offset);
                                 break;
 
                             case arm::ARMInstructionCategory::SOFTWARE_INTERRUPT:
@@ -130,6 +132,13 @@ namespace gbaemu
                         case thumb::ThumbInstructionCategory::COND_BRANCH:
                             break;
                         case thumb::ThumbInstructionCategory::SOFTWARE_INTERRUPT:
+                            /*
+                                SWIs can be called from both within THUMB and ARM mode. In ARM mode, only the upper 8bit of the 24bit comment field are interpreted.
+                                //TODO is switching needed?
+                                Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
+                                In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
+                                */
+                            swi::biosCallHandler[thumbInst.params.software_interrupt.comment](&state);
                             break;
                         case thumb::ThumbInstructionCategory::UNCONDITIONAL_BRANCH:
                             break;
@@ -179,21 +188,21 @@ namespace gbaemu
         }
 
         // Executes instructions belonging to the branch and execute subsection
-        void handleBranchAndExchange(uint32_t rm)
+        void handleBranchAndExchange(uint32_t rn)
         {
             auto currentRegs = state.getCurrentRegs();
 
             // Load the content of register given by rm
-            uint32_t rmValue = *currentRegs[rm];
+            uint32_t rnValue = *currentRegs[rn];
             // If the first bit of rn is set
-            bool changeToThumb = rmValue & 0x00000001;
+            bool changeToThumb = rnValue & 0x00000001;
 
             if (changeToThumb) {
                 // TODO: Flag change to thumb mode
             }
 
             // Change the PC to the address given by rm. Note that we have to mask out the thumb switch bit.
-            state.accessReg(regs::PC_OFFSET) = rmValue & 0xFFFFFFFE;
+            state.accessReg(regs::PC_OFFSET) = rnValue & 0xFFFFFFFE;
             state.branchOccurred = true;
         }
 
