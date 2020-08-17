@@ -25,7 +25,8 @@ int main(int argc, const char **argv)
     std::cout << "read " << buf.size() << " bytes\n";
 
     gbaemu::CPU cpu;
-    gbaemu::ARMInstructionDecoder armDecoder;
+    gbaemu::arm::ARMInstructionDecoder armDecoder;
+    gbaemu::thumb::ThumbInstructionDecoder thumbDecoder;
     cpu.state.decoder = &armDecoder;
     cpu.state.memory = gbaemu::Memory(buf.data(), buf.size());
     //TODO are there conventions about inital reg values?

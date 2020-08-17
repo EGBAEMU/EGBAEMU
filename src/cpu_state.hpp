@@ -2,8 +2,8 @@
 #define CPU_STATE_HPP
 
 #include "inst.hpp"
-#include "regs.hpp"
 #include "memory.hpp"
+#include "regs.hpp"
 #include <cstdint>
 #include <string>
 
@@ -94,7 +94,6 @@ namespace gbaemu
         } memory;
          */
         Memory memory;
-
 
         // Inidcates if the execute stage processed an branch instruction and changed the pc
         bool branchOccured = false;

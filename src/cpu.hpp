@@ -47,18 +47,34 @@ namespace gbaemu
 
         void execute()
         {
-            if (state.pipeline.decode.lastInstruction.isArmInstruction()) {
-                ARMInstruction &armInst = state.pipeline.decode.lastInstruction.arm;
+            if (state.pipeline.decode.lastInstruction.arm.id != arm::ARMInstructionID::INVALID || state.pipeline.decode.lastInstruction.thumb.id != thumb::ThumbInstructionID::INVALID) {
 
-                if (armInst.conditionSatisfied(state.accessReg(regs::CPSR_OFFSET))) {
-                    if (armInst.cat == ARMInstructionCategory::SOFTWARE_INTERRUPT) {
-                        /*
-                        SWIs can be called from both within THUMB and ARM mode. In ARM mode, only the upper 8bit of the 24bit comment field are interpreted.
-                        //TODO is switching needed?
-                        Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
-                        In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
-                        */
-                        swi::biosCallHandler[armInst.params.software_interrupt.comment >> 24](&state);
+                if (state.pipeline.decode.lastInstruction.isArmInstruction()) {
+                    arm::ARMInstruction &armInst = state.pipeline.decode.lastInstruction.arm;
+
+                    // Do we even need an execution?
+                    if (armInst.conditionSatisfied(state.accessReg(regs::CPSR_OFFSET))) {
+
+                        // prefer using switch to get warned if a category is not handled
+                        switch (armInst.cat) {
+
+                            case arm::ARMInstructionCategory::SOFTWARE_INTERRUPT:
+                                /*
+                                SWIs can be called from both within THUMB and ARM mode. In ARM mode, only the upper 8bit of the 24bit comment field are interpreted.
+                                //TODO is switching needed?
+                                Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
+                                In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
+                                */
+                                swi::biosCallHandler[armInst.params.software_interrupt.comment >> 24](&state);
+                                break;
+                        }
+                    }
+                } else {
+                    thumb::ThumbInstruction &thumbInst = state.pipeline.decode.lastInstruction.thumb;
+                    //TODO thumb instruction execution
+
+                    // prefer using switch to get warned if a category is not handled
+                    switch (thumbInst.cat) {
                     }
                 }
             }
