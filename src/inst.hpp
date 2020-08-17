@@ -125,6 +125,7 @@ namespace gbaemu
                 } mul_acc_long;
 
                 struct {
+                    uint8_t rn;
                 } branch_xchg;
 
                 struct {

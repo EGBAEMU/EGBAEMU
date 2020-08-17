@@ -62,6 +62,7 @@ namespace gbaemu
                             case arm::ARMInstructionCategory::MUL_ACC_LONG:
                                 break;
                             case arm::ARMInstructionCategory::BRANCH_XCHG:
+                                handleBranchAndExchange(armInst.params.branch_xchg.rn);
                                 break;
                             case arm::ARMInstructionCategory::DATA_SWP:
                                 break;
@@ -78,6 +79,7 @@ namespace gbaemu
                             case arm::ARMInstructionCategory::BLOCK_DATA_TRANSF:
                                 break;
                             case arm::ARMInstructionCategory::BRANCH:
+                                handleBranch(armInst.params.branch.l, armInst.params.branch.offset);
                                 break;
 
                             case arm::ARMInstructionCategory::SOFTWARE_INTERRUPT:
@@ -179,21 +181,21 @@ namespace gbaemu
         }
 
         // Executes instructions belonging to the branch and execute subsection
-        void handleBranchAndExchange(uint32_t rm)
+        void handleBranchAndExchange(uint32_t rn)
         {
             auto currentRegs = state.getCurrentRegs();
 
             // Load the content of register given by rm
-            uint32_t rmValue = *currentRegs[rm];
+            uint32_t rnValue = *currentRegs[rn];
             // If the first bit of rn is set
-            bool changeToThumb = rmValue & 0x00000001;
+            bool changeToThumb = rnValue & 0x00000001;
 
             if (changeToThumb) {
                 // TODO: Flag change to thumb mode
             }
 
             // Change the PC to the address given by rm. Note that we have to mask out the thumb switch bit.
-            state.accessReg(regs::PC_OFFSET) = rmValue & 0xFFFFFFFE;
+            state.accessReg(regs::PC_OFFSET) = rnValue & 0xFFFFFFFE;
             state.branchOccurred = true;
         }
 
