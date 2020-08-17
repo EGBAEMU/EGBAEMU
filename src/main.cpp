@@ -52,12 +52,12 @@ int main(int argc, const char **argv)
      */
 
     for (size_t i = 0x3B8 / 4; i < 0x420 / 4; ++i) {
-        uint32_t bytes = cpu.state.memory.read32(i * 4);
+        uint32_t bytes = cpu.state.memory.read32(gbaemu::Memory::EXT_ROM_OFFSET + i * 4);
 
-        auto b0 = cpu.state.memory.read8(i * 4);
-        auto b1 = cpu.state.memory.read8(i * 4 + 1);
-        auto b2 = cpu.state.memory.read8(i * 4 + 2);
-        auto b3 = cpu.state.memory.read8(i * 4 + 3);
+        auto b0 = cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + i * 4);
+        auto b1 = cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + i * 4 + 1);
+        auto b2 = cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + i * 4 + 2);
+        auto b3 = cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + i * 4 + 3);
 
         auto inst = armDecoder.decode(bytes).arm;
         std::cout << std::hex << i * 4 << "    " <<
