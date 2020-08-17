@@ -150,6 +150,28 @@ namespace gbaemu
                 struct {
                     bool i, s;
                     uint32_t opCode, rn, rd, operand2;
+
+                    bool extractOperand2(uint32_t& shiftType, uint32_t& shiftAmount, uint32_t& rm, uint32_t& rs, uint32_t& imm) const {
+                        bool shiftAmountFromReg = false;
+
+                        if (i) {
+                            /* ROR */
+                            shiftType = 0b11;
+                            imm = operand2 & 0xFF;
+                            shiftAmount = ((operand2 >> 8) & 0xF) * 2;
+                        } else {
+                            shiftType = (operand2 >> 5) & 0b11;
+                            rm = operand2 & 0xF;
+                            shiftAmountFromReg = (operand2 >> 4) & 1;
+                        }
+
+                        if (shiftAmountFromReg)
+                            rs = (operand2 >> 8) & 0xF;
+                        else
+                            shiftAmount = (operand2 >> 7) & 0b11111;
+
+                        return shiftAmountFromReg;
+                    }
                 } data_proc_psr_transf;
 
                 struct {

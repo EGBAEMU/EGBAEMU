@@ -183,49 +183,63 @@ namespace gbaemu
             }
         }
 
-        void execMOV(bool i, bool s, uint32_t rd, uint32_t op2)
+        void dataProcExtractOperand2Register(uint32_t op2, uint32_t& shiftType, uint32_t& rmValue, uint32_t& shiftAmount) {
+            bool shiftByRegister = (op2 >> 4) & 1;
+            shiftType = (op2 >> 5) & 0b11;
+            rmValue = *state.getCurrentRegs()[op2 & 0xF];
+
+            if (shiftByRegister) {
+                uint32_t rs = (op2 >> 8) & 0xF;
+                shiftAmount = *state.getCurrentRegs()[rs];
+            } else {
+                shiftAmount = (op2 >> 7) & 0xF;
+            }
+        }
+
+        void dataProcExtractOperand2Immediate(uint32_t op2, uint32_t& shiftAmount, uint32_t& immediate) {
+            shiftAmount = ((op2 >> 8) & 0xF) * 2;
+            immediate = op2 & 0xFF;
+        }
+
+        void execMOV(arm::ARMInstruction& inst)
         {
             auto currentRegs = state.getCurrentRegs();
+            uint32_t shiftAmount, shiftType, rm, rs, imm;
 
-            if (i) {
-                *currentRegs[rd] = op2;
+            bool shiftByReg = inst.params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
+
+            if (inst.params.data_proc_psr_transf.i) {
+                *currentRegs[inst.params.data_proc_psr_transf.rd] = (imm >> shiftAmount) | (imm << (32 - shiftAmount));
             } else {
-                bool r = (op2 >> 4) & 1;
-                uint32_t shiftAmount;
+                if (shiftByReg)
+                    shiftAmount = *state.getCurrentRegs()[rs];
 
-                if (r) {
-                    uint32_t rs = (op2 >> 8) & 0b1111;
-                    shiftAmount = *currentRegs[rs] & 0xFF;
-                } else {
-                    shiftAmount = (op2 >> 7) & 0b11111;
-                }
+                uint32_t rmValue = *state.getCurrentRegs()[rm];
 
                 /* (0=LSL, 1=LSR, 2=ASR, 3=ROR) */
-                uint32_t shiftType = (op2 >> 5) & 0b11;
-                uint32_t rm = op2 & 0b1111;
-                uint32_t newValue = *currentRegs[rm];
+                uint32_t newValue;
 
                 switch (shiftType) {
                     case 0:
-                        newValue <<= shiftAmount;
+                        newValue = rmValue << shiftAmount;
                         break;
                     case 1:
-                        newValue >>= shiftAmount;
+                        newValue = rmValue >> shiftAmount;
                         break;
                     case 2:
-                        newValue = static_cast<uint32_t>(static_cast<int32_t>(newValue) >> shiftAmount);
+                        newValue = static_cast<uint32_t>(static_cast<int32_t>(rmValue) >> shiftAmount);
                         break;
                     case 3:
                         /* shift with wrap around */
-                        newValue = (newValue >> shiftAmount) | (newValue << (32 - shiftAmount));
+                        newValue = (rmValue >> shiftAmount) | (rmValue << (32 - shiftAmount));
                         break;
                 }
 
-                *currentRegs[rd] = newValue;
+                *currentRegs[inst.params.data_proc_psr_transf.rd] = newValue;
             }
 
             /* rd == R15 */
-            if (s && rd == regs::PC_OFFSET)
+            if (inst.params.data_proc_psr_transf.s && inst.params.data_proc_psr_transf.rd == regs::PC_OFFSET)
                 *currentRegs[regs::CPSR_OFFSET] = *currentRegs[regs::SPSR_OFFSET];
         }
     };

@@ -104,9 +104,59 @@ namespace gbaemu
         {
             std::stringstream ss;
 
-            if (cat == ARMInstructionCategory::DATA_PROC_PSR_TRANSF)
-                ss << instructionIDToString(id) << ' ' << params.data_proc_psr_transf.rd << ' ' << params.data_proc_psr_transf.rn;
-            else
+            if (cat == ARMInstructionCategory::DATA_PROC_PSR_TRANSF) {
+                bool hasRN = !(id == ARMInstructionID::MOV || id == ARMInstructionID::MVN);
+
+                auto idStr = instructionIDToString(id);
+                uint32_t rd = params.data_proc_psr_transf.rd;
+                uint32_t rn = params.data_proc_psr_transf.rn;
+                uint32_t shiftAmount, shiftType, rm, rs, imm;
+                bool shiftByReg = params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
+
+                ss << idStr;
+
+                if (params.data_proc_psr_transf.i) {
+                    if (!hasRN) {
+                        ss << " r" << rd << ", 0x" << std::hex << imm;
+
+                        if (shiftByReg)
+                            ss << "<<r" << std::dec << rs;
+                        else if (shiftAmount > 0)
+                            ss << "<<" << std::dec << shiftAmount;
+                    } else {
+                        ss << " r" << rd << ", r" << rn << ", 0x" << std::hex << imm;
+
+                        if (shiftByReg)
+                            ss << "<<r" << std::dec << rs;
+                        else if (shiftAmount > 0)
+                            ss << "<<" << std::dec << shiftAmount;
+                    }
+                } else {
+                    ss << " r" << std::dec << rd;
+
+                    if (!hasRN) {
+                        ss << ", r" << rm;
+
+                        if (shiftByReg)
+                            ss << "<<r" << std::dec << rs;
+                        else if (shiftAmount > 0)
+                            ss << "<<" << std::dec << shiftAmount;
+                    } else {
+                        ss << ", r" << rn << ", r" << rm;
+
+                        if (shiftByReg)
+                            ss << "<<r" << rs;
+                        else if (shiftAmount > 0)
+                            ss << std::hex << "<<" << shiftAmount;
+                    }
+                }
+            } else if (id == ARMInstructionID::MUL) {
+                ss << "MUL r" << params.mul_acc.rd << ", r" <<
+                    params.mul_acc.rs << ", r" << params.mul_acc.rm;
+            } else if (id == ARMInstructionID::MLA) {
+                ss << "MLA r" << params.mul_acc.rd << ", r" << params.mul_acc.rn << ", r" <<
+                    params.mul_acc.rs << ", r" << params.mul_acc.rm;
+            } else
                 ss << instructionIDToString(id);
 
             return ss.str();
@@ -276,7 +326,7 @@ namespace gbaemu
                 instruction.cat = ARMInstructionCategory::DATA_PROC_PSR_TRANSF;
 
                 uint32_t opCode = (lastInst >> 21) & 0x0F;
-                bool i = lastInst & (1 << 25);
+                bool i = (lastInst >> 25) & 1;//lastInst & (1 << 25);
                 bool s = lastInst & (1 << 20);
 
                 instruction.params.data_proc_psr_transf.opCode = opCode;

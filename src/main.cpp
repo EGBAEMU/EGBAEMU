@@ -51,11 +51,19 @@ int main(int argc, const char **argv)
         cpu.step();
      */
 
-    for (size_t i = 0; i < 0x100 + 16; ++i) {
+    for (size_t i = 0x3B8 / 4; i < 0x420 / 4; ++i) {
         uint32_t bytes = cpu.state.memory.read32(i * 4);
 
+        auto b0 = cpu.state.memory.read8(i * 4);
+        auto b1 = cpu.state.memory.read8(i * 4 + 1);
+        auto b2 = cpu.state.memory.read8(i * 4 + 2);
+        auto b3 = cpu.state.memory.read8(i * 4 + 3);
+
         auto inst = armDecoder.decode(bytes).arm;
-        std::cout << std::hex << i * 4 << "    " << bytes << " -> " << inst.toString() << std::endl;
+        std::cout << std::hex << i * 4 << "    " <<
+            (uint32_t)b0 << " " << (uint32_t)b1 << " " << (uint32_t)b2 << " " << (uint32_t)b3 <<
+            " [" << bytes << "]" <<
+            " -> " << inst.toString() << std::endl;
     }
 
     return 0;
