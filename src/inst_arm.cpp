@@ -67,7 +67,10 @@ namespace gbaemu
             std::stringstream ss;
 
             if (cat == ARMInstructionCategory::DATA_PROC_PSR_TRANSF) {
+                /* TODO: probably not done */
                 bool hasRN = !(id == ARMInstructionID::MOV || id == ARMInstructionID::MVN);
+                bool hasRD = !(id == ARMInstructionID::TST || id == ARMInstructionID::TEQ ||
+                               id == ARMInstructionID::CMP || id == ARMInstructionID::CMN);
 
                 auto idStr = instructionIDToString(id);
                 uint32_t rd = params.data_proc_psr_transf.rd;
@@ -77,16 +80,19 @@ namespace gbaemu
 
                 ss << idStr;
 
+                if (hasRD)
+                    ss << " r" << rd;
+
                 if (params.data_proc_psr_transf.i) {
                     if (!hasRN) {
-                        ss << " r" << rd << ", 0x" << std::hex << imm;
+                        ss << " 0x" << std::hex << imm;
 
                         if (shiftByReg)
                             ss << "<<r" << std::dec << rs;
                         else if (shiftAmount > 0)
                             ss << "<<" << std::dec << shiftAmount;
                     } else {
-                        ss << " r" << rd << ", r" << rn << ", 0x" << std::hex << imm;
+                        ss << " r" << rn << " 0x" << std::hex << imm;
 
                         if (shiftByReg)
                             ss << "<<r" << std::dec << rs;
@@ -94,17 +100,15 @@ namespace gbaemu
                             ss << "<<" << std::dec << shiftAmount;
                     }
                 } else {
-                    ss << " r" << std::dec << rd;
-
                     if (!hasRN) {
-                        ss << ", r" << rm;
+                        ss << " r" << rm;
 
                         if (shiftByReg)
                             ss << "<<r" << std::dec << rs;
                         else if (shiftAmount > 0)
                             ss << "<<" << std::dec << shiftAmount;
                     } else {
-                        ss << ", r" << rn << ", r" << rm;
+                        ss << " r" << rn << " r" << rm;
 
                         if (shiftByReg)
                             ss << "<<r" << rs;
@@ -112,12 +116,25 @@ namespace gbaemu
                             ss << std::hex << "<<" << shiftAmount;
                     }
                 }
+            } else if (cat == ARMInstructionCategory::MUL_ACC) {
+                ss << instructionIDToString(id) <<
+                    " r" << params.mul_acc.rd <<
+                    " r" << params.mul_acc.rm <<
+                    " r" << params.mul_acc.rs;
+
+                    if (params.mul_acc.a)
+                        ss << " r" << params.mul_acc.rn;
+            } else if (cat == ARMInstructionCategory::MUL_ACC_LONG) {
+                ss << instructionIDToString(id);
             } else if (id == ARMInstructionID::MUL) {
-                ss << "MUL r" << params.mul_acc.rd << ", r" <<
-                    params.mul_acc.rs << ", r" << params.mul_acc.rm;
+                ss << "MUL r" << params.mul_acc.rd << " r" <<
+                    params.mul_acc.rs << " r" << params.mul_acc.rm;
             } else if (id == ARMInstructionID::MLA) {
-                ss << "MLA r" << params.mul_acc.rd << ", r" << params.mul_acc.rn << ", r" <<
-                    params.mul_acc.rs << ", r" << params.mul_acc.rm;
+                ss << "MLA r" << params.mul_acc.rd << " r" << params.mul_acc.rn << " r" <<
+                    params.mul_acc.rs << " r" << params.mul_acc.rm;
+            } else if (id == ARMInstructionID::B) {
+                /* TODO: offset not correct */
+                ss << "B" << (params.branch.l ? "L" : "") << " " << std::hex << params.branch.offset * 4;
             } else
                 ss << instructionIDToString(id);
 

@@ -252,24 +252,6 @@ namespace gbaemu
             }
         }
 
-        void dataProcExtractOperand2Register(uint32_t op2, uint32_t& shiftType, uint32_t& rmValue, uint32_t& shiftAmount) {
-            bool shiftByRegister = (op2 >> 4) & 1;
-            shiftType = (op2 >> 5) & 0b11;
-            rmValue = *state.getCurrentRegs()[op2 & 0xF];
-
-            if (shiftByRegister) {
-                uint32_t rs = (op2 >> 8) & 0xF;
-                shiftAmount = *state.getCurrentRegs()[rs];
-            } else {
-                shiftAmount = (op2 >> 7) & 0xF;
-            }
-        }
-
-        void dataProcExtractOperand2Immediate(uint32_t op2, uint32_t& shiftAmount, uint32_t& immediate) {
-            shiftAmount = ((op2 >> 8) & 0xF) * 2;
-            immediate = op2 & 0xFF;
-        }
-
         void execMOV(arm::ARMInstruction& inst)
         {
             auto currentRegs = state.getCurrentRegs();
