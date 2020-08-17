@@ -28,7 +28,7 @@ int main(int argc, const char **argv)
     gbaemu::arm::ARMInstructionDecoder armDecoder;
     gbaemu::thumb::ThumbInstructionDecoder thumbDecoder;
     cpu.state.decoder = &armDecoder;
-    cpu.state.memory.loadROM(reinterpret_cast<uint8_t*>(buf.data()), buf.size());
+    cpu.state.memory.loadROM(reinterpret_cast<uint8_t *>(buf.data()), buf.size());
     //TODO are there conventions about inital reg values?
     cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = 0x204;
 
@@ -51,6 +51,22 @@ int main(int argc, const char **argv)
         cpu.step();
      */
 
+    std::cout << "Game Title: ";
+    for (size_t i = 0; i < 12; ++i) {
+        std::cout << static_cast<char>(cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0A0 + i));
+    }
+    std::cout << std::endl;
+    std::cout << "Game Code: ";
+    for (size_t i = 0; i < 4; ++i) {
+        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0AC + i) << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "Maker Code: ";
+    for (size_t i = 0; i < 2; ++i) {
+        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0B0 + i) << " ";
+    }
+    std::cout << std::endl;
+
     for (size_t i = 0x3B8 / 4; i < 0x420 / 4; ++i) {
         uint32_t bytes = cpu.state.memory.read32(gbaemu::Memory::EXT_ROM_OFFSET + i * 4);
 
@@ -60,10 +76,8 @@ int main(int argc, const char **argv)
         auto b3 = cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + i * 4 + 3);
 
         auto inst = armDecoder.decode(bytes).arm;
-        std::cout << std::hex << i * 4 << "    " <<
-            (uint32_t)b0 << " " << (uint32_t)b1 << " " << (uint32_t)b2 << " " << (uint32_t)b3 <<
-            " [" << bytes << "]" <<
-            " -> " << inst.toString() << std::endl;
+        std::cout << std::hex << i * 4 << "    " << (uint32_t)b0 << " " << (uint32_t)b1 << " " << (uint32_t)b2 << " " << (uint32_t)b3 << " [" << bytes << "]"
+                  << " -> " << inst.toString() << std::endl;
     }
 
     return 0;
