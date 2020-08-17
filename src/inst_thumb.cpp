@@ -13,10 +13,31 @@ namespace gbaemu
             ThumbInstruction instruction;
             instruction.id = ThumbInstructionID::INVALID;
 
-            //TODO this order is broken!!! We need to find a correct one
-            //TODO i.e. ADD_SUB needs to be parsed before MOV_SHIFT
-            //TODO i.e. SOFTWARE_INTERRUPT needs to be parsed before CONDITIONAL_BRANCH
-            if ((lastInst & MASK_THUMB_MOV_SHIFT) == VAL_THUMB_MOV_SHIFT) {
+            if ((lastInst & MASK_THUMB_ADD_SUB) == VAL_THUMB_ADD_SUB) {
+
+                instruction.cat = ThumbInstructionCategory::ADD_SUB;
+
+                uint8_t opCode = (lastInst >> 9) & 0x3;
+
+                instruction.params.add_sub.rd = lastInst & 0x7;
+                instruction.params.add_sub.rs = (lastInst >> 3) & 0x7;
+                instruction.params.add_sub.rn_offset = (lastInst >> 6) & 0x7;
+
+                switch (opCode) {
+                    case 0b00:
+                        instruction.id = ThumbInstructionID::ADD;
+                        break;
+                    case 0b01:
+                        instruction.id = ThumbInstructionID::SUB;
+                        break;
+                    case 0b10:
+                        instruction.id = ThumbInstructionID::ADD_SHORT_IMM;
+                        break;
+                    case 0b11:
+                        instruction.id = ThumbInstructionID::SUB_SHORT_IMM;
+                        break;
+                }
+            } else if ((lastInst & MASK_THUMB_MOV_SHIFT) == VAL_THUMB_MOV_SHIFT) {
 
                 instruction.cat = ThumbInstructionCategory::MOV_SHIFT;
 
@@ -39,30 +60,6 @@ namespace gbaemu
 
                     // This case belongs to ADD_SUB
                     case 0b11:
-                        break;
-                }
-            } else if ((lastInst & MASK_THUMB_ADD_SUB) == VAL_THUMB_ADD_SUB) {
-
-                instruction.cat = ThumbInstructionCategory::ADD_SUB;
-
-                uint8_t opCode = (lastInst >> 9) & 0x3;
-
-                instruction.params.add_sub.rd = lastInst & 0x7;
-                instruction.params.add_sub.rs = (lastInst >> 3) & 0x7;
-                instruction.params.add_sub.rn_offset = (lastInst >> 6) & 0x7;
-
-                switch (opCode) {
-                    case 0b00:
-                        instruction.id = ThumbInstructionID::ADD;
-                        break;
-                    case 0b01:
-                        instruction.id = ThumbInstructionID::SUB;
-                        break;
-                    case 0b10:
-                        instruction.id = ThumbInstructionID::ADD_SHORT_IMM;
-                        break;
-                    case 0b11:
-                        instruction.id = ThumbInstructionID::SUB_SHORT_IMM;
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_MOV_CMP_ADD_SUB_IMM) == VAL_THUMB_MOV_CMP_ADD_SUB_IMM) {
@@ -88,7 +85,6 @@ namespace gbaemu
                         instruction.id = ThumbInstructionID::SUB;
                         break;
                 }
-
             } else if ((lastInst & MASK_THUMB_ALU_OP) == VAL_THUMB_ALU_OP) {
 
                 instruction.cat = ThumbInstructionCategory::ALU_OP;
@@ -191,7 +187,6 @@ namespace gbaemu
 
                 instruction.params.pc_ld.offset = lastInst & 0x0FF;
                 instruction.params.pc_ld.rd = (lastInst >> 8) & 0x7;
-
             } else if ((lastInst & MASK_THUMB_LD_ST_REL_OFF) == VAL_THUMB_LD_ST_REL_OFF) {
 
                 instruction.cat = ThumbInstructionCategory::LD_ST_REL_OFF;
@@ -217,7 +212,6 @@ namespace gbaemu
                         instruction.id = ThumbInstructionID::LDRB;
                         break;
                 }
-
             } else if ((lastInst & MASK_THUMB_LD_ST_SIGN_EXT) == VAL_THUMB_LD_ST_SIGN_EXT) {
 
                 instruction.cat = ThumbInstructionCategory::LD_ST_SIGN_EXT;
@@ -268,7 +262,6 @@ namespace gbaemu
                         instruction.id = ThumbInstructionID::LDRB;
                         break;
                 }
-
             } else if ((lastInst & MASK_THUMB_LD_ST_HW) == VAL_THUMB_LD_ST_HW) {
 
                 instruction.cat = ThumbInstructionCategory::LD_ST_HW;
@@ -284,7 +277,6 @@ namespace gbaemu
                 } else {
                     instruction.id = ThumbInstructionID::STRH;
                 }
-
             } else if ((lastInst & MASK_THUMB_LD_ST_REL_SP) == VAL_THUMB_LD_ST_REL_SP) {
 
                 instruction.cat = ThumbInstructionCategory::LD_ST_REL_SP;
@@ -299,7 +291,6 @@ namespace gbaemu
                 } else {
                     instruction.id = ThumbInstructionID::STR;
                 }
-
             } else if ((lastInst & MASK_THUMB_LOAD_ADDR) == VAL_THUMB_LOAD_ADDR) {
 
                 instruction.cat = ThumbInstructionCategory::LOAD_ADDR;
@@ -310,7 +301,6 @@ namespace gbaemu
                 instruction.params.load_addr.rd = (lastInst >> 8) & 0x7;
 
                 instruction.id = ThumbInstructionID::ADD;
-
             } else if ((lastInst & MASK_THUMB_ADD_OFFSET_TO_STACK_PTR) == VAL_THUMB_ADD_OFFSET_TO_STACK_PTR) {
 
                 instruction.cat = ThumbInstructionCategory::ADD_OFFSET_TO_STACK_PTR;
@@ -320,7 +310,6 @@ namespace gbaemu
                 instruction.params.add_offset_to_stack_ptr.offset = lastInst & 0x7F;
 
                 instruction.id = ThumbInstructionID::ADD;
-
             } else if ((lastInst & MASK_THUMB_PUSH_POP_REG) == VAL_THUMB_PUSH_POP_REG) {
 
                 instruction.cat = ThumbInstructionCategory::PUSH_POP_REG;
@@ -336,7 +325,6 @@ namespace gbaemu
                 } else {
                     instruction.id = ThumbInstructionID::PUSH;
                 }
-
             } else if ((lastInst & MASK_THUMB_MULT_LOAD_STORE) == VAL_THUMB_MULT_LOAD_STORE) {
 
                 instruction.cat = ThumbInstructionCategory::MULT_LOAD_STORE;
@@ -351,7 +339,12 @@ namespace gbaemu
                 } else {
                     instruction.id = ThumbInstructionID::STMIA;
                 }
+            } else if ((lastInst & MASK_THUMB_SOFTWARE_INTERRUPT) == VAL_THUMB_SOFTWARE_INTERRUPT) {
 
+                instruction.cat = ThumbInstructionCategory::SOFTWARE_INTERRUPT;
+
+                instruction.id = ThumbInstructionID::SWI;
+                instruction.params.software_interrupt.comment = lastInst & 0x0FF;
             } else if ((lastInst & MASK_THUMB_COND_BRANCH) == VAL_THUMB_COND_BRANCH) {
 
                 instruction.cat = ThumbInstructionCategory::COND_BRANCH;
@@ -412,14 +405,6 @@ namespace gbaemu
                     case 0b1111:
                         break;
                 }
-
-            } else if ((lastInst & MASK_THUMB_SOFTWARE_INTERRUPT) == VAL_THUMB_SOFTWARE_INTERRUPT) {
-
-                instruction.cat = ThumbInstructionCategory::SOFTWARE_INTERRUPT;
-
-                instruction.id = ThumbInstructionID::SWI;
-                instruction.params.software_interrupt.comment = lastInst & 0x0FF;
-
             } else if ((lastInst & MASK_THUMB_UNCONDITIONAL_BRANCH) == VAL_THUMB_UNCONDITIONAL_BRANCH) {
 
                 instruction.cat = ThumbInstructionCategory::UNCONDITIONAL_BRANCH;
@@ -429,7 +414,6 @@ namespace gbaemu
                 // first we extract the 11 bit offset, then we place it at the MSB so we can automatically sign extend it after casting to a signed type
                 // finally shift back where it came from but this time with correct sign
                 instruction.params.unconditional_branch.offset = static_cast<int16_t>((lastInst & 0x07FF) << 5) >> 5;
-
             } else if ((lastInst & MASK_THUMB_LONG_BRANCH_WITH_LINK) == VAL_THUMB_LONG_BRANCH_WITH_LINK) {
 
                 instruction.cat = ThumbInstructionCategory::LONG_BRANCH_WITH_LINK;
@@ -460,6 +444,6 @@ Using only the 2nd half of BL as "BL LR+imm" is possible (for example, Mario Gol
 
             return Instruction::fromThumb(instruction);
         }
-        
+
     } // namespace thumb
 } // namespace gbaemu
