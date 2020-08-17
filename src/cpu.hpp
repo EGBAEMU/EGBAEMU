@@ -157,7 +157,7 @@ namespace gbaemu
             uint32_t pc = state.getCurrentPC();
 
             // If link is set, R14 will receive the address of the next instruction to be executed. So if we are
-            // jumping but want to remeber where to return to after the subroutine finished that might be usefull.
+            // jumping but want to remember where to return to after the subroutine finished that might be usefull.
             if (link) {
                 // Next instruction should be at: PC - 4
                 state.accessReg(regs::LR_OFFSET) = (pc - 4);
