@@ -88,8 +88,8 @@ namespace gbaemu
 
         Memory memory;
 
-        // Inidcates if the execute stage processed an branch instruction and changed the pc
-        bool branchOccured = false;
+        // Indicates if the execute stage processed an branch instruction and changed the pc
+        bool branchOccurred = false;
 
         const InstructionDecoder *decoder;
 
