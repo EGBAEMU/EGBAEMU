@@ -279,10 +279,126 @@ namespace gbaemu
         {
             //TODO implement
         }
+
+        /*
+        HuffUnCompReadNormal - SWI 13h (GBA)
+        HuffUnCompReadByCallback - SWI 13h (NDS/DSi)
+        The decoder starts in root node, the separate bits in the bitstream specify if the next node is node0 or node1, if that node is a data node, then the data is stored in memory, and the decoder is reset to the root node. The most often used data should be as close to the root node as possible. For example, the 4-byte string "Huff" could be compressed to 6 bits: 10-11-0-0, with root.0 pointing directly to data "f", and root.1 pointing to a child node, whose nodes point to data "H" and data "u".
+        Data is written in units of 32bits, if the size of the compressed data is not a multiple of 4, please adjust it as much as possible by padding with 0.
+        Align the source address to a 4Byte boundary.
+          r0  Source Address, aligned by 4, pointing to:
+               Data Header (32bit)
+                 Bit0-3   Data size in bit units (normally 4 or 8)
+                 Bit4-7   Compressed type (must be 2 for Huffman)
+                 Bit8-31  24bit size of decompressed data in bytes
+               Tree Size (8bit)
+                 Bit0-7   Size of Tree Table/2-1 (ie. Offset to Compressed Bitstream)
+               Tree Table (list of 8bit nodes, starting with the root node)
+                Root Node and Non-Data-Child Nodes are:
+                 Bit0-5   Offset to next child node,
+                          Next child node0 is at (CurrentAddr AND NOT 1)+Offset*2+2
+                          Next child node1 is at (CurrentAddr AND NOT 1)+Offset*2+2+1
+                 Bit6     Node1 End Flag (1=Next child node is data)
+                 Bit7     Node0 End Flag (1=Next child node is data)
+                Data nodes are (when End Flag was set in parent node):
+                 Bit0-7   Data (upper bits should be zero if Data Size is less than 8)
+               Compressed Bitstream (stored in units of 32bits)
+                 Bit0-31  Node Bits (Bit31=First Bit)  (0=Node0, 1=Node1)
+          r1  Destination Address
+          r2  Callback temp buffer      ;\for NDS/DSi "ReadByCallback" variants only
+          r3  Callback structure        ;/(see Callback notes below)
+        Return: No return value, Data written to destination address.
+        */
         void huffUnComp(CPUState *state)
         {
-            //TODO implement
+            const auto currentRegs = state->getCurrentRegs();
+            uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
+            uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
+
+            uint32_t dataHeader = state->memory.read32(sourceAddr);
+            sourceAddr += 4;
+
+            uint32_t decompressedBits = ((dataHeader >> 8) & 0x00FFFFFF) * 8;
+            //TODO do we need to add 1 for the correct size, else are 16bit data impossible and 0 bit data does not make sense
+            const uint8_t dataSize = dataHeader & 0x0F;
+
+            // data size should be a multiple of 4
+            if (dataSize % 4) {
+                std::cerr << "WARNING: huffman decompression data is not a multiple of 4 bit! PLS try to add 1 to the dataSize." << std::endl;
+            }
+
+            const uint8_t compressedType = (dataHeader >> 4) & 0x0F;
+
+            // Value should be 2 for huffman
+            if (compressedType != 2) {
+                std::cerr << "ERROR: Invalid call of huffUnComp!" << std::endl;
+                return;
+            }
+
+            uint8_t treeSize = state->memory.read8(sourceAddr);
+            sourceAddr += 1;
+
+            const uint32_t treeRoot = sourceAddr;
+            sourceAddr += treeSize;
+
+            // data is should be written in 32 bit batches, therefore we have to buffer the decompressed data and keep track of the left space
+            uint32_t writeBuf = 0;
+            uint8_t writeBufOffset = 0;
+
+            // as bits needed for decompressions varies we need to keep track of bits left in the read buffer
+            uint32_t readBuf = state->memory.read32(sourceAddr);
+            sourceAddr += 4;
+            uint8_t readBufBitsLeft = 32;
+
+            //TODO do we need to fix things if 32 % dataSize != 0?
+            if (32 % dataSize) {
+                std::cerr << "WARNING: decompressed huffman data might be misaligned, if not pls remove this warning and if so, well FML!" << std::endl;
+            }
+
+            for (; decompressedBits > 0; decompressedBits -= dataSize) {
+                uint32_t currentParsingAddr = treeRoot;
+                bool isDataNode = false;
+
+                // Bit wise tree walk
+                for (;;) {
+                    uint8_t node = state->memory.read8(currentParsingAddr);
+
+                    if (isDataNode) {
+                        writeBuf |= (static_cast<uint32_t>(node) << writeBufOffset);
+                        writeBufOffset += dataSize;
+                        break;
+                    }
+
+                    // We have a parent node so lets check for the next node and if it is a data node
+                    uint8_t offset = node & 0x1F;
+                    bool isNode1EndFlag = (node >> 6) & 0x1;
+                    bool isNode0EndFlag = (node >> 7) & 0x1;
+                    --readBufBitsLeft;
+                    bool decompressBit = (readBuf >> readBufBitsLeft) & 0x1;
+
+                    isDataNode = decompressBit ? isNode1EndFlag : isNode0EndFlag;
+                    //TODO pretty sure this calculation of the next node is wrong...
+                    currentParsingAddr = (currentParsingAddr & (~static_cast<uint32_t>(1))) + static_cast<uint32_t>(offset) * 2 + (decompressBit ? 3 : 2);
+
+                    // Fill empty read buffer again
+                    if (readBufBitsLeft == 0) {
+                        readBuf = state->memory.read32(sourceAddr);
+                        sourceAddr += 4;
+                        readBufBitsLeft = 32;
+                    }
+                }
+
+                // Is there is no more space left for decompressed data or we are done decompressing(only dataSize bits left) then we have to flush our buffer
+                if (writeBufOffset + dataSize > 32 || decompressedBits == dataSize) {
+                    state->memory.write32(destAddr, writeBuf);
+                    destAddr += 4;
+                    // Reset buf state
+                    writeBufOffset = 0;
+                    writeBuf = 0;
+                }
+            }
         }
+
         void RLUnCompWRAM(CPUState *state)
         {
             //TODO implement
@@ -292,18 +408,69 @@ namespace gbaemu
             //TODO implement
         }
 
+        /*
+        Diff8bitUnFilterWrite8bit (Wram) - SWI 16h (GBA/NDS9/DSi9)
+        Diff8bitUnFilterWrite16bit (Vram) - SWI 17h (GBA)
+        Diff16bitUnFilter - SWI 18h (GBA/NDS9/DSi9)
+        These aren't actually real decompression functions, destination data will have exactly the same size as source data. However, assume a bitmap or wave form to contain a stream of increasing numbers such like 10..19, the filtered/unfiltered data would be:
+          unfiltered:   10  11  12  13  14  15  16  17  18  19
+          filtered:     10  +1  +1  +1  +1  +1  +1  +1  +1  +1
+        In this case using filtered data (combined with actual compression algorithms) will obviously produce better compression results.
+        Data units may be either 8bit or 16bit used with Diff8bit or Diff16bit functions respectively.
+          r0  Source address (must be aligned by 4) pointing to data as follows:
+               Data Header (32bit)
+                 Bit 0-3   Data size (must be 1 for Diff8bit, 2 for Diff16bit)
+                 Bit 4-7   Type (must be 8 for DiffFiltered)
+                 Bit 8-31  24bit size after decompression
+               Data Units (each 8bit or 16bit depending on used SWI function)
+                 Data0          ;original data
+                 Data1-Data0    ;difference data
+                 Data2-Data1    ;...
+                 Data3-Data2
+                 ...
+          r1  Destination address
+        Return: No return value, Data written to destination address.
+        */
+        static void _diffUnFilter(CPUState *state, bool bits8)
+        {
+            const auto currentRegs = state->getCurrentRegs();
+            uint32_t srcAddr = *currentRegs[regs::R0_OFFSET];
+            uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
+
+            uint32_t info = state->memory.read32(srcAddr);
+            srcAddr += 4;
+
+            //TODO not sure if we need those... maybe for sanity checks
+            /*uint8_t dataSize = info & 0x0F;
+            uint8_t type = (info >> 4) & 0x0F;*/
+
+            uint32_t size = (info >> 8) & 0x00FFFFFF;
+
+            uint8_t addressInc = bits8 ? 1 : 2;
+
+            uint16_t current = 0;
+            do {
+                uint16_t diff = bits8 ? state->memory.read8(srcAddr) : state->memory.read16(srcAddr);
+                current += diff;
+                bits8 ? state->memory.write8(destAddr, static_cast<uint8_t>(current & 0x0FF)) : state->memory.write16(srcAddr, current);
+                destAddr += addressInc;
+                srcAddr += addressInc;
+            } while (--size);
+        }
+
         void diff8BitUnFilterWRAM(CPUState *state)
         {
-            //TODO implement
+            _diffUnFilter(state, true);
         }
         void diff8BitUnFilterVRAM(CPUState *state)
         {
-            //TODO implement
+            _diffUnFilter(state, true);
         }
         void diff16BitUnFilter(CPUState *state)
         {
-            //TODO implement
+            _diffUnFilter(state, false);
         }
+
         void soundBiasChange(CPUState *state)
         {
             //TODO implement
