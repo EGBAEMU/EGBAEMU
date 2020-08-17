@@ -7,6 +7,72 @@ namespace gbaemu
 
     namespace thumb
     {
+#define STRINGIFY_ID(x) \
+    case x:             \
+        return (#x)
+
+        const char *instructionIDToString(ThumbInstructionID id)
+        {
+            switch (id) {
+                STRINGIFY_ID(MVN);
+                STRINGIFY_ID(AND);
+                STRINGIFY_ID(TST);
+                STRINGIFY_ID(BIC);
+                STRINGIFY_ID(ORR);
+                STRINGIFY_ID(EOR);
+                STRINGIFY_ID(LSL);
+                STRINGIFY_ID(LSR);
+                STRINGIFY_ID(ASR);
+                STRINGIFY_ID(ROR);
+                STRINGIFY_ID(NOP);
+                STRINGIFY_ID(ADC);
+                STRINGIFY_ID(ADD);
+                STRINGIFY_ID(ADD_SHORT_IMM);
+                STRINGIFY_ID(SUB);
+                STRINGIFY_ID(SUB_SHORT_IMM);
+                STRINGIFY_ID(MOV);
+                STRINGIFY_ID(CMP);
+                STRINGIFY_ID(SBC);
+                STRINGIFY_ID(NEG);
+                STRINGIFY_ID(CMN);
+                STRINGIFY_ID(MUL);
+                STRINGIFY_ID(BX);
+                STRINGIFY_ID(BLX);
+                STRINGIFY_ID(POP);
+                STRINGIFY_ID(LDR);
+                STRINGIFY_ID(LDRB);
+                STRINGIFY_ID(LDRH);
+                STRINGIFY_ID(LDSB);
+                STRINGIFY_ID(LDSH);
+                STRINGIFY_ID(STR);
+                STRINGIFY_ID(STRB);
+                STRINGIFY_ID(STRH);
+                STRINGIFY_ID(PUSH);
+                STRINGIFY_ID(STMIA);
+                STRINGIFY_ID(LDMIA);
+                /*
+                STRINGIFY_ID(BEQ);
+                STRINGIFY_ID(BNE);
+                STRINGIFY_ID(BCS_BHS);
+                STRINGIFY_ID(BCC_BLO);
+                STRINGIFY_ID(BMI);
+                STRINGIFY_ID(BPL);
+                STRINGIFY_ID(BVS);
+                STRINGIFY_ID(BVC);
+                STRINGIFY_ID(BHI);
+                STRINGIFY_ID(BLS);
+                STRINGIFY_ID(BGE);
+                STRINGIFY_ID(BLT);
+                STRINGIFY_ID(BGT);
+                STRINGIFY_ID(BLE);
+                */
+                STRINGIFY_ID(SWI);
+                STRINGIFY_ID(B);
+                STRINGIFY_ID(INVALID);
+            }
+
+            return "NULL";
+        }
 
         Instruction ThumbInstructionDecoder::decode(uint32_t lastInst) const
         {
@@ -353,6 +419,7 @@ namespace gbaemu
                 instruction.params.cond_branch.cond = cond;
                 instruction.params.cond_branch.offset = static_cast<int8_t>(lastInst & 0x0FF);
 
+                /*
                 switch (cond) {
                     case 0b0000:
                         instruction.id = ThumbInstructionID::BEQ;
@@ -405,6 +472,9 @@ namespace gbaemu
                     case 0b1111:
                         break;
                 }
+                */
+                instruction.id = ThumbInstructionID::B;
+
             } else if ((lastInst & MASK_THUMB_UNCONDITIONAL_BRANCH) == VAL_THUMB_UNCONDITIONAL_BRANCH) {
 
                 instruction.cat = ThumbInstructionCategory::UNCONDITIONAL_BRANCH;

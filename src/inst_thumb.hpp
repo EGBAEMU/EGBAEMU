@@ -11,6 +11,8 @@ namespace gbaemu
     namespace thumb
     {
 
+        const char *instructionIDToString(ThumbInstructionID id);
+
         // THUMB INSTRUCTION SET
 
         // Move shifted register
