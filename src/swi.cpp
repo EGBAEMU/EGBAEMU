@@ -153,8 +153,8 @@ namespace gbaemu
         void cpuFastSet(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
-            uint8_t *sourceAddr = *currentRegs[regs::R0_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
-            uint8_t *destAddr = *currentRegs[regs::R1_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
+            uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET]);
+            uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET]);
             uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
 
             uint32_t length = length_mode & 0x001FFFFF;
@@ -192,8 +192,8 @@ namespace gbaemu
         void cpuSet(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
-            uint8_t *sourceAddr = *currentRegs[regs::R0_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
-            uint8_t *destAddr = *currentRegs[regs::R1_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
+            uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET]);
+            uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET]);
             uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
 
             uint32_t length = length_mode & 0x001FFFFF;
@@ -257,8 +257,8 @@ namespace gbaemu
         void bitUnPack(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
-            uint8_t *sourceAddr = *currentRegs[regs::R0_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
-            uint8_t *destAddr = *currentRegs[regs::R1_OFFSET] + reinterpret_cast<uint8_t *>(state->memory.buf);
+            uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET]);
+            uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET]);
             uint32_t unpackFormatPtr = *currentRegs[regs::R2_OFFSET];
 
             uint16_t srcByteCount = state->memory.read16(unpackFormatPtr);

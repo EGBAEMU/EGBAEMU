@@ -86,17 +86,10 @@ namespace gbaemu
         */
         } pipeline;
 
-        /* memory */
-        /*
-        struct {
-            void *mem;
-            size_t memSize;
-        } memory;
-         */
         Memory memory;
 
-        // Inidcates if the execute stage processed an branch instruction and changed the pc
-        bool branchOccured = false;
+        // Indicates if the execute stage processed an branch instruction and changed the pc
+        bool branchOccurred = false;
 
         const InstructionDecoder *decoder;
 

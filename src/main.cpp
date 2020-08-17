@@ -28,7 +28,7 @@ int main(int argc, const char **argv)
     gbaemu::arm::ARMInstructionDecoder armDecoder;
     gbaemu::thumb::ThumbInstructionDecoder thumbDecoder;
     cpu.state.decoder = &armDecoder;
-    cpu.state.memory = gbaemu::Memory(buf.data(), buf.size());
+    cpu.state.memory.loadROM(reinterpret_cast<uint8_t*>(buf.data()), buf.size());
     //TODO are there conventions about inital reg values?
     cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = 0x204;
 

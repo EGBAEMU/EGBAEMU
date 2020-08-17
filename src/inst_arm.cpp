@@ -8,93 +8,55 @@ namespace gbaemu
     namespace arm
     {
 
+#define STRINGIFY_ID(x) \
+    case x:             \
+        return (#x)
+
         const char *instructionIDToString(ARMInstructionID id)
         {
             switch (id) {
-                case ADC:
-                    return "ADC";
-                case ADD:
-                    return "ADD";
-                case AND:
-                    return "AND";
-                case B:
-                    return "B";
-                case BIC:
-                    return "BIC";
-                case BX:
-                    return "BX";
-                case CMN:
-                    return "CMN";
-                case CMP:
-                    return "CMP";
-                case EOR:
-                    return "EOR";
-                case LDM:
-                    return "LDM";
-                case LDR:
-                    return "LDR";
-                case LDRB:
-                    return "LDRB";
-                case LDRH:
-                    return "LDRH";
-                case LDRSB:
-                    return "LDRSB";
-                case LDRSH:
-                    return "LDRSH";
-                case LDRD:
-                    return "LDRD";
-                case MLA:
-                    return "MLA";
-                case MOV:
-                    return "MOV";
-                case MRS:
-                    return "MRS";
-                case MSR:
-                    return "MSR";
-                case MUL:
-                    return "MUL";
-                case MVN:
-                    return "MVN";
-                case ORR:
-                    return "ORR";
-                case RSB:
-                    return "RSB";
-                case RSC:
-                    return "RSC";
-                case SBC:
-                    return "SBC";
-                case SMLAL:
-                    return "SMLAL";
-                case SMULL:
-                    return "SMULL";
-                case STM:
-                    return "STM";
-                case STR:
-                    return "STR";
-                case STRB:
-                    return "STRB";
-                case STRH:
-                    return "STRH";
-                case STRD:
-                    return "STRD";
-                case SUB:
-                    return "SUB";
-                case SWI:
-                    return "SWI";
-                case SWP:
-                    return "SWP";
-                case SWPB:
-                    return "SWPB";
-                case TEQ:
-                    return "TEQ";
-                case TST:
-                    return "TST";
-                case UMLAL:
-                    return "UMLAL";
-                case UMULL:
-                    return "UMULL";
-                case INVALID:
-                    return "INVALID";
+                STRINGIFY_ID(ADC);
+                STRINGIFY_ID(ADD);
+                STRINGIFY_ID(AND);
+                STRINGIFY_ID(B);
+                STRINGIFY_ID(BIC);
+                STRINGIFY_ID(BX);
+                STRINGIFY_ID(CMN);
+                STRINGIFY_ID(CMP);
+                STRINGIFY_ID(EOR);
+                STRINGIFY_ID(LDM);
+                STRINGIFY_ID(LDR);
+                STRINGIFY_ID(LDRB);
+                STRINGIFY_ID(LDRH);
+                STRINGIFY_ID(LDRSB);
+                STRINGIFY_ID(LDRSH);
+                STRINGIFY_ID(LDRD);
+                STRINGIFY_ID(MLA);
+                STRINGIFY_ID(MOV);
+                STRINGIFY_ID(MRS);
+                STRINGIFY_ID(MSR);
+                STRINGIFY_ID(MUL);
+                STRINGIFY_ID(MVN);
+                STRINGIFY_ID(ORR);
+                STRINGIFY_ID(RSB);
+                STRINGIFY_ID(RSC);
+                STRINGIFY_ID(SBC);
+                STRINGIFY_ID(SMLAL);
+                STRINGIFY_ID(SMULL);
+                STRINGIFY_ID(STM);
+                STRINGIFY_ID(STR);
+                STRINGIFY_ID(STRB);
+                STRINGIFY_ID(STRH);
+                STRINGIFY_ID(STRD);
+                STRINGIFY_ID(SUB);
+                STRINGIFY_ID(SWI);
+                STRINGIFY_ID(SWP);
+                STRINGIFY_ID(SWPB);
+                STRINGIFY_ID(TEQ);
+                STRINGIFY_ID(TST);
+                STRINGIFY_ID(UMLAL);
+                STRINGIFY_ID(UMULL);
+                STRINGIFY_ID(INVALID);
             }
 
             return "NULL";

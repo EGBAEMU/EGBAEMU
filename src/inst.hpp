@@ -241,6 +241,7 @@ namespace gbaemu
             PUSH,
             STMIA,
             LDMIA,
+            /*
             BEQ,
             BNE,
             BCS_BHS,
@@ -255,6 +256,7 @@ namespace gbaemu
             BLT,
             BGT,
             BLE,
+            */
             SWI,
             B,
             INVALID

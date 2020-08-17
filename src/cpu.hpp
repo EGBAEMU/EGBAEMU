@@ -57,6 +57,28 @@ namespace gbaemu
 
                         // prefer using switch to get warned if a category is not handled
                         switch (armInst.cat) {
+                            case arm::ARMInstructionCategory::MUL_ACC:
+                                break;
+                            case arm::ARMInstructionCategory::MUL_ACC_LONG:
+                                break;
+                            case arm::ARMInstructionCategory::BRANCH_XCHG:
+                                break;
+                            case arm::ARMInstructionCategory::DATA_SWP:
+                                break;
+                            case arm::ARMInstructionCategory::HW_TRANSF_REG_OFF:
+                                break;
+                            case arm::ARMInstructionCategory::HW_TRANSF_IMM_OFF:
+                                break;
+                            case arm::ARMInstructionCategory::SIGN_TRANSF:
+                                break;
+                            case arm::ARMInstructionCategory::DATA_PROC_PSR_TRANSF:
+                                break;
+                            case arm::ARMInstructionCategory::LS_REG_UBYTE:
+                                break;
+                            case arm::ARMInstructionCategory::BLOCK_DATA_TRANSF:
+                                break;
+                            case arm::ARMInstructionCategory::BRANCH:
+                                break;
 
                             case arm::ARMInstructionCategory::SOFTWARE_INTERRUPT:
                                 /*
@@ -75,6 +97,44 @@ namespace gbaemu
 
                     // prefer using switch to get warned if a category is not handled
                     switch (thumbInst.cat) {
+                        case thumb::ThumbInstructionCategory::MOV_SHIFT:
+                            break;
+                        case thumb::ThumbInstructionCategory::ADD_SUB:
+                            break;
+                        case thumb::ThumbInstructionCategory::MOV_CMP_ADD_SUB_IMM:
+                            break;
+                        case thumb::ThumbInstructionCategory::ALU_OP:
+                            break;
+                        case thumb::ThumbInstructionCategory::BR_XCHG:
+                            break;
+                        case thumb::ThumbInstructionCategory::PC_LD:
+                            break;
+                        case thumb::ThumbInstructionCategory::LD_ST_REL_OFF:
+                            break;
+                        case thumb::ThumbInstructionCategory::LD_ST_SIGN_EXT:
+                            break;
+                        case thumb::ThumbInstructionCategory::LD_ST_IMM_OFF:
+                            break;
+                        case thumb::ThumbInstructionCategory::LD_ST_HW:
+                            break;
+                        case thumb::ThumbInstructionCategory::LD_ST_REL_SP:
+                            break;
+                        case thumb::ThumbInstructionCategory::LOAD_ADDR:
+                            break;
+                        case thumb::ThumbInstructionCategory::ADD_OFFSET_TO_STACK_PTR:
+                            break;
+                        case thumb::ThumbInstructionCategory::PUSH_POP_REG:
+                            break;
+                        case thumb::ThumbInstructionCategory::MULT_LOAD_STORE:
+                            break;
+                        case thumb::ThumbInstructionCategory::COND_BRANCH:
+                            break;
+                        case thumb::ThumbInstructionCategory::SOFTWARE_INTERRUPT:
+                            break;
+                        case thumb::ThumbInstructionCategory::UNCONDITIONAL_BRANCH:
+                            break;
+                        case thumb::ThumbInstructionCategory::LONG_BRANCH_WITH_LINK:
+                            break;
                     }
                 }
             }
@@ -97,7 +157,7 @@ namespace gbaemu
             uint32_t pc = state.getCurrentPC();
 
             // If link is set, R14 will receive the address of the next instruction to be executed. So if we are
-            // jumping but want to remeber where to return to after the subroutine finished that might be usefull.
+            // jumping but want to remember where to return to after the subroutine finished that might be usefull.
             if (link) {
                 // Next instruction should be at: PC - 4
                 state.accessReg(regs::LR_OFFSET) = (pc - 4);
@@ -115,7 +175,7 @@ namespace gbaemu
 
             state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(pcSigned + offsetSigned);
 
-            state.branchOccured = true;
+            state.branchOccurred = true;
         }
 
         // Executes instructions belonging to the branch and execute subsection
@@ -134,7 +194,7 @@ namespace gbaemu
 
             // Change the PC to the address given by rm. Note that we have to mask out the thumb switch bit.
             state.accessReg(regs::PC_OFFSET) = rmValue & 0xFFFFFFFE;
-            state.branchOccured = true;
+            state.branchOccurred = true;
         }
 
         void handleBitClear(uint8_t rn, uint8_t rd, uint8_t shifterOperand)
