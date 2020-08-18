@@ -106,6 +106,17 @@ namespace gbaemu
             INVALID
         };
 
+        enum ShiftType : uint8_t {
+            /* logical shift left */
+            LSL = 0,
+            /* logical shift right */
+            LSR,
+            /* arithmetic shift right */
+            ASR,
+            /* circular shift right (wrap around) */
+            ROR
+        };
+
         class ARMInstruction
         {
           public:
@@ -160,16 +171,16 @@ namespace gbaemu
                     bool i, s;
                     uint32_t opCode, rn, rd, operand2;
 
-                    bool extractOperand2(uint32_t& shiftType, uint32_t& shiftAmount, uint32_t& rm, uint32_t& rs, uint32_t& imm) const {
+                    bool extractOperand2(ShiftType& shiftType, uint32_t& shiftAmount, uint32_t& rm, uint32_t& rs, uint32_t& imm) const {
                         bool shiftAmountFromReg = false;
 
                         if (i) {
                             /* ROR */
-                            shiftType = 0b11;
+                            shiftType = ShiftType::ROR;
                             imm = operand2 & 0xFF;
                             shiftAmount = ((operand2 >> 8) & 0xF) * 2;
                         } else {
-                            shiftType = (operand2 >> 5) & 0b11;
+                            shiftType = static_cast<ShiftType>((operand2 >> 5) & 0b11);
                             rm = operand2 & 0xF;
                             shiftAmountFromReg = (operand2 >> 4) & 1;
                         }

@@ -255,7 +255,8 @@ namespace gbaemu
         void execMOV(arm::ARMInstruction& inst)
         {
             auto currentRegs = state.getCurrentRegs();
-            uint32_t shiftAmount, shiftType, rm, rs, imm;
+            arm::ShiftType shiftType;
+            uint32_t shiftAmount, rm, rs, imm;
 
             bool shiftByReg = inst.params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
 
