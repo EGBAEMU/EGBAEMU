@@ -11,6 +11,14 @@ namespace gbaemu
 {
     namespace swi
     {
+        const char *swiToString(uint8_t index)
+        {
+            if (index < sizeof(biosCallHandlerStr) / sizeof(biosCallHandlerStr[0])) {
+                return biosCallHandlerStr[index];
+            } else {
+                return "INVALID";
+            }
+        }
 
         void softReset(CPUState *state)
         {

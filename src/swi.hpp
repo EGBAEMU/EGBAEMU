@@ -2,6 +2,7 @@
 #define SWI_HPP
 
 #include "cpu_state.hpp"
+#include "util.hpp"
 
 namespace gbaemu
 {
@@ -98,6 +99,53 @@ namespace gbaemu
             soundDriverVSyncOff,
             soundDriverVSyncOn,
             getJumpList};
+
+        const char *const biosCallHandlerStr[] = {
+            STRINGIFY(softReset),
+            STRINGIFY(registerRamReset),
+            STRINGIFY(halt),
+            STRINGIFY(stop),
+            STRINGIFY(intrWait),
+            STRINGIFY(vBlankIntrWait),
+            STRINGIFY(div),
+            STRINGIFY(divArm),
+            STRINGIFY(sqrt),
+            STRINGIFY(arcTan),
+            STRINGIFY(arcTan2),
+            STRINGIFY(cpuSet),
+            STRINGIFY(cpuFastSet),
+            STRINGIFY(biosChecksum),
+            STRINGIFY(bgAffineSet),
+            STRINGIFY(objAffineSet),
+            STRINGIFY(bitUnPack),
+            STRINGIFY(LZ77UnCompWRAM),
+            STRINGIFY(LZ77UnCompVRAM),
+            STRINGIFY(huffUnComp),
+            STRINGIFY(RLUnCompWRAM),
+            STRINGIFY(RLUnCompVRAM),
+            STRINGIFY(diff8BitUnFilterWRAM),
+            STRINGIFY(diff8BitUnFilterVRAM),
+            STRINGIFY(diff16BitUnFilter),
+            STRINGIFY(soundBiasChange),
+            STRINGIFY(soundDriverInit),
+            STRINGIFY(soundDriverMode),
+            STRINGIFY(soundDriverMain),
+            STRINGIFY(soundDriverVSync),
+            STRINGIFY(soundChannelClear),
+            STRINGIFY(MIDIKey2Freq),
+            STRINGIFY(musicPlayerOpen),
+            STRINGIFY(musicPlayerStart),
+            STRINGIFY(musicPlayerStop),
+            STRINGIFY(musicPlayerContinue),
+            STRINGIFY(musicPlayerFadeOut),
+            STRINGIFY(multiBoot),
+            STRINGIFY(hardReset),
+            STRINGIFY(customHalt),
+            STRINGIFY(soundDriverVSyncOff),
+            STRINGIFY(soundDriverVSyncOn),
+            STRINGIFY(getJumpList)};
+
+        const char *swiToString(uint8_t index);
     } // namespace swi
 } // namespace gbaemu
 
