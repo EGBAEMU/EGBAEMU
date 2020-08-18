@@ -1,5 +1,6 @@
 #include "swi.hpp"
 #include "regs.hpp"
+#include "math3d.hpp"
 
 #include <algorithm>
 #define _USE_MATH_DEFINES
@@ -283,15 +284,39 @@ namespace gbaemu
         void bgAffineSet(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
-            uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET]);
+            uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
             uint32_t iterationCount = *currentRegs[regs::R2_OFFSET];
 
-            while (--iterationCount) {
-            }
+            auto& m = state->memory;
 
-            //TODO implement
-            std::cout << "WARNING: bgAffineSet not yet implemented!" << std::endl;
+            for (size_t i = 0; i < iterationCount; ++i) {
+                common::math::mat<3, 3> scale {
+                    { m.read32(sourceAddr) / 256.f, 0, 0 },
+                    { 0, m.read32(sourceAddr + 4) / 256.f, 0 },
+                    { 0, 0, 1 }
+                };
+
+                uint32_t off = i * 20;
+                float ox = m.read32(off + sourceAddr) / 256.f;
+                float oy = m.read32(off + sourceAddr + 4) / 256.f;
+                float cx = m.read16(off + sourceAddr + 8);
+                float cy = m.read16(off + sourceAddr + 10);
+                float sx = m.read16(off + sourceAddr + 12) / 256.f;
+                float sy = m.read16(off + sourceAddr + 14) / 256.f;
+                float theta = (m.read32(sourceAddr + 16) >> 8) / 128.f * M_PI;
+
+                auto r = common::math::scale_matrix({sx, sy, 1}) *
+                    common::math::rotation_around_matrix(theta, {0, 0, 1}, {cx - ox, cy - oy, 1});
+
+                uint32_t dstOff = i * 16;
+                m.write16(dstOff + destAddr,      r[0][0] * 256);
+		        m.write16(dstOff + destAddr + 2,  r[0][1] * 256);
+		        m.write16(dstOff + destAddr + 4,  r[1][0] * 256);
+		        m.write16(dstOff + destAddr + 6,  r[1][1] * 256);
+		        m.write32(dstOff + destAddr + 8,  r[0][2] * 256);
+		        m.write32(dstOff + destAddr + 12, r[1][2] * 256);
+            }
         }
 
         /*
@@ -319,8 +344,29 @@ namespace gbaemu
         */
         void objAffineSet(CPUState *state)
         {
-            //TODO implement
-            std::cout << "WARNING: objAffineSet not yet implemented!" << std::endl;
+            const auto currentRegs = state->getCurrentRegs();
+            uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
+            uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
+            uint32_t iterationCount = *currentRegs[regs::R2_OFFSET];
+            uint32_t diff = *currentRegs[regs::R2_OFFSET];
+
+            auto& m = state->memory;
+
+            for (size_t i = 0; i < iterationCount; ++i) {
+                uint32_t srcOff = i * 8;
+                float sx = m.read16(srcOff + sourceAddr) / 256.f;
+                float sy = m.read16(srcOff + sourceAddr + 2) / 256.f;
+                float theta = (m.read16(srcOff + sourceAddr + 4) >> 8) / 128.f * M_PI;
+
+                auto r = common::math::scale_matrix(sx, sy, 0) *
+                    common::math::rotation_matrix(theta, {0, 0, 1});
+
+                uint32_t destOff = diff * 4;
+                m.write16(destOff + destAddr, r[0][0] * 256);
+                m.write16(destOff + destAddr + diff, r[0][1] * 256);
+                m.write16(destOff + destAddr + diff * 2, r[1][0] * 256);
+                m.write16(destOff + destAddr + diff * 3, r[1][1] * 256);
+            }
         }
 
         /*
