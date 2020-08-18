@@ -78,6 +78,10 @@ namespace gbaemu
                                 handleBranchAndExchange(armInst.params.branch_xchg.rn);
                                 break;
                             case arm::ARMInstructionCategory::DATA_SWP:
+                                handleDataSwp(armInst.params.data_swp.b,
+                                              armInst.params.data_swp.rn,
+                                              armInst.params.data_swp.rd,
+                                              armInst.params.data_swp.rm);
                                 break;
                             case arm::ARMInstructionCategory::HW_TRANSF_REG_OFF:
                                 break;
@@ -261,6 +265,28 @@ namespace gbaemu
             if (s) {
                 auto &cpsr = *currentRegs[regs::CPSR_OFFSET];
                 cpsr = (cpsr & ~(cpsr_flags::Z_FLAG_BITMASK | cpsr_flags::N_FLAG_BITMASK)) | ((mulRes >> 31) << cpsr_flags::FLAG_N_OFFSET) | (mulRes == 0 ? (1 << cpsr_flags::FLAG_Z_OFFSET) : 0);
+            }
+        }
+
+        void handleDataSwp(bool b, uint32_t rn, uint32_t rd, uint32_t rm)
+        {
+            if (rd == regs::PC_OFFSET || rn == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
+                std::cout << "ERROR: SWP/SWPB PC register may not be involved in calculations!" << std::endl;
+            }
+
+            auto currentRegs = state.getCurrentRegs();
+            uint32_t newMemVal = *currentRegs[rm];
+            uint32_t memAddr = *currentRegs[rn];
+
+            if (b) {
+                uint8_t memVal = state.memory.read8(memAddr);
+                state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF));
+                //TODO overwrite upper 24 bits?
+                *currentRegs[rd] = static_cast<uint32_t>(memVal);
+            } else {
+                uint32_t memVal = state.memory.read32(memAddr);
+                state.memory.write32(memAddr, newMemVal);
+                *currentRegs[rd] = memVal;
             }
         }
 
