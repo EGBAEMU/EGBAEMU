@@ -89,7 +89,12 @@ namespace gbaemu
                                 Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
                                 In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
                                 */
-                                swi::biosCallHandler[armInst.params.software_interrupt.comment >> 16](&state);
+                                uint8_t index = armInst.params.software_interrupt.comment >> 16;
+                                if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
+                                    swi::biosCallHandler[index](&state);
+                                } else {
+                                    std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << std::endl;
+                                }
                                 break;
                         }
                     }
@@ -138,7 +143,12 @@ namespace gbaemu
                                 Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
                                 In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
                                 */
-                            swi::biosCallHandler[thumbInst.params.software_interrupt.comment](&state);
+                            uint8_t index = thumbInst.params.software_interrupt.comment;
+                            if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
+                                swi::biosCallHandler[index](&state);
+                            } else {
+                                std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << std::endl;
+                            }
                             break;
                         case thumb::ThumbInstructionCategory::UNCONDITIONAL_BRANCH:
                             break;
@@ -252,7 +262,7 @@ namespace gbaemu
             }
         }
 
-        void execMOV(arm::ARMInstruction& inst)
+        void execMOV(arm::ARMInstruction &inst)
         {
             auto currentRegs = state.getCurrentRegs();
             uint32_t shiftAmount, shiftType, rm, rs, imm;
