@@ -129,7 +129,7 @@ namespace gbaemu
         static const uint32_t VAL_DATA_SWP = 0b00000001000000000000000010010000;
         // Halfword data transfer, register offset   cond 000PU0WLRn Rd 00001011Rm
         static const uint32_t MASK_HW_TRANSF_REG_OFF = 0b00001110010000000000111111110000;
-        static const uint32_t VAL_HW_TRANSF_REG_OFF = 0b00000000000000000000000010110000;
+        static const uint32_t VAL_HW_TRANSF_REG_OFF =  0b00000000000000000000000010110000;
         // Halfword data transfer, immediate offset   cond 000PU1WLRn Rd offset 1011    offset
         static const uint32_t MASK_HW_TRANSF_IMM_OFF = 0b00001110010000000000000011110000;
         static const uint32_t VAL_HW_TRANSF_IMM_OFF = 0b00000000010000000000000010110000;

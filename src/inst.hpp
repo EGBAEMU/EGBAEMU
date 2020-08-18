@@ -121,7 +121,7 @@ namespace gbaemu
 
                 struct {
                     bool u, a, s;
-                    uint32_t rd_msw, rd_lsw, rn, rm;
+                    uint32_t rd_msw, rd_lsw, rs, rm;
                 } mul_acc_long;
 
                 struct {
@@ -135,7 +135,7 @@ namespace gbaemu
 
                 struct {
                     bool p, u, w, l;
-                    uint32_t rm;
+                    uint32_t rn, rd, rm;
                 } hw_transf_reg_off;
 
                 struct {
@@ -144,6 +144,14 @@ namespace gbaemu
                 } hw_transf_imm_off;
 
                 struct {
+                    /*
+                        pre/post
+                        up/down
+                        byte/[word, halfword]
+                        writeback/no writeback?
+                        load/store
+                        halfword/word                    
+                     */
                     bool p, u, b, w, l, h;
                     uint32_t rn, rd;
                 } sign_transf;
@@ -176,7 +184,7 @@ namespace gbaemu
                 } data_proc_psr_transf;
 
                 struct {
-                    bool p, u, b, w, l;
+                    bool i, p, u, b, w, l;
                     uint32_t rn, rd, addrMode;
                 } ls_reg_ubyte;
 
@@ -187,7 +195,7 @@ namespace gbaemu
 
                 struct {
                     bool l;
-                    uint32_t offset;
+                    int32_t offset;
                 } branch;
 
                 struct {
