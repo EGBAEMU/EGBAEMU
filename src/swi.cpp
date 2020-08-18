@@ -241,6 +241,7 @@ namespace gbaemu
         }
 
         /*
+        BitUnPack - SWI 10h (GBA/NDS7/NDS9/DSi7/DSi9)
         Used to increase the color depth of bitmaps or tile data. For example, to convert a 1bit monochrome font into 4bit or 8bit GBA tiles. The Unpack Info is specified separately, allowing to convert the same source data into different formats.
           r0  Source Address      (no alignment required)
           r1  Destination Address (must be 32bit-word aligned)
@@ -377,7 +378,7 @@ namespace gbaemu
                     bool decompressBit = (readBuf >> readBufBitsLeft) & 0x1;
 
                     isDataNode = decompressBit ? isNode1EndFlag : isNode0EndFlag;
-                    //TODO pretty sure this calculation of the next node is wrong...
+                    //TODO the calculation of the next node might be wrong...
                     currentParsingAddr = (currentParsingAddr & (~static_cast<uint32_t>(1))) + static_cast<uint32_t>(offset) * 2 + (decompressBit ? 3 : 2);
 
                     // Fill empty read buffer again
@@ -399,13 +400,75 @@ namespace gbaemu
             }
         }
 
+        /*
+        RLUnCompReadNormalWrite8bit (Wram) - SWI 14h (GBA/NDS7/NDS9/DSi7/DSi9)
+        RLUnCompReadNormalWrite16bit (Vram) - SWI 15h (GBA)
+        RLUnCompReadByCallbackWrite16bit - SWI 15h (NDS7/NDS9/DSi7/DSi9)
+        Expands run-length compressed data. The Wram function is faster, and writes in units of 8bits. 
+        For the Vram function the destination must be halfword aligned, data is written in units of 16bits.
+        If the size of the compressed data is not a multiple of 4, please adjust it as much as possible by padding with 0. Align the source address to a 4Byte boundary.
+          r0  Source Address, pointing to data as such:
+               Data header (32bit)
+                 Bit 0-3   Reserved
+                 Bit 4-7   Compressed type (must be 3 for run-length)
+                 Bit 8-31  Size of decompressed data
+               Repeat below. Each Flag Byte followed by one or more Data Bytes.
+               Flag data (8bit)
+                 Bit 0-6   Expanded Data Length (uncompressed N-1, compressed N-3)
+                 Bit 7     Flag (0=uncompressed, 1=compressed)
+               Data Byte(s) - N uncompressed bytes, or 1 byte repeated N times
+          r1  Destination Address
+          r2  Callback parameter        ;\for NDS/DSi "ReadByCallback" variants only
+          r3  Callback structure        ;/(see Callback notes below)
+        Return: No return value, Data written to destination address.
+        */
+        //TODO is the difference between writing in units of 8 bit vs 16 bit relevant?
+        void _rlUnComp(CPUState *state)
+        {
+            const auto currentRegs = state->getCurrentRegs();
+            uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
+            uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
+
+            const uint32_t dataHeader = state->memory.read32(sourceAddr);
+            sourceAddr += 4;
+
+            const uint8_t compressedType = (dataHeader >> 4) & 0x0F;
+            uint32_t decompressedSize = (dataHeader >> 8) & 0x00FFFFFF;
+
+            // Value should be 3 for run-length decompression
+            if (compressedType != 3) {
+                std::cerr << "ERROR: Invalid call of rlUnComp!" << std::endl;
+                return;
+            }
+
+            for (; decompressedSize > 0;) {
+                uint8_t flagData = state->memory.read8(sourceAddr++);
+
+                bool compressed = (flagData >> 7) & 0x1;
+                uint8_t decompressedDataLength = (flagData & 0x7F) + (compressed ? 3 : 1);
+
+                if (decompressedSize < decompressedDataLength) {
+                    std::cerr << "ERROR: underflow in rlUnComp!" << std::endl;
+                    return;
+                }
+                decompressedSize -= decompressedDataLength;
+
+                uint8_t data = state->memory.read8(sourceAddr++);
+
+                // write read data byte N times for decompression
+                for (; decompressedDataLength > 0; --decompressedDataLength) {
+                    state->memory.write8(destAddr++, data);
+                }
+            }
+        }
+
         void RLUnCompWRAM(CPUState *state)
         {
-            //TODO implement
+            _rlUnComp(state);
         }
         void RLUnCompVRAM(CPUState *state)
         {
-            //TODO implement
+            _rlUnComp(state);
         }
 
         /*
