@@ -89,7 +89,7 @@ namespace gbaemu
                                 Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
                                 In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
                                 */
-                                swi::biosCallHandler[armInst.params.software_interrupt.comment >> 24](&state);
+                                swi::biosCallHandler[armInst.params.software_interrupt.comment >> 16](&state);
                                 break;
                         }
                     }

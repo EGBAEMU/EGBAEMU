@@ -181,7 +181,7 @@ namespace gbaemu
                 ss << "B" << (params.branch.l ? "L" : "") << " "
                    << "PC" << (off < 0 ? '-' : '+') << "0x" << std::hex << std::abs(off);
             } else if (cat == ARMInstructionCategory::SOFTWARE_INTERRUPT) {
-                ss << instructionIDToString(id) << " " << swi::swiToString(params.software_interrupt.comment >> 24);
+                ss << instructionIDToString(id) << " " << swi::swiToString(params.software_interrupt.comment >> 16);
             } else {
                 ss << instructionIDToString(id) << "?";
             }
