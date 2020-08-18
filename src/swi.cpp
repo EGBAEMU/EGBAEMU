@@ -14,26 +14,32 @@ namespace gbaemu
         void softReset(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: softReset not yet implemented!" << std::endl;
         }
         void registerRamReset(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: registerRamReset not yet implemented!" << std::endl;
         }
         void halt(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: halt not yet implemented!" << std::endl;
         }
         void stop(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: stop not yet implemented!" << std::endl;
         }
         void intrWait(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: intrWait not yet implemented!" << std::endl;
         }
         void vBlankIntrWait(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: vBankIntrWait not yet implemented!" << std::endl;
         }
 
         /*
@@ -234,10 +240,12 @@ namespace gbaemu
         void bgAffineSet(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: bgAffineSet not yet implemented!" << std::endl;
         }
         void objAffineSet(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: objAffineSet not yet implemented!" << std::endl;
         }
 
         /*
@@ -270,6 +278,8 @@ namespace gbaemu
             dataOffset &= 0x7FFFFFF;
 
             //TODO implement unpacking... not sure how this is intended
+
+            std::cout << "WARNING: bitUnPack not yet implemented!" << std::endl;
         }
 
         /*
@@ -619,74 +629,92 @@ namespace gbaemu
         void soundBiasChange(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: soundBiasChange not yet implemented!" << std::endl;
         }
         void soundDriverInit(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: soundDriverInit not yet implemented!" << std::endl;
         }
         void soundDriverMode(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: soundDriverMode not yet implemented!" << std::endl;
         }
         void soundDriverMain(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: soundDirverMain not yet implemented!" << std::endl;
         }
         void soundDriverVSync(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: soundDirverVSync not yet implemented!" << std::endl;
         }
         void soundChannelClear(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: soundChannelClear not yet implemented!" << std::endl;
         }
         void MIDIKey2Freq(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: MIDIKey2Freq not yet implemented!" << std::endl;
         }
         void musicPlayerOpen(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: musicPlayerOpen not yet implemented!" << std::endl;
         }
         void musicPlayerStart(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: musicPlayerStart not yet implemented!" << std::endl;
         }
         void musicPlayerStop(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: musicPlayerStop not yet implemented!" << std::endl;
         }
         void musicPlayerContinue(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: musicPlayerContinue not yet implemented!" << std::endl;
         }
         void musicPlayerFadeOut(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: musicPlayerFadeOut not yet implemented!" << std::endl;
         }
         void multiBoot(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: multiBoot not yet implemented!" << std::endl;
         }
         void hardReset(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: hardReset not yet implemented!" << std::endl;
         }
         void customHalt(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: customHalt not yet implemented!" << std::endl;
         }
         void soundDriverVSyncOff(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: sourdDriverVSyncOff not yet implemented!" << std::endl;
         }
         void soundDriverVSyncOn(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: soundDriverVSyncOn not yet implemented!" << std::endl;
         }
         void getJumpList(CPUState *state)
         {
             //TODO implement
+            std::cout << "WARNING: getJumpList not yet implemented!" << std::endl;
         }
 
     } // namespace swi
