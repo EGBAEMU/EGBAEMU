@@ -315,7 +315,7 @@ namespace gbaemu
 
         /* ALU functions */
         void execDataProc(arm::ARMInstruction& inst) {
-            /* calculate shifter opeand */
+            /* calculate shifter operand */
             arm::ShiftType shiftType;
             uint32_t shiftAmount, rm, rs, imm, shifterOperand;
             bool shiftByReg = inst.params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
