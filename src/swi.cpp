@@ -58,14 +58,21 @@ namespace gbaemu
         */
         static void _div(uint32_t *const *const currentRegs, int32_t numerator, int32_t denominator)
         {
-            //TODO how to handle div by 0?
+            if (denominator == 0) {
+                std::cout << "WARNING: game attempted division by 0!" << std::endl;
 
-            int32_t div = numerator / denominator;
+                // Return something and pray that the game stops attempting suicide
+                *currentRegs[regs::R0_OFFSET] = (num < 0) ? -1 : 1;
+                *currentRegs[regs::R1_OFFSET] = static_cast<uint32_t>(numerator);
+                *currentRegs[regs::R3_OFFSET] = 1;
+            } else {
+                int32_t div = numerator / denominator;
 
-            *currentRegs[regs::R0_OFFSET] = static_cast<uint32_t>(div);
-            // manually calculate remainder, because % isn't well defined for signed numbers across different platforms
-            *currentRegs[regs::R1_OFFSET] = static_cast<uint32_t>(numerator - denominator * div);
-            *currentRegs[regs::R3_OFFSET] = static_cast<uint32_t>(div < 0 ? -div : div);
+                *currentRegs[regs::R0_OFFSET] = static_cast<uint32_t>(div);
+                // manually calculate remainder, because % isn't well defined for signed numbers across different platforms
+                *currentRegs[regs::R1_OFFSET] = static_cast<uint32_t>(numerator - denominator * div);
+                *currentRegs[regs::R3_OFFSET] = static_cast<uint32_t>(div < 0 ? -div : div);
+            }
         }
         void div(CPUState *state)
         {
@@ -281,7 +288,6 @@ namespace gbaemu
             uint32_t iterationCount = *currentRegs[regs::R2_OFFSET];
 
             while (--iterationCount) {
-            
             }
 
             //TODO implement
