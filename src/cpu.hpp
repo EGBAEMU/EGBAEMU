@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <array>
+#include <set>
 
 namespace gbaemu
 {
@@ -337,93 +339,172 @@ namespace gbaemu
             state.branchOccurred = true;
         }
 
-        void handleBitClear(uint8_t rn, uint8_t rd, uint8_t shifterOperand)
-        {
-
-            auto currentRegs = state.getCurrentRegs();
-            uint32_t rnValue = *currentRegs[rn];
-
-            //TODO this seems undone???
-            uint32_t result = rnValue & shifterOperand;
-        }
-
-        void exec_add(bool s, uint32_t rn, uint32_t rd, uint32_t shiftOperand)
-        {
-            auto currentRegs = state.getCurrentRegs();
-
-            // Get the value of the rn register
-            int32_t rnValueSigned = static_cast<int32_t>(*currentRegs[rn]);
-            // The value of the shift operand as signed int
-            int32_t shiftOperandSigned = static_cast<int32_t>(shiftOperand);
-
-            // Construt the sum. Give it some more bits so we can catch an overflow.
-            int64_t resultSigned = rnValueSigned + shiftOperandSigned;
-            uint64_t result = static_cast<uint64_t>(resultSigned);
-
-            // Write the value back to rd
-            *currentRegs[rd] = static_cast<uint32_t>(result & 0x00000000FFFFFFFF);
-
-            // If s is set, we have to update the N, Z, V and C Flag
-            if (s) {
-
-                state.clearFlags();
-
-                if (result == 0) {
-                    state.setFlag(cpsr_flags::FLAG_Z_OFFSET);
-                }
-                if (result < 0) {
-                    state.setFlag(cpsr_flags::FLAG_N_OFFSET);
-                }
-
-                //TODO does this work with negative values as well?
-                // If there is a bit set in the upper half there must have been an overflow (i guess)
-                if (result & 0xFFFFFFFF00000000) {
-                    state.setFlag(cpsr_flags::FLAG_C_OFFSET);
-                }
-            }
-        }
-
-        void execMOV(arm::ARMInstruction &inst)
-        {
-            auto currentRegs = state.getCurrentRegs();
+        /* ALU functions */
+        void execDataProc(arm::ARMInstruction& inst) {
+            /* calculate shifter operand */
             arm::ShiftType shiftType;
-            uint32_t shiftAmount, rm, rs, imm;
-
+            uint32_t shiftAmount, rm, rs, imm, shifterOperand;
             bool shiftByReg = inst.params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
 
             if (inst.params.data_proc_psr_transf.i) {
-                *currentRegs[inst.params.data_proc_psr_transf.rd] = (imm >> shiftAmount) | (imm << (32 - shiftAmount));
+                shifterOperand = (imm >> shiftAmount) | (imm << (32 - shiftAmount));
             } else {
                 if (shiftByReg)
                     shiftAmount = *state.getCurrentRegs()[rs];
 
                 uint32_t rmValue = *state.getCurrentRegs()[rm];
 
-                /* (0=LSL, 1=LSR, 2=ASR, 3=ROR) */
-                uint32_t newValue;
-
                 switch (shiftType) {
-                    case 0:
-                        newValue = rmValue << shiftAmount;
+                    case arm::ShiftType::LSL:
+                        shifterOperand = rmValue << shiftAmount;
                         break;
-                    case 1:
-                        newValue = rmValue >> shiftAmount;
+                    case arm::ShiftType::LSR:
+                        shifterOperand = rmValue >> shiftAmount;
                         break;
-                    case 2:
-                        newValue = static_cast<uint32_t>(static_cast<int32_t>(rmValue) >> shiftAmount);
+                    case arm::ShiftType::ASR:
+                        shifterOperand = static_cast<uint32_t>(static_cast<int32_t>(rmValue) >> shiftAmount);
                         break;
-                    case 3:
+                    case arm::ShiftType::ROR:
                         /* shift with wrap around */
-                        newValue = (rmValue >> shiftAmount) | (rmValue << (32 - shiftAmount));
+                        shifterOperand = (rmValue >> shiftAmount) | (rmValue << (32 - shiftAmount));
                         break;
                 }
-
-                *currentRegs[inst.params.data_proc_psr_transf.rd] = newValue;
             }
 
-            /* rd == R15 */
-            if (inst.params.data_proc_psr_transf.s && inst.params.data_proc_psr_transf.rd == regs::PC_OFFSET)
-                *currentRegs[regs::CPSR_OFFSET] = *currentRegs[regs::SPSR_OFFSET];
+            bool negative = state.getFlag(cpsr_flags::N_FLAG_BITMASK),
+                zero = state.getFlag(cpsr_flags::Z_FLAG_BITMASK),
+                overflow = state.getFlag(cpsr_flags::V_FLAG_BITMASK),
+                carry = state.getFlag(cpsr_flags::C_FLAG_BITMASK);
+
+            uint32_t rnValue = state.accessReg(inst.params.block_data_transf.rn);
+            uint64_t resultValue;
+
+            /* Different instructions cause different flags to be changed. */
+            /* TODO: This can be extended for all instructions. */
+            static const std::set<arm::ARMInstructionID> updateNegative {
+                arm::ADC, arm::ADD, arm::AND, arm::BIC, arm::CMN,
+                arm::CMP, arm::EOR, arm::MOV, arm::MVN, arm::ORR,
+                arm::RSB, arm::RSC, arm::SBC, arm::SUB, arm::TEQ,
+                arm::TST
+            };
+
+            static const std::set<arm::ARMInstructionID> updateZero {
+                arm::ADC, arm::ADD, arm::AND, arm::BIC, arm::CMN,
+                arm::CMP, arm::EOR, arm::MOV, arm::MVN, arm::ORR,
+                arm::RSB, arm::RSC, arm::SBC, arm::SUB, arm::TEQ,
+                arm::TST
+            };
+
+            static const std::set<arm::ARMInstructionID> updateOverflow {
+                arm::ADC, arm::ADD, arm::CMN, arm::CMP, arm::MOV,
+                arm::RSB, arm::RSC, arm::SBC, arm::SUB
+            };
+
+            static const std::set<arm::ARMInstructionID> updateCarry {
+                arm::ADC, arm::ADD, arm::AND, arm::CMN,arm::CMP,
+                arm::EOR, arm::MVN, arm::ORR, arm::RSB, arm::RSC,
+                arm::SBC, arm::SUB, arm::TEQ, arm::TST
+            };
+
+            static const std::set<arm::ARMInstructionID> dontUpdateRD {
+                arm::CMP, arm::CMN, arm::TST, arm::TEQ
+            };
+
+            /* execute functions */
+            switch (inst.id) {
+                case arm::ADC:
+                    resultValue = rnValue + shifterOperand +
+                        (state.getFlag(cpsr_flags::C_FLAG_BITMASK) ? 1 : 0);
+                    break;
+                case arm::ADD:
+                    resultValue = rnValue + shifterOperand;
+                    break;
+                case arm::AND:
+                    resultValue = rnValue & shifterOperand;
+                    break;
+                case arm::BIC:
+                    resultValue = rnValue & (~shifterOperand);
+                    break;
+                case arm::CMN:
+                    resultValue = rnValue + shifterOperand;
+                    break;
+                case arm::CMP:
+                    resultValue = rnValue - shifterOperand;
+                    break;
+                case arm::EOR:
+                    resultValue = rnValue ^ shifterOperand;
+                    break;
+                case arm::MOV:
+                    resultValue = shifterOperand;
+                    if (inst.params.data_proc_psr_transf.s && inst.params.data_proc_psr_transf.rd == 15)
+                        state.accessReg(regs::CPSR_OFFSET) = state.accessReg(regs::SPSR_OFFSET);
+                    break;
+                case arm::MRS:
+                    if (inst.params.data_proc_psr_transf.r)
+                        resultValue = state.accessReg(regs::SPSR_OFFSET);
+                    else
+                        resultValue = state.accessReg(regs::CPSR_OFFSET);;
+                    break;
+                case arm::MSR:
+                    if (inst.params.data_proc_psr_transf.r)
+                        resultValue = state.accessReg(regs::SPSR_OFFSET);
+                    else
+                        resultValue = state.accessReg(regs::CPSR_OFFSET);
+                    break;
+                case arm::MVN:
+                    resultValue = ~shifterOperand;
+                    if (inst.params.data_proc_psr_transf.s && inst.params.data_proc_psr_transf.rd == 15)
+                        state.accessReg(regs::CPSR_OFFSET) = state.accessReg(regs::SPSR_OFFSET);
+                    break;
+                case arm::ORR:
+                    resultValue = rnValue | shifterOperand;
+                    break;
+                case arm::RSB:
+                    resultValue = shifterOperand - rnValue;
+                    break;
+                case arm::RSC:
+                    resultValue = shifterOperand - rnValue - (carry ? 0 : 1);
+                    break;
+                case arm::SBC:
+                    resultValue = rnValue - shifterOperand - (carry ? 0 : 1);
+                    break;
+                case arm::SUB:
+                    resultValue = rnValue - shifterOperand;
+                    break;
+                case arm::TEQ:
+                    resultValue = rnValue ^ shifterOperand;
+                    break;
+                case arm::TST:
+                    resultValue = rnValue & shifterOperand;
+                    break;
+                default:
+                    break;
+            }
+
+            /* set flags */
+            if (inst.params.data_proc_psr_transf.s) {
+                negative = resultValue & (1 << 31);
+                zero = resultValue == 0;
+                overflow = (resultValue >> 32) & 0xFFFFFFFF;
+                carry = resultValue & (1lu << 32);
+
+                if (updateNegative.find(inst.id) != updateNegative.end())
+                    state.setFlag(cpsr_flags::N_FLAG_BITMASK, negative);
+
+                if (updateZero.find(inst.id) != updateZero.end())
+                    state.setFlag(cpsr_flags::N_FLAG_BITMASK, zero);
+
+                if (updateOverflow.find(inst.id) != updateOverflow.end())
+                    state.setFlag(cpsr_flags::N_FLAG_BITMASK, overflow);
+
+                if (updateCarry.find(inst.id) != updateCarry.end())
+                    state.setFlag(cpsr_flags::N_FLAG_BITMASK, carry);
+            }
+
+            /* TODO: Also only update flags when condition is satisfied? */
+            if (inst.conditionSatisfied(state.accessReg(regs::CPSR_OFFSET)) &&
+                dontUpdateRD.find(inst.id) == dontUpdateRD.end())
+                state.accessReg(inst.params.data_proc_psr_transf.rd) = resultValue;
         }
     };
 

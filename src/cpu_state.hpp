@@ -32,7 +32,7 @@ namespace gbaemu
         } mode = UserMode;
 
       private:
-        struct {
+        struct Regs {
             uint32_t rx[16];
             uint32_t r8_14_fig[7];
             uint32_t r13_14_svc[2];
@@ -121,9 +121,16 @@ namespace gbaemu
             return *(getCurrentRegs()[offset]);
         }
 
-        void setFlag(size_t flag)
+        void setFlag(size_t flag, bool value = true)
         {
-            accessReg(regs::CPSR_OFFSET) |= (1 << flag);
+            if (value)
+                accessReg(regs::CPSR_OFFSET) |= (1 << flag);
+            else
+                accessReg(regs::CPSR_OFFSET) &= ~(1 << flag);
+        }
+
+        bool getFlag(size_t flag) const {
+            return accessReg(regs::CPSR_OFFSET) & (1 << flag);
         }
 
         void clearFlags()
