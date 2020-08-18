@@ -58,8 +58,21 @@ namespace gbaemu
                         // prefer using switch to get warned if a category is not handled
                         switch (armInst.cat) {
                             case arm::ARMInstructionCategory::MUL_ACC:
+                                handleMultAcc(armInst.params.mul_acc.a,
+                                              armInst.params.mul_acc.s,
+                                              armInst.params.mul_acc.rd,
+                                              armInst.params.mul_acc.rn,
+                                              armInst.params.mul_acc.rs,
+                                              armInst.params.mul_acc.rm);
                                 break;
                             case arm::ARMInstructionCategory::MUL_ACC_LONG:
+                                handleMultAccLong(armInst.params.mul_acc_long.u,
+                                                  armInst.params.mul_acc_long.a,
+                                                  armInst.params.mul_acc_long.s,
+                                                  armInst.params.mul_acc_long.rd_msw,
+                                                  armInst.params.mul_acc_long.rd_lsw,
+                                                  armInst.params.mul_acc_long.rs,
+                                                  armInst.params.mul_acc_long.rm);
                                 break;
                             case arm::ARMInstructionCategory::BRANCH_XCHG:
                                 handleBranchAndExchange(armInst.params.branch_xchg.rn);
@@ -171,6 +184,77 @@ namespace gbaemu
             fetch();
             decode();
             execute();
+        }
+
+        void handleMultAcc(bool a, bool s, uint32_t rd, uint32_t rn, uint32_t rs, uint32_t rm)
+        {
+            // Check given restrictions
+            if (rd == rm) {
+                std::cout << "ERROR: MUL/MLA destination register may not be the same as the first operand!" << std::endl;
+            }
+            if (rd == regs::PC_OFFSET || rn == regs::PC_OFFSET || rs == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
+                std::cout << "ERROR: MUL/MLA PC register may not be involved in calculations!" << std::endl;
+            }
+
+            auto currentRegs = state.getCurrentRegs();
+            uint32_t rmVal = *currentRegs[rm];
+            uint32_t rsVal = *currentRegs[rs];
+            uint32_t rnVal = *currentRegs[rn];
+
+            uint32_t mulRes = rmVal * rsVal;
+
+            if (a) { // MLA: add RN
+                mulRes += rnVal;
+            }
+
+            *currentRegs[rd] = static_cast<uint32_t>(mulRes & 0x0FFFFFFFF);
+
+            if (s) {
+                // update zero flag & signed flags
+                // the rest is unaffected
+                auto &cpsr = *currentRegs[regs::CPSR_OFFSET];
+                cpsr = (cpsr & ~(cpsr_flags::Z_FLAG_BITMASK | cpsr_flags::N_FLAG_BITMASK)) | ((mulRes >> 31) << cpsr_flags::FLAG_N_OFFSET) | (mulRes == 0 ? (1 << cpsr_flags::FLAG_Z_OFFSET) : 0);
+            }
+        }
+
+        void handleMultAccLong(bool signMul, bool a, bool s, uint32_t rd_msw, uint32_t rd_lsw, uint32_t rs, uint32_t rm)
+        {
+            auto currentRegs = state.getCurrentRegs();
+
+            uint64_t rdVal = (static_cast<uint64_t>(*currentRegs[rd_msw]) << 32) | *currentRegs[rd_lsw]);
+
+            uint64_t mulRes;
+
+            if (!signMul) {
+                uint64_t rmVal = static_cast<uint64_t>(*currentRegs[rm]);
+                uint64_t rsVal = static_cast<uint64_t>(*currentRegs[rs]);
+
+                mulRes = rmVal * rsVal;
+
+                if (a) { // UMLAL: add rdVal
+                    mulRes += rdVal;
+                }
+            } else {
+                // Enforce sign extension
+                int64_t rmVal = static_cast<int64_t>(static_cast<int32_t>(*currentRegs[rm]));
+                int64_t rsVal = static_cast<int64_t>(static_cast<int32_t>(*currentRegs[rs]));
+
+                int64_t signedMulRes = rmVal * rsVal;
+
+                if (a) { // SMLAL: add rdVal
+                    signedMulRes += static_cast<int64_t>(rdVal);
+                }
+
+                mulRes = static_cast<uint64_t>(signedMulRes);
+            }
+
+            *currentRegs[rd_msw] = static_cast<uint32_t>((mulRes >> 32) & 0x0FFFFFFFF);
+            *currentRegs[rd_lsw] = static_cast<uint32_t>(mulRes & 0x0FFFFFFFF);
+
+            if (s) {
+                auto &cpsr = *currentRegs[regs::CPSR_OFFSET];
+                cpsr = (cpsr & ~(cpsr_flags::Z_FLAG_BITMASK | cpsr_flags::N_FLAG_BITMASK)) | ((mulRes >> 31) << cpsr_flags::FLAG_N_OFFSET) | (mulRes == 0 ? (1 << cpsr_flags::FLAG_Z_OFFSET) : 0);
+            }
         }
 
         // Executes instructions belonging to the branch subsection
