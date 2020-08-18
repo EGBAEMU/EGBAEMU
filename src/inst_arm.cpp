@@ -2,6 +2,8 @@
 
 #include <iostream>
 #include <sstream>
+#include "util.hpp"
+
 
 namespace gbaemu
 {
@@ -123,9 +125,62 @@ namespace gbaemu
                     " r" << params.mul_acc.rs;
 
                     if (params.mul_acc.a)
-                        ss << " r" << params.mul_acc.rn;
+                        ss << " +r" << params.mul_acc.rn;
             } else if (cat == ARMInstructionCategory::MUL_ACC_LONG) {
-                ss << instructionIDToString(id);
+                ss << instructionIDToString(id) <<
+                    " r" << params.mul_acc_long.rd_msw <<
+                    ":r" << params.mul_acc_long.rd_lsw <<
+                    " r" << params.mul_acc_long.rs <<
+                    " r" << params.mul_acc_long.rm;
+            } else if (cat == ARMInstructionCategory::HW_TRANSF_REG_OFF) {
+                /* No immediate in this category! */                
+                ss << instructionIDToString(id) << " r" << params.hw_transf_reg_off.rd;
+
+                /* TODO: does p mean pre? */
+                if (params.hw_transf_reg_off.p) {
+                    ss << " [r" << params.hw_transf_reg_off.rn <<
+                        "+r" << params.hw_transf_reg_off.rm << ']';
+                } else {
+                    ss << " [r" << params.hw_transf_reg_off.rn <<
+                        "]+r" << params.hw_transf_reg_off.rm;
+                }
+            } else if (cat == ARMInstructionCategory::HW_TRANSF_IMM_OFF) {
+                /* Immediate in this category! */                
+                ss << instructionIDToString(id) << " r" << params.hw_transf_imm_off.rd;
+
+                if (params.hw_transf_reg_off.p) {
+                    ss << " [r" << params.hw_transf_imm_off.rn <<
+                        "+" << std::hex << params.hw_transf_imm_off.offset << ']';
+                } else {
+                    ss << " [[r" << params.hw_transf_imm_off.rn <<
+                        "]+r" << params.hw_transf_imm_off.offset << ']';
+                }
+            } else if (cat == ARMInstructionCategory::LS_REG_UBYTE) {
+                bool pre = params.ls_reg_ubyte.p;
+                char upDown = params.ls_reg_ubyte.u ? '+' : '-';
+
+                ss << instructionIDToString(id) << " r" << params.ls_reg_ubyte.rd;
+
+                if (params.ls_reg_ubyte.i) {
+                    uint32_t immOff = params.ls_reg_ubyte.addrMode & 0xFFF;
+
+                    if (pre)
+                        ss << " [r" << params.ls_reg_ubyte.rn;
+                    else
+                        ss << " [[r" << params.ls_reg_ubyte.rn << ']';
+                    
+                    ss << upDown << std::hex << immOff << ']';
+                } else {
+                    uint32_t shiftAmount = (params.ls_reg_ubyte.addrMode >> 7) & 0xF;
+                    uint32_t rm = params.ls_reg_ubyte.addrMode & 0xF;
+
+                    if (pre)
+                        ss << " [r" << params.ls_reg_ubyte.rn;
+                    else
+                        ss << " [[r" << params.ls_reg_ubyte.rn << ']';
+                    
+                    ss << upDown << "(r" << rm << "<<" << shiftAmount << ")]";
+                }
             } else if (id == ARMInstructionID::MUL) {
                 ss << "MUL r" << params.mul_acc.rd << " r" <<
                     params.mul_acc.rs << " r" << params.mul_acc.rm;
@@ -133,8 +188,11 @@ namespace gbaemu
                 ss << "MLA r" << params.mul_acc.rd << " r" << params.mul_acc.rn << " r" <<
                     params.mul_acc.rs << " r" << params.mul_acc.rm;
             } else if (id == ARMInstructionID::B) {
-                /* TODO: offset not correct */
-                ss << "B" << (params.branch.l ? "L" : "") << " " << std::hex << params.branch.offset * 4;
+                /*  */
+                int32_t off = params.branch.offset * 4;
+
+                ss << "B" << (params.branch.l ? "L" : "") << " " <<
+                    "PC" << (off < 0 ? '-' : '+') << "0x" << std::hex << std::abs(off);
             } else
                 ss << instructionIDToString(id);
 
@@ -183,7 +241,7 @@ namespace gbaemu
 
                 instruction.params.mul_acc_long.rd_msw = (lastInst >> 16) & 0x0F;
                 instruction.params.mul_acc_long.rd_lsw = (lastInst >> 12) & 0x0F;
-                instruction.params.mul_acc_long.rn = (lastInst >> 8) & 0x0F;
+                instruction.params.mul_acc_long.rs = (lastInst >> 8) & 0x0F;
                 instruction.params.mul_acc_long.rm = lastInst & 0x0F;
 
                 if (u && a) {
@@ -222,7 +280,6 @@ namespace gbaemu
                 }
 
             } else if ((lastInst & MASK_HW_TRANSF_REG_OFF) == VAL_HW_TRANSF_REG_OFF) {
-
                 instruction.cat = ARMInstructionCategory::HW_TRANSF_REG_OFF;
 
                 bool p = (lastInst >> 24) & 1;
@@ -235,6 +292,8 @@ namespace gbaemu
                 instruction.params.hw_transf_reg_off.w = w;
                 instruction.params.hw_transf_reg_off.l = l;
 
+                instruction.params.hw_transf_reg_off.rn = (lastInst >> 16) & 0xF;
+                instruction.params.hw_transf_reg_off.rd = (lastInst >> 16) & 0xF;
                 instruction.params.hw_transf_reg_off.rm = lastInst & 0x0FF;
 
                 // register offset variants
@@ -390,12 +449,14 @@ namespace gbaemu
 
                 instruction.cat = ARMInstructionCategory::LS_REG_UBYTE;
 
+                bool i = (lastInst >> 25) & 1;
                 bool p = (lastInst >> 24) & 1;
                 bool u = (lastInst >> 23) & 1;
                 bool b = (lastInst >> 22) & 1;
                 bool w = (lastInst >> 21) & 1;
                 bool l = (lastInst >> 20) & 1;
 
+                instruction.params.ls_reg_ubyte.i = i;
                 instruction.params.ls_reg_ubyte.p = p;
                 instruction.params.ls_reg_ubyte.u = u;
                 instruction.params.ls_reg_ubyte.b = b;
@@ -448,8 +509,12 @@ namespace gbaemu
 
                 bool l = (lastInst >> 24) & 1;
 
+                //std::cout << std::hex << lastInst << std::endl;
+
                 instruction.params.branch.l = l;
-                instruction.params.branch.offset = lastInst & 0x00FFFFFF;
+                /* convert signed 24 to signed 32 */
+                uint32_t si = lastInst & 0x00FFFFFF;
+                instruction.params.branch.offset = static_cast<int32_t>(si << 8) >> 8;
 
                 instruction.id = ARMInstructionID::B;
 
@@ -466,7 +531,7 @@ namespace gbaemu
                 instruction.id = ARMInstructionID::SWI;
                 instruction.params.software_interrupt.comment = lastInst & 0x00FFFFFF;
             } else {
-                std::cerr << "ERROR: Could not decode instruction: " << std::hex << lastInst << std::endl;
+                //std::cerr << "ERROR: Could not decode instruction: " << std::hex << lastInst << std::endl;
             }
 
             //if (instruction.id != ARMInstructionID::SWI && instruction.id != ARMInstructionID::INVALID)
