@@ -120,6 +120,8 @@ namespace gbaemu
             //TODO Q1.14 would probably be in a range of 0x0000-0x7FFF
             //TODO we probably need to fix this :/
             r0 = fixedPntPart;
+
+            std::cout << "WARNING: arcTan called, return format probably wrong!" << std::endl;
         }
 
         //TODO what is meant by correction processing?
@@ -141,6 +143,8 @@ namespace gbaemu
             double res = std::atan2(x, y) * 2 + M_PI;
             // Transform to integer interval [0, 0xFFFF]
             r0 = static_cast<uint32_t>(static_cast<uint16_t>((res * 0x0FFFF) / (2 * M_PI)));
+
+            std::cout << "WARNING: arcTan2 called, return format probably wrong!" << std::endl;
         }
 
         //TODO Note: On GBA, NDS7 and DSi7, these two functions(cpuset & cpufastset) will silently reject to do anything if the source start or end addresses are reaching into the BIOS area. The NDS9 and DSi9 don't have such read-proctections.
@@ -250,7 +254,8 @@ namespace gbaemu
 
         /*
         BitUnPack - SWI 10h (GBA/NDS7/NDS9/DSi7/DSi9)
-        Used to increase the color depth of bitmaps or tile data. For example, to convert a 1bit monochrome font into 4bit or 8bit GBA tiles. The Unpack Info is specified separately, allowing to convert the same source data into different formats.
+        Used to increase the color depth of bitmaps or tile data. For example, to convert a 1bit monochrome font into 4bit or 8bit GBA tiles.
+        The Unpack Info is specified separately, allowing to convert the same source data into different formats.
           r0  Source Address      (no alignment required)
           r1  Destination Address (must be 32bit-word aligned)
           r2  Pointer to UnPack information:
@@ -260,26 +265,60 @@ namespace gbaemu
                32bit  Data Offset (Bit 0-30), and Zero Data Flag (Bit 31)
               The Data Offset is always added to all non-zero source units.
               If the Zero Data Flag was set, it is also added to zero units.
-        Data is written in 32bit units, Destination can be Wram or Vram. The size of unpacked data must be a multiple of 4 bytes. The width of source units (plus the offset) should not exceed the destination width.
+        Data is written in 32bit units, Destination can be Wram or Vram. The size of unpacked data must be a multiple of 4 bytes.
+        The width of source units (plus the offset) should not exceed the destination width.
         Return: No return value, Data written to destination address
         */
         void bitUnPack(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
-            uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET]);
-            uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET]);
+            uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
+            uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
             uint32_t unpackFormatPtr = *currentRegs[regs::R2_OFFSET];
 
             uint16_t srcByteCount = state->memory.read16(unpackFormatPtr);
-            uint8_t srcUnitWidth = state->memory.read8(unpackFormatPtr + 2);
-            uint8_t destUnitWidth = state->memory.read8(unpackFormatPtr + 3);
+            const uint8_t srcUnitWidth = state->memory.read8(unpackFormatPtr + 2);
+            const uint8_t destUnitWidth = state->memory.read8(unpackFormatPtr + 3);
             uint32_t dataOffset = state->memory.read32(unpackFormatPtr + 4);
-            bool zeroDataOff = dataOffset & (1 << 31);
+            const bool zeroDataOff = dataOffset & (1 << 31);
             dataOffset &= 0x7FFFFFF;
 
-            //TODO implement unpacking... not sure how this is intended
+            // data is should be written in 32 bit batches, therefore we have to buffer the decompressed data and keep track of the left space
+            uint32_t writeBuf = 0;
+            uint8_t writeBufOffset = 0;
 
-            std::cout << "WARNING: bitUnPack not yet implemented!" << std::endl;
+            for (; srcByteCount > 0; --srcByteCount) {
+                uint8_t srcUnits = state->memory.read8(sourceAddr++);
+
+                // units of size < 8 will be concatenated so we need to extract them before storing
+                for (uint8_t srcUnitBitsLeft = 8; srcUnitBitsLeft > 0; srcUnitBitsLeft -= srcUnitWidth) {
+                    // extract unit: cut srcUnitWidth LSB bits
+                    uint32_t unit = srcUnits & ((1 << srcUnitWidth) - 1);
+                    // remove extracted unit
+                    srcUnits >>= srcUnitWidth;
+
+                    // apply offset
+                    if (zeroDataOff || unit > 0) {
+                        unit += dataOffset;
+                    }
+
+                    // cut to target size
+                    unit &= ((1 << destUnitWidth) - 1);
+
+                    // store extracted unit in write buf and update offset
+                    writeBuf |= unit << writeBufOffset;
+                    writeBufOffset += destUnitWidth;
+
+                    // if there is no more space for another unit we have to flush our buffer
+                    // flushing is also needed if this is the very last unit!
+                    if (writeBufOffset + destUnitWidth > 32 || (srcByteCount == 1 && srcUnitBitsLeft <= srcUnitWidth)) {
+                        state->memory.write32(destAddr, writeBuf);
+                        destAddr += 4;
+                        writeBuf = 0;
+                        writeBufOffset = 0;
+                    }
+                }
+            }
         }
 
         /*
