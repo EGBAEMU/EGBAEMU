@@ -483,7 +483,7 @@ namespace gbaemu
 
                 // first we extract the 11 bit offset, then we place it at the MSB so we can automatically sign extend it after casting to a signed type
                 // finally shift back where it came from but this time with correct sign
-                instruction.params.unconditional_branch.offset = static_cast<int16_t>((lastInst & 0x07FF) << 5) >> 5;
+                instruction.params.unconditional_branch.offset = static_cast<int16_t>((lastInst & 0x07FF) << 5) / (1 << 5) /*>> 5*/;
             } else if ((lastInst & MASK_THUMB_LONG_BRANCH_WITH_LINK) == VAL_THUMB_LONG_BRANCH_WITH_LINK) {
 
                 instruction.cat = ThumbInstructionCategory::LONG_BRANCH_WITH_LINK;
@@ -494,22 +494,22 @@ namespace gbaemu
 
                 //TODO I do not understand this instruction...
                 /*
-Unlike all other THUMB mode instructions, this instruction occupies 32bit of memory which are split into two 16bit THUMB opcodes.
- First Instruction - LR = PC+4+(nn SHL 12)
-  15-11  Must be 11110b for BL/BLX type of instructions
-  10-0   nn - Upper 11 bits of Target Address
- Second Instruction - PC = LR + (nn SHL 1), and LR = PC+2 OR 1 (and BLX: T=0)
-  15-11  Opcode
-          11111b: BL label   ;branch long with link
-          11101b: BLX label  ;branch long with link switch to ARM mode (ARM9)
-  10-0   nn - Lower 11 bits of Target Address (BLX: Bit0 Must be zero)
-The destination address range is (PC+4)-400000h..+3FFFFEh, ie. PC+/-4M.
-Target must be halfword-aligned. As Bit 0 in LR is set, it may be used to return by a BX LR instruction (keeping CPU in THUMB mode).
-Return: No flags affected, PC adjusted, return address in LR.
-Execution Time: 3S+1N (first opcode 1S, second opcode 2S+1N).
-Note: Exceptions may or may not occur between first and second opcode, this is "implementation defined" (unknown how this is implemented in GBA and NDS).
-Using only the 2nd half of BL as "BL LR+imm" is possible (for example, Mario Golf Advance Tour for GBA uses opcode F800h as "BL LR+0").
-            */
+                Unlike all other THUMB mode instructions, this instruction occupies 32bit of memory which are split into two 16bit THUMB opcodes.
+                 First Instruction - LR = PC+4+(nn SHL 12)
+                  15-11  Must be 11110b for BL/BLX type of instructions
+                  10-0   nn - Upper 11 bits of Target Address
+                 Second Instruction - PC = LR + (nn SHL 1), and LR = PC+2 OR 1 (and BLX: T=0)
+                  15-11  Opcode
+                          11111b: BL label   ;branch long with link
+                          11101b: BLX label  ;branch long with link switch to ARM mode (ARM9)
+                  10-0   nn - Lower 11 bits of Target Address (BLX: Bit0 Must be zero)
+                The destination address range is (PC+4)-400000h..+3FFFFEh, ie. PC+/-4M.
+                Target must be halfword-aligned. As Bit 0 in LR is set, it may be used to return by a BX LR instruction (keeping CPU in THUMB mode).
+                Return: No flags affected, PC adjusted, return address in LR.
+                Execution Time: 3S+1N (first opcode 1S, second opcode 2S+1N).
+                Note: Exceptions may or may not occur between first and second opcode, this is "implementation defined" (unknown how this is implemented in GBA and NDS).
+                Using only the 2nd half of BL as "BL LR+imm" is possible (for example, Mario Golf Advance Tour for GBA uses opcode F800h as "BL LR+0").
+                */
             }
 
             return Instruction::fromThumb(instruction);
