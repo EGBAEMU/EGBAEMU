@@ -1,64 +1,60 @@
 #include "inst_arm.hpp"
 
+#include "swi.hpp"
+#include "util.hpp"
 #include <iostream>
 #include <sstream>
-#include "util.hpp"
-
 
 namespace gbaemu
 {
     namespace arm
     {
 
-#define STRINGIFY_ID(x) \
-    case x:             \
-        return (#x)
-
         const char *instructionIDToString(ARMInstructionID id)
         {
             switch (id) {
-                STRINGIFY_ID(ADC);
-                STRINGIFY_ID(ADD);
-                STRINGIFY_ID(AND);
-                STRINGIFY_ID(B);
-                STRINGIFY_ID(BIC);
-                STRINGIFY_ID(BX);
-                STRINGIFY_ID(CMN);
-                STRINGIFY_ID(CMP);
-                STRINGIFY_ID(EOR);
-                STRINGIFY_ID(LDM);
-                STRINGIFY_ID(LDR);
-                STRINGIFY_ID(LDRB);
-                STRINGIFY_ID(LDRH);
-                STRINGIFY_ID(LDRSB);
-                STRINGIFY_ID(LDRSH);
-                STRINGIFY_ID(LDRD);
-                STRINGIFY_ID(MLA);
-                STRINGIFY_ID(MOV);
-                STRINGIFY_ID(MRS);
-                STRINGIFY_ID(MSR);
-                STRINGIFY_ID(MUL);
-                STRINGIFY_ID(MVN);
-                STRINGIFY_ID(ORR);
-                STRINGIFY_ID(RSB);
-                STRINGIFY_ID(RSC);
-                STRINGIFY_ID(SBC);
-                STRINGIFY_ID(SMLAL);
-                STRINGIFY_ID(SMULL);
-                STRINGIFY_ID(STM);
-                STRINGIFY_ID(STR);
-                STRINGIFY_ID(STRB);
-                STRINGIFY_ID(STRH);
-                STRINGIFY_ID(STRD);
-                STRINGIFY_ID(SUB);
-                STRINGIFY_ID(SWI);
-                STRINGIFY_ID(SWP);
-                STRINGIFY_ID(SWPB);
-                STRINGIFY_ID(TEQ);
-                STRINGIFY_ID(TST);
-                STRINGIFY_ID(UMLAL);
-                STRINGIFY_ID(UMULL);
-                STRINGIFY_ID(INVALID);
+                STRINGIFY_CASE_ID(ADC);
+                STRINGIFY_CASE_ID(ADD);
+                STRINGIFY_CASE_ID(AND);
+                STRINGIFY_CASE_ID(B);
+                STRINGIFY_CASE_ID(BIC);
+                STRINGIFY_CASE_ID(BX);
+                STRINGIFY_CASE_ID(CMN);
+                STRINGIFY_CASE_ID(CMP);
+                STRINGIFY_CASE_ID(EOR);
+                STRINGIFY_CASE_ID(LDM);
+                STRINGIFY_CASE_ID(LDR);
+                STRINGIFY_CASE_ID(LDRB);
+                STRINGIFY_CASE_ID(LDRH);
+                STRINGIFY_CASE_ID(LDRSB);
+                STRINGIFY_CASE_ID(LDRSH);
+                STRINGIFY_CASE_ID(LDRD);
+                STRINGIFY_CASE_ID(MLA);
+                STRINGIFY_CASE_ID(MOV);
+                STRINGIFY_CASE_ID(MRS);
+                STRINGIFY_CASE_ID(MSR);
+                STRINGIFY_CASE_ID(MUL);
+                STRINGIFY_CASE_ID(MVN);
+                STRINGIFY_CASE_ID(ORR);
+                STRINGIFY_CASE_ID(RSB);
+                STRINGIFY_CASE_ID(RSC);
+                STRINGIFY_CASE_ID(SBC);
+                STRINGIFY_CASE_ID(SMLAL);
+                STRINGIFY_CASE_ID(SMULL);
+                STRINGIFY_CASE_ID(STM);
+                STRINGIFY_CASE_ID(STR);
+                STRINGIFY_CASE_ID(STRB);
+                STRINGIFY_CASE_ID(STRH);
+                STRINGIFY_CASE_ID(STRD);
+                STRINGIFY_CASE_ID(SUB);
+                STRINGIFY_CASE_ID(SWI);
+                STRINGIFY_CASE_ID(SWP);
+                STRINGIFY_CASE_ID(SWPB);
+                STRINGIFY_CASE_ID(TEQ);
+                STRINGIFY_CASE_ID(TST);
+                STRINGIFY_CASE_ID(UMLAL);
+                STRINGIFY_CASE_ID(UMULL);
+                STRINGIFY_CASE_ID(INVALID);
             }
 
             return "NULL";
@@ -119,41 +115,30 @@ namespace gbaemu
                     }
                 }
             } else if (cat == ARMInstructionCategory::MUL_ACC) {
-                ss << instructionIDToString(id) <<
-                    " r" << params.mul_acc.rd <<
-                    " r" << params.mul_acc.rm <<
-                    " r" << params.mul_acc.rs;
+                ss << instructionIDToString(id) << " r" << params.mul_acc.rd << " r" << params.mul_acc.rm << " r" << params.mul_acc.rs;
 
-                    if (params.mul_acc.a)
-                        ss << " +r" << params.mul_acc.rn;
+                if (params.mul_acc.a)
+                    ss << " +r" << params.mul_acc.rn;
             } else if (cat == ARMInstructionCategory::MUL_ACC_LONG) {
-                ss << instructionIDToString(id) <<
-                    " r" << params.mul_acc_long.rd_msw <<
-                    ":r" << params.mul_acc_long.rd_lsw <<
-                    " r" << params.mul_acc_long.rs <<
-                    " r" << params.mul_acc_long.rm;
+                ss << instructionIDToString(id) << " r" << params.mul_acc_long.rd_msw << ":r" << params.mul_acc_long.rd_lsw << " r" << params.mul_acc_long.rs << " r" << params.mul_acc_long.rm;
             } else if (cat == ARMInstructionCategory::HW_TRANSF_REG_OFF) {
-                /* No immediate in this category! */                
+                /* No immediate in this category! */
                 ss << instructionIDToString(id) << " r" << params.hw_transf_reg_off.rd;
 
                 /* TODO: does p mean pre? */
                 if (params.hw_transf_reg_off.p) {
-                    ss << " [r" << params.hw_transf_reg_off.rn <<
-                        "+r" << params.hw_transf_reg_off.rm << ']';
+                    ss << " [r" << params.hw_transf_reg_off.rn << "+r" << params.hw_transf_reg_off.rm << ']';
                 } else {
-                    ss << " [r" << params.hw_transf_reg_off.rn <<
-                        "]+r" << params.hw_transf_reg_off.rm;
+                    ss << " [r" << params.hw_transf_reg_off.rn << "]+r" << params.hw_transf_reg_off.rm;
                 }
             } else if (cat == ARMInstructionCategory::HW_TRANSF_IMM_OFF) {
-                /* Immediate in this category! */                
+                /* Immediate in this category! */
                 ss << instructionIDToString(id) << " r" << params.hw_transf_imm_off.rd;
 
                 if (params.hw_transf_reg_off.p) {
-                    ss << " [r" << params.hw_transf_imm_off.rn <<
-                        "+" << std::hex << params.hw_transf_imm_off.offset << ']';
+                    ss << " [r" << params.hw_transf_imm_off.rn << "+" << std::hex << params.hw_transf_imm_off.offset << ']';
                 } else {
-                    ss << " [[r" << params.hw_transf_imm_off.rn <<
-                        "]+0x" << std::hex << params.hw_transf_imm_off.offset << ']';
+                    ss << " [[r" << params.hw_transf_imm_off.rn << "]+0x" << std::hex << params.hw_transf_imm_off.offset << ']';
                 }
             } else if (cat == ARMInstructionCategory::LS_REG_UBYTE) {
                 bool pre = params.ls_reg_ubyte.p;
@@ -168,7 +153,7 @@ namespace gbaemu
                         ss << " [r" << params.ls_reg_ubyte.rn;
                     else
                         ss << " [[r" << params.ls_reg_ubyte.rn << ']';
-                    
+
                     ss << upDown << std::hex << immOff << ']';
                 } else {
                     uint32_t shiftAmount = (params.ls_reg_ubyte.addrMode >> 7) & 0xF;
@@ -178,7 +163,7 @@ namespace gbaemu
                         ss << " [r" << params.ls_reg_ubyte.rn;
                     else
                         ss << " [[r" << params.ls_reg_ubyte.rn << ']';
-                    
+
                     ss << upDown << "(r" << rm << "<<" << shiftAmount << ")]";
                 }
             } else if (cat == ARMInstructionCategory::BLOCK_DATA_TRANSF) {
@@ -187,16 +172,19 @@ namespace gbaemu
                 for (uint32_t i = 0; i < 16; ++i)
                     if (params.block_data_transf.rList & (1 << i))
                         ss << "r" << i << ' ';
-                
+
                 ss << '}';
             } else if (id == ARMInstructionID::B) {
                 /*  */
                 int32_t off = params.branch.offset * 4;
 
-                ss << "B" << (params.branch.l ? "L" : "") << " " <<
-                    "PC" << (off < 0 ? '-' : '+') << "0x" << std::hex << std::abs(off);
-            } else
+                ss << "B" << (params.branch.l ? "L" : "") << " "
+                   << "PC" << (off < 0 ? '-' : '+') << "0x" << std::hex << std::abs(off);
+            } else if (cat == ARMInstructionCategory::SOFTWARE_INTERRUPT) {
+                ss << instructionIDToString(id) << " " << swi::swiToString(params.software_interrupt.comment >> 24);
+            } else {
                 ss << instructionIDToString(id) << "?";
+            }
 
             return ss.str();
         }
@@ -368,7 +356,7 @@ namespace gbaemu
                 instruction.cat = ARMInstructionCategory::DATA_PROC_PSR_TRANSF;
 
                 uint32_t opCode = (lastInst >> 21) & 0x0F;
-                bool i = (lastInst >> 25) & 1;//lastInst & (1 << 25);
+                bool i = (lastInst >> 25) & 1; //lastInst & (1 << 25);
                 bool s = lastInst & (1 << 20);
 
                 instruction.params.data_proc_psr_transf.opCode = opCode;

@@ -2,10 +2,11 @@
 
 #include <cstddef>
 
-
-namespace gbaemu {
+namespace gbaemu
+{
     template <class T>
-    T flipBytes(const T& obj) {
+    T flipBytes(const T &obj)
+    {
         T result;
 
         for (size_t i = 0; i < sizeof(obj); ++i)
@@ -13,4 +14,4 @@ namespace gbaemu {
 
         return result;
     }
-}
+} // namespace gbaemu

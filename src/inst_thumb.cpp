@@ -1,4 +1,5 @@
 #include "inst_thumb.hpp"
+#include "util.hpp"
 
 #include <iostream>
 
@@ -7,68 +8,65 @@ namespace gbaemu
 
     namespace thumb
     {
-#define STRINGIFY_ID(x) \
-    case x:             \
-        return (#x)
 
         const char *instructionIDToString(ThumbInstructionID id)
         {
             switch (id) {
-                STRINGIFY_ID(MVN);
-                STRINGIFY_ID(AND);
-                STRINGIFY_ID(TST);
-                STRINGIFY_ID(BIC);
-                STRINGIFY_ID(ORR);
-                STRINGIFY_ID(EOR);
-                STRINGIFY_ID(LSL);
-                STRINGIFY_ID(LSR);
-                STRINGIFY_ID(ASR);
-                STRINGIFY_ID(ROR);
-                STRINGIFY_ID(NOP);
-                STRINGIFY_ID(ADC);
-                STRINGIFY_ID(ADD);
-                STRINGIFY_ID(ADD_SHORT_IMM);
-                STRINGIFY_ID(SUB);
-                STRINGIFY_ID(SUB_SHORT_IMM);
-                STRINGIFY_ID(MOV);
-                STRINGIFY_ID(CMP);
-                STRINGIFY_ID(SBC);
-                STRINGIFY_ID(NEG);
-                STRINGIFY_ID(CMN);
-                STRINGIFY_ID(MUL);
-                STRINGIFY_ID(BX);
-                STRINGIFY_ID(BLX);
-                STRINGIFY_ID(POP);
-                STRINGIFY_ID(LDR);
-                STRINGIFY_ID(LDRB);
-                STRINGIFY_ID(LDRH);
-                STRINGIFY_ID(LDSB);
-                STRINGIFY_ID(LDSH);
-                STRINGIFY_ID(STR);
-                STRINGIFY_ID(STRB);
-                STRINGIFY_ID(STRH);
-                STRINGIFY_ID(PUSH);
-                STRINGIFY_ID(STMIA);
-                STRINGIFY_ID(LDMIA);
+                STRINGIFY_CASE_ID(MVN);
+                STRINGIFY_CASE_ID(AND);
+                STRINGIFY_CASE_ID(TST);
+                STRINGIFY_CASE_ID(BIC);
+                STRINGIFY_CASE_ID(ORR);
+                STRINGIFY_CASE_ID(EOR);
+                STRINGIFY_CASE_ID(LSL);
+                STRINGIFY_CASE_ID(LSR);
+                STRINGIFY_CASE_ID(ASR);
+                STRINGIFY_CASE_ID(ROR);
+                STRINGIFY_CASE_ID(NOP);
+                STRINGIFY_CASE_ID(ADC);
+                STRINGIFY_CASE_ID(ADD);
+                STRINGIFY_CASE_ID(ADD_SHORT_IMM);
+                STRINGIFY_CASE_ID(SUB);
+                STRINGIFY_CASE_ID(SUB_SHORT_IMM);
+                STRINGIFY_CASE_ID(MOV);
+                STRINGIFY_CASE_ID(CMP);
+                STRINGIFY_CASE_ID(SBC);
+                STRINGIFY_CASE_ID(NEG);
+                STRINGIFY_CASE_ID(CMN);
+                STRINGIFY_CASE_ID(MUL);
+                STRINGIFY_CASE_ID(BX);
+                STRINGIFY_CASE_ID(BLX);
+                STRINGIFY_CASE_ID(POP);
+                STRINGIFY_CASE_ID(LDR);
+                STRINGIFY_CASE_ID(LDRB);
+                STRINGIFY_CASE_ID(LDRH);
+                STRINGIFY_CASE_ID(LDSB);
+                STRINGIFY_CASE_ID(LDSH);
+                STRINGIFY_CASE_ID(STR);
+                STRINGIFY_CASE_ID(STRB);
+                STRINGIFY_CASE_ID(STRH);
+                STRINGIFY_CASE_ID(PUSH);
+                STRINGIFY_CASE_ID(STMIA);
+                STRINGIFY_CASE_ID(LDMIA);
                 /*
-                STRINGIFY_ID(BEQ);
-                STRINGIFY_ID(BNE);
-                STRINGIFY_ID(BCS_BHS);
-                STRINGIFY_ID(BCC_BLO);
-                STRINGIFY_ID(BMI);
-                STRINGIFY_ID(BPL);
-                STRINGIFY_ID(BVS);
-                STRINGIFY_ID(BVC);
-                STRINGIFY_ID(BHI);
-                STRINGIFY_ID(BLS);
-                STRINGIFY_ID(BGE);
-                STRINGIFY_ID(BLT);
-                STRINGIFY_ID(BGT);
-                STRINGIFY_ID(BLE);
+                STRINGIFY_CASE_ID(BEQ);
+                STRINGIFY_CASE_ID(BNE);
+                STRINGIFY_CASE_ID(BCS_BHS);
+                STRINGIFY_CASE_ID(BCC_BLO);
+                STRINGIFY_CASE_ID(BMI);
+                STRINGIFY_CASE_ID(BPL);
+                STRINGIFY_CASE_ID(BVS);
+                STRINGIFY_CASE_ID(BVC);
+                STRINGIFY_CASE_ID(BHI);
+                STRINGIFY_CASE_ID(BLS);
+                STRINGIFY_CASE_ID(BGE);
+                STRINGIFY_CASE_ID(BLT);
+                STRINGIFY_CASE_ID(BGT);
+                STRINGIFY_CASE_ID(BLE);
                 */
-                STRINGIFY_ID(SWI);
-                STRINGIFY_ID(B);
-                STRINGIFY_ID(INVALID);
+                STRINGIFY_CASE_ID(SWI);
+                STRINGIFY_CASE_ID(B);
+                STRINGIFY_CASE_ID(INVALID);
             }
 
             return "NULL";
