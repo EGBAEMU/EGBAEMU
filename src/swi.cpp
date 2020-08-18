@@ -272,13 +272,95 @@ namespace gbaemu
             //TODO implement unpacking... not sure how this is intended
         }
 
+        /*
+        LZ77UnCompReadNormalWrite8bit (Wram) - SWI 11h (GBA/NDS7/NDS9/DSi7/DSi9)
+        LZ77UnCompReadNormalWrite16bit (Vram) - SWI 12h (GBA)
+        LZ77UnCompReadByCallbackWrite8bit - SWI 01h (DSi7/DSi9)
+        LZ77UnCompReadByCallbackWrite16bit - SWI 12h (NDS), SWI 02h or 19h (DSi)
+        Expands LZ77-compressed data. The Wram function is faster, and writes in units of 8bits. 
+        For the Vram function the destination must be halfword aligned, data is written in units of 16bits.
+        CAUTION: Writing 16bit units to [dest-1] instead of 8bit units to [dest] means that reading from [dest-1] won't work, 
+        ie. the "Vram" function works only with disp=001h..FFFh, but not with disp=000h.
+        If the size of the compressed data is not a multiple of 4, please adjust it as much as possible by padding with 0.
+        Align the source address to a 4-Byte boundary.
+          r0  Source address, pointing to data as such:
+               Data header (32bit)
+                 Bit 0-3   Reserved
+                 Bit 4-7   Compressed type (must be 1 for LZ77)
+                 Bit 8-31  Size of decompressed data
+               Repeat below. Each Flag Byte followed by eight Blocks.
+               Flag data (8bit)
+                 Bit 0-7   Type Flags for next 8 Blocks, MSB first
+               Block Type 0 - Uncompressed - Copy 1 Byte from Source to Dest
+                 Bit 0-7   One data byte to be copied to dest
+               Block Type 1 - Compressed - Copy N+3 Bytes from Dest-Disp-1 to Dest
+                 Bit 0-3   Disp MSBs
+                 Bit 4-7   Number of bytes to copy (minus 3)
+                 Bit 8-15  Disp LSBs
+          r1  Destination address
+          r2  Callback parameter        ;\for NDS/DSi "ReadByCallback" variants only
+          r3  Callback structure        ;/(see Callback notes below)
+        Return: No return value.
+        */
+        //TODO is the difference between writing in units of 8 bit vs 16 bit relevant?
+        static void _LZ77UnComp(CPUState *state)
+        {
+            const auto currentRegs = state->getCurrentRegs();
+            uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
+            uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
+
+            const uint32_t dataHeader = state->memory.read32(sourceAddr);
+            sourceAddr += 4;
+
+            const uint8_t compressedType = (dataHeader >> 4) & 0x0F;
+            uint32_t decompressedSize = (dataHeader >> 8) & 0x00FFFFFF;
+
+            // Value should be 3 for run-length decompression
+            if (compressedType != 1) {
+                std::cerr << "ERROR: Invalid call of LZ77UnComp!" << std::endl;
+                return;
+            }
+
+            while (decompressedSize > 0) {
+                const uint8_t typeBitset = state->memory.read8(sourceAddr++);
+
+                // process each block
+                for (uint8_t i = 0; i < 8; ++i) {
+                    bool type1 = (typeBitset >> (7 - i)) & 0x1;
+
+                    if (type1) {
+                        // Type 1 uses previously written data as lookup source
+                        uint16_t type1Desc = state->memory.read16(sourceAddr);
+                        sourceAddr += 2;
+
+                        uint16_t disp = (((type1Desc & 0x0F) << 8) | ((type1Desc >> 8) & 0x0FF)) + 1;
+                        uint8_t n = ((type1Desc >> 4) & 0x0F) + 3;
+
+                        // We read & write n bytes of uncompressed data
+                        decompressedSize -= n;
+
+                        // Copy N Bytes from Dest-Disp to Dest (+3 and - 1 already applied)
+                        uint32_t readAddr = destAddr - disp;
+                        while (n > 0) {
+                            state->memory.write8(destAddr++, state->memory.read8(readAddr++));
+                        }
+                    } else {
+                        // Type 0 is one uncompressed byte of data
+                        uint8_t data = state->memory.read8(sourceAddr++);
+                        --decompressedSize;
+                        state->memory.write8(destAddr++, data);
+                    }
+                }
+            }
+        }
+
         void LZ77UnCompWRAM(CPUState *state)
         {
-            //TODO implement
+            _LZ77UnComp(state);
         }
         void LZ77UnCompVRAM(CPUState *state)
         {
-            //TODO implement
+            _LZ77UnComp(state);
         }
 
         /*
@@ -423,7 +505,7 @@ namespace gbaemu
         Return: No return value, Data written to destination address.
         */
         //TODO is the difference between writing in units of 8 bit vs 16 bit relevant?
-        void _rlUnComp(CPUState *state)
+        static void _rlUnComp(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
@@ -441,7 +523,7 @@ namespace gbaemu
                 return;
             }
 
-            for (; decompressedSize > 0;) {
+            while (decompressedSize > 0) {
                 uint8_t flagData = state->memory.read8(sourceAddr++);
 
                 bool compressed = (flagData >> 7) & 0x1;
