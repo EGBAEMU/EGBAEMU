@@ -376,7 +376,7 @@ namespace gbaemu
                 overflow = state.getFlag(cpsr_flags::V_FLAG_BITMASK),
                 carry = state.getFlag(cpsr_flags::C_FLAG_BITMASK);
 
-            uint32_t rnValue = state.accessReg(inst.params.block_data_transf.rn);
+            uint64_t rnValue = state.accessReg(inst.params.block_data_transf.rn);
             uint64_t resultValue;
 
             /* Different instructions cause different flags to be changed. */
@@ -502,8 +502,7 @@ namespace gbaemu
             }
 
             /* TODO: Also only update flags when condition is satisfied? */
-            if (inst.conditionSatisfied(state.accessReg(regs::CPSR_OFFSET)) &&
-                dontUpdateRD.find(inst.id) == dontUpdateRD.end())
+            if (dontUpdateRD.find(inst.id) == dontUpdateRD.end())
                 state.accessReg(inst.params.data_proc_psr_transf.rd) = resultValue;
         }
     };
