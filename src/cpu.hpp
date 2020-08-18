@@ -265,8 +265,8 @@ namespace gbaemu
             *currentRegs[rd_lsw] = static_cast<uint32_t>(mulRes & 0x0FFFFFFFF);
 
             if (s) {
-                auto &cpsr = *currentRegs[regs::CPSR_OFFSET];
-                cpsr = (cpsr & ~(cpsr_flags::Z_FLAG_BITMASK | cpsr_flags::N_FLAG_BITMASK)) | ((mulRes >> 31) << cpsr_flags::FLAG_N_OFFSET) | (mulRes == 0 ? (1 << cpsr_flags::FLAG_Z_OFFSET) : 0);
+                state.setFlag(cpsr_flags::FLAG_Z_OFFSET, mulRes == 0);
+                state.setFlag(cpsr_flags::FLAG_N_OFFSET, mulRes >> 31);
             }
         }
 
