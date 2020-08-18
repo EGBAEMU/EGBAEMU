@@ -153,7 +153,7 @@ namespace gbaemu
                         "+" << std::hex << params.hw_transf_imm_off.offset << ']';
                 } else {
                     ss << " [[r" << params.hw_transf_imm_off.rn <<
-                        "]+r" << params.hw_transf_imm_off.offset << ']';
+                        "]+0x" << std::hex << params.hw_transf_imm_off.offset << ']';
                 }
             } else if (cat == ARMInstructionCategory::LS_REG_UBYTE) {
                 bool pre = params.ls_reg_ubyte.p;
@@ -181,12 +181,14 @@ namespace gbaemu
                     
                     ss << upDown << "(r" << rm << "<<" << shiftAmount << ")]";
                 }
-            } else if (id == ARMInstructionID::MUL) {
-                ss << "MUL r" << params.mul_acc.rd << " r" <<
-                    params.mul_acc.rs << " r" << params.mul_acc.rm;
-            } else if (id == ARMInstructionID::MLA) {
-                ss << "MLA r" << params.mul_acc.rd << " r" << params.mul_acc.rn << " r" <<
-                    params.mul_acc.rs << " r" << params.mul_acc.rm;
+            } else if (cat == ARMInstructionCategory::BLOCK_DATA_TRANSF) {
+                ss << instructionIDToString(id) << " r" << params.block_data_transf.rn << " { ";
+
+                for (uint32_t i = 0; i < 16; ++i)
+                    if (params.block_data_transf.rList & (1 << i))
+                        ss << "r" << i << ' ';
+                
+                ss << '}';
             } else if (id == ARMInstructionID::B) {
                 /*  */
                 int32_t off = params.branch.offset * 4;
@@ -194,7 +196,7 @@ namespace gbaemu
                 ss << "B" << (params.branch.l ? "L" : "") << " " <<
                     "PC" << (off < 0 ? '-' : '+') << "0x" << std::hex << std::abs(off);
             } else
-                ss << instructionIDToString(id);
+                ss << instructionIDToString(id) << "?";
 
             return ss.str();
         }
@@ -494,7 +496,7 @@ namespace gbaemu
                 instruction.params.block_data_transf.l = l;
 
                 instruction.params.block_data_transf.rn = (lastInst >> 16) & 0x0F;
-                instruction.params.block_data_transf.rList = lastInst & 0x0FF;
+                instruction.params.block_data_transf.rList = lastInst & 0x0FFFF;
 
                 /* docs say there are two more distinct instructions in this category */
                 if (l) {
