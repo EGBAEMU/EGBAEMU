@@ -502,8 +502,7 @@ namespace gbaemu
             }
 
             /* TODO: Also only update flags when condition is satisfied? */
-            if (inst.conditionSatisfied(state.accessReg(regs::CPSR_OFFSET)) &&
-                dontUpdateRD.find(inst.id) == dontUpdateRD.end())
+            if (dontUpdateRD.find(inst.id) == dontUpdateRD.end())
                 state.accessReg(inst.params.data_proc_psr_transf.rd) = resultValue;
         }
     };
