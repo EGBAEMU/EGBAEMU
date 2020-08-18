@@ -73,7 +73,8 @@ namespace gbaemu
                 auto idStr = instructionIDToString(id);
                 uint32_t rd = params.data_proc_psr_transf.rd;
                 uint32_t rn = params.data_proc_psr_transf.rn;
-                uint32_t shiftAmount, shiftType, rm, rs, imm;
+                ShiftType shiftType;
+                uint32_t shiftAmount, rm, rs, imm;
                 bool shiftByReg = params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
 
                 ss << idStr;
