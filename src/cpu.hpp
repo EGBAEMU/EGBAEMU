@@ -228,7 +228,7 @@ namespace gbaemu
 
             auto currentRegs = state.getCurrentRegs();
 
-            uint64_t rdVal = (static_cast<uint64_t>(*currentRegs[rd_msw]) << 32) | *currentRegs[rd_lsw]);
+            uint64_t rdVal = (static_cast<uint64_t>(*currentRegs[rd_msw]) << 32) | *currentRegs[rd_lsw];
 
             uint64_t mulRes;
 
