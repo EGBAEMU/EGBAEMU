@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <iostream>
 
 namespace gbaemu
 {
@@ -116,6 +117,8 @@ namespace gbaemu
             /* circular shift right (wrap around) */
             ROR
         };
+
+        uint32_t shift(uint32_t value, ShiftType type, uint32_t amount);
 
         class ARMInstruction
         {

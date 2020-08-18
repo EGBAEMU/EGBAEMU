@@ -459,7 +459,7 @@ namespace gbaemu
 
                 instruction.params.ls_reg_ubyte.rn = (lastInst >> 16) & 0x0F;
                 instruction.params.ls_reg_ubyte.rd = (lastInst >> 12) & 0x0F;
-                instruction.params.ls_reg_ubyte.addrMode = lastInst & 0x0FF;
+                instruction.params.ls_reg_ubyte.addrMode = lastInst & 0x0FFF;
 
                 if (!b && l) {
                     instruction.id = ARMInstructionID::LDR;
