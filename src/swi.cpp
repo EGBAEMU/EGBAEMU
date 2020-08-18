@@ -1,10 +1,10 @@
+#define _USE_MATH_DEFINES
+#include <cmath>
+
 #include "swi.hpp"
 #include "regs.hpp"
 #include "math3d.hpp"
-
 #include <algorithm>
-#define _USE_MATH_DEFINES
-#include <cmath>
 #include <cstring>
 
 namespace gbaemu
@@ -63,7 +63,7 @@ namespace gbaemu
                 std::cout << "WARNING: game attempted division by 0!" << std::endl;
 
                 // Return something and pray that the game stops attempting suicide
-                *currentRegs[regs::R0_OFFSET] = (num < 0) ? -1 : 1;
+                *currentRegs[regs::R0_OFFSET] = (numerator < 0) ? -1 : 1;
                 *currentRegs[regs::R1_OFFSET] = static_cast<uint32_t>(numerator);
                 *currentRegs[regs::R3_OFFSET] = 1;
             } else {

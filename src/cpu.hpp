@@ -82,7 +82,8 @@ namespace gbaemu
                                 handleBranch(armInst.params.branch.l, armInst.params.branch.offset);
                                 break;
 
-                            case arm::ARMInstructionCategory::SOFTWARE_INTERRUPT:
+                            case arm::ARMInstructionCategory::SOFTWARE_INTERRUPT: {
+
                                 /*
                                 SWIs can be called from both within THUMB and ARM mode. In ARM mode, only the upper 8bit of the 24bit comment field are interpreted.
                                 //TODO is switching needed?
@@ -96,6 +97,7 @@ namespace gbaemu
                                     std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << std::endl;
                                 }
                                 break;
+                            }
                         }
                     }
                 } else {
@@ -136,7 +138,8 @@ namespace gbaemu
                             break;
                         case thumb::ThumbInstructionCategory::COND_BRANCH:
                             break;
-                        case thumb::ThumbInstructionCategory::SOFTWARE_INTERRUPT:
+                        case thumb::ThumbInstructionCategory::SOFTWARE_INTERRUPT: {
+
                             /*
                                 SWIs can be called from both within THUMB and ARM mode. In ARM mode, only the upper 8bit of the 24bit comment field are interpreted.
                                 //TODO is switching needed?
@@ -150,6 +153,7 @@ namespace gbaemu
                                 std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << std::endl;
                             }
                             break;
+                        }
                         case thumb::ThumbInstructionCategory::UNCONDITIONAL_BRANCH:
                             break;
                         case thumb::ThumbInstructionCategory::LONG_BRANCH_WITH_LINK:
