@@ -7,6 +7,8 @@
 namespace gbaemu
 {
 
+    struct CPUState;
+
     namespace arm
     {
         enum ConditionOPCode : uint8_t {
@@ -43,8 +45,6 @@ namespace gbaemu
             // Never Obsolete, unpredictable in ARM7TDMI
             NV
         };
-
-        struct CPUState;
 
         enum ARMInstructionCategory {
             MUL_ACC,
@@ -216,7 +216,7 @@ namespace gbaemu
 
             /* implemented in inst_arm.cpp */
             std::string toString() const;
-            bool conditionSatisfied(uint32_t CPSR) const;
+            bool conditionSatisfied(const CPUState& state) const;
         };
 
     } // namespace arm

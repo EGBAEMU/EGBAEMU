@@ -76,22 +76,23 @@ namespace gbaemu
                     11111b 1Fh 31 - System (privileged 'User' mode) (ARMv4 and up)
             Writing any other values into the Mode bits is not allowed. 
     */
-        static const uint32_t FLAG_N_OFFSET = 31;
-        static const uint32_t FLAG_Z_OFFSET = 30;
-        static const uint32_t FLAG_C_OFFSET = 29;
-        static const uint32_t FLAG_V_OFFSET = 28;
-        static const uint32_t FLAG_Q_OFFSET = 27;
-        static const uint32_t IRQ_DISABLE_OFFSET = 7;
-        static const uint32_t FIQ_DISABLE_OFFSET = 6;
-        static const uint32_t THUMB_STATE_OFFSET = 5;
+        static const uint32_t N_FLAG = 31;
+        static const uint32_t Z_FLAG = 30;
+        static const uint32_t C_FLAG = 29;
+        static const uint32_t V_FLAG = 28;
+        static const uint32_t Q_FLAG = 27;
+        static const uint32_t IRQ_DISABLE = 7;
+        static const uint32_t FIQ_DISABLE = 6;
+        static const uint32_t THUMB_STATE = 5;
         static const uint32_t MODE_BIT_MASK = 0x01F;
 
-        // TODO verify bitmasks
+        /*
         static const uint32_t N_FLAG_BITMASK = (1 << FLAG_N_OFFSET);
         static const uint32_t Z_FLAG_BITMASK = (1 << FLAG_Z_OFFSET);
         static const uint32_t C_FLAG_BITMASK = (1 << FLAG_C_OFFSET);
         static const uint32_t V_FLAG_BITMASK = (1 << FLAG_V_OFFSET);
         static const uint32_t THUMB_FLAG_BITMASK = (1 << THUMB_STATE_OFFSET);
+        */
     } // namespace cpsr_flags
 
 } // namespace gbaemu

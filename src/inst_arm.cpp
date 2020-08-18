@@ -1,5 +1,6 @@
 #include "inst_arm.hpp"
 
+#include "cpu_state.hpp"
 #include "swi.hpp"
 #include "util.hpp"
 #include <iostream>
@@ -535,77 +536,77 @@ namespace gbaemu
             return Instruction::fromARM(instruction);
         }
 
-        bool ARMInstruction::conditionSatisfied(uint32_t CPSR) const
+        bool ARMInstruction::conditionSatisfied(const CPUState &state) const
         {
             switch (condition) {
                 // Equal Z==1
                 case EQ:
-                    return CPSR & cpsr_flags::Z_FLAG_BITMASK;
+                    return state.getFlag(cpsr_flags::Z_FLAG);
                     break;
 
                 // Not equal Z==0
                 case NE:
-                    return (CPSR & cpsr_flags::Z_FLAG_BITMASK) == 0;
+                    return !state.getFlag(cpsr_flags::Z_FLAG);
                     break;
 
                 // Carry set / unsigned higher or same C==1
                 case CS_HS:
-                    return CPSR & cpsr_flags::C_FLAG_BITMASK;
+                    return state.getFlag(cpsr_flags::C_FLAG);
                     break;
 
                 // Carry clear / unsigned lower C==0
                 case CC_LO:
-                    return (CPSR & cpsr_flags::C_FLAG_BITMASK) == 0;
+                    return !state.getFlag(cpsr_flags::C_FLAG);
                     break;
 
                 // Minus / negative N==1
                 case MI:
-                    return CPSR & cpsr_flags::N_FLAG_BITMASK;
+                    return state.getFlag(cpsr_flags::N_FLAG);
                     break;
 
                 // Plus / positive or zero N==0
                 case PL:
-                    return (CPSR & cpsr_flags::N_FLAG_BITMASK) == 0;
+                    return !state.getFlag(cpsr_flags::N_FLAG);
                     break;
 
                 // Overflow V==1
                 case VS:
-                    return CPSR & cpsr_flags::V_FLAG_BITMASK;
+                    return state.getFlag(cpsr_flags::V_FLAG);
                     break;
 
                 // No overflow V==0
                 case VC:
-                    return (CPSR & cpsr_flags::V_FLAG_BITMASK) == 0;
+                    return !state.getFlag(cpsr_flags::V_FLAG);
                     break;
 
                 // Unsigned higher (C==1) AND (Z==0)
                 case HI:
-                    return (CPSR & cpsr_flags::C_FLAG_BITMASK) && (CPSR & cpsr_flags::Z_FLAG_BITMASK);
+                    return state.getFlag(cpsr_flags::C_FLAG) && !state.getFlag(cpsr_flags::Z_FLAG);
                     break;
 
                 // Unsigned lower or same (C==0) OR (Z==1)
                 case LS:
-                    return (CPSR & cpsr_flags::C_FLAG_BITMASK) == 0 || (CPSR & cpsr_flags::Z_FLAG_BITMASK);
+                    return !state.getFlag(cpsr_flags::C_FLAG) || state.getFlag(cpsr_flags::Z_FLAG);
                     break;
 
                 // Signed greater than or equal N == V
                 case GE:
-                    return (bool)(CPSR & cpsr_flags::N_FLAG_BITMASK) == (bool)(CPSR & cpsr_flags::V_FLAG_BITMASK);
+                    return state.getFlag(cpsr_flags::N_FLAG) == state.getFlag(cpsr_flags::V_FLAG);
                     break;
 
                 // Signed less than N != V
                 case LT:
-                    return (bool)(CPSR & cpsr_flags::N_FLAG_BITMASK) != (bool)(CPSR & cpsr_flags::V_FLAG_BITMASK);
+                    return state.getFlag(cpsr_flags::N_FLAG) != state.getFlag(cpsr_flags::V_FLAG);
                     break;
 
                 // Signed greater than (Z==0) AND (N==V)
                 case GT:
-                    return (CPSR & cpsr_flags::Z_FLAG_BITMASK) == 0 && (bool)(CPSR & cpsr_flags::Z_FLAG_BITMASK) == (bool)(CPSR & cpsr_flags::V_FLAG_BITMASK);
+                    return !state.getFlag(cpsr_flags::Z_FLAG) && state.getFlag(cpsr_flags::N_FLAG) == state.getFlag(cpsr_flags::V_FLAG);
                     break;
 
                 // Signed less than or equal (Z==1) OR (N!=V)
                 case LE:
-                    return (CPSR & cpsr_flags::Z_FLAG_BITMASK) || (bool)(CPSR & cpsr_flags::Z_FLAG_BITMASK) != (bool)(CPSR & cpsr_flags::V_FLAG_BITMASK);
+                    return state.getFlag(cpsr_flags::Z_FLAG) || state.getFlag(cpsr_flags::N_FLAG) != state.getFlag(cpsr_flags::V_FLAG);
                     break;
 
                 // Always (unconditional) Not applicable

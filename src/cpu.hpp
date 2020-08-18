@@ -6,11 +6,11 @@
 #include "inst_thumb.hpp"
 #include "regs.hpp"
 #include "swi.hpp"
+#include <array>
 #include <cstdint>
 #include <functional>
-#include <string>
-#include <array>
 #include <set>
+#include <string>
 
 namespace gbaemu
 {
@@ -55,7 +55,7 @@ namespace gbaemu
                     arm::ARMInstruction &armInst = state.pipeline.decode.lastInstruction.arm;
 
                     // Do we even need an execution?
-                    if (armInst.conditionSatisfied(state.accessReg(regs::CPSR_OFFSET))) {
+                    if (armInst.conditionSatisfied(state)) {
 
                         // prefer using switch to get warned if a category is not handled
                         switch (armInst.cat) {
@@ -218,8 +218,8 @@ namespace gbaemu
             if (s) {
                 // update zero flag & signed flags
                 // the rest is unaffected
-                auto &cpsr = *currentRegs[regs::CPSR_OFFSET];
-                cpsr = (cpsr & ~(cpsr_flags::Z_FLAG_BITMASK | cpsr_flags::N_FLAG_BITMASK)) | ((mulRes >> 31) << cpsr_flags::FLAG_N_OFFSET) | (mulRes == 0 ? (1 << cpsr_flags::FLAG_Z_OFFSET) : 0);
+                state.setFlag(cpsr_flags::Z_FLAG, mulRes == 0);
+                state.setFlag(cpsr_flags::N_FLAG, mulRes >> 31);
             }
         }
 
@@ -265,8 +265,10 @@ namespace gbaemu
             *currentRegs[rd_lsw] = static_cast<uint32_t>(mulRes & 0x0FFFFFFFF);
 
             if (s) {
-                state.setFlag(cpsr_flags::FLAG_Z_OFFSET, mulRes == 0);
-                state.setFlag(cpsr_flags::FLAG_N_OFFSET, mulRes >> 31);
+                // update zero flag & signed flags
+                // the rest is unaffected
+                state.setFlag(cpsr_flags::Z_FLAG, mulRes == 0);
+                state.setFlag(cpsr_flags::N_FLAG, mulRes >> 31);
             }
         }
 
@@ -340,7 +342,8 @@ namespace gbaemu
         }
 
         /* ALU functions */
-        void execDataProc(arm::ARMInstruction& inst) {
+        void execDataProc(arm::ARMInstruction &inst)
+        {
             /* calculate shifter operand */
             arm::ShiftType shiftType;
             uint32_t shiftAmount, rm, rs, imm, shifterOperand;
@@ -371,44 +374,39 @@ namespace gbaemu
                 }
             }
 
-            bool negative = state.getFlag(cpsr_flags::FLAG_N_OFFSET),
-                zero = state.getFlag(cpsr_flags::FLAG_Z_OFFSET),
-                overflow = state.getFlag(cpsr_flags::FLAG_V_OFFSET),
-                carry = state.getFlag(cpsr_flags::FLAG_C_OFFSET);
+            bool negative = state.getFlag(cpsr_flags::N_FLAG),
+                 zero = state.getFlag(cpsr_flags::Z_FLAG),
+                 overflow = state.getFlag(cpsr_flags::V_FLAG),
+                 carry = state.getFlag(cpsr_flags::C_FLAG);
 
             uint64_t rnValue = state.accessReg(inst.params.block_data_transf.rn);
             uint64_t resultValue;
 
             /* Different instructions cause different flags to be changed. */
             /* TODO: This can be extended for all instructions. */
-            static const std::set<arm::ARMInstructionID> updateNegative {
+            static const std::set<arm::ARMInstructionID> updateNegative{
                 arm::ADC, arm::ADD, arm::AND, arm::BIC, arm::CMN,
                 arm::CMP, arm::EOR, arm::MOV, arm::MVN, arm::ORR,
                 arm::RSB, arm::RSC, arm::SBC, arm::SUB, arm::TEQ,
-                arm::TST
-            };
+                arm::TST};
 
-            static const std::set<arm::ARMInstructionID> updateZero {
+            static const std::set<arm::ARMInstructionID> updateZero{
                 arm::ADC, arm::ADD, arm::AND, arm::BIC, arm::CMN,
                 arm::CMP, arm::EOR, arm::MOV, arm::MVN, arm::ORR,
                 arm::RSB, arm::RSC, arm::SBC, arm::SUB, arm::TEQ,
-                arm::TST
-            };
+                arm::TST};
 
-            static const std::set<arm::ARMInstructionID> updateOverflow {
+            static const std::set<arm::ARMInstructionID> updateOverflow{
                 arm::ADC, arm::ADD, arm::CMN, arm::CMP, arm::MOV,
-                arm::RSB, arm::RSC, arm::SBC, arm::SUB
-            };
+                arm::RSB, arm::RSC, arm::SBC, arm::SUB};
 
-            static const std::set<arm::ARMInstructionID> updateCarry {
-                arm::ADC, arm::ADD, arm::AND, arm::CMN,arm::CMP,
+            static const std::set<arm::ARMInstructionID> updateCarry{
+                arm::ADC, arm::ADD, arm::AND, arm::CMN, arm::CMP,
                 arm::EOR, arm::MVN, arm::ORR, arm::RSB, arm::RSC,
-                arm::SBC, arm::SUB, arm::TEQ, arm::TST
-            };
+                arm::SBC, arm::SUB, arm::TEQ, arm::TST};
 
-            static const std::set<arm::ARMInstructionID> dontUpdateRD {
-                arm::CMP, arm::CMN, arm::TST, arm::TEQ
-            };
+            static const std::set<arm::ARMInstructionID> dontUpdateRD{
+                arm::CMP, arm::CMN, arm::TST, arm::TEQ};
 
             /* execute functions */
             switch (inst.id) {
@@ -442,7 +440,8 @@ namespace gbaemu
                     if (inst.params.data_proc_psr_transf.r)
                         resultValue = state.accessReg(regs::SPSR_OFFSET);
                     else
-                        resultValue = state.accessReg(regs::CPSR_OFFSET);;
+                        resultValue = state.accessReg(regs::CPSR_OFFSET);
+                    ;
                     break;
                 case arm::MSR:
                     if (inst.params.data_proc_psr_transf.r)
@@ -486,19 +485,19 @@ namespace gbaemu
                 negative = resultValue & (1 << 31);
                 zero = resultValue == 0;
                 overflow = (resultValue >> 32) & 0xFFFFFFFF;
-                carry = resultValue & (1lu << 32);
+                carry = resultValue & (static_cast<uint64_t>(1) << 32);
 
                 if (updateNegative.find(inst.id) != updateNegative.end())
-                    state.setFlag(cpsr_flags::FLAG_N_OFFSET, negative);
+                    state.setFlag(cpsr_flags::N_FLAG, negative);
 
                 if (updateZero.find(inst.id) != updateZero.end())
-                    state.setFlag(cpsr_flags::FLAG_Z_OFFSET, zero);
+                    state.setFlag(cpsr_flags::Z_FLAG, zero);
 
                 if (updateOverflow.find(inst.id) != updateOverflow.end())
-                    state.setFlag(cpsr_flags::FLAG_V_OFFSET, overflow);
+                    state.setFlag(cpsr_flags::V_FLAG, overflow);
 
                 if (updateCarry.find(inst.id) != updateCarry.end())
-                    state.setFlag(cpsr_flags::FLAG_C_OFFSET, carry);
+                    state.setFlag(cpsr_flags::C_FLAG, carry);
             }
 
             /* TODO: Also only update flags when condition is satisfied? */
