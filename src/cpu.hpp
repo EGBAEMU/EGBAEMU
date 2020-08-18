@@ -371,10 +371,10 @@ namespace gbaemu
                 }
             }
 
-            bool negative = state.getFlag(cpsr_flags::N_FLAG_BITMASK),
-                zero = state.getFlag(cpsr_flags::Z_FLAG_BITMASK),
-                overflow = state.getFlag(cpsr_flags::V_FLAG_BITMASK),
-                carry = state.getFlag(cpsr_flags::C_FLAG_BITMASK);
+            bool negative = state.getFlag(cpsr_flags::FLAG_N_OFFSET),
+                zero = state.getFlag(cpsr_flags::FLAG_Z_OFFSET),
+                overflow = state.getFlag(cpsr_flags::FLAG_V_OFFSET),
+                carry = state.getFlag(cpsr_flags::FLAG_C_OFFSET);
 
             uint64_t rnValue = state.accessReg(inst.params.block_data_transf.rn);
             uint64_t resultValue;
@@ -413,8 +413,7 @@ namespace gbaemu
             /* execute functions */
             switch (inst.id) {
                 case arm::ADC:
-                    resultValue = rnValue + shifterOperand +
-                        (state.getFlag(cpsr_flags::C_FLAG_BITMASK) ? 1 : 0);
+                    resultValue = rnValue + shifterOperand + (carry ? 1 : 0);
                     break;
                 case arm::ADD:
                     resultValue = rnValue + shifterOperand;
@@ -459,17 +458,18 @@ namespace gbaemu
                 case arm::ORR:
                     resultValue = rnValue | shifterOperand;
                     break;
+                    /* TODO: subtraction is oh no */
                 case arm::RSB:
-                    resultValue = shifterOperand - rnValue;
+                    resultValue = shifterOperand - static_cast<uint32_t>(rnValue);
                     break;
                 case arm::RSC:
-                    resultValue = shifterOperand - rnValue - (carry ? 0 : 1);
+                    resultValue = shifterOperand - static_cast<uint32_t>(rnValue) - (carry ? 0 : 1);
                     break;
                 case arm::SBC:
-                    resultValue = rnValue - shifterOperand - (carry ? 0 : 1);
+                    resultValue = static_cast<uint32_t>(rnValue) - shifterOperand - (carry ? 0 : 1);
                     break;
                 case arm::SUB:
-                    resultValue = rnValue - shifterOperand;
+                    resultValue = static_cast<uint32_t>(rnValue) - shifterOperand;
                     break;
                 case arm::TEQ:
                     resultValue = rnValue ^ shifterOperand;
@@ -489,16 +489,16 @@ namespace gbaemu
                 carry = resultValue & (1lu << 32);
 
                 if (updateNegative.find(inst.id) != updateNegative.end())
-                    state.setFlag(cpsr_flags::N_FLAG_BITMASK, negative);
+                    state.setFlag(cpsr_flags::FLAG_N_OFFSET, negative);
 
                 if (updateZero.find(inst.id) != updateZero.end())
-                    state.setFlag(cpsr_flags::N_FLAG_BITMASK, zero);
+                    state.setFlag(cpsr_flags::FLAG_Z_OFFSET, zero);
 
                 if (updateOverflow.find(inst.id) != updateOverflow.end())
-                    state.setFlag(cpsr_flags::N_FLAG_BITMASK, overflow);
+                    state.setFlag(cpsr_flags::FLAG_V_OFFSET, overflow);
 
                 if (updateCarry.find(inst.id) != updateCarry.end())
-                    state.setFlag(cpsr_flags::N_FLAG_BITMASK, carry);
+                    state.setFlag(cpsr_flags::FLAG_C_OFFSET, carry);
             }
 
             /* TODO: Also only update flags when condition is satisfied? */
