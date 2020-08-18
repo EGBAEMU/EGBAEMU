@@ -145,14 +145,7 @@ namespace gbaemu
             STRINGIFY(soundDriverVSyncOn),
             STRINGIFY(getJumpList)};
 
-        const char *swiToString(uint8_t index)
-        {
-            if (index < sizeof(biosCallHandlerStr) / sizeof(biosCallHandlerStr[0])) {
-                return biosCallHandlerStr[index];
-            } else {
-                return "INVALID";
-            }
-        }
+        const char *swiToString(uint8_t index);
     } // namespace swi
 } // namespace gbaemu
 
