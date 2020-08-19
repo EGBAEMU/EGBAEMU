@@ -653,7 +653,7 @@ namespace gbaemu
                 state.accessReg(rn) = address;
         }
 
-        InstructionExecutionInfo execDataTransferImm(const arm::ARMInstruction& inst) {
+        InstructionExecutionInfo execHalfwordDataTransferImm(const arm::ARMInstruction& inst) {
             /*
                 Bit    Expl.
                 31-28  Condition
