@@ -67,18 +67,17 @@ int main(int argc, const char **argv)
     }
     std::cout << std::endl;
 
-    for (size_t i = 0; i < buf.size() / 4; ++i) {
-        uint32_t bytes = cpu.state.memory.read32(gbaemu::Memory::EXT_ROM_OFFSET + i * 4);
+    cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
+    std::cout << cpu.state.disas(gbaemu::Memory::EXT_ROM_OFFSET, 200);
 
-        auto b0 = cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + i * 4);
-        auto b1 = cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + i * 4 + 1);
-        auto b2 = cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + i * 4 + 2);
-        auto b3 = cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + i * 4 + 3);
+    cpu.step();
+    cpu.step();
+    cpu.step();
 
-        auto inst = armDecoder.decode(bytes).arm;
-        std::cout << std::hex << i * 4 << "    " << (uint32_t)b0 << " " << (uint32_t)b1 << " " << (uint32_t)b2 << " " << (uint32_t)b3 << " [" << bytes << "]"
-                  << " -> " << inst.toString() << std::endl;
-    }
+    std::cout << "========================================================================\n";
+
+    std::cout << cpu.state.disas(gbaemu::Memory::EXT_ROM_OFFSET, 200);
+
 
     return 0;
 }

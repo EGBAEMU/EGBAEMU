@@ -6,6 +6,8 @@
 #include "regs.hpp"
 #include <cstdint>
 #include <string>
+#include <sstream>
+#include <iomanip>
 
 namespace gbaemu
 {
@@ -138,9 +140,69 @@ namespace gbaemu
             //TODO implement
         }
 
-        std::string toString() const
-        {
-            return "";
+        std::string toString() const {
+            std::stringstream ss;
+
+            /* general purpose registers */
+            for (uint32_t i = 0; i < 16; ++i) {
+                /* name */
+                ss << "r" << std::dec << i << ' ';
+
+                if (i == 15)
+                    ss << "(PC) ";
+                
+                ss << "    ";
+
+                /* value */
+                uint32_t value = accessReg(i);
+                /* TODO: show fixed point */
+                ss << std::dec << value << " = 0x" << std::hex << value << '\n';
+            }
+
+            /* flag registers */
+            ss << "N=" << getFlag(cpsr_flags::N_FLAG) << ' ' <<
+                  "Z=" << getFlag(cpsr_flags::Z_FLAG) << ' ' <<
+                  "C=" << getFlag(cpsr_flags::C_FLAG) << ' ' <<
+                  "V=" << getFlag(cpsr_flags::V_FLAG) << ' ' <<
+                  "Q=" << getFlag(cpsr_flags::Q_FLAG) << '\n';
+
+            return ss.str();
+        }
+
+        std::string disas(uint32_t addr, uint32_t len) const {
+            std::stringstream ss;
+            ss << std::setfill('0') << std::hex;
+
+            /* TODO: make this Thumb compatible */
+            for (uint32_t i = addr; i < addr + len; i += 4) {
+                uint32_t bytes = memory.read32(i);
+
+                uint32_t b0 = memory.read8(i);
+                uint32_t b1 = memory.read8(i + 1);
+                uint32_t b2 = memory.read8(i + 2);
+                uint32_t b3 = memory.read8(i + 3);
+
+                auto inst = decoder->decode(bytes).arm;
+
+                /* indicate current instruction */
+                if (i == accessReg(regs::PC_OFFSET))
+                    ss << "=> ";
+
+                /* address, pad hex numbers with 0 */
+                ss << "0x" << std::setw(8) << i << "    ";
+
+                /* bytes */
+                ss << std::setw(2) << b0 << ' ' <<
+                      std::setw(2) << b1 << ' ' <<
+                      std::setw(2) << b2 << ' ' <<
+                      std::setw(2) << b3 << " [" <<
+                      std::setw(8) << bytes << ']';
+
+                /* code */
+                ss << "    " << inst.toString() << '\n';
+            }
+
+            return ss.str();
         }
     };
 
