@@ -20,6 +20,11 @@ namespace gbaemu
     http://www.ecs.csun.edu/~smirzaei/docs/ece425/arm7tdmi_instruction_set_reference.pdf
  */
     struct InstructionExecutionInfo {
+        /*
+            1. open https://static.docs.arm.com/ddi0029/g/DDI0029.pdf
+            2. go to "Instruction Cycle Timings"
+            3. vomit        
+         */
         uint32_t cycleCount;
     };
 
@@ -507,7 +512,19 @@ namespace gbaemu
                 state.accessReg(inst.params.data_proc_psr_transf.rd) = resultValue;
 
             /* TODO: cycle timings */
-            return {0};
+            InstructionExecutionInfo info{ 0 };
+            bool destPC = inst.params.data_proc_psr_transf.rd == regs::PC_OFFSET;
+
+            if (!destPC && !shiftByReg)
+                info.cycleCount = 1;
+            else if (destPC && !shiftByReg)
+                info.cycleCount = 3;
+            else if (!destPC && shiftByReg)
+                info.cycleCount = 2;
+            else
+                info.cycleCount = 4;
+            
+            return info;
         }
 
         void execLoadStoreRegUByte(const arm::ARMInstruction& inst) {
