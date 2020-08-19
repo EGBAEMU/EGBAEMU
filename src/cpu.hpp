@@ -25,6 +25,28 @@ namespace gbaemu
             2. go to "Instruction Cycle Timings"
             3. vomit        
          */
+        /*
+            https://mgba.io/2015/06/27/cycle-counting-prefetch/
+            The ARM7TDMI also has four different types of cycles, 
+            on which the CPU clock may stall for a different amount of time: 
+                S cycles, the most common type, refer to sequential memory access. 
+                  Basically, if you access memory at one location and then the location afterwards, 
+                  this second access is sequential, so the memory bus can fetch it more quickly. 
+                Next are N cycles, which refer to non-sequential memory accesses. 
+                  N cycles occur when a memory address is fetched that has nothing to do with the previous instruction.
+                Third are I cycles, which are internal cycles. 
+                  These occur when the CPU does a complicated operation, 
+                  such as multiplication, that it can’t complete in a single cycle. 
+                Finally are C cycles, or coprocessor cycles, 
+                  which occur when communicating with coprocessors in the system.
+                  However, the GBA has no ARM-specified coprocessors, 
+                  and all instructions that try to interact with coprocessors trigger an error state.
+            Thus, the only important cycles to the GBA are S, N and I.
+
+            How long each stall is depends on which region of memory is being accessed.
+            The GBA refers to these stalls as “wait states”.
+            //TODO seems like we have to consider memory accesses for cycles -> integrate into Memory class & pass InstructionExecutionInfo to Memory methods
+        */
         uint32_t cycleCount;
     };
 
@@ -58,6 +80,8 @@ namespace gbaemu
 
         void execute()
         {
+            InstructionExecutionInfo info{0};
+
             if (state.pipeline.decode.lastInstruction.arm.id != arm::ARMInstructionID::INVALID || state.pipeline.decode.lastInstruction.thumb.id != thumb::ThumbInstructionID::INVALID) {
 
                 if (state.pipeline.decode.lastInstruction.isArmInstruction()) {
@@ -69,21 +93,21 @@ namespace gbaemu
                         // prefer using switch to get warned if a category is not handled
                         switch (armInst.cat) {
                             case arm::ARMInstructionCategory::MUL_ACC:
-                                handleMultAcc(armInst.params.mul_acc.a,
-                                              armInst.params.mul_acc.s,
-                                              armInst.params.mul_acc.rd,
-                                              armInst.params.mul_acc.rn,
-                                              armInst.params.mul_acc.rs,
-                                              armInst.params.mul_acc.rm);
+                                info = handleMultAcc(armInst.params.mul_acc.a,
+                                                     armInst.params.mul_acc.s,
+                                                     armInst.params.mul_acc.rd,
+                                                     armInst.params.mul_acc.rn,
+                                                     armInst.params.mul_acc.rs,
+                                                     armInst.params.mul_acc.rm);
                                 break;
                             case arm::ARMInstructionCategory::MUL_ACC_LONG:
-                                handleMultAccLong(armInst.params.mul_acc_long.u,
-                                                  armInst.params.mul_acc_long.a,
-                                                  armInst.params.mul_acc_long.s,
-                                                  armInst.params.mul_acc_long.rd_msw,
-                                                  armInst.params.mul_acc_long.rd_lsw,
-                                                  armInst.params.mul_acc_long.rs,
-                                                  armInst.params.mul_acc_long.rm);
+                                info = handleMultAccLong(armInst.params.mul_acc_long.u,
+                                                         armInst.params.mul_acc_long.a,
+                                                         armInst.params.mul_acc_long.s,
+                                                         armInst.params.mul_acc_long.rd_msw,
+                                                         armInst.params.mul_acc_long.rd_lsw,
+                                                         armInst.params.mul_acc_long.rs,
+                                                         armInst.params.mul_acc_long.rm);
                                 break;
                             case arm::ARMInstructionCategory::BRANCH_XCHG:
                                 handleBranchAndExchange(armInst.params.branch_xchg.rn);
@@ -204,7 +228,7 @@ namespace gbaemu
             execute();
         }
 
-        void handleMultAcc(bool a, bool s, uint32_t rd, uint32_t rn, uint32_t rs, uint32_t rm)
+        InstructionExecutionInfo handleMultAcc(bool a, bool s, uint32_t rd, uint32_t rn, uint32_t rs, uint32_t rm)
         {
             // Check given restrictions
             if (rd == rm) {
@@ -215,9 +239,9 @@ namespace gbaemu
             }
 
             auto currentRegs = state.getCurrentRegs();
-            uint32_t rmVal = *currentRegs[rm];
-            uint32_t rsVal = *currentRegs[rs];
-            uint32_t rnVal = *currentRegs[rn];
+            const uint32_t rmVal = *currentRegs[rm];
+            const uint32_t rsVal = *currentRegs[rs];
+            const uint32_t rnVal = *currentRegs[rn];
 
             uint32_t mulRes = rmVal * rsVal;
 
@@ -233,9 +257,30 @@ namespace gbaemu
                 state.setFlag(cpsr_flags::Z_FLAG, mulRes == 0);
                 state.setFlag(cpsr_flags::N_FLAG, mulRes >> 31);
             }
+
+            /*
+            Execution Time: 1S+mI for MUL, and 1S+(m+1)I for MLA.
+            Whereas 'm' depends on whether/how many most significant bits of Rs are all zero or all one.
+            That is m=1 for Bit 31-8, m=2 for Bit 31-16, m=3 for Bit 31-24, and m=4 otherwise.
+            */
+            InstructionExecutionInfo info{0};
+            // bool a decides if it is a MLAL instruction or MULL
+            info.cycleCount = 1 + (a ? 1 : 0);
+
+            if (((rsVal >> 8) & 0x00FFFFFF) == 0 || ((rsVal >> 8) & 0x00FFFFFF) == 0x00FFFFFF) {
+                info.cycleCount += 1;
+            } else if (((rsVal >> 16) & 0x0000FFFF) == 0 || ((rsVal >> 16) & 0x0000FFFF) == 0x0000FFFF) {
+                info.cycleCount += 2;
+            } else if (((rsVal >> 24) & 0x000000FF) == 0 || ((rsVal >> 24) & 0x000000FF) == 0x000000FF) {
+                info.cycleCount += 3;
+            } else {
+                info.cycleCount += 4;
+            }
+
+            return info;
         }
 
-        void handleMultAccLong(bool signMul, bool a, bool s, uint32_t rd_msw, uint32_t rd_lsw, uint32_t rs, uint32_t rm)
+        InstructionExecutionInfo handleMultAccLong(bool signMul, bool a, bool s, uint32_t rd_msw, uint32_t rd_lsw, uint32_t rs, uint32_t rm)
         {
             if (rd_lsw == rd_msw || rd_lsw == rm || rd_msw == rm) {
                 std::cout << "ERROR: SMULL/SMLAL/UMULL/UMLAL lo, high & rm registers may not be the same!" << std::endl;
@@ -246,13 +291,16 @@ namespace gbaemu
 
             auto currentRegs = state.getCurrentRegs();
 
-            uint64_t rdVal = (static_cast<uint64_t>(*currentRegs[rd_msw]) << 32) | *currentRegs[rd_lsw];
+            const uint64_t rdVal = (static_cast<uint64_t>(*currentRegs[rd_msw]) << 32) | *currentRegs[rd_lsw];
 
             uint64_t mulRes;
 
+            const uint32_t unExtRmVal = *currentRegs[rm];
+            const uint32_t unExtRsVal = *currentRegs[rs];
+
             if (!signMul) {
-                uint64_t rmVal = static_cast<uint64_t>(*currentRegs[rm]);
-                uint64_t rsVal = static_cast<uint64_t>(*currentRegs[rs]);
+                uint64_t rmVal = static_cast<uint64_t>(unExtRmVal);
+                uint64_t rsVal = static_cast<uint64_t>(unExtRsVal);
 
                 mulRes = rmVal * rsVal;
 
@@ -261,8 +309,8 @@ namespace gbaemu
                 }
             } else {
                 // Enforce sign extension
-                int64_t rmVal = static_cast<int64_t>(static_cast<int32_t>(*currentRegs[rm]));
-                int64_t rsVal = static_cast<int64_t>(static_cast<int32_t>(*currentRegs[rs]));
+                int64_t rmVal = static_cast<int64_t>(static_cast<int32_t>(unExtRmVal));
+                int64_t rsVal = static_cast<int64_t>(static_cast<int32_t>(unExtRsVal));
 
                 int64_t signedMulRes = rmVal * rsVal;
 
@@ -282,6 +330,29 @@ namespace gbaemu
                 state.setFlag(cpsr_flags::Z_FLAG, mulRes == 0);
                 state.setFlag(cpsr_flags::N_FLAG, mulRes >> 31);
             }
+
+            /*
+            Execution Time: 1S+(m+1)I for MULL, and 1S+(m+2)I for MLAL.
+            Whereas 'm' depends on whether/how many most significant bits of Rs are "all zero" (UMULL/UMLAL)
+            or "all zero or all one" (SMULL,SMLAL).
+            That is m=1 for Bit31-8, m=2 for Bit31-16, m=3 for Bit31-24, and m=4 otherwise.
+
+            */
+            InstructionExecutionInfo info{0};
+            // bool a decides if it is a MLAL instruction or MULL
+            info.cycleCount = 1 + (a ? 2 : 1);
+
+            if (((unExtRsVal >> 8) & 0x00FFFFFF) == 0 || (signMul && ((unExtRsVal >> 8) & 0x00FFFFFF) == 0x00FFFFFF)) {
+                info.cycleCount += 1;
+            } else if (((unExtRsVal >> 16) & 0x0000FFFF) == 0 || (signMul && ((unExtRsVal >> 16) & 0x0000FFFF) == 0x0000FFFF)) {
+                info.cycleCount += 2;
+            } else if (((unExtRsVal >> 24) & 0x000000FF) == 0 || (signMul && ((unExtRsVal >> 24) & 0x000000FF) == 0x000000FF)) {
+                info.cycleCount += 3;
+            } else {
+                info.cycleCount += 4;
+            }
+
+            return info;
         }
 
         void handleDataSwp(bool b, uint32_t rn, uint32_t rd, uint32_t rm)
