@@ -19,6 +19,10 @@ namespace gbaemu
     instruction set
     http://www.ecs.csun.edu/~smirzaei/docs/ece425/arm7tdmi_instruction_set_reference.pdf
  */
+    struct InstructionExecutionInfo {
+        uint32_t cycleCount;
+    };
+
     class CPU
     {
       public:
@@ -342,7 +346,7 @@ namespace gbaemu
         }
 
         /* ALU functions */
-        void execDataProc(arm::ARMInstruction &inst)
+        InstructionExecutionInfo execDataProc(arm::ARMInstruction &inst)
         {
             /* calculate shifter operand */
             arm::ShiftType shiftType;
@@ -503,6 +507,7 @@ namespace gbaemu
                 state.accessReg(inst.params.data_proc_psr_transf.rd) = resultValue;
 
             /* TODO: cycle timings */
+            return {0};
         }
 
         void execLoadStoreRegUByte(const arm::ARMInstruction& inst) {
