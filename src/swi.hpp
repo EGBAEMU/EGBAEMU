@@ -2,6 +2,7 @@
 #define SWI_HPP
 
 #include "cpu_state.hpp"
+#include "inst.hpp"
 #include "util.hpp"
 
 namespace gbaemu
@@ -9,7 +10,7 @@ namespace gbaemu
     namespace swi
     {
 
-        typedef void SWIHandler(CPUState *);
+        typedef InstructionExecutionInfo SWIHandler(CPUState *);
 
         SWIHandler softReset;
         SWIHandler registerRamReset;

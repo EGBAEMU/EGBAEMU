@@ -20,35 +20,47 @@ namespace gbaemu
             }
         }
 
-        void softReset(CPUState *state)
+        InstructionExecutionInfo softReset(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: softReset not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void registerRamReset(CPUState *state)
+        InstructionExecutionInfo registerRamReset(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: registerRamReset not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void halt(CPUState *state)
+        InstructionExecutionInfo halt(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: halt not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void stop(CPUState *state)
+        InstructionExecutionInfo stop(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: stop not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void intrWait(CPUState *state)
+        InstructionExecutionInfo intrWait(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: intrWait not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void vBlankIntrWait(CPUState *state)
+        InstructionExecutionInfo vBlankIntrWait(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: vBankIntrWait not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
 
         /*
@@ -57,7 +69,7 @@ namespace gbaemu
             r1: numerator % denominator
             r3: abs(numerator / denominator)
         */
-        static void _div(uint32_t *const *const currentRegs, int32_t numerator, int32_t denominator)
+        static InstructionExecutionInfo _div(uint32_t *const *const currentRegs, int32_t numerator, int32_t denominator)
         {
             if (denominator == 0) {
                 std::cout << "WARNING: game attempted division by 0!" << std::endl;
@@ -74,29 +86,37 @@ namespace gbaemu
                 *currentRegs[regs::R1_OFFSET] = static_cast<uint32_t>(numerator - denominator * div);
                 *currentRegs[regs::R3_OFFSET] = static_cast<uint32_t>(div < 0 ? -div : div);
             }
+
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void div(CPUState *state)
+        InstructionExecutionInfo div(CPUState *state)
         {
             auto currentRegs = state->getCurrentRegs();
 
             int32_t numerator = static_cast<int32_t>(*currentRegs[regs::R0_OFFSET]);
             int32_t denominator = static_cast<int32_t>(*currentRegs[regs::R1_OFFSET]);
-            _div(currentRegs, numerator, denominator);
+            return _div(currentRegs, numerator, denominator);
         }
 
-        void divArm(CPUState *state)
+        InstructionExecutionInfo divArm(CPUState *state)
         {
             auto currentRegs = state->getCurrentRegs();
 
             int32_t numerator = static_cast<int32_t>(*currentRegs[regs::R1_OFFSET]);
             int32_t denominator = static_cast<int32_t>(*currentRegs[regs::R0_OFFSET]);
-            _div(currentRegs, numerator, denominator);
+            return _div(currentRegs, numerator, denominator);
         }
 
-        void sqrt(CPUState *state)
+        InstructionExecutionInfo sqrt(CPUState *state)
         {
             uint32_t &r0 = state->accessReg(regs::R0_OFFSET);
             r0 = static_cast<int32_t>(std::sqrt(r0));
+
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
+            return info;
         }
 
         static double convertFromQ1_14ToFP(uint16_t fixedPnt)
@@ -116,7 +136,7 @@ namespace gbaemu
           r0   "-PI/2<THETA/<PI/2" in a range of C000h-4000h.
         Note: there is a problem in accuracy with "THETA<-PI/4, PI/4<THETA".
         */
-        void arcTan(CPUState *state)
+        InstructionExecutionInfo arcTan(CPUState *state)
         {
             uint32_t &r0 = state->accessReg(regs::R0_OFFSET);
             double convertedFP = convertFromQ1_14ToFP(static_cast<uint16_t>(r0 & 0x0000FFFF));
@@ -138,6 +158,10 @@ namespace gbaemu
             r0 = fixedPntPart;
 
             std::cout << "WARNING: arcTan called, return format probably wrong!" << std::endl;
+
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
+            return info;
         }
 
         //TODO what is meant by correction processing?
@@ -149,7 +173,7 @@ namespace gbaemu
         Return:
           r0   0000h-FFFFh for 0<=THETA<2PI.
         */
-        void arcTan2(CPUState *state)
+        InstructionExecutionInfo arcTan2(CPUState *state)
         {
             uint32_t &r0 = state->accessReg(regs::R0_OFFSET);
             double x = convertFromQ1_14ToFP(static_cast<uint16_t>(r0 & 0x0000FFFF));
@@ -161,6 +185,10 @@ namespace gbaemu
             r0 = static_cast<uint32_t>(static_cast<uint16_t>((res * 0x0FFFF) / (2 * M_PI)));
 
             std::cout << "WARNING: arcTan2 called, return format probably wrong!" << std::endl;
+
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
+            return info;
         }
 
         //TODO Note: On GBA, NDS7 and DSi7, these two functions(cpuset & cpufastset) will silently reject to do anything if the source start or end addresses are reaching into the BIOS area. The NDS9 and DSi9 don't have such read-proctections.
@@ -176,12 +204,16 @@ namespace gbaemu
                   Bit 24    Fixed Source Address (0=Copy, 1=Fill by WORD[r0])
         Return: No return value, Data written to destination address.
         */
-        void cpuFastSet(CPUState *state)
+        InstructionExecutionInfo cpuFastSet(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
+            //TODO we need to rewrite this code for memory access calculations or calculate it manually!
             uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET]);
             uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET]);
             uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
+
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
 
             uint32_t length = length_mode & 0x001FFFFF;
             uint32_t rest = length % 8;
@@ -203,6 +235,8 @@ namespace gbaemu
                 // Normal memcpy behaviour
                 std::memcpy(destAddr, sourceAddr, length);
             }
+
+            return info;
         }
         /*
         Memory copy/fill in units of 4 bytes or 2 bytes. Memcopy is implemented as repeated LDMIA/STMIA [Rb]!,r3 or LDRH/STRH r3,[r0,r5] instructions. Memfill as single LDMIA or LDRH followed by repeated STMIA [Rb]!,r3 or STRH r3,[r0,r5].
@@ -215,12 +249,16 @@ namespace gbaemu
                   Bit 26    Datasize (0=16bit, 1=32bit)
         Return: No return value, Data written to destination address.
         */
-        void cpuSet(CPUState *state)
+        InstructionExecutionInfo cpuSet(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
+            //TODO we need to rewrite this code for memory access calculations or calculate it manually!
             uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET]);
             uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET]);
             uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
+
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
 
             uint32_t length = length_mode & 0x001FFFFF;
             bool fixedMode = length_mode & (1 << 24);
@@ -245,6 +283,8 @@ namespace gbaemu
                 // Normal memcpy behaviour
                 std::memcpy(destAddr, sourceAddr, length);
             }
+
+            return info;
         }
 
         /*
@@ -252,9 +292,12 @@ namespace gbaemu
         The checksum is BAAE187Fh (GBA and GBA SP), or BAAE1880h (NDS/3DS in GBA mode, whereas the only difference is that the byte at [3F0Ch] is changed from 00h to 01h, otherwise the BIOS is 1:1 same as GBA BIOS, it does even include multiboot code).
         Parameters: None. Return: r0=Checksum.
         */
-        void biosChecksum(CPUState *state)
+        InstructionExecutionInfo biosChecksum(CPUState *state)
         {
             state->accessReg(regs::R0_OFFSET) = 0x0BAAE18F;
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
+            return info;
         }
 
         /*
@@ -281,7 +324,7 @@ namespace gbaemu
         For both Bg- and ObjAffineSet, Rotation angles are specified as 0-FFFFh (covering a range of 360 degrees), 
         however, the GBA BIOS recurses only the upper 8bit; the lower 8bit may contain a fractional portion, but it is ignored by the BIOS.
         */
-        void bgAffineSet(CPUState *state)
+        InstructionExecutionInfo bgAffineSet(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
@@ -289,33 +332,38 @@ namespace gbaemu
             uint32_t iterationCount = *currentRegs[regs::R2_OFFSET];
 
             auto &m = state->memory;
+            //TODO do those read & writes count as non sequential?
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
 
             for (size_t i = 0; i < iterationCount; ++i) {
                 common::math::mat<3, 3> scale{
-                    {m.read32(sourceAddr) / 256.f, 0, 0},
-                    {0, m.read32(sourceAddr + 4) / 256.f, 0},
+                    {m.read32(sourceAddr, &info.cycleCount) / 256.f, 0, 0},
+                    {0, m.read32(sourceAddr + 4, &info.cycleCount) / 256.f, 0},
                     {0, 0, 1}};
 
                 uint32_t off = i * 20;
-                float ox = m.read32(off + sourceAddr) / 256.f;
-                float oy = m.read32(off + sourceAddr + 4) / 256.f;
-                float cx = m.read16(off + sourceAddr + 8);
-                float cy = m.read16(off + sourceAddr + 10);
-                float sx = m.read16(off + sourceAddr + 12) / 256.f;
-                float sy = m.read16(off + sourceAddr + 14) / 256.f;
-                float theta = (m.read32(sourceAddr + 16) >> 8) / 128.f * M_PI;
+                float ox = m.read32(off + sourceAddr, &info.cycleCount) / 256.f;
+                float oy = m.read32(off + sourceAddr + 4, &info.cycleCount) / 256.f;
+                float cx = m.read16(off + sourceAddr + 8, &info.cycleCount);
+                float cy = m.read16(off + sourceAddr + 10, &info.cycleCount);
+                float sx = m.read16(off + sourceAddr + 12, &info.cycleCount) / 256.f;
+                float sy = m.read16(off + sourceAddr + 14, &info.cycleCount) / 256.f;
+                float theta = (m.read32(sourceAddr + 16, &info.cycleCount) >> 8) / 128.f * M_PI;
 
                 auto r = common::math::scale_matrix({sx, sy, 1}) *
                          common::math::rotation_around_matrix(theta, {0, 0, 1}, {cx - ox, cy - oy, 1});
 
                 uint32_t dstOff = i * 16;
-                m.write16(dstOff + destAddr, r[0][0] * 256);
-                m.write16(dstOff + destAddr + 2, r[0][1] * 256);
-                m.write16(dstOff + destAddr + 4, r[1][0] * 256);
-                m.write16(dstOff + destAddr + 6, r[1][1] * 256);
-                m.write32(dstOff + destAddr + 8, r[0][2] * 256);
-                m.write32(dstOff + destAddr + 12, r[1][2] * 256);
+                m.write16(dstOff + destAddr, r[0][0] * 256, &info.cycleCount);
+                m.write16(dstOff + destAddr + 2, r[0][1] * 256, &info.cycleCount);
+                m.write16(dstOff + destAddr + 4, r[1][0] * 256, &info.cycleCount);
+                m.write16(dstOff + destAddr + 6, r[1][1] * 256, &info.cycleCount);
+                m.write32(dstOff + destAddr + 8, r[0][2] * 256, &info.cycleCount);
+                m.write32(dstOff + destAddr + 12, r[1][2] * 256, &info.cycleCount);
             }
+
+            return info;
         }
 
         /*
@@ -341,7 +389,7 @@ namespace gbaemu
         For both Bg- and ObjAffineSet, Rotation angles are specified as 0-FFFFh (covering a range of 360 degrees), 
         however, the GBA BIOS recurses only the upper 8bit; the lower 8bit may contain a fractional portion, but it is ignored by the BIOS.
         */
-        void objAffineSet(CPUState *state)
+        InstructionExecutionInfo objAffineSet(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
@@ -350,22 +398,27 @@ namespace gbaemu
             uint32_t diff = *currentRegs[regs::R2_OFFSET];
 
             auto &m = state->memory;
+            //TODO do those read & writes count as non sequential?
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
 
             for (size_t i = 0; i < iterationCount; ++i) {
                 uint32_t srcOff = i * 8;
-                float sx = m.read16(srcOff + sourceAddr) / 256.f;
-                float sy = m.read16(srcOff + sourceAddr + 2) / 256.f;
-                float theta = (m.read16(srcOff + sourceAddr + 4) >> 8) / 128.f * M_PI;
+                float sx = m.read16(srcOff + sourceAddr, &info.cycleCount) / 256.f;
+                float sy = m.read16(srcOff + sourceAddr + 2, &info.cycleCount) / 256.f;
+                float theta = (m.read16(srcOff + sourceAddr + 4, &info.cycleCount) >> 8) / 128.f * M_PI;
 
                 auto r = common::math::scale_matrix(sx, sy, 0) *
                          common::math::rotation_matrix(theta, {0, 0, 1});
 
                 uint32_t destOff = diff * 4;
-                m.write16(destOff + destAddr, r[0][0] * 256);
-                m.write16(destOff + destAddr + diff, r[0][1] * 256);
-                m.write16(destOff + destAddr + diff * 2, r[1][0] * 256);
-                m.write16(destOff + destAddr + diff * 3, r[1][1] * 256);
+                m.write16(destOff + destAddr, r[0][0] * 256, &info.cycleCount);
+                m.write16(destOff + destAddr + diff, r[0][1] * 256, &info.cycleCount);
+                m.write16(destOff + destAddr + diff * 2, r[1][0] * 256, &info.cycleCount);
+                m.write16(destOff + destAddr + diff * 3, r[1][1] * 256, &info.cycleCount);
             }
+
+            return info;
         }
 
         /*
@@ -385,17 +438,20 @@ namespace gbaemu
         The width of source units (plus the offset) should not exceed the destination width.
         Return: No return value, Data written to destination address
         */
-        void bitUnPack(CPUState *state)
+        InstructionExecutionInfo bitUnPack(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
             uint32_t unpackFormatPtr = *currentRegs[regs::R2_OFFSET];
 
-            uint16_t srcByteCount = state->memory.read16(unpackFormatPtr);
-            const uint8_t srcUnitWidth = state->memory.read8(unpackFormatPtr + 2);
-            const uint8_t destUnitWidth = state->memory.read8(unpackFormatPtr + 3);
-            uint32_t dataOffset = state->memory.read32(unpackFormatPtr + 4);
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
+
+            uint16_t srcByteCount = state->memory.read16(unpackFormatPtr, &info.cycleCount);
+            const uint8_t srcUnitWidth = state->memory.read8(unpackFormatPtr + 2, &info.cycleCount);
+            const uint8_t destUnitWidth = state->memory.read8(unpackFormatPtr + 3, &info.cycleCount);
+            uint32_t dataOffset = state->memory.read32(unpackFormatPtr + 4, &info.cycleCount);
             const bool zeroDataOff = dataOffset & (1 << 31);
             dataOffset &= 0x7FFFFFF;
 
@@ -404,7 +460,7 @@ namespace gbaemu
             uint8_t writeBufOffset = 0;
 
             for (; srcByteCount > 0; --srcByteCount) {
-                uint8_t srcUnits = state->memory.read8(sourceAddr++);
+                uint8_t srcUnits = state->memory.read8(sourceAddr++, &info.cycleCount);
 
                 // units of size < 8 will be concatenated so we need to extract them before storing
                 for (uint8_t srcUnitBitsLeft = 8; srcUnitBitsLeft > 0; srcUnitBitsLeft -= srcUnitWidth) {
@@ -428,13 +484,15 @@ namespace gbaemu
                     // if there is no more space for another unit we have to flush our buffer
                     // flushing is also needed if this is the very last unit!
                     if (writeBufOffset + destUnitWidth > 32 || (srcByteCount == 1 && srcUnitBitsLeft <= srcUnitWidth)) {
-                        state->memory.write32(destAddr, writeBuf);
+                        state->memory.write32(destAddr, writeBuf, &info.cycleCount);
                         destAddr += 4;
                         writeBuf = 0;
                         writeBufOffset = 0;
                     }
                 }
             }
+
+            return info;
         }
 
         /*
@@ -468,13 +526,16 @@ namespace gbaemu
         Return: No return value.
         */
         //TODO is the difference between writing in units of 8 bit vs 16 bit relevant?
-        static void _LZ77UnComp(CPUState *state)
+        static InstructionExecutionInfo _LZ77UnComp(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
 
-            const uint32_t dataHeader = state->memory.read32(sourceAddr);
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
+
+            const uint32_t dataHeader = state->memory.read32(sourceAddr, &info.cycleCount);
             sourceAddr += 4;
 
             const uint8_t compressedType = (dataHeader >> 4) & 0x0F;
@@ -483,11 +544,11 @@ namespace gbaemu
             // Value should be 3 for run-length decompression
             if (compressedType != 1) {
                 std::cerr << "ERROR: Invalid call of LZ77UnComp!" << std::endl;
-                return;
+                return info;
             }
 
             while (decompressedSize > 0) {
-                const uint8_t typeBitset = state->memory.read8(sourceAddr++);
+                const uint8_t typeBitset = state->memory.read8(sourceAddr++, &info.cycleCount);
 
                 // process each block
                 for (uint8_t i = 0; i < 8; ++i) {
@@ -495,7 +556,7 @@ namespace gbaemu
 
                     if (type1) {
                         // Type 1 uses previously written data as lookup source
-                        uint16_t type1Desc = state->memory.read16(sourceAddr);
+                        uint16_t type1Desc = state->memory.read16(sourceAddr, &info.cycleCount);
                         sourceAddr += 2;
 
                         uint16_t disp = (((type1Desc & 0x0F) << 8) | ((type1Desc >> 8) & 0x0FF)) + 1;
@@ -507,25 +568,27 @@ namespace gbaemu
                         // Copy N Bytes from Dest-Disp to Dest (+3 and - 1 already applied)
                         uint32_t readAddr = destAddr - disp;
                         while (n > 0) {
-                            state->memory.write8(destAddr++, state->memory.read8(readAddr++));
+                            state->memory.write8(destAddr++, state->memory.read8(readAddr++, &info.cycleCount), &info.cycleCount);
                         }
                     } else {
                         // Type 0 is one uncompressed byte of data
-                        uint8_t data = state->memory.read8(sourceAddr++);
+                        uint8_t data = state->memory.read8(sourceAddr++, &info.cycleCount);
                         --decompressedSize;
-                        state->memory.write8(destAddr++, data);
+                        state->memory.write8(destAddr++, data, &info.cycleCount);
                     }
                 }
             }
+
+            return info;
         }
 
-        void LZ77UnCompWRAM(CPUState *state)
+        InstructionExecutionInfo LZ77UnCompWRAM(CPUState *state)
         {
-            _LZ77UnComp(state);
+            return _LZ77UnComp(state);
         }
-        void LZ77UnCompVRAM(CPUState *state)
+        InstructionExecutionInfo LZ77UnCompVRAM(CPUState *state)
         {
-            _LZ77UnComp(state);
+            return _LZ77UnComp(state);
         }
 
         /*
@@ -557,13 +620,16 @@ namespace gbaemu
           r3  Callback structure        ;/(see Callback notes below)
         Return: No return value, Data written to destination address.
         */
-        void huffUnComp(CPUState *state)
+        InstructionExecutionInfo huffUnComp(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
 
-            uint32_t dataHeader = state->memory.read32(sourceAddr);
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
+
+            uint32_t dataHeader = state->memory.read32(sourceAddr, &info.cycleCount);
             sourceAddr += 4;
 
             uint32_t decompressedBits = ((dataHeader >> 8) & 0x00FFFFFF) * 8;
@@ -580,10 +646,10 @@ namespace gbaemu
             // Value should be 2 for huffman
             if (compressedType != 2) {
                 std::cerr << "ERROR: Invalid call of huffUnComp!" << std::endl;
-                return;
+                return info;
             }
 
-            uint8_t treeSize = state->memory.read8(sourceAddr);
+            uint8_t treeSize = state->memory.read8(sourceAddr, &info.cycleCount);
             sourceAddr += 1;
 
             const uint32_t treeRoot = sourceAddr;
@@ -594,7 +660,7 @@ namespace gbaemu
             uint8_t writeBufOffset = 0;
 
             // as bits needed for decompressions varies we need to keep track of bits left in the read buffer
-            uint32_t readBuf = state->memory.read32(sourceAddr);
+            uint32_t readBuf = state->memory.read32(sourceAddr, &info.cycleCount);
             sourceAddr += 4;
             uint8_t readBufBitsLeft = 32;
 
@@ -609,7 +675,7 @@ namespace gbaemu
 
                 // Bit wise tree walk
                 for (;;) {
-                    uint8_t node = state->memory.read8(currentParsingAddr);
+                    uint8_t node = state->memory.read8(currentParsingAddr, &info.cycleCount);
 
                     if (isDataNode) {
                         writeBuf |= (static_cast<uint32_t>(node) << writeBufOffset);
@@ -630,7 +696,7 @@ namespace gbaemu
 
                     // Fill empty read buffer again
                     if (readBufBitsLeft == 0) {
-                        readBuf = state->memory.read32(sourceAddr);
+                        readBuf = state->memory.read32(sourceAddr, &info.cycleCount);
                         sourceAddr += 4;
                         readBufBitsLeft = 32;
                     }
@@ -638,13 +704,15 @@ namespace gbaemu
 
                 // Is there is no more space left for decompressed data or we are done decompressing(only dataSize bits left) then we have to flush our buffer
                 if (writeBufOffset + dataSize > 32 || decompressedBits == dataSize) {
-                    state->memory.write32(destAddr, writeBuf);
+                    state->memory.write32(destAddr, writeBuf, &info.cycleCount);
                     destAddr += 4;
                     // Reset buf state
                     writeBufOffset = 0;
                     writeBuf = 0;
                 }
             }
+
+            return info;
         }
 
         /*
@@ -670,13 +738,16 @@ namespace gbaemu
         Return: No return value, Data written to destination address.
         */
         //TODO is the difference between writing in units of 8 bit vs 16 bit relevant?
-        static void _rlUnComp(CPUState *state)
+        static InstructionExecutionInfo _rlUnComp(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
 
-            const uint32_t dataHeader = state->memory.read32(sourceAddr);
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
+
+            const uint32_t dataHeader = state->memory.read32(sourceAddr, &info.cycleCount);
             sourceAddr += 4;
 
             const uint8_t compressedType = (dataHeader >> 4) & 0x0F;
@@ -685,37 +756,39 @@ namespace gbaemu
             // Value should be 3 for run-length decompression
             if (compressedType != 3) {
                 std::cerr << "ERROR: Invalid call of rlUnComp!" << std::endl;
-                return;
+                return info;
             }
 
             while (decompressedSize > 0) {
-                uint8_t flagData = state->memory.read8(sourceAddr++);
+                uint8_t flagData = state->memory.read8(sourceAddr++, &info.cycleCount);
 
                 bool compressed = (flagData >> 7) & 0x1;
                 uint8_t decompressedDataLength = (flagData & 0x7F) + (compressed ? 3 : 1);
 
                 if (decompressedSize < decompressedDataLength) {
                     std::cerr << "ERROR: underflow in rlUnComp!" << std::endl;
-                    return;
+                    return info;
                 }
                 decompressedSize -= decompressedDataLength;
 
-                uint8_t data = state->memory.read8(sourceAddr++);
+                uint8_t data = state->memory.read8(sourceAddr++, &info.cycleCount);
 
                 // write read data byte N times for decompression
                 for (; decompressedDataLength > 0; --decompressedDataLength) {
-                    state->memory.write8(destAddr++, data);
+                    state->memory.write8(destAddr++, data, &info.cycleCount);
                 }
             }
+
+            return info;
         }
 
-        void RLUnCompWRAM(CPUState *state)
+        InstructionExecutionInfo RLUnCompWRAM(CPUState *state)
         {
-            _rlUnComp(state);
+            return _rlUnComp(state);
         }
-        void RLUnCompVRAM(CPUState *state)
+        InstructionExecutionInfo RLUnCompVRAM(CPUState *state)
         {
-            _rlUnComp(state);
+            return _rlUnComp(state);
         }
 
         /*
@@ -741,13 +814,16 @@ namespace gbaemu
           r1  Destination address
         Return: No return value, Data written to destination address.
         */
-        static void _diffUnFilter(CPUState *state, bool bits8)
+        static InstructionExecutionInfo _diffUnFilter(CPUState *state, bool bits8)
         {
             const auto currentRegs = state->getCurrentRegs();
             uint32_t srcAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
 
-            uint32_t info = state->memory.read32(srcAddr);
+            //TODO proper time calculation considering bit width!
+            InstructionExecutionInfo cycleInfo{0};
+
+            uint32_t info = state->memory.read32(srcAddr, &cycleInfo.cycleCount);
             srcAddr += 4;
 
             //TODO not sure if we need those... maybe for sanity checks
@@ -760,116 +836,154 @@ namespace gbaemu
 
             uint16_t current = 0;
             do {
-                uint16_t diff = bits8 ? state->memory.read8(srcAddr) : state->memory.read16(srcAddr);
+                uint16_t diff = bits8 ? state->memory.read8(srcAddr, &cycleInfo.cycleCount) : state->memory.read16(srcAddr, &cycleInfo.cycleCount);
                 current += diff;
-                bits8 ? state->memory.write8(destAddr, static_cast<uint8_t>(current & 0x0FF)) : state->memory.write16(srcAddr, current);
+                bits8 ? state->memory.write8(destAddr, static_cast<uint8_t>(current & 0x0FF), &cycleInfo.cycleCount) : state->memory.write16(srcAddr, current, &cycleInfo.cycleCount);
                 destAddr += addressInc;
                 srcAddr += addressInc;
             } while (--size);
+
+            return cycleInfo;
         }
 
-        void diff8BitUnFilterWRAM(CPUState *state)
+        InstructionExecutionInfo diff8BitUnFilterWRAM(CPUState *state)
         {
-            _diffUnFilter(state, true);
+            return _diffUnFilter(state, true);
         }
-        void diff8BitUnFilterVRAM(CPUState *state)
+        InstructionExecutionInfo diff8BitUnFilterVRAM(CPUState *state)
         {
-            _diffUnFilter(state, true);
+            return _diffUnFilter(state, true);
         }
-        void diff16BitUnFilter(CPUState *state)
+        InstructionExecutionInfo diff16BitUnFilter(CPUState *state)
         {
-            _diffUnFilter(state, false);
+            return _diffUnFilter(state, false);
         }
 
-        void soundBiasChange(CPUState *state)
+        InstructionExecutionInfo soundBiasChange(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: soundBiasChange not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void soundDriverInit(CPUState *state)
+        InstructionExecutionInfo soundDriverInit(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: soundDriverInit not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void soundDriverMode(CPUState *state)
+        InstructionExecutionInfo soundDriverMode(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: soundDriverMode not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void soundDriverMain(CPUState *state)
+        InstructionExecutionInfo soundDriverMain(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: soundDirverMain not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void soundDriverVSync(CPUState *state)
+        InstructionExecutionInfo soundDriverVSync(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: soundDirverVSync not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void soundChannelClear(CPUState *state)
+        InstructionExecutionInfo soundChannelClear(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: soundChannelClear not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void MIDIKey2Freq(CPUState *state)
+        InstructionExecutionInfo MIDIKey2Freq(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: MIDIKey2Freq not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void musicPlayerOpen(CPUState *state)
+        InstructionExecutionInfo musicPlayerOpen(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: musicPlayerOpen not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void musicPlayerStart(CPUState *state)
+        InstructionExecutionInfo musicPlayerStart(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: musicPlayerStart not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void musicPlayerStop(CPUState *state)
+        InstructionExecutionInfo musicPlayerStop(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: musicPlayerStop not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void musicPlayerContinue(CPUState *state)
+        InstructionExecutionInfo musicPlayerContinue(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: musicPlayerContinue not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void musicPlayerFadeOut(CPUState *state)
+        InstructionExecutionInfo musicPlayerFadeOut(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: musicPlayerFadeOut not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void multiBoot(CPUState *state)
+        InstructionExecutionInfo multiBoot(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: multiBoot not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void hardReset(CPUState *state)
+        InstructionExecutionInfo hardReset(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: hardReset not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void customHalt(CPUState *state)
+        InstructionExecutionInfo customHalt(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: customHalt not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void soundDriverVSyncOff(CPUState *state)
+        InstructionExecutionInfo soundDriverVSyncOff(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: sourdDriverVSyncOff not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void soundDriverVSyncOn(CPUState *state)
+        InstructionExecutionInfo soundDriverVSyncOn(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: soundDriverVSyncOn not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
-        void getJumpList(CPUState *state)
+        InstructionExecutionInfo getJumpList(CPUState *state)
         {
             //TODO implement
             std::cout << "WARNING: getJumpList not yet implemented!" << std::endl;
+            InstructionExecutionInfo info{0};
+            return info;
         }
 
     } // namespace swi

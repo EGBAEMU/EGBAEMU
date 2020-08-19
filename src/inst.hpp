@@ -10,6 +10,45 @@ namespace gbaemu
 
     struct CPUState;
 
+    /*
+    instruction set
+    http://www.ecs.csun.edu/~smirzaei/docs/ece425/arm7tdmi_instruction_set_reference.pdf
+ */
+    struct InstructionExecutionInfo {
+        /*
+            1. open https://static.docs.arm.com/ddi0029/g/DDI0029.pdf
+            2. go to "Instruction Cycle Timings"
+            3. vomit        
+         */
+        /*
+            https://mgba.io/2015/06/27/cycle-counting-prefetch/
+            The ARM7TDMI also has four different types of cycles, 
+            on which the CPU clock may stall for a different amount of time: 
+                S cycles, the most common type, refer to sequential memory access. 
+                  Basically, if you access memory at one location and then the location afterwards, 
+                  this second access is sequential, so the memory bus can fetch it more quickly. 
+                Next are N cycles, which refer to non-sequential memory accesses. 
+                  N cycles occur when a memory address is fetched that has nothing to do with the previous instruction.
+                Third are I cycles, which are internal cycles. 
+                  These occur when the CPU does a complicated operation, 
+                  such as multiplication, that it can’t complete in a single cycle. 
+                Finally are C cycles, or coprocessor cycles, 
+                  which occur when communicating with coprocessors in the system.
+                  However, the GBA has no ARM-specified coprocessors, 
+                  and all instructions that try to interact with coprocessors trigger an error state.
+            Thus, the only important cycles to the GBA are S, N and I.
+
+            How long each stall is depends on which region of memory is being accessed.
+            The GBA refers to these stalls as “wait states”.
+            //TODO seems like we have to consider memory accesses for cycles -> integrate into Memory class & pass InstructionExecutionInfo to Memory methods
+        */
+        uint32_t cycleCount;
+
+        // Those should only be set != 0 if there were reads needed at program location, i.e. pipeline flush or PC loaded causing 1S + 1N
+        uint32_t additionalProgCyclesS;
+        uint32_t additionalProgCyclesN;
+    };
+
     namespace arm
     {
         enum ConditionOPCode : uint8_t {

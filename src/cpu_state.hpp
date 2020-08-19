@@ -174,12 +174,12 @@ namespace gbaemu
 
             /* TODO: make this Thumb compatible */
             for (uint32_t i = addr; i < addr + len; i += 4) {
-                uint32_t bytes = memory.read32(i);
+                uint32_t bytes = memory.read32(i, nullptr);
 
-                uint32_t b0 = memory.read8(i);
-                uint32_t b1 = memory.read8(i + 1);
-                uint32_t b2 = memory.read8(i + 2);
-                uint32_t b3 = memory.read8(i + 3);
+                uint32_t b0 = memory.read8(i, nullptr);
+                uint32_t b1 = memory.read8(i + 1, nullptr);
+                uint32_t b2 = memory.read8(i + 2, nullptr);
+                uint32_t b3 = memory.read8(i + 3, nullptr);
 
                 auto inst = decoder->decode(bytes).arm;
 

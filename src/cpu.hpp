@@ -15,41 +15,6 @@
 namespace gbaemu
 {
 
-    /*
-    instruction set
-    http://www.ecs.csun.edu/~smirzaei/docs/ece425/arm7tdmi_instruction_set_reference.pdf
- */
-    struct InstructionExecutionInfo {
-        /*
-            1. open https://static.docs.arm.com/ddi0029/g/DDI0029.pdf
-            2. go to "Instruction Cycle Timings"
-            3. vomit        
-         */
-        /*
-            https://mgba.io/2015/06/27/cycle-counting-prefetch/
-            The ARM7TDMI also has four different types of cycles, 
-            on which the CPU clock may stall for a different amount of time: 
-                S cycles, the most common type, refer to sequential memory access. 
-                  Basically, if you access memory at one location and then the location afterwards, 
-                  this second access is sequential, so the memory bus can fetch it more quickly. 
-                Next are N cycles, which refer to non-sequential memory accesses. 
-                  N cycles occur when a memory address is fetched that has nothing to do with the previous instruction.
-                Third are I cycles, which are internal cycles. 
-                  These occur when the CPU does a complicated operation, 
-                  such as multiplication, that it can’t complete in a single cycle. 
-                Finally are C cycles, or coprocessor cycles, 
-                  which occur when communicating with coprocessors in the system.
-                  However, the GBA has no ARM-specified coprocessors, 
-                  and all instructions that try to interact with coprocessors trigger an error state.
-            Thus, the only important cycles to the GBA are S, N and I.
-
-            How long each stall is depends on which region of memory is being accessed.
-            The GBA refers to these stalls as “wait states”.
-            //TODO seems like we have to consider memory accesses for cycles -> integrate into Memory class & pass InstructionExecutionInfo to Memory methods
-        */
-        uint32_t cycleCount;
-    };
-
     class CPU
     {
       public:
@@ -67,7 +32,8 @@ namespace gbaemu
             /* assume 26 ARM state here */
             /* pc is at [25:2] */
             uint32_t pc = (state.accessReg(regs::PC_OFFSET) >> 2) & 0x03FFFFFF;
-            state.pipeline.fetch.instruction = state.memory.read32(pc * 4);
+            //TODO we might need this info? (where nullptr is currently)
+            state.pipeline.fetch.instruction = state.memory.read32(pc * 4, nullptr);
 
             //TODO where do we want to update pc? (+4)
         }
@@ -110,31 +76,32 @@ namespace gbaemu
                                                          armInst.params.mul_acc_long.rm);
                                 break;
                             case arm::ARMInstructionCategory::BRANCH_XCHG:
-                                handleBranchAndExchange(armInst.params.branch_xchg.rn);
+                                /*info =*/handleBranchAndExchange(armInst.params.branch_xchg.rn);
                                 break;
                             case arm::ARMInstructionCategory::DATA_SWP:
-                                handleDataSwp(armInst.params.data_swp.b,
-                                              armInst.params.data_swp.rn,
-                                              armInst.params.data_swp.rd,
-                                              armInst.params.data_swp.rm);
+                                info = handleDataSwp(armInst.params.data_swp.b,
+                                                     armInst.params.data_swp.rn,
+                                                     armInst.params.data_swp.rd,
+                                                     armInst.params.data_swp.rm);
                                 break;
                             case arm::ARMInstructionCategory::HW_TRANSF_REG_OFF:
                                 break;
                             case arm::ARMInstructionCategory::HW_TRANSF_IMM_OFF:
+                                info = execHalfwordDataTransferImm(armInst);
                                 break;
                             case arm::ARMInstructionCategory::SIGN_TRANSF:
                                 break;
                             case arm::ARMInstructionCategory::DATA_PROC_PSR_TRANSF:
-                                execDataProc(armInst);
+                                info = execDataProc(armInst);
                                 break;
                             case arm::ARMInstructionCategory::LS_REG_UBYTE:
-                                execLoadStoreRegUByte(armInst);
+                                /*info = */ execLoadStoreRegUByte(armInst);
                                 break;
                             case arm::ARMInstructionCategory::BLOCK_DATA_TRANSF:
-                                execDataBlockTransfer(armInst);
+                                /*info = */ execDataBlockTransfer(armInst);
                                 break;
                             case arm::ARMInstructionCategory::BRANCH:
-                                handleBranch(armInst.params.branch.l, armInst.params.branch.offset);
+                                /*info =*/handleBranch(armInst.params.branch.l, armInst.params.branch.offset);
                                 break;
 
                             case arm::ARMInstructionCategory::SOFTWARE_INTERRUPT: {
@@ -147,7 +114,7 @@ namespace gbaemu
                                 */
                                 uint8_t index = armInst.params.software_interrupt.comment >> 16;
                                 if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
-                                    swi::biosCallHandler[index](&state);
+                                    info = swi::biosCallHandler[index](&state);
                                 } else {
                                     std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << std::endl;
                                 }
@@ -203,7 +170,7 @@ namespace gbaemu
                                 */
                             uint8_t index = thumbInst.params.software_interrupt.comment;
                             if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
-                                swi::biosCallHandler[index](&state);
+                                info = swi::biosCallHandler[index](&state);
                             } else {
                                 std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << std::endl;
                             }
@@ -215,6 +182,17 @@ namespace gbaemu
                             break;
                     }
                 }
+            }
+
+            //TODO check if every instruction has this 1S cycle
+            //TODO we need to consider here branch instructions -> which PC to use for this calculation + how often (pipeline flush?)
+            // Add 1S cycle needed to fetch a instruction
+            info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(state.getCurrentPC(), sizeof(uint32_t));
+            if (info.additionalProgCyclesN) {
+                info.cycleCount += state.memory.nonSeqWaitCyclesForVirtualAddr(state.getCurrentPC(), sizeof(uint32_t)) * info.additionalProgCyclesN;
+            }
+            if (info.additionalProgCyclesS) {
+                info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(state.getCurrentPC(), sizeof(uint32_t)) * info.additionalProgCyclesS;
             }
         }
 
@@ -265,7 +243,7 @@ namespace gbaemu
             */
             InstructionExecutionInfo info{0};
             // bool a decides if it is a MLAL instruction or MULL
-            info.cycleCount = 1 + (a ? 1 : 0);
+            info.cycleCount = (a ? 1 : 0);
 
             if (((rsVal >> 8) & 0x00FFFFFF) == 0 || ((rsVal >> 8) & 0x00FFFFFF) == 0x00FFFFFF) {
                 info.cycleCount += 1;
@@ -336,11 +314,10 @@ namespace gbaemu
             Whereas 'm' depends on whether/how many most significant bits of Rs are "all zero" (UMULL/UMLAL)
             or "all zero or all one" (SMULL,SMLAL).
             That is m=1 for Bit31-8, m=2 for Bit31-16, m=3 for Bit31-24, and m=4 otherwise.
-
             */
             InstructionExecutionInfo info{0};
             // bool a decides if it is a MLAL instruction or MULL
-            info.cycleCount = 1 + (a ? 2 : 1);
+            info.cycleCount = (a ? 2 : 1);
 
             if (((unExtRsVal >> 8) & 0x00FFFFFF) == 0 || (signMul && ((unExtRsVal >> 8) & 0x00FFFFFF) == 0x00FFFFFF)) {
                 info.cycleCount += 1;
@@ -355,7 +332,7 @@ namespace gbaemu
             return info;
         }
 
-        void handleDataSwp(bool b, uint32_t rn, uint32_t rd, uint32_t rm)
+        InstructionExecutionInfo handleDataSwp(bool b, uint32_t rn, uint32_t rd, uint32_t rm)
         {
             if (rd == regs::PC_OFFSET || rn == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
                 std::cout << "ERROR: SWP/SWPB PC register may not be involved in calculations!" << std::endl;
@@ -365,16 +342,22 @@ namespace gbaemu
             uint32_t newMemVal = *currentRegs[rm];
             uint32_t memAddr = *currentRegs[rn];
 
+            // Execution Time: 1S+2N+1I. That is, 2N data cycles (added through Memory class), 1S code cycle, plus 1I(initial value)
+            InstructionExecutionInfo info{0};
+            info.cycleCount = 1;
+
             if (b) {
-                uint8_t memVal = state.memory.read8(memAddr);
-                state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF));
+                uint8_t memVal = state.memory.read8(memAddr, &info.cycleCount);
+                state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF), &info.cycleCount);
                 //TODO overwrite upper 24 bits?
                 *currentRegs[rd] = static_cast<uint32_t>(memVal);
             } else {
-                uint32_t memVal = state.memory.read32(memAddr);
-                state.memory.write32(memAddr, newMemVal);
+                uint32_t memVal = state.memory.read32(memAddr, &info.cycleCount);
+                state.memory.write32(memAddr, newMemVal, &info.cycleCount);
                 *currentRegs[rd] = memVal;
             }
+
+            return info;
         }
 
         // Executes instructions belonging to the branch subsection
@@ -589,14 +572,13 @@ namespace gbaemu
             InstructionExecutionInfo info{0};
             bool destPC = inst.params.data_proc_psr_transf.rd == regs::PC_OFFSET;
 
-            if (!destPC && !shiftByReg)
-                info.cycleCount = 1;
-            else if (destPC && !shiftByReg)
-                info.cycleCount = 3;
-            else if (!destPC && shiftByReg)
-                info.cycleCount = 2;
-            else
-                info.cycleCount = 4;
+            if (destPC) {
+                info.additionalProgCyclesN = 1;
+                info.additionalProgCyclesS = 1;
+            }
+            if (shiftByReg) {
+                info.cycleCount += 1;
+            }
 
             return info;
         }
@@ -648,6 +630,9 @@ namespace gbaemu
             uint32_t memoryAddress;
             uint32_t offset;
 
+            //TODO add needed I cycles and if existent edge cases like changing PC
+            InstructionExecutionInfo info{0};
+
             /* offset is calculated differently, depending on the I-bit */
             if (immediate) {
                 offset = inst.params.ls_reg_ubyte.addrMode;
@@ -669,15 +654,15 @@ namespace gbaemu
             /* transfer */
             if (load) {
                 if (byte) {
-                    state.accessReg(rd) = state.memory.read8(memoryAddress);
+                    state.accessReg(rd) = state.memory.read8(memoryAddress, &info.cycleCount);
                 } else {
-                    state.accessReg(rd) = state.memory.read32(memoryAddress);
+                    state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
                 }
             } else {
                 if (byte) {
-                    state.memory.write8(memoryAddress, state.accessReg(rd));
+                    state.memory.write8(memoryAddress, state.accessReg(rd), &info.cycleCount);
                 } else {
-                    state.memory.write32(memoryAddress, state.accessReg(rd));
+                    state.memory.write32(memoryAddress, state.accessReg(rd), &info.cycleCount);
                 }
             }
 
@@ -699,6 +684,9 @@ namespace gbaemu
             uint32_t rn = inst.params.block_data_transf.rn;
             uint32_t address = rn;
 
+            //TODO add needed I cycles and if existent edge cases like changing PC
+            InstructionExecutionInfo info{0};
+
             for (uint32_t i = 0; i < 16; ++i) {
                 if (pre && up)
                     address += 4;
@@ -708,11 +696,11 @@ namespace gbaemu
                 if (inst.params.block_data_transf.rList & (1 << i)) {
                     if (load)
                         if (i == 15)
-                            state.accessReg(regs::PC_OFFSET) = state.memory.read32(address) & 0xFFFFFFFC;
+                            state.accessReg(regs::PC_OFFSET) = state.memory.read32(address, &info.cycleCount) & 0xFFFFFFFC;
                         else
-                            state.accessReg(i) = state.memory.read32(address);
+                            state.accessReg(i) = state.memory.read32(address, &info.cycleCount);
                     else
-                        state.memory.write32(address, state.accessReg(i));
+                        state.memory.write32(address, state.accessReg(i), &info.cycleCount);
                 }
 
                 if (!pre && up)
@@ -773,6 +761,17 @@ namespace gbaemu
             uint32_t offset = inst.params.hw_transf_imm_off.offset;
             uint32_t memoryAddress;
 
+            //Execution Time: For Normal LDR, 1S+1N+1I. For LDR PC, 2S+2N+1I. For STRH 2N
+            InstructionExecutionInfo info{0};
+            // both instructions have a + 1I for being complex
+            // 1N is handled by Memory class & 1S is handled globally
+            info.cycleCount = 1;
+            // will PC be updated? if so we need an additional Prog N & S cycle
+            if (load && rd == regs::PC_OFFSET) {
+                info.additionalProgCyclesN = 1;
+                info.additionalProgCyclesS = 1;
+            }
+
             if (pre) {
                 if (up)
                     memoryAddress = state.accessReg(rn) + offset;
@@ -782,9 +781,9 @@ namespace gbaemu
                 memoryAddress = state.accessReg(rn);
 
             if (load) {
-                state.accessReg(rd) = state.memory.read16(memoryAddress);
+                state.accessReg(rd) = state.memory.read16(memoryAddress, &info.cycleCount);
             } else {
-                state.memory.write16(memoryAddress, state.accessReg(rd));
+                state.memory.write16(memoryAddress, state.accessReg(rd), &info.cycleCount);
             }
 
             if (writeback || !pre) {
@@ -797,13 +796,6 @@ namespace gbaemu
 
                 state.accessReg(rn) = memoryAddress;
             }
-
-            InstructionExecutionInfo info{0};
-
-            if (rd == regs::PC_OFFSET)
-                info.cycleCount = 5;
-            else
-                info.cycleCount = 3;
 
             return info;
         }
