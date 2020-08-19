@@ -101,6 +101,7 @@ namespace gbaemu
                             case arm::ARMInstructionCategory::SIGN_TRANSF:
                                 break;
                             case arm::ARMInstructionCategory::DATA_PROC_PSR_TRANSF:
+                                execDataProc(armInst);
                                 break;
                             case arm::ARMInstructionCategory::LS_REG_UBYTE:
                                 execLoadStoreRegUByte(armInst);
@@ -650,6 +651,87 @@ namespace gbaemu
             /* TODO: not sure if address - 4 */
             if (writeback)
                 state.accessReg(rn) = address;
+        }
+
+        InstructionExecutionInfo execDataTransferImm(const arm::ARMInstruction& inst) {
+            /*
+                Bit    Expl.
+                31-28  Condition
+                27-25  Must be 000b for this instruction
+                24     P - Pre/Post (0=post; add offset after transfer, 1=pre; before trans.)
+                23     U - Up/Down Bit (0=down; subtract offset from base, 1=up; add to base)
+                22     I - Immediate Offset Flag (0=Register Offset, 1=Immediate Offset)
+                When above Bit 24 P=0 (Post-indexing, write-back is ALWAYS enabled):
+                    21     Not used, must be zero (0)
+                When above Bit 24 P=1 (Pre-indexing, write-back is optional):
+                    21     W - Write-back bit (0=no write-back, 1=write address into base)
+                20     L - Load/Store bit (0=Store to memory, 1=Load from memory)
+                19-16  Rn - Base register                (R0-R15) (Including R15=PC+8)
+                15-12  Rd - Source/Destination Register  (R0-R15) (Including R15=PC+12)
+                11-8   When above Bit 22 I=0 (Register as Offset):
+                        Not used. Must be 0000b
+                        When above Bit 22 I=1 (immediate as Offset):
+                        Immediate Offset (upper 4bits)
+                7      Reserved, must be set (1)
+                6-5    Opcode (0-3)
+                        When Bit 20 L=0 (Store) (and Doubleword Load/Store):
+                        0: Reserved for SWP instruction
+                        1: STR{cond}H  Rd,<Address>  ;Store halfword   [a]=Rd
+                        2: LDR{cond}D  Rd,<Address>  ;Load Doubleword  R(d)=[a], R(d+1)=[a+4]
+                        3: STR{cond}D  Rd,<Address>  ;Store Doubleword [a]=R(d), [a+4]=R(d+1)
+                        When Bit 20 L=1 (Load):
+                        0: Reserved.
+                        1: LDR{cond}H  Rd,<Address>  ;Load Unsigned halfword (zero-extended)
+                        2: LDR{cond}SB Rd,<Address>  ;Load Signed byte (sign extended)
+                        3: LDR{cond}SH Rd,<Address>  ;Load Signed halfword (sign extended)
+                4      Reserved, must be set (1)
+                3-0    When above Bit 22 I=0:
+                        Rm - Offset Register            (R0-R14) (not including R15)
+                        When above Bit 22 I=1:
+                        Immediate Offset (lower 4bits)  (0-255, together with upper bits)
+             */
+            bool pre = inst.params.hw_transf_imm_off.p;
+            bool up = inst.params.hw_transf_imm_off.u;
+            bool load = inst.params.hw_transf_imm_off.l;
+            bool writeback = inst.params.hw_transf_imm_off.w;
+            uint32_t rn = inst.params.hw_transf_imm_off.rn;
+            uint32_t rd = inst.params.hw_transf_imm_off.rd;
+            uint32_t offset = inst.params.hw_transf_imm_off.offset;
+            uint32_t memoryAddress;
+
+            if (pre) {
+                if (up)
+                    memoryAddress = state.accessReg(rn) + offset;
+                else
+                    memoryAddress = state.accessReg(rn) - offset;
+            } else
+                memoryAddress = state.accessReg(rn);
+
+            if (load) {
+                state.accessReg(rd) = state.memory.read16(memoryAddress);
+            } else {
+                state.memory.write16(memoryAddress, state.accessReg(rd));
+            }
+
+            if (writeback || !pre) {
+                if (!pre) {
+                    if (up)
+                        memoryAddress = state.accessReg(rn) + offset;
+                    else
+                        memoryAddress = state.accessReg(rn) - offset;
+                }
+
+                state.accessReg(rn) = memoryAddress;
+            }
+
+            InstructionExecutionInfo info{ 0 };
+
+            if (rd == regs::PC_OFFSET)
+                info.cycleCount = 5;
+            else
+                info.cycleCount = 3;
+
+            return info;
         }
     };
 
