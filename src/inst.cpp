@@ -2,7 +2,8 @@
 
 namespace gbaemu
 {
-    uint32_t arm::shift(uint32_t value, ShiftType type, uint32_t amount) {
+    uint32_t arm::shift(uint32_t value, ShiftType type, uint32_t amount)
+    {
         switch (type) {
             case LSL:
                 return value << amount;

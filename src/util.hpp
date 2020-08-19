@@ -9,7 +9,7 @@ namespace gbaemu
 #define STRINGIFY(x) (#x)
 
 #define STRINGIFY_CASE_ID(x) \
-    case x:             \
+    case x:                  \
         return (#x)
 } // namespace gbaemu
 

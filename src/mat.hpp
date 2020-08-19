@@ -1,19 +1,17 @@
 #ifndef MAT_HPP
 #define MAT_HPP
 
-#include <functional>
 #include "vec.hpp"
+#include <functional>
 
 namespace common::math
 {
     template <size_t M, size_t N>
-    struct mat
-    {
+    struct mat {
         real_t m[M][N];
 
         mat()
         {
-
         }
 
         mat(std::initializer_list<std::initializer_list<real_t>> list)
@@ -25,7 +23,7 @@ namespace common::math
         }
 
         template <size_t O, size_t P>
-        mat(const mat<O, P>& other)
+        mat(const mat<O, P> &other)
         {
             for (size_t y = 0; y < M; ++y)
                 for (size_t x = 0; x < N; ++x)
@@ -36,12 +34,12 @@ namespace common::math
                     m[y][x] = other[y][x];
         }
 
-        real_t *operator [] (size_t i)
+        real_t *operator[](size_t i)
         {
             return m[i];
         }
 
-        const real_t *operator [] (size_t i) const
+        const real_t *operator[](size_t i) const
         {
             return m[i];
         }
@@ -68,7 +66,7 @@ namespace common::math
             return result;
         }
 
-        mat<M, N> add(const mat<M, N>& other) const
+        mat<M, N> add(const mat<M, N> &other) const
         {
             mat<M, N> result;
 
@@ -79,7 +77,7 @@ namespace common::math
             return result;
         }
 
-        mat<M, N> sub(const mat<M, N>& other) const
+        mat<M, N> sub(const mat<M, N> &other) const
         {
             mat<M, N> result;
 
@@ -102,7 +100,7 @@ namespace common::math
         }
 
         template <size_t O>
-        mat<M, N> mul(const mat<N, O>& other) const
+        mat<M, N> mul(const mat<N, O> &other) const
         {
             mat<M, O> result;
 
@@ -119,7 +117,7 @@ namespace common::math
             return result;
         }
 
-        vec<M> mul(const vec<N>& other) const
+        vec<M> mul(const vec<N> &other) const
         {
             vec<M> result;
 
@@ -135,33 +133,33 @@ namespace common::math
             return result;
         }
 
-        mat<M, N> operator + (const mat<M, N>& other) const
+        mat<M, N> operator+(const mat<M, N> &other) const
         {
             return add(other);
         }
 
-        mat<M, N> operator - (const mat<M, N>& other) const
+        mat<M, N> operator-(const mat<M, N> &other) const
         {
             return sub(other);
         }
 
         template <size_t O>
-        mat<M, N> operator * (const mat<N, O>& other) const
+        mat<M, N> operator*(const mat<N, O> &other) const
         {
             return mul(other);
         }
 
-        mat<M, N> operator *(real_t scalar) const
+        mat<M, N> operator*(real_t scalar) const
         {
             return scale(scalar);
         }
 
-        vec<M> operator * (const vec<N>& other) const
+        vec<M> operator*(const vec<N> &other) const
         {
             return mul(other);
         }
 
-        friend std::ostream& operator <<(std::ostream& os, const mat<M, N>& m)
+        friend std::ostream &operator<<(std::ostream &os, const mat<M, N> &m)
         {
             os << '[';
 
@@ -207,6 +205,6 @@ namespace common::math
             return result;
         }
     };
-}
+} // namespace common::math
 
 #endif // MAT_HPP

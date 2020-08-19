@@ -515,7 +515,7 @@ namespace gbaemu
                 state.accessReg(inst.params.data_proc_psr_transf.rd) = resultValue;
 
             /* TODO: cycle timings */
-            InstructionExecutionInfo info{ 0 };
+            InstructionExecutionInfo info{0};
             bool destPC = inst.params.data_proc_psr_transf.rd == regs::PC_OFFSET;
 
             if (!destPC && !shiftByReg)
@@ -526,11 +526,12 @@ namespace gbaemu
                 info.cycleCount = 2;
             else
                 info.cycleCount = 4;
-            
+
             return info;
         }
 
-        void execLoadStoreRegUByte(const arm::ARMInstruction& inst) {
+        void execLoadStoreRegUByte(const arm::ARMInstruction &inst)
+        {
             /*
                 Opcode Format
 
@@ -618,7 +619,8 @@ namespace gbaemu
             }
         }
 
-        void execDataBlockTransfer(const arm::ARMInstruction& inst) {
+        void execDataBlockTransfer(const arm::ARMInstruction &inst)
+        {
             bool pre = inst.params.block_data_transf.p;
             bool up = inst.params.block_data_transf.u;
             bool writeback = inst.params.block_data_transf.w;
@@ -653,7 +655,8 @@ namespace gbaemu
                 state.accessReg(rn) = address;
         }
 
-        InstructionExecutionInfo execHalfwordDataTransferImm(const arm::ARMInstruction& inst) {
+        InstructionExecutionInfo execHalfwordDataTransferImm(const arm::ARMInstruction &inst)
+        {
             /*
                 Bit    Expl.
                 31-28  Condition
@@ -724,7 +727,7 @@ namespace gbaemu
                 state.accessReg(rn) = memoryAddress;
             }
 
-            InstructionExecutionInfo info{ 0 };
+            InstructionExecutionInfo info{0};
 
             if (rd == regs::PC_OFFSET)
                 info.cycleCount = 5;

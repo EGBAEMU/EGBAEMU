@@ -78,6 +78,5 @@ int main(int argc, const char **argv)
 
     std::cout << cpu.state.disas(gbaemu::Memory::EXT_ROM_OFFSET, 200);
 
-
     return 0;
 }

@@ -51,8 +51,8 @@ namespace common::math
         result[1][3] = (height - 1) / 2;
 
         const real_t a = (far + near) / (far - near);
-        const real_t b = -2 * near * far / (far - near);            
-    
+        const real_t b = -2 * near * far / (far - near);
+
         /*
         const real_t a = far / (far - near);
         const real_t b = -near * far / (far - near);
@@ -77,7 +77,7 @@ namespace common::math
         return result;
     }
 
-    mat<4, 4> rotation_matrix(real_t alpha, const vec<3>& dir)
+    mat<4, 4> rotation_matrix(real_t alpha, const vec<3> &dir)
     {
         auto result = mat<4, 4>::zero();
         auto ndir = dir.normal();
@@ -116,7 +116,7 @@ namespace common::math
         return result;
     }
 
-    mat<4, 4> translation_matrix(const vec<3>& v)
+    mat<4, 4> translation_matrix(const vec<3> &v)
     {
         return translation_matrix(v[0], v[1], v[2]);
     }
@@ -130,7 +130,7 @@ namespace common::math
         return result;
     }
 
-    mat<4, 4> scale_matrix(const vec<3>& v)
+    mat<4, 4> scale_matrix(const vec<3> &v)
     {
         return scale_matrix(v[0], v[1], v[2]);
     }
@@ -148,12 +148,12 @@ namespace common::math
         return result;
     }
 
-    mat<4, 4> rotation_around_matrix(real_t angle, const math::vec<3>& axis, const math::vec<3>& center)
+    mat<4, 4> rotation_around_matrix(real_t angle, const math::vec<3> &axis, const math::vec<3> &center)
     {
         return translation_matrix(center[0], center[1], center[2]) *
-            rotation_matrix(angle, axis) *
-            translation_matrix(-center[0], -center[1], -center[2]);
+               rotation_matrix(angle, axis) *
+               translation_matrix(-center[0], -center[1], -center[2]);
     }
-}
+} // namespace common::math
 
 #endif // MATH3D_HPP
