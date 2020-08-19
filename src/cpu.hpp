@@ -103,8 +103,10 @@ namespace gbaemu
                             case arm::ARMInstructionCategory::DATA_PROC_PSR_TRANSF:
                                 break;
                             case arm::ARMInstructionCategory::LS_REG_UBYTE:
+                                execLoadStoreRegUByte(armInst);
                                 break;
                             case arm::ARMInstructionCategory::BLOCK_DATA_TRANSF:
+                                execDataBlockTransfer(armInst);
                                 break;
                             case arm::ARMInstructionCategory::BRANCH:
                                 handleBranch(armInst.params.branch.l, armInst.params.branch.offset);
@@ -615,7 +617,7 @@ namespace gbaemu
             }
         }
 
-        void execLoadStoreMultiple(const arm::ARMInstruction& inst) {
+        void execDataBlockTransfer(const arm::ARMInstruction& inst) {
             bool pre = inst.params.block_data_transf.p;
             bool up = inst.params.block_data_transf.u;
             bool writeback = inst.params.block_data_transf.w;
