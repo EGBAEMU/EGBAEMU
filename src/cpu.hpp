@@ -441,7 +441,6 @@ namespace gbaemu
                         resultValue = state.accessReg(regs::SPSR_OFFSET);
                     else
                         resultValue = state.accessReg(regs::CPSR_OFFSET);
-                    ;
                     break;
                 case arm::MSR:
                     if (inst.params.data_proc_psr_transf.r)
@@ -502,6 +501,8 @@ namespace gbaemu
 
             if (dontUpdateRD.find(inst.id) == dontUpdateRD.end())
                 state.accessReg(inst.params.data_proc_psr_transf.rd) = resultValue;
+
+            /* TODO: cycle timings */
         }
 
         void execLoadStoreRegUByte(const arm::ARMInstruction& inst) {
@@ -590,6 +591,41 @@ namespace gbaemu
                 /* TODO: What's this? */
                 bool forcePrivAccess = writeback;
             }
+        }
+
+        void execLoadStoreMultiple(const arm::ARMInstruction& inst) {
+            bool pre = inst.params.block_data_transf.p;
+            bool up = inst.params.block_data_transf.u;
+            bool writeback = inst.params.block_data_transf.w;
+            bool load = inst.params.block_data_transf.l;
+            uint32_t rn = inst.params.block_data_transf.rn;
+            uint32_t address = rn;
+
+            for (uint32_t i = 0; i < 16; ++i) {
+                if (pre && up)
+                    address += 4;
+                else if (pre && !up)
+                    address -= 4;
+
+                if (inst.params.block_data_transf.rList & (1 << i)) {
+                    if (load)
+                        if (i == 15)
+                            state.accessReg(regs::PC_OFFSET) = state.memory.read32(address) & 0xFFFFFFFC;
+                        else
+                            state.accessReg(i) = state.memory.read32(address);
+                    else
+                        state.memory.write32(address, state.accessReg(i));
+                }
+
+                if (!pre && up)
+                    address += 4;
+                else if (!pre && !up)
+                    address -= 4;
+            }
+
+            /* TODO: not sure if address - 4 */
+            if (writeback)
+                state.accessReg(rn) = address;
         }
     };
 
