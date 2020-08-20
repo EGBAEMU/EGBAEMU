@@ -53,8 +53,6 @@ namespace gbaemu
                 uint32_t pc = (state.accessReg(regs::PC_OFFSET) >> 2) & 0x03FFFFFF;
                 state.pipeline.fetch.instruction = state.memory.read32((pc * 4) + 8, nullptr);
             }
-
-            //TODO where do we want to update pc? (+4)
         }
 
         void decode()
@@ -475,7 +473,17 @@ namespace gbaemu
             uint32_t shiftAmount, rm, rs, imm, shifterOperand;
             bool shiftByReg = inst.params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
 
-            if (inst.params.data_proc_psr_transf.i) {
+            if (inst.params.data_proc_psr_transf.rn == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
+                // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
+                // PC+12 if I=0,R=1 (shift by register),
+                // otherwise PC+8 (shift by immediate).
+                std::cout << "INFO: Edge case triggered, by using PC as operand on ALU operation! Pls verify that this is correct behaviour for this instruction!" << std::endl;
+                if (!inst.params.data_proc_psr_transf.i && shiftByReg) {
+                    shifterOperand = state.getCurrentPC() + 12;
+                } else {
+                    shifterOperand = state.getCurrentPC() + 8;
+                }
+            } else if (inst.params.data_proc_psr_transf.i) {
                 shifterOperand = (imm >> shiftAmount) | (imm << (32 - shiftAmount));
             } else {
                 if (shiftByReg)
