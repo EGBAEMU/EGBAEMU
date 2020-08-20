@@ -98,7 +98,8 @@ namespace gbaemu
             LS_REG_UBYTE,
             BLOCK_DATA_TRANSF,
             BRANCH,
-            SOFTWARE_INTERRUPT
+            SOFTWARE_INTERRUPT,
+            INVALID_CAT
         };
 
         enum ARMInstructionID : uint8_t {

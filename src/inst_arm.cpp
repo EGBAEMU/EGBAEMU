@@ -197,6 +197,7 @@ namespace gbaemu
 
             // Default the instruction id to invalid
             instruction.id = ARMInstructionID::INVALID;
+            instruction.cat = ARMInstructionCategory::INVALID_CAT;
             instruction.condition = static_cast<ConditionOPCode>(lastInst >> 28);
 
             if ((lastInst & MASK_MUL_ACC) == VAL_MUL_ACC) {
