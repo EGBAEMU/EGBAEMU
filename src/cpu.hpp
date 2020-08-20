@@ -88,9 +88,8 @@ namespace gbaemu
                                 /* those two are the same */
                             case arm::ARMInstructionCategory::HW_TRANSF_REG_OFF:
                             case arm::ARMInstructionCategory::HW_TRANSF_IMM_OFF:
-                                info = execHalfwordDataTransferImmRegSignedTransfer(armInst);
-                                break;
                             case arm::ARMInstructionCategory::SIGN_TRANSF:
+                                info = execHalfwordDataTransferImmRegSignedTransfer(armInst);
                                 break;
                             case arm::ARMInstructionCategory::DATA_PROC_PSR_TRANSF:
                                 info = execDataProc(armInst);
@@ -846,12 +845,19 @@ namespace gbaemu
             //Execution Time: For Normal LDR, 1S+1N+1I. For LDR PC, 2S+2N+1I. For STRH 2N
             InstructionExecutionInfo info{0};
             // both instructions have a + 1I for being complex
-            // 1N is handled by Memory class & 1S is handled globally
-            info.cycleCount = 1;
-            // will PC be updated? if so we need an additional Prog N & S cycle
-            if (load && rd == regs::PC_OFFSET) {
+            if (load) {
+                // 1N is handled by Memory class & 1S is handled globally
+                info.cycleCount = 1;
+                // will PC be updated? if so we need an additional Prog N & S cycle
+                if (load && rd == regs::PC_OFFSET) {
+                    info.additionalProgCyclesN = 1;
+                    info.additionalProgCyclesS = 1;
+                }
+            } else {
+                // same edge case as for STR
+                //TODO not sure why STR instructions have 2N ...
+                info.noDefaultSCycle = true;
                 info.additionalProgCyclesN = 1;
-                info.additionalProgCyclesS = 1;
             }
 
             if (pre) {
