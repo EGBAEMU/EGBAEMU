@@ -120,6 +120,10 @@ namespace gbaemu
                                 }
                                 break;
                             }
+
+                            default:
+                                std::cout << "INVALID" << std::endl;
+                                break;
                         }
                     }
                 } else {
