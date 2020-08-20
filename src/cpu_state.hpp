@@ -90,9 +90,6 @@ namespace gbaemu
 
         Memory memory;
 
-        // Indicates if the execute stage processed an branch instruction and changed the pc
-        bool branchOccurred = false;
-
         const InstructionDecoder *decoder;
 
         uint32_t getCurrentPC()
@@ -134,11 +131,6 @@ namespace gbaemu
         bool getFlag(size_t flag) const
         {
             return accessReg(regs::CPSR_OFFSET) & (1 << flag);
-        }
-
-        void clearFlags()
-        {
-            //TODO implement
         }
 
         std::string toString() const

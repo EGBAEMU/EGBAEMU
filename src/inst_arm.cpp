@@ -511,7 +511,7 @@ namespace gbaemu
                 instruction.params.branch.l = l;
                 /* convert signed 24 to signed 32 */
                 uint32_t si = lastInst & 0x00FFFFFF;
-                instruction.params.branch.offset = static_cast<int32_t>(si << 8) >> 8;
+                instruction.params.branch.offset = static_cast<int32_t>(si << 8) / (1 << 8);
 
                 instruction.id = ARMInstructionID::B;
 

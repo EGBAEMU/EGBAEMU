@@ -45,9 +45,12 @@ namespace gbaemu
             state.pipeline.decode.instruction = state.decoder->decode(state.pipeline.fetch.lastInstruction);
         }
 
-        void execute()
+        InstructionExecutionInfo execute()
         {
             InstructionExecutionInfo info{0};
+
+            const uint32_t prevPc = state.getCurrentPC();
+            const bool prevThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
 
             if (state.pipeline.decode.lastInstruction.arm.id != arm::ARMInstructionID::INVALID || state.pipeline.decode.lastInstruction.thumb.id != thumb::ThumbInstructionID::INVALID) {
 
@@ -77,7 +80,7 @@ namespace gbaemu
                                                          armInst.params.mul_acc_long.rm);
                                 break;
                             case arm::ARMInstructionCategory::BRANCH_XCHG:
-                                /*info =*/handleBranchAndExchange(armInst.params.branch_xchg.rn);
+                                info = handleBranchAndExchange(armInst.params.branch_xchg.rn);
                                 break;
                             case arm::ARMInstructionCategory::DATA_SWP:
                                 info = handleDataSwp(armInst.params.data_swp.b,
@@ -101,7 +104,7 @@ namespace gbaemu
                                 info = execDataBlockTransfer(armInst);
                                 break;
                             case arm::ARMInstructionCategory::BRANCH:
-                                /*info =*/handleBranch(armInst.params.branch.l, armInst.params.branch.offset);
+                                info = handleBranch(armInst.params.branch.l, armInst.params.branch.offset);
                                 break;
 
                             case arm::ARMInstructionCategory::SOFTWARE_INTERRUPT: {
@@ -200,16 +203,43 @@ namespace gbaemu
             if (info.additionalProgCyclesS) {
                 info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(state.getCurrentPC(), sizeof(uint32_t)) * info.additionalProgCyclesS;
             }
+
+            const uint32_t postPc = state.getCurrentPC();
+            const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+
+            // Change from arm mode to thumb mode or vice versa
+            if (prevThumbMode != postThumbMode) {
+                //TODO change fetch and decode strategy to corresponding code
+            }
+            // We have a branch, return or something that changed our PC
+            if (prevPc != postPc) {
+                //TODO handle pipeline flush
+            } else {
+                //TODO this is probably unwanted if we changed the mode?
+                // Increment the pc counter to the next instruction
+                state.accessReg(regs::PC_OFFSET) = postPc + (postThumbMode ? 2 : 4);
+            }
+
+            return info;
         }
 
         void step()
         {
-            // TODO: Check for interrupt here
-            // TODO: stall for certain instructions like wait for interrupt...
-            // TODO: Fetch can be executed always. Decode and Execute stages might have been flushed after branch
-            fetch();
-            decode();
-            execute();
+            static InstructionExecutionInfo info{0};
+
+            // Execute pipeline only after stall is over
+            if (info.cycleCount == 0) {
+                // TODO: Check for interrupt here
+                // TODO: stall for certain instructions like wait for interrupt...
+                // TODO: Fetch can be executed always. Decode and Execute stages might have been flushed after branch
+                fetch();
+                decode();
+                info = execute();
+                // Current cycle must be removed
+                --info.cycleCount;
+            } else {
+                --info.cycleCount;
+            }
         }
 
         InstructionExecutionInfo handleMultAcc(bool a, bool s, uint32_t rd, uint32_t rn, uint32_t rs, uint32_t rm)
@@ -367,35 +397,32 @@ namespace gbaemu
         }
 
         // Executes instructions belonging to the branch subsection
-        void handleBranch(bool link, uint32_t offset)
+        InstructionExecutionInfo handleBranch(bool link, int32_t offset)
         {
-
             uint32_t pc = state.getCurrentPC();
 
             // If link is set, R14 will receive the address of the next instruction to be executed. So if we are
             // jumping but want to remember where to return to after the subroutine finished that might be usefull.
             if (link) {
-                // Next instruction should be at: PC - 4
-                state.accessReg(regs::LR_OFFSET) = (pc - 4);
+                // Next instruction should be at: PC + 4
+                state.accessReg(regs::LR_OFFSET) = (pc + 4);
             }
 
             // Offset is given in units of 4. Thus we need to shift it first by two
             offset = offset << 2;
 
-            // TODO: Is there a nice way to add a signed to a unsigned. Plus might want to check for overflows.
-            // Although there probably is nothing we can do in those cases....
+            state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(pc) + offset);
 
-            // We need to handle the addition of pc and offset as signed as we jump back
-            int32_t offsetSigned = static_cast<int32_t>(offset);
-            int32_t pcSigned = static_cast<int32_t>(pc);
+            // Execution Time: 2S + 1N
+            InstructionExecutionInfo info{0};
+            info.additionalProgCyclesN = 1;
+            info.additionalProgCyclesS = 1;
 
-            state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(pcSigned + offsetSigned);
-
-            state.branchOccurred = true;
+            return info;
         }
 
         // Executes instructions belonging to the branch and execute subsection
-        void handleBranchAndExchange(uint32_t rn)
+        InstructionExecutionInfo handleBranchAndExchange(uint32_t rn)
         {
             auto currentRegs = state.getCurrentRegs();
 
@@ -405,12 +432,18 @@ namespace gbaemu
             bool changeToThumb = rnValue & 0x00000001;
 
             if (changeToThumb) {
-                // TODO: Flag change to thumb mode
+                state.setFlag(cpsr_flags::THUMB_STATE, true);
             }
 
             // Change the PC to the address given by rm. Note that we have to mask out the thumb switch bit.
             state.accessReg(regs::PC_OFFSET) = rnValue & 0xFFFFFFFE;
-            state.branchOccurred = true;
+
+            // Execution Time: 2S + 1N
+            InstructionExecutionInfo info{0};
+            info.additionalProgCyclesN = 1;
+            info.additionalProgCyclesS = 1;
+
+            return info;
         }
 
         /* ALU functions */
