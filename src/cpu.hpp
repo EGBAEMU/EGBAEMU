@@ -233,9 +233,8 @@ namespace gbaemu
             }
             // We have a branch, return or something that changed our PC
             if (prevPc != postPc) {
-                initPipeline();
-
                 std::cout << "INFO: PIPELINE FLUSH" << std::endl;
+                initPipeline();
             } else {
                 //TODO this is probably unwanted if we changed the mode?
                 // Increment the pc counter to the next instruction
