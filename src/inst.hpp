@@ -21,6 +21,8 @@ namespace gbaemu
             3. vomit        
          */
         /*
+            http://problemkaputt.de/gbatek.htm#arminstructionsummary
+            http://problemkaputt.de/gbatek.htm#armcpuinstructioncycletimes
             https://mgba.io/2015/06/27/cycle-counting-prefetch/
             The ARM7TDMI also has four different types of cycles, 
             on which the CPU clock may stall for a different amount of time: 
@@ -47,6 +49,8 @@ namespace gbaemu
         // Those should only be set != 0 if there were reads needed at program location, i.e. pipeline flush or PC loaded causing 1S + 1N
         uint32_t additionalProgCyclesS;
         uint32_t additionalProgCyclesN;
+        // Do not add 1S cycle (only relevant for STR AFAIK)
+        bool noDefaultSCycle;
     };
 
     namespace arm

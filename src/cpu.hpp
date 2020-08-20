@@ -32,6 +32,7 @@ namespace gbaemu
             /* assume 26 ARM state here */
             /* pc is at [25:2] */
             uint32_t pc = (state.accessReg(regs::PC_OFFSET) >> 2) & 0x03FFFFFF;
+            //TODO we only need to fetch 16 bit for thumb mode!
             //TODO we might need this info? (where nullptr is currently)
             state.pipeline.fetch.instruction = state.memory.read32(pc * 4, nullptr);
 
@@ -95,10 +96,10 @@ namespace gbaemu
                                 info = execDataProc(armInst);
                                 break;
                             case arm::ARMInstructionCategory::LS_REG_UBYTE:
-                                /*info = */ execLoadStoreRegUByte(armInst);
+                                info = execLoadStoreRegUByte(armInst);
                                 break;
                             case arm::ARMInstructionCategory::BLOCK_DATA_TRANSF:
-                                /*info = */ execDataBlockTransfer(armInst);
+                                info = execDataBlockTransfer(armInst);
                                 break;
                             case arm::ARMInstructionCategory::BRANCH:
                                 /*info =*/handleBranch(armInst.params.branch.l, armInst.params.branch.offset);
@@ -186,8 +187,10 @@ namespace gbaemu
 
             //TODO check if every instruction has this 1S cycle
             //TODO we need to consider here branch instructions -> which PC to use for this calculation + how often (pipeline flush?)
-            // Add 1S cycle needed to fetch a instruction
-            info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(state.getCurrentPC(), sizeof(uint32_t));
+            // Add 1S cycle needed to fetch a instruction if not other requested
+            if (!info.noDefaultSCycle) {
+                info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(state.getCurrentPC(), sizeof(uint32_t));
+            }
             if (info.additionalProgCyclesN) {
                 info.cycleCount += state.memory.nonSeqWaitCyclesForVirtualAddr(state.getCurrentPC(), sizeof(uint32_t)) * info.additionalProgCyclesN;
             }
@@ -583,7 +586,7 @@ namespace gbaemu
             return info;
         }
 
-        void execLoadStoreRegUByte(const arm::ARMInstruction &inst)
+        InstructionExecutionInfo execLoadStoreRegUByte(const arm::ARMInstruction &inst)
         {
             /*
                 Opcode Format
@@ -630,8 +633,22 @@ namespace gbaemu
             uint32_t memoryAddress;
             uint32_t offset;
 
-            //TODO add needed I cycles and if existent edge cases like changing PC
+            // Execution Time: For normal LDR: 1S+1N+1I. For LDR PC: 2S+2N+1I. For STR: 2N.
             InstructionExecutionInfo info{0};
+            if (load) {
+                // 1 I for beeing complex
+                info.cycleCount = 1;
+
+                // additional delays needed if PC gets loaded
+                if (rd == regs::PC_OFFSET) {
+                    info.additionalProgCyclesN = 1;
+                    info.additionalProgCyclesS = 1;
+                }
+            } else {
+                //TODO not sure why STR instructions have 2N ...
+                info.additionalProgCyclesN = 1;
+                info.noDefaultSCycle = true;
+            }
 
             /* offset is calculated differently, depending on the I-bit */
             if (immediate) {
@@ -673,9 +690,11 @@ namespace gbaemu
                 /* TODO: What's this? */
                 bool forcePrivAccess = writeback;
             }
+
+            return info;
         }
 
-        void execDataBlockTransfer(const arm::ARMInstruction &inst)
+        InstructionExecutionInfo execDataBlockTransfer(const arm::ARMInstruction &inst)
         {
             bool pre = inst.params.block_data_transf.p;
             bool up = inst.params.block_data_transf.u;
@@ -684,8 +703,23 @@ namespace gbaemu
             uint32_t rn = inst.params.block_data_transf.rn;
             uint32_t address = rn;
 
-            //TODO add needed I cycles and if existent edge cases like changing PC
+            // Execution Time:
+            // For normal LDM, nS+1N+1I. For LDM PC, (n+1)S+2N+1I.
+            // For STM (n-1)S+2N. Where n is the number of words transferred.
             InstructionExecutionInfo info{0};
+            if (load) {
+                // handle +1I
+                info.cycleCount = 1;
+            } else {
+                // same edge case as for STR
+                //TODO not sure why STR instructions have 2N ...
+                info.noDefaultSCycle = true;
+                info.additionalProgCyclesN = 1;
+            }
+
+            // The first read / write is non sequential but afterwards all accesses are sequential
+            // because the memory class always adds non sequential accesses we need to handle this case explicitly
+            bool nonSeqAccDone = false;
 
             for (uint32_t i = 0; i < 16; ++i) {
                 if (pre && up)
@@ -694,13 +728,22 @@ namespace gbaemu
                     address -= 4;
 
                 if (inst.params.block_data_transf.rList & (1 << i)) {
-                    if (load)
-                        if (i == 15)
-                            state.accessReg(regs::PC_OFFSET) = state.memory.read32(address, &info.cycleCount) & 0xFFFFFFFC;
-                        else
-                            state.accessReg(i) = state.memory.read32(address, &info.cycleCount);
-                    else
-                        state.memory.write32(address, state.accessReg(i), &info.cycleCount);
+                    if (load) {
+                        if (i == 15) {
+                            state.accessReg(regs::PC_OFFSET) = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount) & 0xFFFFFFFC;
+                            // Special case for pipeline refill
+                            info.additionalProgCyclesN = 1;
+                            info.additionalProgCyclesS = 1;
+                        } else {
+                            state.accessReg(i) = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount);
+                        }
+                    } else {
+                        state.memory.write32(address, state.accessReg(i), nonSeqAccDone ? nullptr : &info.cycleCount);
+                    }
+                    if (nonSeqAccDone) {
+                        info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(address, sizeof(uint32_t));
+                    }
+                    nonSeqAccDone = true;
                 }
 
                 if (!pre && up)
@@ -712,6 +755,8 @@ namespace gbaemu
             /* TODO: not sure if address - 4 */
             if (writeback)
                 state.accessReg(rn) = address;
+
+            return info;
         }
 
         InstructionExecutionInfo execHalfwordDataTransferImm(const arm::ARMInstruction &inst)
