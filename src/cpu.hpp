@@ -20,21 +20,39 @@ namespace gbaemu
       public:
         CPUState state;
 
+        void initPipeline()
+        {
+            // We need to fill the pipeline to the state where the instruction at PC is ready for execution -> fetched + decoded!
+            uint32_t pc = state.accessReg(regs::PC_OFFSET);
+            bool thumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+            state.accessReg(regs::PC_OFFSET) = pc - (thumbMode ? 4 : 8);
+            fetch();
+            state.accessReg(regs::PC_OFFSET) = pc - (thumbMode ? 2 : 4);
+            fetch();
+            decode();
+            state.accessReg(regs::PC_OFFSET) = pc;
+        }
+
         void fetch()
         {
-
-            // TODO: flush if branch happened?, else continue normally
-
             // propagate pipeline
             state.pipeline.fetch.lastInstruction = state.pipeline.fetch.instruction;
             state.pipeline.fetch.lastReadData = state.pipeline.fetch.readData;
 
-            /* assume 26 ARM state here */
-            /* pc is at [25:2] */
-            uint32_t pc = (state.accessReg(regs::PC_OFFSET) >> 2) & 0x03FFFFFF;
+            bool thumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+
             //TODO we only need to fetch 16 bit for thumb mode!
             //TODO we might need this info? (where nullptr is currently)
-            state.pipeline.fetch.instruction = state.memory.read32(pc * 4, nullptr);
+            if (thumbMode) {
+                //TODO check this
+                /* pc is at [27:1] */
+                uint32_t pc = (state.accessReg(regs::PC_OFFSET) >> 1) & 0x07FFFFFF;
+                state.pipeline.fetch.instruction = state.memory.read16((pc * 2) + 4, nullptr);
+            } else {
+                /* pc is at [27:2] */
+                uint32_t pc = (state.accessReg(regs::PC_OFFSET) >> 2) & 0x03FFFFFF;
+                state.pipeline.fetch.instruction = state.memory.read32((pc * 4) + 8, nullptr);
+            }
 
             //TODO where do we want to update pc? (+4)
         }
@@ -210,10 +228,14 @@ namespace gbaemu
             // Change from arm mode to thumb mode or vice versa
             if (prevThumbMode != postThumbMode) {
                 //TODO change fetch and decode strategy to corresponding code
+
+                std::cout << "INFO: MODE CHANGE" << std::endl;
             }
             // We have a branch, return or something that changed our PC
             if (prevPc != postPc) {
-                //TODO handle pipeline flush
+                initPipeline();
+
+                std::cout << "INFO: PIPELINE FLUSH" << std::endl;
             } else {
                 //TODO this is probably unwanted if we changed the mode?
                 // Increment the pc counter to the next instruction

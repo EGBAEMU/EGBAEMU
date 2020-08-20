@@ -67,15 +67,25 @@ int main(int argc, const char **argv)
     std::cout << std::endl;
 
     cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
-    std::cout << cpu.state.disas(gbaemu::Memory::EXT_ROM_OFFSET, 200);
-
-    cpu.step();
-    cpu.step();
-    cpu.step();
-
-    std::cout << "========================================================================\n";
+    cpu.initPipeline();
 
     std::cout << cpu.state.disas(gbaemu::Memory::EXT_ROM_OFFSET, 200);
+
+    for (uint32_t i = 0; i < 20;) {
+        uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
+
+        cpu.step();
+
+        uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
+
+        if (prevPC != postPC) {
+            std::cout << "========================================================================\n";
+
+            std::cout << cpu.state.disas(postPC, 200);
+
+            ++i;
+        }
+    }
 
     return 0;
 }
