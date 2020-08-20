@@ -121,7 +121,7 @@ namespace gbaemu
             LDRH,
             LDRSB,
             LDRSH,
-            LDRD,
+            LDRD, /* supported arm5 and up */
             MLA,
             MOV,
             MRS,
@@ -138,7 +138,7 @@ namespace gbaemu
             STR,
             STRB,
             STRH,
-            STRD,
+            STRD, /* supported arm5 and up */
             SUB,
             SWI,
             SWP,
@@ -210,7 +210,7 @@ namespace gbaemu
                         halfword/word                    
                      */
                     bool p, u, b, w, l, h;
-                    uint32_t rn, rd;
+                    uint32_t rn, rd, addrMode;
                 } sign_transf;
 
                 struct {

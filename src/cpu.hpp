@@ -85,10 +85,10 @@ namespace gbaemu
                                                      armInst.params.data_swp.rd,
                                                      armInst.params.data_swp.rm);
                                 break;
+                                /* those two are the same */
                             case arm::ARMInstructionCategory::HW_TRANSF_REG_OFF:
-                                break;
                             case arm::ARMInstructionCategory::HW_TRANSF_IMM_OFF:
-                                info = execHalfwordDataTransferImm(armInst);
+                                info = execHalfwordDataTransferImmRegSignedTransfer(armInst);
                                 break;
                             case arm::ARMInstructionCategory::SIGN_TRANSF:
                                 break;
@@ -759,7 +759,7 @@ namespace gbaemu
             return info;
         }
 
-        InstructionExecutionInfo execHalfwordDataTransferImm(const arm::ARMInstruction &inst)
+        InstructionExecutionInfo execHalfwordDataTransferImmRegSignedTransfer(const arm::ARMInstruction &inst)
         {
             /*
                 Bit    Expl.
@@ -797,14 +797,51 @@ namespace gbaemu
                         When above Bit 22 I=1:
                         Immediate Offset (lower 4bits)  (0-255, together with upper bits)
              */
-            bool pre = inst.params.hw_transf_imm_off.p;
-            bool up = inst.params.hw_transf_imm_off.u;
-            bool load = inst.params.hw_transf_imm_off.l;
-            bool writeback = inst.params.hw_transf_imm_off.w;
-            uint32_t rn = inst.params.hw_transf_imm_off.rn;
-            uint32_t rd = inst.params.hw_transf_imm_off.rd;
-            uint32_t offset = inst.params.hw_transf_imm_off.offset;
-            uint32_t memoryAddress;
+            bool pre, up, load, writeback, sign;
+            uint32_t rn, rd, offset, memoryAddress, transferSize;
+
+            /* this is the only difference between imm and reg */
+            if (inst.cat == arm::ARMInstructionCategory::HW_TRANSF_IMM_OFF) {
+                pre = inst.params.hw_transf_imm_off.p;
+                up = inst.params.hw_transf_imm_off.u;
+                load = inst.params.hw_transf_imm_off.l;
+                writeback = inst.params.hw_transf_imm_off.w;
+                rn = inst.params.hw_transf_imm_off.rn;
+                rd = inst.params.hw_transf_imm_off.rd;
+                offset = inst.params.hw_transf_imm_off.offset;
+                transferSize = 16;
+                sign = false;
+            } else if (inst.cat == arm::ARMInstructionCategory::HW_TRANSF_REG_OFF) {
+                pre = inst.params.hw_transf_reg_off.p;
+                up = inst.params.hw_transf_reg_off.u;
+                load = inst.params.hw_transf_reg_off.l;
+                writeback = inst.params.hw_transf_reg_off.w;
+                rn = inst.params.hw_transf_reg_off.rn;
+                rd = inst.params.hw_transf_reg_off.rd;
+                offset = state.accessReg(inst.params.hw_transf_reg_off.rm);
+                transferSize = 16;
+                sign = false;
+            } else if (inst.cat == arm::ARMInstructionCategory::SIGN_TRANSF) {
+                pre = inst.params.sign_transf.p;
+                up = inst.params.sign_transf.u;
+                load = inst.params.sign_transf.l;
+                writeback = inst.params.sign_transf.w;
+                rn = inst.params.sign_transf.rn;
+                rd = inst.params.sign_transf.rd;
+
+                if (inst.params.sign_transf.b) {
+                    uint32_t rd = inst.params.sign_transf.addrMode & 0xF;
+                    offset = state.accessReg(rd);
+                } else
+                    offset = inst.params.sign_transf.addrMode;
+
+                if (inst.params.sign_transf.h)
+                    transferSize = 16;
+                else
+                    transferSize = 8;
+
+                sign = true;
+            }
 
             //Execution Time: For Normal LDR, 1S+1N+1I. For LDR PC, 2S+2N+1I. For STRH 2N
             InstructionExecutionInfo info{0};
@@ -826,9 +863,25 @@ namespace gbaemu
                 memoryAddress = state.accessReg(rn);
 
             if (load) {
-                state.accessReg(rd) = state.memory.read16(memoryAddress, &info.cycleCount);
+                if (sign) {
+                    if (transferSize == 16) {
+                        state.accessReg(rd) = static_cast<int32_t>(state.memory.read16(memoryAddress, &info.cycleCount));
+                    } else {
+                        state.accessReg(rd) = static_cast<int32_t>(state.memory.read8(memoryAddress, &info.cycleCount));
+                    }
+                } else {
+                    if (transferSize == 16) {
+                        state.accessReg(rd) = state.memory.read16(memoryAddress, &info.cycleCount);
+                    } else {
+                        state.accessReg(rd) = state.memory.read8(memoryAddress, &info.cycleCount);
+                    }
+                }
             } else {
-                state.memory.write16(memoryAddress, state.accessReg(rd), &info.cycleCount);
+                if (transferSize == 16) {
+                    state.memory.write16(memoryAddress, state.accessReg(rd), &info.cycleCount);
+                } else {
+                    state.memory.write8(memoryAddress, state.accessReg(rd), &info.cycleCount);
+                }
             }
 
             if (writeback || !pre) {
