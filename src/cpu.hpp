@@ -568,12 +568,34 @@ namespace gbaemu
                     else
                         resultValue = state.accessReg(regs::CPSR_OFFSET);
                     break;
-                case arm::MSR:
-                    if (inst.params.data_proc_psr_transf.r)
-                        resultValue = state.accessReg(regs::SPSR_OFFSET);
-                    else
-                        resultValue = state.accessReg(regs::CPSR_OFFSET);
+                case arm::MSR: {
+                    // true iff write to flag field is allowed 31-24
+                    bool f = inst.params.data_proc_psr_transf.rn & 0x08;
+                    // true iff write to status field is allowed 23-16
+                    bool s = inst.params.data_proc_psr_transf.rn & 0x04;
+                    // true iff write to extension field is allowed 15-8
+                    bool x = inst.params.data_proc_psr_transf.rn & 0x02;
+                    // true iff write to control field is allowed 7-0
+                    bool c = inst.params.data_proc_psr_transf.rn & 0x01;
+
+                    uint32_t bitMask = (f ? 0xFF000000 : 0) | (s ? 0x00FF0000 : 0) | (x ? 0x0000FF00 : 0) | (c ? 0x000000FF : 0);
+
+                    // Shady trick to fix destination register because extracted rd value is not used
+                    if (inst.params.data_proc_psr_transf.r) {
+                        inst.params.data_proc_psr_transf.rd = regs::SPSR_OFFSET;
+                        // clear fields that should be written to
+                        resultValue = state.accessReg(regs::SPSR_OFFSET) & ~bitMask;
+                    } else {
+                        inst.params.data_proc_psr_transf.rd = regs::CPSR_OFFSET;
+                        // clear fields that should be written to
+                        resultValue = state.accessReg(regs::CPSR_OFFSET) & ~bitMask;
+                    }
+
+                    // ensure that only fields that should be written to are changed!
+                    resultValue |= (shifterOperand & bitMask);
+
                     break;
+                }
                 case arm::MVN:
                     resultValue = ~shifterOperand;
                     if (inst.params.data_proc_psr_transf.s && inst.params.data_proc_psr_transf.rd == 15)

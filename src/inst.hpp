@@ -216,7 +216,8 @@ namespace gbaemu
 
                 struct {
                     bool i, s, r /* only used in MRS/MSR */;
-                    uint32_t opCode, rn, rd, operand2;
+                    uint32_t opCode, rn, rd;
+                    uint16_t operand2;
 
                     bool extractOperand2(ShiftType &shiftType, uint32_t &shiftAmount, uint32_t &rm, uint32_t &rs, uint32_t &imm) const
                     {
