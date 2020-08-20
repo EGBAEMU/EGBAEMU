@@ -343,6 +343,8 @@ namespace gbaemu
                 instruction.params.sign_transf.rn = (lastInst >> 16) & 0x0F;
                 instruction.params.sign_transf.rd = (lastInst >> 12) & 0x0F;
 
+                instruction.params.sign_transf.addrMode = ((lastInst >> 8) & 0xF) | (lastInst & 0xF);
+
                 if (l && !h) {
                     instruction.id = ARMInstructionID::LDRSB;
                 } else if (l && h) {
