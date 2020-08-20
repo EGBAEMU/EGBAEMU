@@ -30,7 +30,6 @@ int main(int argc, const char **argv)
     cpu.state.decoder = &armDecoder;
     cpu.state.memory.loadROM(reinterpret_cast<uint8_t *>(buf.data()), buf.size());
     //TODO are there conventions about inital reg values?
-    cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = 0x204;
 
     /*
         https://onlinedisassembler.com/odaweb/
