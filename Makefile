@@ -1,6 +1,11 @@
 CC := g++
 CCFLAGS := -std=c++17 -g -Wall
-LDFLAGS := -lSDL2
+ifeq ($(OS),Windows_NT)
+  LDFLAGS := -lmingw32 -lSDL2main -lSDL2
+else
+  LDFLAGS := -lSDL2
+endif
+
 SRC := src
 OUT := bin
 BUILDDIR := build
