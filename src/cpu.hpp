@@ -435,7 +435,7 @@ namespace gbaemu
             // Offset is given in units of 4. Thus we need to shift it first by two
             offset = offset << 2;
 
-            state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(pc) + offset);
+            state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(pc) + 8 + offset);
 
             // Execution Time: 2S + 1N
             InstructionExecutionInfo info{0};
