@@ -786,8 +786,10 @@ namespace gbaemu
             return info;
         }
 
-        InstructionExecutionInfo execDataBlockTransfer(const arm::ARMInstruction &inst)
+        InstructionExecutionInfo execDataBlockTransfer(arm::ARMInstruction &inst)
         {
+            //TODO S bit seems relevant for register selection, NOTE: this instruction is reused for handleThumbMultLoadStore & handleThumbPushPopRegister
+
             bool pre = inst.params.block_data_transf.p;
             bool up = inst.params.block_data_transf.u;
             bool writeback = inst.params.block_data_transf.w;
