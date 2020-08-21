@@ -178,10 +178,13 @@ namespace gbaemu
                         case thumb::ThumbInstructionCategory::ADD_OFFSET_TO_STACK_PTR:
                             break;
                         case thumb::ThumbInstructionCategory::PUSH_POP_REG:
+                            info = handleThumbPushPopRegister(thumbInst.params.push_pop_reg.l, thumbInst.params.push_pop_reg.r, thumbInst.params.push_pop_reg.rlist);
                             break;
                         case thumb::ThumbInstructionCategory::MULT_LOAD_STORE:
+                            info = handleThumbMultLoadStore(thumbInst.params.mult_load_store.l, thumbInst.params.mult_load_store.rb, thumbInst.params.mult_load_store.rlist);
                             break;
                         case thumb::ThumbInstructionCategory::COND_BRANCH:
+                            info = handleThumbConditionalBranch(thumbInst.params.cond_branch.cond, thumbInst.params.cond_branch.offset);
                             break;
                         case thumb::ThumbInstructionCategory::SOFTWARE_INTERRUPT: {
 
@@ -200,8 +203,10 @@ namespace gbaemu
                             break;
                         }
                         case thumb::ThumbInstructionCategory::UNCONDITIONAL_BRANCH:
+                            info = handleThumbUnconditionalBranch(thumbInst.params.unconditional_branch.offset);
                             break;
                         case thumb::ThumbInstructionCategory::LONG_BRANCH_WITH_LINK:
+                            info = handleThumbLongBranchWithLink(thumbInst.params.long_branch_with_link.h, thumbInst.params.long_branch_with_link.offset);
                             break;
                     }
                 }
@@ -990,6 +995,117 @@ namespace gbaemu
             }
 
             return info;
+        }
+
+        InstructionExecutionInfo handleThumbLongBranchWithLink(bool h, uint16_t offset)
+        {
+            auto currentRegs = state.getCurrentRegs();
+
+            InstructionExecutionInfo info{0};
+
+            uint32_t extendedAddr = static_cast<uint32_t>(offset);
+            if (h) {
+                // Second instruction
+                extendedAddr <<= 1;
+                uint32_t pcVal = *currentRegs[regs::PC_OFFSET];
+                *currentRegs[regs::PC_OFFSET] = *currentRegs[regs::LR_OFFSET] + extendedAddr;
+                // TODO OR 1? not sure if we need this, this would cause invalid addresses if not catched by fetch (masking out)
+                *currentRegs[regs::LR_OFFSET] = (pcVal + 2) | 1;
+            } else {
+                // First instruction
+                extendedAddr <<= 12;
+                *currentRegs[regs::LR_OFFSET] = *currentRegs[regs::PC_OFFSET] + 4 + extendedAddr;
+
+                // pipeline flush -> additional cycles needed
+                info.additionalProgCyclesN = 1;
+                info.additionalProgCyclesS = 1;
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbUnconditionalBranch(int16_t offset)
+        {
+            // TODO: Offset may be shifted by 1 or not at all
+            state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(state.getCurrentPC()) + 4 + (offset << 1));
+
+            // Unconditional branches take 2S + 1N
+            InstructionExecutionInfo info{0};
+            info.additionalProgCyclesN = 1;
+            info.additionalProgCyclesS = 1;
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbConditionalBranch(uint8_t cond, int8_t offset)
+        {
+
+            InstructionExecutionInfo info{0};
+
+            // Branch will be executed if condition is met
+            if (conditionSatisfied(static_cast<ConditionOPCode>(cond), state)) {
+
+                state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(state.getCurrentPC()) + 4 + (offset << 1));
+
+                // If branch executed: 2S+1N
+                info.additionalProgCyclesN = 1;
+                info.additionalProgCyclesS = 1;
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbMultLoadStore(bool load, uint8_t rb, uint8_t rlist)
+        {
+
+            arm::ARMInstruction wrapper;
+            wrapper.params.block_data_transf.l = load;
+            wrapper.params.block_data_transf.rList = static_cast<uint16_t>(rlist);
+
+            wrapper.params.block_data_transf.u = true;
+            wrapper.params.block_data_transf.w = true;
+            wrapper.params.block_data_transf.p = false;
+            wrapper.params.block_data_transf.rn = rb;
+
+            return execDataBlockTransfer(wrapper);
+        }
+
+        InstructionExecutionInfo handleThumbPushPopRegister(bool load, bool r, uint8_t rlist)
+        {
+            
+            uint16_t extendedRList = static_cast<uint16_t>(rlist);
+
+            // 8 PC/LR Bit (0-1)
+            //    0: No
+            //    1: PUSH LR (R14), or POP PC (R15)
+            if (r) {
+                if (!load) {
+                    extendedRList |= 1 << regs::LR_OFFSET;
+                } else {
+                    extendedRList |= 1 << regs::PC_OFFSET;
+                }
+            }
+
+            arm::ARMInstruction wrapper;
+            //  // L - Load/Store bit (0=Store to memory, 1=Load from memory)
+            wrapper.params.block_data_transf.l = load;
+            //  Rlist - Register List
+            wrapper.params.block_data_transf.rList = extendedRList;
+
+            // U - Up/Down Bit (0=down; subtract offset from base, 1=up; add to base)
+            //      0: PUSH {Rlist}{LR}   ;store in memory, decrements SP (R13)
+            //      1: POP  {Rlist}{PC}   ;load from memory, increments SP (R13)
+            wrapper.params.block_data_transf.u = load;
+            //  W - Write-back bit (0=no write-back, 1=write address into base)
+            wrapper.params.block_data_transf.w = true;
+            // P - Pre/Post (0=post; add offset after transfer, 1=pre; before trans.)
+            
+            //TODO you have to consider conventions regarding on which address SP is pointing to: first free vs last used
+            wrapper.params.block_data_transf.p = !load; 
+            
+            wrapper.params.block_data_transf.rn = regs::SP_OFFSET;
+
+            return execDataBlockTransfer(wrapper);
         }
     };
 
