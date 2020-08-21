@@ -815,6 +815,23 @@ namespace gbaemu
             // because the memory class always adds non sequential accesses we need to handle this case explicitly
             bool nonSeqAccDone = false;
 
+            // TODO there are even more edge cases:
+            /* Different behaviour dependent on mode...
+            ARM:
+            Writeback with Rb included in Rlist: Store OLD base if Rb is FIRST entry in Rlist, otherwise store NEW base (STM/ARMv4), always store OLD base (STM/ARMv5), no writeback (LDM/ARMv4), writeback if Rb is "the ONLY register, or NOT the LAST register" in Rlist (LDM/ARMv5).
+
+            THUMB:
+            Writeback with Rb included in Rlist: Store OLD base if Rb is FIRST entry in Rlist, otherwise store NEW base (STM/ARMv4), always store OLD base (STM/ARMv5), no writeback (LDM/ARMv4/ARMv5; at this point, THUMB opcodes work different than ARM opcodes).
+
+            */
+
+            bool edgeCaseEmptyRlist = false;
+            // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
+            if (inst.params.block_data_transf.rList == 0) {
+                inst.params.block_data_transf.rList = (1 << 15);
+                edgeCaseEmptyRlist = true;
+            }
+
             for (uint32_t i = 0; i < 16; ++i) {
                 if (pre && up)
                     address += 4;
@@ -849,6 +866,11 @@ namespace gbaemu
             /* TODO: not sure if address - 4 */
             if (writeback)
                 state.accessReg(rn) = address;
+            
+            // Handle edge case: Empty Rlist: Rb=Rb+40h (ARMv4-v5)
+            if (edgeCaseEmptyRlist) {
+                state.accessReg(rn) = state.accessReg(rn) + 0x40;
+            }
 
             return info;
         }
