@@ -163,6 +163,7 @@ namespace gbaemu
                         case thumb::ThumbInstructionCategory::MOV_SHIFT:
                             break;
                         case thumb::ThumbInstructionCategory::ADD_SUB:
+                            info = handleThumbAddSubtract(thumbInst.id, thumbInst.params.add_sub.rd, thumbInst.params.add_sub.rs, thumbInst.params.add_sub.rn_offset);
                             break;
                         case thumb::ThumbInstructionCategory::MOV_CMP_ADD_SUB_IMM:
                             break;
@@ -289,6 +290,26 @@ namespace gbaemu
             }
         }
 
+        void setFlags(uint64_t resultValue, bool nFlag, bool zFlag, bool vFlag, bool cFlag)
+        {
+            bool negative = resultValue & (1 << 31);
+            bool zero = resultValue == 0;
+            bool overflow = (resultValue >> 32) & 0xFFFFFFFF;
+            bool carry = resultValue & (static_cast<uint64_t>(1) << 32);
+
+            if (nFlag)
+                state.setFlag(cpsr_flags::N_FLAG, negative);
+
+            if (zFlag)
+                state.setFlag(cpsr_flags::Z_FLAG, zero);
+
+            if (vFlag)
+                state.setFlag(cpsr_flags::V_FLAG, overflow);
+
+            if (cFlag)
+                state.setFlag(cpsr_flags::C_FLAG, carry);
+        }
+
         InstructionExecutionInfo handleMultAcc(bool a, bool s, uint32_t rd, uint32_t rn, uint32_t rs, uint32_t rm)
         {
             // Check given restrictions
@@ -315,8 +336,12 @@ namespace gbaemu
             if (s) {
                 // update zero flag & signed flags
                 // the rest is unaffected
-                state.setFlag(cpsr_flags::Z_FLAG, mulRes == 0);
-                state.setFlag(cpsr_flags::N_FLAG, mulRes >> 31);
+                setFlags(
+                    mulRes,
+                    true,
+                    true,
+                    false,
+                    false);
             }
 
             /*
@@ -388,8 +413,12 @@ namespace gbaemu
             if (s) {
                 // update zero flag & signed flags
                 // the rest is unaffected
-                state.setFlag(cpsr_flags::Z_FLAG, mulRes == 0);
-                state.setFlag(cpsr_flags::N_FLAG, mulRes >> 31);
+                setFlags(
+                    mulRes,
+                    true,
+                    true,
+                    false,
+                    false);
             }
 
             /*
@@ -679,22 +708,12 @@ namespace gbaemu
 
             /* set flags */
             if (inst.params.data_proc_psr_transf.s) {
-                negative = resultValue & (1 << 31);
-                zero = resultValue == 0;
-                overflow = (resultValue >> 32) & 0xFFFFFFFF;
-                carry = resultValue & (static_cast<uint64_t>(1) << 32);
-
-                if (updateNegative.find(inst.id) != updateNegative.end())
-                    state.setFlag(cpsr_flags::N_FLAG, negative);
-
-                if (updateZero.find(inst.id) != updateZero.end())
-                    state.setFlag(cpsr_flags::Z_FLAG, zero);
-
-                if (updateOverflow.find(inst.id) != updateOverflow.end())
-                    state.setFlag(cpsr_flags::V_FLAG, overflow);
-
-                if (updateCarry.find(inst.id) != updateCarry.end())
-                    state.setFlag(cpsr_flags::C_FLAG, carry);
+                setFlags(
+                    resultValue,
+                    updateNegative.find(inst.id) != updateNegative.end(),
+                    updateZero.find(inst.id) != updateZero.end(),
+                    updateOverflow.find(inst.id) != updateOverflow.end(),
+                    updateCarry.find(inst.id) != updateCarry.end());
             }
 
             if (dontUpdateRD.find(inst.id) == dontUpdateRD.end())
@@ -1366,6 +1385,47 @@ namespace gbaemu
 
             // Execution Time: 1S+1N+1I
             info.cycleCount += 1;
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbAddSubtract(thumb::ThumbInstructionID insID, uint8_t rd, uint8_t rs, uint8_t rn_offset)
+        {
+            InstructionExecutionInfo info{0};
+
+            auto currentRegs = state.getCurrentRegs();
+
+            uint32_t rsVal = *currentRegs[rs];
+            uint32_t rnVal = *currentRegs[rn_offset];
+
+            uint64_t result;
+
+            switch (insID) {
+                case thumb::ADD:
+                    result = rsVal + rnVal;
+                    break;
+                case thumb::SUB:
+                    result = static_cast<uint32_t>(rsVal) - rnVal;
+                    break;
+                case thumb::ADD_SHORT_IMM:
+                    result = rsVal + rn_offset;
+                    break;
+                case thumb::SUB_SHORT_IMM:
+                    result = static_cast<uint32_t>(rsVal) - rn_offset;
+                    break;
+                default:
+                    break;
+            }
+
+            *currentRegs[rd] = result;
+
+            setFlags(
+                result,
+                true,
+                true,
+                true,
+                true
+            );
 
             return info;
         }
