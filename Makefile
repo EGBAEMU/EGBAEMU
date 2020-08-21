@@ -13,7 +13,7 @@ deps = $(patsubst %, $(BUILDDIR)/%,$(srcs:.cpp=.d))
 
 all: gbaemu
 
-gbaemu: $(objs)
+gbaemu: $(objs) $(BUILDDIR)/src/lcd.o
 	mkdir -p $(OUT)
 	$(CC) $^ -o $(OUT)/$@ $(LDFLAGS)
 
@@ -21,6 +21,10 @@ gbaemu: $(objs)
 $(objs): $(BUILDDIR)/%.o : %.cpp
 	mkdir -p $(BUILDDIR)/$(SRC)
 	$(CC) $(CCFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILDDIR)/src/lcd.o: $(SRC)/lcd/lcd.cpp
+	mkdir -p $(BUILDDIR)/$(SRC)
+	$(CC) $(CCFLAGS) -c $^ -o $(BUILDDIR)/$(SRC)/lcd.o
 
 clean:
 	rm -rf $(objs) $(deps) $(OUT) $(BUILDDIR)
