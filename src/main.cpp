@@ -35,7 +35,6 @@ int main(int argc, const char **argv)
     cpu.state.decoder = &armDecoder;
     cpu.state.memory.loadROM(reinterpret_cast<uint8_t *>(buf.data()), buf.size());
     //TODO are there conventions about inital reg values?
-    cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = 0x204;
 
     /*
         https://onlinedisassembler.com/odaweb/
@@ -73,15 +72,25 @@ int main(int argc, const char **argv)
     std::cout << std::endl;
 
     cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
-    std::cout << cpu.state.disas(gbaemu::Memory::EXT_ROM_OFFSET, 200);
-
-    cpu.step();
-    cpu.step();
-    cpu.step();
-
-    std::cout << "========================================================================\n";
+    cpu.initPipeline();
 
     std::cout << cpu.state.disas(gbaemu::Memory::EXT_ROM_OFFSET, 200);
+
+    for (uint32_t i = 0; i < 20;) {
+        uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
+
+        cpu.step();
+
+        uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
+
+        if (prevPC != postPC) {
+            std::cout << "========================================================================\n";
+
+            std::cout << cpu.state.disas(postPC, 200);
+
+            ++i;
+        }
+    }
 
     return 0;
 }

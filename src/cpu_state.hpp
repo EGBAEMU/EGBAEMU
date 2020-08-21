@@ -18,10 +18,12 @@ namespace gbaemu
         https://static.docs.arm.com/dvi0027/b/DVI_0027A_ARM7TDMI_PO.pdf
      */
 
+        /*
         enum OperationState : uint8_t {
             ARMState,
             ThumbState
         } operationState = ARMState;
+        */
 
         enum CPUMode : uint8_t {
             UserMode,
@@ -47,7 +49,7 @@ namespace gbaemu
             uint32_t SPSR_abt;
             uint32_t SPSR_irq;
             uint32_t SPSR_und;
-        } regs;
+        } regs = {0};
 
         // Complain to: tammo.muermann@stud.tu-darmstadt.de
         uint32_t *const regsHacks[7][18] = {
@@ -86,7 +88,7 @@ namespace gbaemu
             uint32_t result;
         } execute;
         */
-        } pipeline;
+        } pipeline = {0};
 
         Memory memory;
 

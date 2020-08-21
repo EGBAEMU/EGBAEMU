@@ -20,23 +20,39 @@ namespace gbaemu
       public:
         CPUState state;
 
+        void initPipeline()
+        {
+            // We need to fill the pipeline to the state where the instruction at PC is ready for execution -> fetched + decoded!
+            uint32_t pc = state.accessReg(regs::PC_OFFSET);
+            bool thumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+            state.accessReg(regs::PC_OFFSET) = pc - (thumbMode ? 4 : 8);
+            fetch();
+            state.accessReg(regs::PC_OFFSET) = pc - (thumbMode ? 2 : 4);
+            fetch();
+            decode();
+            state.accessReg(regs::PC_OFFSET) = pc;
+        }
+
         void fetch()
         {
-
-            // TODO: flush if branch happened?, else continue normally
-
             // propagate pipeline
             state.pipeline.fetch.lastInstruction = state.pipeline.fetch.instruction;
             state.pipeline.fetch.lastReadData = state.pipeline.fetch.readData;
 
-            /* assume 26 ARM state here */
-            /* pc is at [25:2] */
-            uint32_t pc = (state.accessReg(regs::PC_OFFSET) >> 2) & 0x03FFFFFF;
+            bool thumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+
             //TODO we only need to fetch 16 bit for thumb mode!
             //TODO we might need this info? (where nullptr is currently)
-            state.pipeline.fetch.instruction = state.memory.read32(pc * 4, nullptr);
-
-            //TODO where do we want to update pc? (+4)
+            if (thumbMode) {
+                //TODO check this
+                /* pc is at [27:1] */
+                uint32_t pc = (state.accessReg(regs::PC_OFFSET) >> 1) & 0x07FFFFFF;
+                state.pipeline.fetch.instruction = state.memory.read16((pc * 2) + 4, nullptr);
+            } else {
+                /* pc is at [27:2] */
+                uint32_t pc = (state.accessReg(regs::PC_OFFSET) >> 2) & 0x03FFFFFF;
+                state.pipeline.fetch.instruction = state.memory.read32((pc * 4) + 8, nullptr);
+            }
         }
 
         void decode()
@@ -210,10 +226,13 @@ namespace gbaemu
             // Change from arm mode to thumb mode or vice versa
             if (prevThumbMode != postThumbMode) {
                 //TODO change fetch and decode strategy to corresponding code
+
+                std::cout << "INFO: MODE CHANGE" << std::endl;
             }
             // We have a branch, return or something that changed our PC
             if (prevPc != postPc) {
-                //TODO handle pipeline flush
+                std::cout << "INFO: PIPELINE FLUSH" << std::endl;
+                initPipeline();
             } else {
                 //TODO this is probably unwanted if we changed the mode?
                 // Increment the pc counter to the next instruction
@@ -454,7 +473,17 @@ namespace gbaemu
             uint32_t shiftAmount, rm, rs, imm, shifterOperand;
             bool shiftByReg = inst.params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
 
-            if (inst.params.data_proc_psr_transf.i) {
+            if (inst.params.data_proc_psr_transf.rn == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
+                // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
+                // PC+12 if I=0,R=1 (shift by register),
+                // otherwise PC+8 (shift by immediate).
+                std::cout << "INFO: Edge case triggered, by using PC as operand on ALU operation! Pls verify that this is correct behaviour for this instruction!" << std::endl;
+                if (!inst.params.data_proc_psr_transf.i && shiftByReg) {
+                    shifterOperand = state.getCurrentPC() + 12;
+                } else {
+                    shifterOperand = state.getCurrentPC() + 8;
+                }
+            } else if (inst.params.data_proc_psr_transf.i) {
                 shifterOperand = (imm >> shiftAmount) | (imm << (32 - shiftAmount));
             } else {
                 if (shiftByReg)
@@ -547,12 +576,34 @@ namespace gbaemu
                     else
                         resultValue = state.accessReg(regs::CPSR_OFFSET);
                     break;
-                case arm::MSR:
-                    if (inst.params.data_proc_psr_transf.r)
-                        resultValue = state.accessReg(regs::SPSR_OFFSET);
-                    else
-                        resultValue = state.accessReg(regs::CPSR_OFFSET);
+                case arm::MSR: {
+                    // true iff write to flag field is allowed 31-24
+                    bool f = inst.params.data_proc_psr_transf.rn & 0x08;
+                    // true iff write to status field is allowed 23-16
+                    bool s = inst.params.data_proc_psr_transf.rn & 0x04;
+                    // true iff write to extension field is allowed 15-8
+                    bool x = inst.params.data_proc_psr_transf.rn & 0x02;
+                    // true iff write to control field is allowed 7-0
+                    bool c = inst.params.data_proc_psr_transf.rn & 0x01;
+
+                    uint32_t bitMask = (f ? 0xFF000000 : 0) | (s ? 0x00FF0000 : 0) | (x ? 0x0000FF00 : 0) | (c ? 0x000000FF : 0);
+
+                    // Shady trick to fix destination register because extracted rd value is not used
+                    if (inst.params.data_proc_psr_transf.r) {
+                        inst.params.data_proc_psr_transf.rd = regs::SPSR_OFFSET;
+                        // clear fields that should be written to
+                        resultValue = state.accessReg(regs::SPSR_OFFSET) & ~bitMask;
+                    } else {
+                        inst.params.data_proc_psr_transf.rd = regs::CPSR_OFFSET;
+                        // clear fields that should be written to
+                        resultValue = state.accessReg(regs::CPSR_OFFSET) & ~bitMask;
+                    }
+
+                    // ensure that only fields that should be written to are changed!
+                    resultValue |= (shifterOperand & bitMask);
+
                     break;
+                }
                 case arm::MVN:
                     resultValue = ~shifterOperand;
                     if (inst.params.data_proc_psr_transf.s && inst.params.data_proc_psr_transf.rd == 15)
