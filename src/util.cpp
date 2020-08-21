@@ -4,6 +4,10 @@
 
 namespace gbaemu
 {
+    uint16_t flip16(uint16_t bytes) {
+        return ((bytes & 0xFF00) >> 8) | ((bytes & 0xFF) << 8);
+    }
+
     template <class T>
     T flipBytes(const T &obj)
     {

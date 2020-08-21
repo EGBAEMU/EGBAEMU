@@ -24,7 +24,7 @@ $(objs): $(BUILDDIR)/%.o : %.cpp
 
 $(BUILDDIR)/src/lcd.o: $(SRC)/lcd/lcd.cpp
 	mkdir -p $(BUILDDIR)/$(SRC)
-	$(CC) $(CCFLAGS) -c $^ -o $(BUILDDIR)/$(SRC)/lcd.o
+	$(CC) $(CCFLAGS) -I$(SRC) -c $^ -o $(BUILDDIR)/$(SRC)/lcd.o
 
 clean:
 	rm -rf $(objs) $(deps) $(OUT) $(BUILDDIR)
