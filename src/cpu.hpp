@@ -793,7 +793,7 @@ namespace gbaemu
             bool writeback = inst.params.block_data_transf.w;
             bool load = inst.params.block_data_transf.l;
             uint32_t rn = inst.params.block_data_transf.rn;
-            uint32_t address = rn;
+            uint32_t address = state.accessReg(rn);
 
             // Execution Time:
             // For normal LDM, nS+1N+1I. For LDM PC, (n+1)S+2N+1I.
