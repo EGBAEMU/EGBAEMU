@@ -501,23 +501,25 @@ namespace gbaemu
             uint32_t shiftAmount, rm, rs, imm, shifterOperand;
             bool shiftByReg = inst.params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
 
-            if (inst.params.data_proc_psr_transf.rn == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
-                // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
-                // PC+12 if I=0,R=1 (shift by register),
-                // otherwise PC+8 (shift by immediate).
-                std::cout << "INFO: Edge case triggered, by using PC as operand on ALU operation! Pls verify that this is correct behaviour for this instruction!" << std::endl;
-                if (!inst.params.data_proc_psr_transf.i && shiftByReg) {
-                    shifterOperand = state.getCurrentPC() + 12;
-                } else {
-                    shifterOperand = state.getCurrentPC() + 8;
-                }
-            } else if (inst.params.data_proc_psr_transf.i) {
+            if (inst.params.data_proc_psr_transf.i) {
                 shifterOperand = (imm >> shiftAmount) | (imm << (32 - shiftAmount));
             } else {
                 if (shiftByReg)
                     shiftAmount = *state.getCurrentRegs()[rs];
 
                 uint32_t rmValue = *state.getCurrentRegs()[rm];
+
+                if (rm == regs::PC_OFFSET) {
+                    // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
+                    // PC+12 if I=0,R=1 (shift by register),
+                    // otherwise PC+8 (shift by immediate).
+                    std::cout << "INFO: Edge case triggered, by using PC as RM operand on ALU operation! Pls verify that this is correct behaviour for this instruction!" << std::endl;
+                    if (!inst.params.data_proc_psr_transf.i && shiftByReg) {
+                        rmValue += 12;
+                    } else {
+                        rmValue += 8;
+                    }
+                }
 
                 switch (shiftType) {
                     case arm::ShiftType::LSL:
@@ -541,7 +543,19 @@ namespace gbaemu
                  overflow = state.getFlag(cpsr_flags::V_FLAG),
                  carry = state.getFlag(cpsr_flags::C_FLAG);
 
-            uint64_t rnValue = state.accessReg(inst.params.block_data_transf.rn);
+            uint64_t rnValue = state.accessReg(inst.params.data_proc_psr_transf.rn);
+            if (inst.params.data_proc_psr_transf.rn == regs::PC_OFFSET) {
+                // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
+                // PC+12 if I=0,R=1 (shift by register),
+                // otherwise PC+8 (shift by immediate).
+                std::cout << "INFO: Edge case triggered, by using PC as RN operand on ALU operation! Pls verify that this is correct behaviour for this instruction!" << std::endl;
+                if (!inst.params.data_proc_psr_transf.i && shiftByReg) {
+                    rnValue += 12;
+                } else {
+                    rnValue += 8;
+                }
+            }
+
             uint64_t resultValue;
 
             /* Different instructions cause different flags to be changed. */
