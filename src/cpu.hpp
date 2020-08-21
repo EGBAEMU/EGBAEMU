@@ -17,7 +17,16 @@ namespace gbaemu
 
     class CPU
     {
+      private:
+        arm::ARMInstructionDecoder armDecoder;
+        thumb::ThumbInstructionDecoder thumbDecoder;
+
       public:
+        CPU()
+        {
+            state.decoder = &armDecoder;
+        }
+
         CPUState state;
 
         void initPipeline()
@@ -241,6 +250,12 @@ namespace gbaemu
                 //TODO change fetch and decode strategy to corresponding code
 
                 std::cout << "INFO: MODE CHANGE" << std::endl;
+                if (state.decoder == &armDecoder) {
+                    state.decoder = &thumbDecoder;
+                } else {
+                    state.decoder = &armDecoder;
+                }
+                //TODO can we assume that on change the pc counter will always be modified as well?
             }
             // We have a branch, return or something that changed our PC
             if (prevPc != postPc) {
