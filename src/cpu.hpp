@@ -74,7 +74,7 @@ namespace gbaemu
                     arm::ARMInstruction &armInst = state.pipeline.decode.lastInstruction.arm;
 
                     // Do we even need an execution?
-                    if (armInst.conditionSatisfied(state)) {
+                    if (conditionSatisfied(armInst.condition, state)) {
 
                         // prefer using switch to get warned if a category is not handled
                         switch (armInst.cat) {
