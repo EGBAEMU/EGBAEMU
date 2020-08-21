@@ -166,6 +166,7 @@ namespace gbaemu
                             info = handleThumbAddSubtract(thumbInst.id, thumbInst.params.add_sub.rd, thumbInst.params.add_sub.rs, thumbInst.params.add_sub.rn_offset);
                             break;
                         case thumb::ThumbInstructionCategory::MOV_CMP_ADD_SUB_IMM:
+                            info = handleTHumbMovCmpAddSubImm(thumbInst.id, thumbInst.params.mov_cmp_add_sub_imm.rd, thumbInst.params.mov_cmp_add_sub_imm.offset);
                             break;
                         case thumb::ThumbInstructionCategory::ALU_OP:
                             break;
@@ -1391,8 +1392,6 @@ namespace gbaemu
 
         InstructionExecutionInfo handleThumbAddSubtract(thumb::ThumbInstructionID insID, uint8_t rd, uint8_t rs, uint8_t rn_offset)
         {
-            InstructionExecutionInfo info{0};
-
             auto currentRegs = state.getCurrentRegs();
 
             uint32_t rsVal = *currentRegs[rs];
@@ -1424,10 +1423,42 @@ namespace gbaemu
                 true,
                 true,
                 true,
-                true
-            );
+                true);
 
+            InstructionExecutionInfo info{0};
             return info;
+        }
+
+        InstructionExecutionInfo handleTHumbMovCmpAddSubImm(thumb::ThumbInstructionID ins, uint8_t rd, uint8_t offset)
+        {
+            // ARM equivalents for MOV/CMP/ADD/SUB are MOVS/CMP/ADDS/SUBS same format.
+
+            arm::ARMInstruction armIns;
+            armIns.params.data_proc_psr_transf.i = true;
+            armIns.params.data_proc_psr_transf.s = true;
+            armIns.params.data_proc_psr_transf.rd = rd;
+            armIns.params.data_proc_psr_transf.rn = rd;
+            armIns.params.data_proc_psr_transf.operand2 = offset;
+
+            switch (ins) {
+                case thumb::ADD:
+                    armIns.id = arm::ADD;
+                    break;
+                case thumb::SUB:
+                    armIns.id = arm::SUB;
+                    break;
+                case thumb::CMP:
+                    armIns.id = arm::CMP;
+                    break;
+                case thumb::MOV:
+                    armIns.id = arm::MOV;
+                    break;
+
+                default:
+                    break;
+            }
+
+            return execDataProc(armIns);
         }
     };
 
