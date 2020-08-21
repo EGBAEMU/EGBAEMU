@@ -3,10 +3,15 @@
 #include <iterator>
 #include <vector>
 
+#include "lcd/window.hpp"
 #include "cpu.hpp"
 
 int main(int argc, const char **argv)
 {
+    sdl::Window(100, 100);
+    return 0;
+
+
     if (argc <= 1) {
         std::cout << "please provide a ROM file\n";
         return 0;

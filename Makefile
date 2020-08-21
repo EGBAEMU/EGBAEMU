@@ -1,6 +1,6 @@
 CC := g++
 CCFLAGS := -std=c++17 -g -Wall
-LDFLAGS :=
+LDFLAGS := -lSDL2
 SRC := src
 OUT := bin
 BUILDDIR := build
