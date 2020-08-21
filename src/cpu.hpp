@@ -162,20 +162,28 @@ namespace gbaemu
                         case thumb::ThumbInstructionCategory::BR_XCHG:
                             break;
                         case thumb::ThumbInstructionCategory::PC_LD:
+                            info = handleThumbLoadPCRelative(thumbInst.params.pc_ld.rd, thumbInst.params.pc_ld.offset);
                             break;
                         case thumb::ThumbInstructionCategory::LD_ST_REL_OFF:
+                            info = handleThumbLoadStoreRegisterOffset(thumbInst.params.ld_st_rel_off.l, thumbInst.params.ld_st_rel_off.b, thumbInst.params.ld_st_rel_off.ro, thumbInst.params.ld_st_rel_off.rb, thumbInst.params.ld_st_rel_off.rd);
                             break;
                         case thumb::ThumbInstructionCategory::LD_ST_SIGN_EXT:
+                            info = handleThumbLoadStoreSignExt(thumbInst.params.ld_st_sign_ext.h, thumbInst.params.ld_st_sign_ext.s, thumbInst.params.ld_st_sign_ext.ro, thumbInst.params.ld_st_sign_ext.rb, thumbInst.params.ld_st_sign_ext.rd);
                             break;
                         case thumb::ThumbInstructionCategory::LD_ST_IMM_OFF:
+                            info = handleThumbLoadStoreImmOff(thumbInst.params.ld_st_imm_off.l, thumbInst.params.ld_st_imm_off.b, thumbInst.params.ld_st_imm_off.offset, thumbInst.params.ld_st_imm_off.rb, thumbInst.params.ld_st_imm_off.rd);
                             break;
                         case thumb::ThumbInstructionCategory::LD_ST_HW:
+                            info = handleThumbLoadStoreHalfword(thumbInst.params.ld_st_hw.l, thumbInst.params.ld_st_hw.offset, thumbInst.params.ld_st_hw.rb, thumbInst.params.ld_st_hw.rd);
                             break;
                         case thumb::ThumbInstructionCategory::LD_ST_REL_SP:
+                            info = handleThumbLoadStoreSPRelative(thumbInst.params.ld_st_rel_sp.l, thumbInst.params.ld_st_rel_sp.rd, thumbInst.params.ld_st_rel_sp.offset);
                             break;
                         case thumb::ThumbInstructionCategory::LOAD_ADDR:
+                            info = handleThumbRelAddr(thumbInst.params.load_addr.sp, thumbInst.params.load_addr.offset, thumbInst.params.load_addr.rd);
                             break;
                         case thumb::ThumbInstructionCategory::ADD_OFFSET_TO_STACK_PTR:
+                            info = handleThumbAddOffsetToStackPtr(thumbInst.params.add_offset_to_stack_ptr.s, thumbInst.params.add_offset_to_stack_ptr.offset);
                             break;
                         case thumb::ThumbInstructionCategory::PUSH_POP_REG:
                             info = handleThumbPushPopRegister(thumbInst.params.push_pop_reg.l, thumbInst.params.push_pop_reg.r, thumbInst.params.push_pop_reg.rlist);
@@ -863,10 +871,10 @@ namespace gbaemu
                     address -= 4;
             }
 
-            /* TODO: not sure if address - 4 */
+            /* TODO: not sure if address (+/-) 4 */
             if (writeback)
                 state.accessReg(rn) = address;
-            
+
             // Handle edge case: Empty Rlist: Rb=Rb+40h (ARMv4-v5)
             if (edgeCaseEmptyRlist) {
                 state.accessReg(rn) = state.accessReg(rn) + 0x40;
@@ -1063,7 +1071,6 @@ namespace gbaemu
 
         InstructionExecutionInfo handleThumbConditionalBranch(uint8_t cond, int8_t offset)
         {
-
             InstructionExecutionInfo info{0};
 
             // Branch will be executed if condition is met
@@ -1081,7 +1088,6 @@ namespace gbaemu
 
         InstructionExecutionInfo handleThumbMultLoadStore(bool load, uint8_t rb, uint8_t rlist)
         {
-
             arm::ARMInstruction wrapper;
             wrapper.params.block_data_transf.l = load;
             wrapper.params.block_data_transf.rList = static_cast<uint16_t>(rlist);
@@ -1096,7 +1102,6 @@ namespace gbaemu
 
         InstructionExecutionInfo handleThumbPushPopRegister(bool load, bool r, uint8_t rlist)
         {
-            
             uint16_t extendedRList = static_cast<uint16_t>(rlist);
 
             // 8 PC/LR Bit (0-1)
@@ -1123,13 +1128,217 @@ namespace gbaemu
             //  W - Write-back bit (0=no write-back, 1=write address into base)
             wrapper.params.block_data_transf.w = true;
             // P - Pre/Post (0=post; add offset after transfer, 1=pre; before trans.)
-            
+
             //TODO you have to consider conventions regarding on which address SP is pointing to: first free vs last used
-            wrapper.params.block_data_transf.p = !load; 
-            
+            wrapper.params.block_data_transf.p = !load;
+
             wrapper.params.block_data_transf.rn = regs::SP_OFFSET;
 
             return execDataBlockTransfer(wrapper);
+        }
+
+        InstructionExecutionInfo handleThumbAddOffsetToStackPtr(bool s, uint8_t offset)
+        {
+            // nn - Unsigned Offset    (0-508, step 4)
+            offset <<= 2;
+
+            if (s) {
+                // 1: ADD  SP,#-nn      ;SP = SP - nn
+                state.accessReg(regs::PC_OFFSET) = state.getCurrentPC() - offset;
+            } else {
+                // 0: ADD  SP,#nn       ;SP = SP + nn
+                state.accessReg(regs::PC_OFFSET) = state.getCurrentPC() + offset;
+            }
+
+            // Execution Time: 1S
+            InstructionExecutionInfo info{0};
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbRelAddr(bool sp, uint8_t offset, uint8_t rd)
+        {
+            auto currentRegs = state.getCurrentRegs();
+
+            // bool sp
+            //          0: ADD  Rd,PC,#nn    ;Rd = (($+4) AND NOT 2) + nn
+            //          1: ADD  Rd,SP,#nn    ;Rd = SP + nn
+            // nn step 4
+            *currentRegs[rd] = (sp ? *currentRegs[regs::SP_OFFSET] : ((*currentRegs[regs::PC_OFFSET] + 4) & ~2)) + (static_cast<uint32_t>(offset) << 2);
+
+            // Execution Time: 1S
+            InstructionExecutionInfo info{0};
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbLoadStoreSPRelative(bool l, uint8_t rd, uint8_t offset)
+        {
+            InstructionExecutionInfo info{0};
+
+            uint32_t memoryAddress = state.accessReg(regs::SP_OFFSET) + (offset << 4);
+
+            if (l) {
+                // 1: LDR  Rd,[SP,#nn]  ;load  32bit data   Rd = WORD[SP+nn]
+                state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
+                info.cycleCount += 1;
+            } else {
+                // 0: STR  Rd,[SP,#nn]  ;store 32bit data   WORD[SP+nn] = Rd
+                state.memory.write32(memoryAddress, state.accessReg(rd), &info.cycleCount);
+
+                info.noDefaultSCycle = true;
+                info.additionalProgCyclesN = 1;
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbLoadStoreHalfword(bool l, uint8_t offset, uint8_t rb, uint8_t rd)
+        {
+
+            InstructionExecutionInfo info{0};
+
+            // 10-6   nn - Unsigned Offset              (0-62, step 2)
+            uint32_t memoryAddress = state.accessReg(rb) + (offset << 1);
+
+            if (l) {
+
+                // 1: LDRH Rd,[Rb,#nn]  ;load  16bit data   Rd = HALFWORD[Rb+nn]
+                state.accessReg(rd) = state.memory.read16(memoryAddress, &info.cycleCount);
+
+                info.cycleCount += 1;
+            } else {
+
+                //  0: STRH Rd,[Rb,#nn]  ;store 16bit data   HALFWORD[Rb+nn] = Rd
+                state.memory.write16(memoryAddress, state.accessReg(rd) & 0x0FFFF, &info.cycleCount);
+
+                info.noDefaultSCycle = true;
+                info.additionalProgCyclesN = 1;
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbLoadStoreImmOff(bool l, bool b, uint8_t offset, uint8_t rb, uint8_t rd)
+        {
+
+            auto currentRegs = state.getCurrentRegs();
+
+            uint32_t address = *currentRegs[rb];
+
+            InstructionExecutionInfo info{0};
+
+            if (l) {
+                info.cycleCount = 1;
+            } else {
+                info.noDefaultSCycle = true;
+                info.additionalProgCyclesN = 1;
+            }
+
+            if (b) {
+                address += offset;
+                if (l) {
+                    *currentRegs[rd] = state.memory.read8(address, &info.cycleCount);
+                } else {
+                    state.memory.write8(address, *currentRegs[rd] & 0x0FF, &info.cycleCount);
+                }
+            } else {
+                // offset is in words
+                address += (offset << 2);
+                if (l) {
+                    *currentRegs[rd] = state.memory.read32(address, &info.cycleCount);
+                } else {
+                    state.memory.write16(address, *currentRegs[rd], &info.cycleCount);
+                }
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbLoadStoreSignExt(bool h, bool s, uint8_t ro, uint8_t rb, uint8_t rd)
+        {
+            auto currentRegs = state.getCurrentRegs();
+
+            InstructionExecutionInfo info{0};
+
+            uint32_t memoryAddress = *currentRegs[rb] + *currentRegs[ro];
+
+            if (!h && !s) {
+                // STRH
+                state.memory.write16(memoryAddress, *currentRegs[rd], &info.cycleCount);
+                info.noDefaultSCycle = true;
+                info.additionalProgCyclesN = 1;
+            } else {
+                // LDR / LDS
+                info.cycleCount = 1;
+
+                if (s) {
+                    uint16_t data;
+                    uint8_t shiftAmount;
+
+                    if (h) {
+                        data = state.memory.read16(memoryAddress, &info.cycleCount);
+                        shiftAmount = 16;
+                    } else {
+                        data = state.memory.read8(memoryAddress, &info.cycleCount);
+                        shiftAmount = 8;
+                    }
+
+                    // Magic sign extension
+                    *currentRegs[rd] = static_cast<int32_t>(static_cast<uint32_t>(data) << shiftAmount) / (1 << shiftAmount);
+                } else {
+                    // LDRH zero extended
+                    *currentRegs[rd] = state.memory.read16(memoryAddress, &info.cycleCount);
+                }
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbLoadStoreRegisterOffset(bool l, bool b, uint8_t ro, uint8_t rb, uint8_t rd)
+        {
+
+            InstructionExecutionInfo info{0};
+            uint32_t memoryAddress = state.accessReg(rb) + state.accessReg(ro);
+
+            if (l) {
+                if (b) {
+                    // 3: LDRB Rd,[Rb,Ro]   ;load   8bit data  Rd = BYTE[Rb+Ro]
+                    state.accessReg(rd) = state.memory.read8(memoryAddress, &info.cycleCount);
+                } else {
+                    // 2: LDR  Rd,[Rb,Ro]   ;load  32bit data  Rd = WORD[Rb+Ro]
+                    state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
+                }
+
+                info.cycleCount += 1;
+            } else {
+                if (b) {
+                    // 1: STRB Rd,[Rb,Ro]   ;store  8bit data  BYTE[Rb+Ro] = Rd
+                    state.memory.write8(memoryAddress, state.accessReg(rd) & 0x0F, &info.cycleCount);
+                } else {
+                    // 0: STR  Rd,[Rb,Ro]   ;store 32bit data  WORD[Rb+Ro] = Rd
+                    state.memory.write32(memoryAddress, state.accessReg(rd), &info.cycleCount);
+                }
+
+                info.noDefaultSCycle = true;
+                info.additionalProgCyclesN = 1;
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbLoadPCRelative(uint8_t rd, uint8_t offset)
+        {
+            InstructionExecutionInfo info{0};
+
+            // 7-0    nn - Unsigned offset        (0-1020 in steps of 4)
+            uint32_t memoryAddress = ((state.accessReg(regs::PC_OFFSET) + 4) & ~2) + (offset << 2);
+            //  LDR Rd,[PC,#nn]      ;load 32bit    Rd = WORD[PC+nn]
+            state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
+
+            // Execution Time: 1S+1N+1I
+            info.cycleCount += 1;
+
+            return info;
         }
     };
 
