@@ -175,6 +175,10 @@ namespace gbaemu::lcd {
         uint32_t getObjColor(uint32_t i1, uint32_t i2) const;
     };
 
+    /*
+        Most GBA graphics effectively happen in tile modes. This class represents such
+        a unit with R8G8B8 colors, alpha blending, brightness, transformations and so on.
+     */
     struct Tile {
         uint32_t colors[8][8];
 

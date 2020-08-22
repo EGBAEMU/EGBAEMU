@@ -59,7 +59,7 @@ namespace gbaemu::lcd {
     }
 
     void Tile::vFlip() {
-        
+
     }
 
     void LCDController::updateReferences() {
@@ -84,6 +84,7 @@ namespace gbaemu::lcd {
                 uint32_t row = tile[ty];
 
                 for (uint32_t tx = 0; tx < 8; ++tx) {
+                    /* TODO: order correct? */
                     uint32_t color = palette.getBgColor(paletteNumber, (row & (0b1111 << (tx * 4))) >> (tx * 4));
                     t.colors[ty][tx] = color;
                 }
@@ -135,7 +136,7 @@ namespace gbaemu::lcd {
             /* if true tiles have 8 bit color depth, 4 bit otherwise */
             bool colorPalette256 = flip16(regs->BGCNT[bgIndex]) & BGCNT::COLORS_PALETTES_MASK;
             uint32_t priority = flip16(regs->BGCNT[bgIndex]) & BGCNT::BG_PRIORITY_MASK;
-            /* offsets? */
+            /* offsets */
             uint32_t charBaseBlock = (flip16(regs->BGCNT[bgIndex]) & BGCNT::CHARACTER_BASE_BLOCK_MASK) >> 2;
             uint32_t screenBaseBlock = (flip16(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_BASE_BLOCK_MASK) >> 8;
 
