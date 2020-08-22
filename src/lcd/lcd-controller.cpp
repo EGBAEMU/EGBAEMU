@@ -54,6 +54,14 @@ namespace gbaemu::lcd {
         return getObjColor(i1 * 16 + i2);
     }
 
+    void Tile::hFlip() {
+
+    }
+
+    void Tile::vFlip() {
+        
+    }
+
     void LCDController::updateReferences() {
         palette.bgPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET));
         palette.objPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET + 0x200));
