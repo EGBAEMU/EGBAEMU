@@ -60,7 +60,32 @@ namespace gbaemu::lcd {
 
     }
 
-    void LCDController::renderBG0() {
+    Tile LCDController::constructTile(uint8_t *tiles, uint32_t tileNumber, uint32_t tileByteSize, uint32_t paletteNumber) {
+        Tile t;
+        uint8_t *tile = tiles + (tileNumber * tileByteSize);
+
+        if (tileByteSize == 64) {
+            for (uint32_t ty = 0; ty < 8; ++ty) {
+                for (uint32_t tx = 0; tx < 8; ++tx) {
+                    uint32_t color = palette.getBgColor(tile[ty * 8 + tx]);
+                    t.colors[ty][tx] = color;
+                }                
+            }
+        } else if (tileByteSize == 32) {
+            for (uint32_t ty = 0; ty < 8; ++ty) {
+                uint32_t row = tile[ty];
+
+                for (uint32_t tx = 0; tx < 8; ++tx) {
+                    uint32_t color = palette.getBgColor(paletteNumber, (row & (0b1111 << (tx * 4))) >> (tx * 4));
+                    t.colors[ty][tx] = color;
+                }
+            }
+        }
+
+        return t;
+    }
+
+    void LCDController::renderBGMode0() {
         /*
             Mode  Rot/Scal Layers Size               Tiles Colors       Features
             0     No       0123   256x256..512x515   1024  16/16..256/1 SFMABP
@@ -68,12 +93,43 @@ namespace gbaemu::lcd {
          */
         /* TODO: I guess text mode? */
 
-        uint16_t *mapBase = reinterpret_cast<uint16_t *>(memory.resolveAddr(Memory::VRAM_OFFSET));
+        uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET);
 
+        /* TODO: change order because priority? */
         for (uint32_t bgIndex = 0; bgIndex < 4; ++bgIndex) {
+            /*
+                size = 0:
+                +-----+
+                | SC0 |
+                +-----+
+
+                size = 1:
+                +---------+
+                | SC0 SC1 |
+                +---------+
+            
+                size = 2:
+                +-----+
+                | SC0 |
+                | SC1 |
+                +-----+
+
+                size = 3:
+                +---------+
+                | SC0 SC1 |
+                | SC2 SC3 |
+                +---------+
+             */
             uint16_t size = (flip16(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
             uint32_t height = (size <= 1) ? 256 : 512;
             uint32_t width = (size % 2 == 0) ? 256 : 512;
+            bool mosaicEnabled = flip16(regs->BGCNT[bgIndex]) & BGCNT::MOSAIC_MASK;
+            /* if true tiles have 8 bit color depth, 4 bit otherwise */
+            bool colorPalette256 = flip16(regs->BGCNT[bgIndex]) & BGCNT::COLORS_PALETTES_MASK;
+            uint32_t priority = flip16(regs->BGCNT[bgIndex]) & BGCNT::BG_PRIORITY_MASK;
+            /* offsets? */
+            uint32_t charBaseBlock = (flip16(regs->BGCNT[bgIndex]) & BGCNT::CHARACTER_BASE_BLOCK_MASK) >> 2;
+            uint32_t screenBaseBlock = (flip16(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_BASE_BLOCK_MASK) >> 8;
 
             /* scrolling */
             uint16_t xOff = flip16(regs->BGOFS[bgIndex].h & 0x1F);
@@ -81,17 +137,34 @@ namespace gbaemu::lcd {
 
             /* 32x32 tiles, arrangement depends on resolution */
             /* TODO: not sure about this one */
-            uint16_t *map = mapBase + (32 * 32 * 2 * bgIndex);
+            uint8_t *bgMapBase = vramBase + screenBaseBlock * 0x800;
+            uint32_t scCount = (size <= 2) ? 2 : 4;
+            /* tile addresses in steps of 0x4000 */
+            /* 8x8, also called characters */
+            uint8_t *tiles = vramBase + charBaseBlock * 0x4000;
 
-            for (uint32_t mapIndex = 0; mapIndex < 32 * 32; ++mapIndex) {
-                uint16_t entry = map[mapIndex];
+            for (uint32_t scIndex = 0; scIndex < scCount; ++scIndex) {
+                uint16_t *bgMap = reinterpret_cast<uint16_t *>(bgMapBase + scIndex * 0x800);
 
-                uint32_t tileNumber = entry & 0x3F;
-                bool hFlip = (entry >> 10) & 1;
-                bool vFlip = (entry >> 11) & 1;
-                uint32_t paletteNumber = (entry >> 12) & 0xF;
+                for (uint32_t mapIndex = 0; mapIndex < 32 * 32; ++mapIndex) {
+                    uint16_t entry = bgMap[mapIndex];
 
+                    uint32_t tileNumber = entry & 0x3F;
+                    /* flipping */
+                    bool hFlip = (entry >> 10) & 1;
+                    bool vFlip = (entry >> 11) & 1;
+                    uint32_t paletteNumber = (entry >> 12) & 0xF;
 
+                    Tile tile = constructTile(tiles, tileNumber, colorPalette256 ? 64 : 32, paletteNumber);
+
+                    if (hFlip)
+                        tile.hFlip();
+
+                    if (vFlip)
+                        tile.vFlip();
+
+                    
+                }
             }
         }
     }
@@ -138,7 +211,7 @@ namespace gbaemu::lcd {
         uint32_t vram = gbaemu::Memory::MemoryRegionOffset::VRAM_OFFSET;
 
         if (bgMode == 0) {
-            renderBG0();
+            renderBGMode0();
         }
     }
 }

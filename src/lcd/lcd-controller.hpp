@@ -175,6 +175,13 @@ namespace gbaemu::lcd {
         uint32_t getObjColor(uint32_t i1, uint32_t i2) const;
     };
 
+    struct Tile {
+        uint32_t colors[8][8];
+
+        void vFlip();
+        void hFlip();
+    };
+
     class LCDController {
     private:
         Canvas<uint32_t>& canvas;
@@ -182,7 +189,8 @@ namespace gbaemu::lcd {
         LCDColorPalette palette;
         LCDIORegs *regs;
 
-        void renderBG0();
+        Tile constructTile(uint8_t *tiles, uint32_t tileNumber, uint32_t tileByteSize, uint32_t paletteNumber);
+        void renderBGMode0();
         void renderBG3();
         void renderBG4();
         void renderBG5();

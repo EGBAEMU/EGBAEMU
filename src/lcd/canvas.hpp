@@ -9,8 +9,8 @@ namespace gbaemu::lcd {
     template <class PixelType>
     class Canvas {
       protected:
-        uint32_t width;
-        uint32_t height;
+        int32_t width;
+        int32_t height;
       public:
         /* some target devices require locking before pixel access */
         virtual void beginDraw() = 0;
@@ -21,8 +21,8 @@ namespace gbaemu::lcd {
         void clear(PixelType color) {
             auto pixs = pixels();
 
-            for (uint32_t y = 0; y < height; ++y)
-                for (uint32_t x = 0; x < width; ++x)
+            for (int32_t y = 0; y < height; ++y)
+                for (int32_t x = 0; x < width; ++x)
                     pixs[y * width + x] = color;
         }
 
