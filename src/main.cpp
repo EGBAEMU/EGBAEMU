@@ -30,9 +30,6 @@ int main(int argc, const char **argv)
     std::cout << "read " << buf.size() << " bytes\n";
 
     gbaemu::CPU cpu;
-    gbaemu::arm::ARMInstructionDecoder armDecoder;
-    gbaemu::thumb::ThumbInstructionDecoder thumbDecoder;
-    cpu.state.decoder = &armDecoder;
     cpu.state.memory.loadROM(reinterpret_cast<uint8_t *>(buf.data()), buf.size());
     //TODO are there conventions about inital reg values?
 
