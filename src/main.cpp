@@ -2,16 +2,15 @@
 #include <iostream>
 #include <iterator>
 #include <vector>
+#include <chrono>
 
 #include "lcd/window.hpp"
 #include "cpu.hpp"
 
-int main(int argc, const char **argv)
+#define SHOW_WINDOW false
+
+int main(int argc, char **argv)
 {
-    sdl::Window(100, 100);
-    return 0;
-
-
     if (argc <= 1) {
         std::cout << "please provide a ROM file\n";
         return 0;
@@ -87,6 +86,28 @@ int main(int argc, const char **argv)
 
             ++i;
         }
+    }
+
+    if (!SHOW_WINDOW)
+        return 0;
+
+    gbaemu::lcd::Window window(1280, 720);
+    auto canv = window.getCanvas();
+
+    while (true) {
+        SDL_Event event;
+        
+        if (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT)
+                break;
+        }
+
+        canv.beginDraw();
+        /* ARGB, A is ignored */
+        canv.clear(0x00FF0000);
+        canv.fillRect(100, 100, 100, 100, 0x0000FF00);
+        canv.endDraw();
+        window.present();
     }
 
     return 0;
