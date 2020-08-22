@@ -62,6 +62,19 @@ namespace gbaemu::lcd {
 
     }
 
+
+
+
+    void LCDController::makeBgPriorityList() {
+        for (uint32_t i = 0; i < 4; ++i)
+            bgPriorityList[i] = i;
+
+        /* don't swap elements if priority is equal */
+        std::stable_sort(bgPriorityList, bgPriorityList + 4, [&](int32_t i, int32_t j) {
+            return regs->BGCNT[i] - regs->BGCNT[j];
+        });
+    }
+
     void LCDController::updateReferences() {
         palette.bgPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET));
         palette.objPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET + 0x200));
@@ -77,7 +90,7 @@ namespace gbaemu::lcd {
                 for (uint32_t tx = 0; tx < 8; ++tx) {
                     uint32_t color = palette.getBgColor(tile[ty * 8 + tx]);
                     t.colors[ty][tx] = color;
-                }                
+                }
             }
         } else if (tileByteSize == 32) {
             for (uint32_t ty = 0; ty < 8; ++ty) {
@@ -92,6 +105,10 @@ namespace gbaemu::lcd {
         }
 
         return t;
+    }
+
+    void renderTile(const Tile& tile) {
+
     }
 
     void LCDController::renderBGMode0() {

@@ -69,6 +69,38 @@ namespace gbaemu::lcd {
                               SCREEN_SIZE_MASK = 0b11 << 14;
     }
 
+    namespace BLDCNT {
+        static const uint32_t BG0_TARGET_PIXEL1_MASK = 1,
+                              BG1_TARGET_PIXEL1_MASK = 1 << 1,
+                              BG2_TARGET_PIXEL1_MASK = 1 << 2,
+                              BG3_TARGET_PIXEL1_MASK = 1 << 3,
+                              OBJ_TARGET_PIXEL1_MASK = 1 << 4,
+                              BD_TARGET_PIXEL1_MASK = 1 << 5,
+                              COLOR_SPECIAL_FX_MASK = 0b111 << 6,
+                              BG0_TARGET_PIXEL2_MASK = 1 << 8,
+                              BG1_TARGET_PIXEL2_MASK = 1 << 9,
+                              BG2_TARGET_PIXEL2_MASK = 1 << 10,
+                              BG3_TARGET_PIXEL2_MASK = 1 << 11,
+                              OBJ_TARGET_PIXEL2_MASK = 1 << 12,
+                              BD_TARGET_PIXEL2_MASK = 1 << 13;
+
+        enum ColorSpecialEffect {
+            None,
+            AlphaBlending,
+            BrightnessIncrease,
+            BrightnessDecrease
+        };
+    }
+
+    namespace BLDALPHA {
+        static const uint32_t EVA_COEFF_MASK = 0x1F,
+                              EVB_COEFF_MASK = 0x1F << 8;
+    }
+
+    namespace BLDY {
+        static const uint32_t EVY_COEFF_MASK = 0x1F;
+    }
+
     struct LCDIORegs {
         uint16_t DISPCNT;                       // LCD Control
         uint16_t undocumented0;                 // Undocumented - Green Swap
@@ -180,6 +212,11 @@ namespace gbaemu::lcd {
         a unit with R8G8B8 colors, alpha blending, brightness, transformations and so on.
      */
     struct Tile {
+        enum TileSize {
+            TileSize32,
+            TileSize64
+        };
+
         uint32_t colors[8][8];
 
         void vFlip();
@@ -192,8 +229,11 @@ namespace gbaemu::lcd {
         Memory& memory;
         LCDColorPalette palette;
         LCDIORegs *regs;
+        uint32_t bgPriorityList[4];
 
+        void makeBgPriorityList();
         Tile constructTile(uint8_t *tiles, uint32_t tileNumber, uint32_t tileByteSize, uint32_t paletteNumber);
+        void renderTile(const Tile& tile);
         void renderBGMode0();
         void renderBG3();
         void renderBG4();
@@ -206,7 +246,7 @@ namespace gbaemu::lcd {
         void updateReferences();
 
         uint32_t getBackgroundMode() const;
-        /* renders to the current screen to canvas */
+        /* renders the current screen to canvas */
         void render();
     };
 }
