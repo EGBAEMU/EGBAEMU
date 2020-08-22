@@ -1,4 +1,6 @@
 #include "inst.hpp"
+#include "regs.hpp"
+#include "cpu_state.hpp"
 
 namespace gbaemu
 {
@@ -50,4 +52,91 @@ namespace gbaemu
         result.isArm = false;
         return result;
     }
+
+    bool conditionSatisfied(ConditionOPCode condition, const CPUState &state)
+    {
+        switch (condition) {
+            // Equal Z==1
+            case EQ:
+                return state.getFlag(cpsr_flags::Z_FLAG);
+                break;
+
+            // Not equal Z==0
+            case NE:
+                return !state.getFlag(cpsr_flags::Z_FLAG);
+                break;
+
+            // Carry set / unsigned higher or same C==1
+            case CS_HS:
+                return state.getFlag(cpsr_flags::C_FLAG);
+                break;
+
+            // Carry clear / unsigned lower C==0
+            case CC_LO:
+                return !state.getFlag(cpsr_flags::C_FLAG);
+                break;
+
+            // Minus / negative N==1
+            case MI:
+                return state.getFlag(cpsr_flags::N_FLAG);
+                break;
+
+            // Plus / positive or zero N==0
+            case PL:
+                return !state.getFlag(cpsr_flags::N_FLAG);
+                break;
+
+            // Overflow V==1
+            case VS:
+                return state.getFlag(cpsr_flags::V_FLAG);
+                break;
+
+            // No overflow V==0
+            case VC:
+                return !state.getFlag(cpsr_flags::V_FLAG);
+                break;
+
+            // Unsigned higher (C==1) AND (Z==0)
+            case HI:
+                return state.getFlag(cpsr_flags::C_FLAG) && !state.getFlag(cpsr_flags::Z_FLAG);
+                break;
+
+            // Unsigned lower or same (C==0) OR (Z==1)
+            case LS:
+                return !state.getFlag(cpsr_flags::C_FLAG) || state.getFlag(cpsr_flags::Z_FLAG);
+                break;
+
+            // Signed greater than or equal N == V
+            case GE:
+                return state.getFlag(cpsr_flags::N_FLAG) == state.getFlag(cpsr_flags::V_FLAG);
+                break;
+
+            // Signed less than N != V
+            case LT:
+                return state.getFlag(cpsr_flags::N_FLAG) != state.getFlag(cpsr_flags::V_FLAG);
+                break;
+
+            // Signed greater than (Z==0) AND (N==V)
+            case GT:
+                return !state.getFlag(cpsr_flags::Z_FLAG) && state.getFlag(cpsr_flags::N_FLAG) == state.getFlag(cpsr_flags::V_FLAG);
+                break;
+
+            // Signed less than or equal (Z==1) OR (N!=V)
+            case LE:
+                return state.getFlag(cpsr_flags::Z_FLAG) || state.getFlag(cpsr_flags::N_FLAG) != state.getFlag(cpsr_flags::V_FLAG);
+                break;
+
+            // Always (unconditional) Not applicable
+            case AL:
+                return true;
+                break;
+
+            // Never Obsolete, unpredictable in ARM7TDMI
+            case NV:
+            default:
+                return false;
+                break;
+        }
+    }
+
 } // namespace gbaemu

@@ -17,7 +17,16 @@ namespace gbaemu
 
     class CPU
     {
+      private:
+        arm::ARMInstructionDecoder armDecoder;
+        thumb::ThumbInstructionDecoder thumbDecoder;
+
       public:
+        CPU()
+        {
+            state.decoder = &armDecoder;
+        }
+
         CPUState state;
 
         void initPipeline()
@@ -74,7 +83,7 @@ namespace gbaemu
                     arm::ARMInstruction &armInst = state.pipeline.decode.lastInstruction.arm;
 
                     // Do we even need an execution?
-                    if (armInst.conditionSatisfied(state)) {
+                    if (conditionSatisfied(armInst.condition, state)) {
 
                         // prefer using switch to get warned if a category is not handled
                         switch (armInst.cat) {
@@ -154,34 +163,47 @@ namespace gbaemu
                         case thumb::ThumbInstructionCategory::MOV_SHIFT:
                             break;
                         case thumb::ThumbInstructionCategory::ADD_SUB:
+                            info = handleThumbAddSubtract(thumbInst.id, thumbInst.params.add_sub.rd, thumbInst.params.add_sub.rs, thumbInst.params.add_sub.rn_offset);
                             break;
                         case thumb::ThumbInstructionCategory::MOV_CMP_ADD_SUB_IMM:
+                            info = handleTHumbMovCmpAddSubImm(thumbInst.id, thumbInst.params.mov_cmp_add_sub_imm.rd, thumbInst.params.mov_cmp_add_sub_imm.offset);
                             break;
                         case thumb::ThumbInstructionCategory::ALU_OP:
                             break;
                         case thumb::ThumbInstructionCategory::BR_XCHG:
                             break;
                         case thumb::ThumbInstructionCategory::PC_LD:
+                            info = handleThumbLoadPCRelative(thumbInst.params.pc_ld.rd, thumbInst.params.pc_ld.offset);
                             break;
                         case thumb::ThumbInstructionCategory::LD_ST_REL_OFF:
+                            info = handleThumbLoadStoreRegisterOffset(thumbInst.params.ld_st_rel_off.l, thumbInst.params.ld_st_rel_off.b, thumbInst.params.ld_st_rel_off.ro, thumbInst.params.ld_st_rel_off.rb, thumbInst.params.ld_st_rel_off.rd);
                             break;
                         case thumb::ThumbInstructionCategory::LD_ST_SIGN_EXT:
+                            info = handleThumbLoadStoreSignExt(thumbInst.params.ld_st_sign_ext.h, thumbInst.params.ld_st_sign_ext.s, thumbInst.params.ld_st_sign_ext.ro, thumbInst.params.ld_st_sign_ext.rb, thumbInst.params.ld_st_sign_ext.rd);
                             break;
                         case thumb::ThumbInstructionCategory::LD_ST_IMM_OFF:
+                            info = handleThumbLoadStoreImmOff(thumbInst.params.ld_st_imm_off.l, thumbInst.params.ld_st_imm_off.b, thumbInst.params.ld_st_imm_off.offset, thumbInst.params.ld_st_imm_off.rb, thumbInst.params.ld_st_imm_off.rd);
                             break;
                         case thumb::ThumbInstructionCategory::LD_ST_HW:
+                            info = handleThumbLoadStoreHalfword(thumbInst.params.ld_st_hw.l, thumbInst.params.ld_st_hw.offset, thumbInst.params.ld_st_hw.rb, thumbInst.params.ld_st_hw.rd);
                             break;
                         case thumb::ThumbInstructionCategory::LD_ST_REL_SP:
+                            info = handleThumbLoadStoreSPRelative(thumbInst.params.ld_st_rel_sp.l, thumbInst.params.ld_st_rel_sp.rd, thumbInst.params.ld_st_rel_sp.offset);
                             break;
                         case thumb::ThumbInstructionCategory::LOAD_ADDR:
+                            info = handleThumbRelAddr(thumbInst.params.load_addr.sp, thumbInst.params.load_addr.offset, thumbInst.params.load_addr.rd);
                             break;
                         case thumb::ThumbInstructionCategory::ADD_OFFSET_TO_STACK_PTR:
+                            info = handleThumbAddOffsetToStackPtr(thumbInst.params.add_offset_to_stack_ptr.s, thumbInst.params.add_offset_to_stack_ptr.offset);
                             break;
                         case thumb::ThumbInstructionCategory::PUSH_POP_REG:
+                            info = handleThumbPushPopRegister(thumbInst.params.push_pop_reg.l, thumbInst.params.push_pop_reg.r, thumbInst.params.push_pop_reg.rlist);
                             break;
                         case thumb::ThumbInstructionCategory::MULT_LOAD_STORE:
+                            info = handleThumbMultLoadStore(thumbInst.params.mult_load_store.l, thumbInst.params.mult_load_store.rb, thumbInst.params.mult_load_store.rlist);
                             break;
                         case thumb::ThumbInstructionCategory::COND_BRANCH:
+                            info = handleThumbConditionalBranch(thumbInst.params.cond_branch.cond, thumbInst.params.cond_branch.offset);
                             break;
                         case thumb::ThumbInstructionCategory::SOFTWARE_INTERRUPT: {
 
@@ -200,8 +222,10 @@ namespace gbaemu
                             break;
                         }
                         case thumb::ThumbInstructionCategory::UNCONDITIONAL_BRANCH:
+                            info = handleThumbUnconditionalBranch(thumbInst.params.unconditional_branch.offset);
                             break;
                         case thumb::ThumbInstructionCategory::LONG_BRANCH_WITH_LINK:
+                            info = handleThumbLongBranchWithLink(thumbInst.params.long_branch_with_link.h, thumbInst.params.long_branch_with_link.offset);
                             break;
                     }
                 }
@@ -228,6 +252,12 @@ namespace gbaemu
                 //TODO change fetch and decode strategy to corresponding code
 
                 std::cout << "INFO: MODE CHANGE" << std::endl;
+                if (state.decoder == &armDecoder) {
+                    state.decoder = &thumbDecoder;
+                } else {
+                    state.decoder = &armDecoder;
+                }
+                //TODO can we assume that on change the pc counter will always be modified as well?
             }
             // We have a branch, return or something that changed our PC
             if (prevPc != postPc) {
@@ -261,6 +291,26 @@ namespace gbaemu
             }
         }
 
+        void setFlags(uint64_t resultValue, bool nFlag, bool zFlag, bool vFlag, bool cFlag)
+        {
+            bool negative = resultValue & (1 << 31);
+            bool zero = resultValue == 0;
+            bool overflow = (resultValue >> 32) & 0xFFFFFFFF;
+            bool carry = resultValue & (static_cast<uint64_t>(1) << 32);
+
+            if (nFlag)
+                state.setFlag(cpsr_flags::N_FLAG, negative);
+
+            if (zFlag)
+                state.setFlag(cpsr_flags::Z_FLAG, zero);
+
+            if (vFlag)
+                state.setFlag(cpsr_flags::V_FLAG, overflow);
+
+            if (cFlag)
+                state.setFlag(cpsr_flags::C_FLAG, carry);
+        }
+
         InstructionExecutionInfo handleMultAcc(bool a, bool s, uint32_t rd, uint32_t rn, uint32_t rs, uint32_t rm)
         {
             // Check given restrictions
@@ -287,8 +337,12 @@ namespace gbaemu
             if (s) {
                 // update zero flag & signed flags
                 // the rest is unaffected
-                state.setFlag(cpsr_flags::Z_FLAG, mulRes == 0);
-                state.setFlag(cpsr_flags::N_FLAG, mulRes >> 31);
+                setFlags(
+                    mulRes,
+                    true,
+                    true,
+                    false,
+                    false);
             }
 
             /*
@@ -360,8 +414,12 @@ namespace gbaemu
             if (s) {
                 // update zero flag & signed flags
                 // the rest is unaffected
-                state.setFlag(cpsr_flags::Z_FLAG, mulRes == 0);
-                state.setFlag(cpsr_flags::N_FLAG, mulRes >> 31);
+                setFlags(
+                    mulRes,
+                    true,
+                    true,
+                    false,
+                    false);
             }
 
             /*
@@ -430,7 +488,7 @@ namespace gbaemu
             // Offset is given in units of 4. Thus we need to shift it first by two
             offset = offset << 2;
 
-            state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(pc) + offset);
+            state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(pc) + 8 + offset);
 
             // Execution Time: 2S + 1N
             InstructionExecutionInfo info{0};
@@ -473,23 +531,25 @@ namespace gbaemu
             uint32_t shiftAmount, rm, rs, imm, shifterOperand;
             bool shiftByReg = inst.params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
 
-            if (inst.params.data_proc_psr_transf.rn == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
-                // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
-                // PC+12 if I=0,R=1 (shift by register),
-                // otherwise PC+8 (shift by immediate).
-                std::cout << "INFO: Edge case triggered, by using PC as operand on ALU operation! Pls verify that this is correct behaviour for this instruction!" << std::endl;
-                if (!inst.params.data_proc_psr_transf.i && shiftByReg) {
-                    shifterOperand = state.getCurrentPC() + 12;
-                } else {
-                    shifterOperand = state.getCurrentPC() + 8;
-                }
-            } else if (inst.params.data_proc_psr_transf.i) {
+            if (inst.params.data_proc_psr_transf.i) {
                 shifterOperand = (imm >> shiftAmount) | (imm << (32 - shiftAmount));
             } else {
                 if (shiftByReg)
                     shiftAmount = *state.getCurrentRegs()[rs];
 
                 uint32_t rmValue = *state.getCurrentRegs()[rm];
+
+                if (rm == regs::PC_OFFSET) {
+                    // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
+                    // PC+12 if I=0,R=1 (shift by register),
+                    // otherwise PC+8 (shift by immediate).
+                    std::cout << "INFO: Edge case triggered, by using PC as RM operand on ALU operation! Pls verify that this is correct behaviour for this instruction!" << std::endl;
+                    if (!inst.params.data_proc_psr_transf.i && shiftByReg) {
+                        rmValue += 12;
+                    } else {
+                        rmValue += 8;
+                    }
+                }
 
                 switch (shiftType) {
                     case arm::ShiftType::LSL:
@@ -513,7 +573,19 @@ namespace gbaemu
                  overflow = state.getFlag(cpsr_flags::V_FLAG),
                  carry = state.getFlag(cpsr_flags::C_FLAG);
 
-            uint64_t rnValue = state.accessReg(inst.params.block_data_transf.rn);
+            uint64_t rnValue = state.accessReg(inst.params.data_proc_psr_transf.rn);
+            if (inst.params.data_proc_psr_transf.rn == regs::PC_OFFSET) {
+                // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
+                // PC+12 if I=0,R=1 (shift by register),
+                // otherwise PC+8 (shift by immediate).
+                std::cout << "INFO: Edge case triggered, by using PC as RN operand on ALU operation! Pls verify that this is correct behaviour for this instruction!" << std::endl;
+                if (!inst.params.data_proc_psr_transf.i && shiftByReg) {
+                    rnValue += 12;
+                } else {
+                    rnValue += 8;
+                }
+            }
+
             uint64_t resultValue;
 
             /* Different instructions cause different flags to be changed. */
@@ -637,22 +709,12 @@ namespace gbaemu
 
             /* set flags */
             if (inst.params.data_proc_psr_transf.s) {
-                negative = resultValue & (1 << 31);
-                zero = resultValue == 0;
-                overflow = (resultValue >> 32) & 0xFFFFFFFF;
-                carry = resultValue & (static_cast<uint64_t>(1) << 32);
-
-                if (updateNegative.find(inst.id) != updateNegative.end())
-                    state.setFlag(cpsr_flags::N_FLAG, negative);
-
-                if (updateZero.find(inst.id) != updateZero.end())
-                    state.setFlag(cpsr_flags::Z_FLAG, zero);
-
-                if (updateOverflow.find(inst.id) != updateOverflow.end())
-                    state.setFlag(cpsr_flags::V_FLAG, overflow);
-
-                if (updateCarry.find(inst.id) != updateCarry.end())
-                    state.setFlag(cpsr_flags::C_FLAG, carry);
+                setFlags(
+                    resultValue,
+                    updateNegative.find(inst.id) != updateNegative.end(),
+                    updateZero.find(inst.id) != updateZero.end(),
+                    updateOverflow.find(inst.id) != updateOverflow.end(),
+                    updateCarry.find(inst.id) != updateCarry.end());
             }
 
             if (dontUpdateRD.find(inst.id) == dontUpdateRD.end())
@@ -781,14 +843,16 @@ namespace gbaemu
             return info;
         }
 
-        InstructionExecutionInfo execDataBlockTransfer(const arm::ARMInstruction &inst)
+        InstructionExecutionInfo execDataBlockTransfer(arm::ARMInstruction &inst)
         {
+            //TODO S bit seems relevant for register selection, NOTE: this instruction is reused for handleThumbMultLoadStore & handleThumbPushPopRegister
+
             bool pre = inst.params.block_data_transf.p;
             bool up = inst.params.block_data_transf.u;
             bool writeback = inst.params.block_data_transf.w;
             bool load = inst.params.block_data_transf.l;
             uint32_t rn = inst.params.block_data_transf.rn;
-            uint32_t address = rn;
+            uint32_t address = state.accessReg(rn);
 
             // Execution Time:
             // For normal LDM, nS+1N+1I. For LDM PC, (n+1)S+2N+1I.
@@ -807,6 +871,23 @@ namespace gbaemu
             // The first read / write is non sequential but afterwards all accesses are sequential
             // because the memory class always adds non sequential accesses we need to handle this case explicitly
             bool nonSeqAccDone = false;
+
+            // TODO there are even more edge cases:
+            /* Different behaviour dependent on mode...
+            ARM:
+            Writeback with Rb included in Rlist: Store OLD base if Rb is FIRST entry in Rlist, otherwise store NEW base (STM/ARMv4), always store OLD base (STM/ARMv5), no writeback (LDM/ARMv4), writeback if Rb is "the ONLY register, or NOT the LAST register" in Rlist (LDM/ARMv5).
+
+            THUMB:
+            Writeback with Rb included in Rlist: Store OLD base if Rb is FIRST entry in Rlist, otherwise store NEW base (STM/ARMv4), always store OLD base (STM/ARMv5), no writeback (LDM/ARMv4/ARMv5; at this point, THUMB opcodes work different than ARM opcodes).
+
+            */
+
+            bool edgeCaseEmptyRlist = false;
+            // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
+            if (inst.params.block_data_transf.rList == 0) {
+                inst.params.block_data_transf.rList = (1 << 15);
+                edgeCaseEmptyRlist = true;
+            }
 
             for (uint32_t i = 0; i < 16; ++i) {
                 if (pre && up)
@@ -839,9 +920,14 @@ namespace gbaemu
                     address -= 4;
             }
 
-            /* TODO: not sure if address - 4 */
+            /* TODO: not sure if address (+/-) 4 */
             if (writeback)
                 state.accessReg(rn) = address;
+
+            // Handle edge case: Empty Rlist: Rb=Rb+40h (ARMv4-v5)
+            if (edgeCaseEmptyRlist) {
+                state.accessReg(rn) = state.accessReg(rn) + 0x40;
+            }
 
             return info;
         }
@@ -990,6 +1076,389 @@ namespace gbaemu
             }
 
             return info;
+        }
+
+        InstructionExecutionInfo handleThumbLongBranchWithLink(bool h, uint16_t offset)
+        {
+            auto currentRegs = state.getCurrentRegs();
+
+            InstructionExecutionInfo info{0};
+
+            uint32_t extendedAddr = static_cast<uint32_t>(offset);
+            if (h) {
+                // Second instruction
+                extendedAddr <<= 1;
+                uint32_t pcVal = *currentRegs[regs::PC_OFFSET];
+                *currentRegs[regs::PC_OFFSET] = *currentRegs[regs::LR_OFFSET] + extendedAddr;
+                // TODO OR 1? not sure if we need this, this would cause invalid addresses if not catched by fetch (masking out)
+                *currentRegs[regs::LR_OFFSET] = (pcVal + 2) | 1;
+            } else {
+                // First instruction
+                extendedAddr <<= 12;
+                *currentRegs[regs::LR_OFFSET] = *currentRegs[regs::PC_OFFSET] + 4 + extendedAddr;
+
+                // pipeline flush -> additional cycles needed
+                info.additionalProgCyclesN = 1;
+                info.additionalProgCyclesS = 1;
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbUnconditionalBranch(int16_t offset)
+        {
+            // TODO: Offset may be shifted by 1 or not at all
+            state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(state.getCurrentPC()) + 4 + (offset << 1));
+
+            // Unconditional branches take 2S + 1N
+            InstructionExecutionInfo info{0};
+            info.additionalProgCyclesN = 1;
+            info.additionalProgCyclesS = 1;
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbConditionalBranch(uint8_t cond, int8_t offset)
+        {
+            InstructionExecutionInfo info{0};
+
+            // Branch will be executed if condition is met
+            if (conditionSatisfied(static_cast<ConditionOPCode>(cond), state)) {
+
+                state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(state.getCurrentPC()) + 4 + (offset << 1));
+
+                // If branch executed: 2S+1N
+                info.additionalProgCyclesN = 1;
+                info.additionalProgCyclesS = 1;
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbMultLoadStore(bool load, uint8_t rb, uint8_t rlist)
+        {
+            arm::ARMInstruction wrapper;
+            wrapper.params.block_data_transf.l = load;
+            wrapper.params.block_data_transf.rList = static_cast<uint16_t>(rlist);
+
+            wrapper.params.block_data_transf.u = true;
+            wrapper.params.block_data_transf.w = true;
+            wrapper.params.block_data_transf.p = false;
+            wrapper.params.block_data_transf.rn = rb;
+
+            return execDataBlockTransfer(wrapper);
+        }
+
+        InstructionExecutionInfo handleThumbPushPopRegister(bool load, bool r, uint8_t rlist)
+        {
+            uint16_t extendedRList = static_cast<uint16_t>(rlist);
+
+            // 8 PC/LR Bit (0-1)
+            //    0: No
+            //    1: PUSH LR (R14), or POP PC (R15)
+            if (r) {
+                if (!load) {
+                    extendedRList |= 1 << regs::LR_OFFSET;
+                } else {
+                    extendedRList |= 1 << regs::PC_OFFSET;
+                }
+            }
+
+            arm::ARMInstruction wrapper;
+            //  // L - Load/Store bit (0=Store to memory, 1=Load from memory)
+            wrapper.params.block_data_transf.l = load;
+            //  Rlist - Register List
+            wrapper.params.block_data_transf.rList = extendedRList;
+
+            // U - Up/Down Bit (0=down; subtract offset from base, 1=up; add to base)
+            //      0: PUSH {Rlist}{LR}   ;store in memory, decrements SP (R13)
+            //      1: POP  {Rlist}{PC}   ;load from memory, increments SP (R13)
+            wrapper.params.block_data_transf.u = load;
+            //  W - Write-back bit (0=no write-back, 1=write address into base)
+            wrapper.params.block_data_transf.w = true;
+            // P - Pre/Post (0=post; add offset after transfer, 1=pre; before trans.)
+
+            //TODO you have to consider conventions regarding on which address SP is pointing to: first free vs last used
+            wrapper.params.block_data_transf.p = !load;
+
+            wrapper.params.block_data_transf.rn = regs::SP_OFFSET;
+
+            return execDataBlockTransfer(wrapper);
+        }
+
+        InstructionExecutionInfo handleThumbAddOffsetToStackPtr(bool s, uint8_t offset)
+        {
+            // nn - Unsigned Offset    (0-508, step 4)
+            offset <<= 2;
+
+            if (s) {
+                // 1: ADD  SP,#-nn      ;SP = SP - nn
+                state.accessReg(regs::PC_OFFSET) = state.getCurrentPC() - offset;
+            } else {
+                // 0: ADD  SP,#nn       ;SP = SP + nn
+                state.accessReg(regs::PC_OFFSET) = state.getCurrentPC() + offset;
+            }
+
+            // Execution Time: 1S
+            InstructionExecutionInfo info{0};
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbRelAddr(bool sp, uint8_t offset, uint8_t rd)
+        {
+            auto currentRegs = state.getCurrentRegs();
+
+            // bool sp
+            //          0: ADD  Rd,PC,#nn    ;Rd = (($+4) AND NOT 2) + nn
+            //          1: ADD  Rd,SP,#nn    ;Rd = SP + nn
+            // nn step 4
+            *currentRegs[rd] = (sp ? *currentRegs[regs::SP_OFFSET] : ((*currentRegs[regs::PC_OFFSET] + 4) & ~2)) + (static_cast<uint32_t>(offset) << 2);
+
+            // Execution Time: 1S
+            InstructionExecutionInfo info{0};
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbLoadStoreSPRelative(bool l, uint8_t rd, uint8_t offset)
+        {
+            InstructionExecutionInfo info{0};
+
+            uint32_t memoryAddress = state.accessReg(regs::SP_OFFSET) + (offset << 4);
+
+            if (l) {
+                // 1: LDR  Rd,[SP,#nn]  ;load  32bit data   Rd = WORD[SP+nn]
+                state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
+                info.cycleCount += 1;
+            } else {
+                // 0: STR  Rd,[SP,#nn]  ;store 32bit data   WORD[SP+nn] = Rd
+                state.memory.write32(memoryAddress, state.accessReg(rd), &info.cycleCount);
+
+                info.noDefaultSCycle = true;
+                info.additionalProgCyclesN = 1;
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbLoadStoreHalfword(bool l, uint8_t offset, uint8_t rb, uint8_t rd)
+        {
+
+            InstructionExecutionInfo info{0};
+
+            // 10-6   nn - Unsigned Offset              (0-62, step 2)
+            uint32_t memoryAddress = state.accessReg(rb) + (offset << 1);
+
+            if (l) {
+
+                // 1: LDRH Rd,[Rb,#nn]  ;load  16bit data   Rd = HALFWORD[Rb+nn]
+                state.accessReg(rd) = state.memory.read16(memoryAddress, &info.cycleCount);
+
+                info.cycleCount += 1;
+            } else {
+
+                //  0: STRH Rd,[Rb,#nn]  ;store 16bit data   HALFWORD[Rb+nn] = Rd
+                state.memory.write16(memoryAddress, state.accessReg(rd) & 0x0FFFF, &info.cycleCount);
+
+                info.noDefaultSCycle = true;
+                info.additionalProgCyclesN = 1;
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbLoadStoreImmOff(bool l, bool b, uint8_t offset, uint8_t rb, uint8_t rd)
+        {
+
+            auto currentRegs = state.getCurrentRegs();
+
+            uint32_t address = *currentRegs[rb];
+
+            InstructionExecutionInfo info{0};
+
+            if (l) {
+                info.cycleCount = 1;
+            } else {
+                info.noDefaultSCycle = true;
+                info.additionalProgCyclesN = 1;
+            }
+
+            if (b) {
+                address += offset;
+                if (l) {
+                    *currentRegs[rd] = state.memory.read8(address, &info.cycleCount);
+                } else {
+                    state.memory.write8(address, *currentRegs[rd] & 0x0FF, &info.cycleCount);
+                }
+            } else {
+                // offset is in words
+                address += (offset << 2);
+                if (l) {
+                    *currentRegs[rd] = state.memory.read32(address, &info.cycleCount);
+                } else {
+                    state.memory.write16(address, *currentRegs[rd], &info.cycleCount);
+                }
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbLoadStoreSignExt(bool h, bool s, uint8_t ro, uint8_t rb, uint8_t rd)
+        {
+            auto currentRegs = state.getCurrentRegs();
+
+            InstructionExecutionInfo info{0};
+
+            uint32_t memoryAddress = *currentRegs[rb] + *currentRegs[ro];
+
+            if (!h && !s) {
+                // STRH
+                state.memory.write16(memoryAddress, *currentRegs[rd], &info.cycleCount);
+                info.noDefaultSCycle = true;
+                info.additionalProgCyclesN = 1;
+            } else {
+                // LDR / LDS
+                info.cycleCount = 1;
+
+                if (s) {
+                    uint16_t data;
+                    uint8_t shiftAmount;
+
+                    if (h) {
+                        data = state.memory.read16(memoryAddress, &info.cycleCount);
+                        shiftAmount = 16;
+                    } else {
+                        data = state.memory.read8(memoryAddress, &info.cycleCount);
+                        shiftAmount = 8;
+                    }
+
+                    // Magic sign extension
+                    *currentRegs[rd] = static_cast<int32_t>(static_cast<uint32_t>(data) << shiftAmount) / (1 << shiftAmount);
+                } else {
+                    // LDRH zero extended
+                    *currentRegs[rd] = state.memory.read16(memoryAddress, &info.cycleCount);
+                }
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbLoadStoreRegisterOffset(bool l, bool b, uint8_t ro, uint8_t rb, uint8_t rd)
+        {
+
+            InstructionExecutionInfo info{0};
+            uint32_t memoryAddress = state.accessReg(rb) + state.accessReg(ro);
+
+            if (l) {
+                if (b) {
+                    // 3: LDRB Rd,[Rb,Ro]   ;load   8bit data  Rd = BYTE[Rb+Ro]
+                    state.accessReg(rd) = state.memory.read8(memoryAddress, &info.cycleCount);
+                } else {
+                    // 2: LDR  Rd,[Rb,Ro]   ;load  32bit data  Rd = WORD[Rb+Ro]
+                    state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
+                }
+
+                info.cycleCount += 1;
+            } else {
+                if (b) {
+                    // 1: STRB Rd,[Rb,Ro]   ;store  8bit data  BYTE[Rb+Ro] = Rd
+                    state.memory.write8(memoryAddress, state.accessReg(rd) & 0x0F, &info.cycleCount);
+                } else {
+                    // 0: STR  Rd,[Rb,Ro]   ;store 32bit data  WORD[Rb+Ro] = Rd
+                    state.memory.write32(memoryAddress, state.accessReg(rd), &info.cycleCount);
+                }
+
+                info.noDefaultSCycle = true;
+                info.additionalProgCyclesN = 1;
+            }
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbLoadPCRelative(uint8_t rd, uint8_t offset)
+        {
+            InstructionExecutionInfo info{0};
+
+            // 7-0    nn - Unsigned offset        (0-1020 in steps of 4)
+            uint32_t memoryAddress = ((state.accessReg(regs::PC_OFFSET) + 4) & ~2) + (offset << 2);
+            //  LDR Rd,[PC,#nn]      ;load 32bit    Rd = WORD[PC+nn]
+            state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
+
+            // Execution Time: 1S+1N+1I
+            info.cycleCount += 1;
+
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbAddSubtract(thumb::ThumbInstructionID insID, uint8_t rd, uint8_t rs, uint8_t rn_offset)
+        {
+            auto currentRegs = state.getCurrentRegs();
+
+            uint32_t rsVal = *currentRegs[rs];
+            uint32_t rnVal = *currentRegs[rn_offset];
+
+            uint64_t result;
+
+            switch (insID) {
+                case thumb::ADD:
+                    result = rsVal + rnVal;
+                    break;
+                case thumb::SUB:
+                    result = static_cast<uint32_t>(rsVal) - rnVal;
+                    break;
+                case thumb::ADD_SHORT_IMM:
+                    result = rsVal + rn_offset;
+                    break;
+                case thumb::SUB_SHORT_IMM:
+                    result = static_cast<uint32_t>(rsVal) - rn_offset;
+                    break;
+                default:
+                    break;
+            }
+
+            *currentRegs[rd] = result;
+
+            setFlags(
+                result,
+                true,
+                true,
+                true,
+                true);
+
+            InstructionExecutionInfo info{0};
+            return info;
+        }
+
+        InstructionExecutionInfo handleTHumbMovCmpAddSubImm(thumb::ThumbInstructionID ins, uint8_t rd, uint8_t offset)
+        {
+            // ARM equivalents for MOV/CMP/ADD/SUB are MOVS/CMP/ADDS/SUBS same format.
+
+            arm::ARMInstruction armIns;
+            armIns.params.data_proc_psr_transf.i = true;
+            armIns.params.data_proc_psr_transf.s = true;
+            armIns.params.data_proc_psr_transf.rd = rd;
+            armIns.params.data_proc_psr_transf.rn = rd;
+            armIns.params.data_proc_psr_transf.operand2 = offset;
+
+            switch (ins) {
+                case thumb::ADD:
+                    armIns.id = arm::ADD;
+                    break;
+                case thumb::SUB:
+                    armIns.id = arm::SUB;
+                    break;
+                case thumb::CMP:
+                    armIns.id = arm::CMP;
+                    break;
+                case thumb::MOV:
+                    armIns.id = arm::MOV;
+                    break;
+
+                default:
+                    break;
+            }
+
+            return execDataProc(armIns);
         }
     };
 
