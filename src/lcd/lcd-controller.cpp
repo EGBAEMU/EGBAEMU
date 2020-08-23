@@ -169,6 +169,17 @@ namespace gbaemu::lcd {
             /* 8x8, also called characters */
             uint8_t *tiles = vramBase + charBaseBlock * 0x4000;
 
+            /* mosaic stuff */
+            /*
+                If I understand correctly:
+                HSIZE and VSIZE control how often the top left most pixel is repeated
+                HSIZE steps to the left and VSIZE step down. 
+             */
+            uint32_t mosaicHSize = (flip16(regs->MOSAIC) & MOSAIC::BG_MOSAIC_HSIZE_MASK) >>
+                MOSAIC::BG_MOSAIC_HSIZE_OFFSET;
+            uint32_t mosaicVSize = (flip16(regs->MOSAIC) & MOSAIC::BG_MOSAIC_VSIZE_MASK) >>
+                MOSAIC::BG_MOSAIC_VSIZE_OFFSET;
+
             for (uint32_t scIndex = 0; scIndex < scCount; ++scIndex) {
                 uint16_t *bgMap = reinterpret_cast<uint16_t *>(bgMapBase + scIndex * 0x800);
 

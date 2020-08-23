@@ -101,6 +101,18 @@ namespace gbaemu::lcd {
         static const uint32_t EVY_COEFF_MASK = 0x1F;
     }
 
+    namespace MOSAIC {
+        static const uint32_t BG_MOSAIC_HSIZE_OFFSET = 0,
+                              BG_MOSAIC_VSIZE_OFFSET = 4,
+                              OBJ_MOSAIC_HSIZE_OFFSET = 8,
+                              OBJ_MOSAIC_VSIZE_OFFSET = 12;
+
+        static const uint32_t BG_MOSAIC_HSIZE_MASK = 0xF << BG_MOSAIC_HSIZE_OFFSET,
+                              BG_MOSAIC_VSIZE_MASK = 0xF << BG_MOASIC_VSIZE_OFFSET,
+                              OBJ_MOSAIC_HSIZE_MASK = 0xF << OBJ_MOSAIC_HSIZE_OFFSET,
+                              OBJ_MOSAIC_VSIZE_MASK = 0xF << OBJ_MOSAIC_VSIZE_OFFSET;
+    }
+
     struct LCDIORegs {
         uint16_t DISPCNT;                       // LCD Control
         uint16_t undocumented0;                 // Undocumented - Green Swap
