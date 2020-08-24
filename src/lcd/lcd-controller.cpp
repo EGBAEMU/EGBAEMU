@@ -243,7 +243,7 @@ namespace gbaemu::lcd {
 
         uint8_t *vram = memory.resolveAddr(Memory::VRAM_OFFSET);
 
-        for (uint32_t y = 0; y < DIMENSIONS::HEIGHT; y++)
+        for (uint32_t y = 0; y < DIMENSIONS::HEIGHT * 2; y++)
             for (uint32_t x = 0; x < DIMENSIONS::WIDTH; ++x)
                 display.canvas.pixels()[y * display.canvas.getWidth() + x] = reinterpret_cast<uint32_t *>(vram)[y * 240 + x];
 
