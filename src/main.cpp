@@ -94,6 +94,9 @@ int main(int argc, char **argv)
 
     gbaemu::lcd::Window window(1280, 720);
     auto canv = window.getCanvas();
+    canv.beginDraw();
+    canv.clear(0xFFFF0000);
+    canv.endDraw();
     gbaemu::lcd::LCDisplay display(0, 0, canv);
 
     while (true) {
@@ -103,11 +106,7 @@ int main(int argc, char **argv)
             if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE)
                 break;
         }
-
         
-
-
-
         window.present();
     }
 
