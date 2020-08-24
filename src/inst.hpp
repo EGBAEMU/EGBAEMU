@@ -353,7 +353,8 @@ namespace gbaemu
             COND_BRANCH,
             SOFTWARE_INTERRUPT,
             UNCONDITIONAL_BRANCH,
-            LONG_BRANCH_WITH_LINK
+            LONG_BRANCH_WITH_LINK,
+            INVALID_CAT
         };
 
         class ThumbInstruction
