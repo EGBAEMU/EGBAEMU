@@ -252,6 +252,16 @@ namespace gbaemu::lcd {
         }
     };
 
+    struct Background {
+        /* BG0, BG1, BG2, BG3 */
+        uint32_t id;
+        MemoryCanvas<uint32_t> canvas;
+
+        Background(): canvas(512, 512) {
+            
+        }
+    };
+
     class LCDController {
     private:
         LCDisplay& display;

@@ -173,6 +173,20 @@ namespace gbaemu::lcd {
             /* 8x8, also called characters */
             uint8_t *tiles = vramBase + charBaseBlock * 0x4000;
 
+            uint32_t scXOffsets[4][4] = {
+                {0, 0, 0, 0},       /* SC0 */
+                {0, 0, 256, 0},     /* SC1 */
+                {0, 0, 0, 0},       /* SC2 */
+                {0, 0, 0, 256}      /* SC3 */
+            };
+
+            uint32_t scYOffsets[4][4] = {
+                {0, 0, 0, 0},       /* SC0 */
+                {0, 256, 0, 256},   /* SC1 */
+                {0, 0, 0, 256},     /* SC2 */
+                {0, 0, 0, 256}      /* SC3 */
+            };
+
             /* mosaic stuff */
             /*
                 If I understand correctly:
@@ -199,8 +213,8 @@ namespace gbaemu::lcd {
                     Tile tile = constructTile(tiles, tileNumber, colorPalette256 ? 64 : 32, paletteNumber);
                     tile.hFlip = hFlip;
                     tile.vFlip = vFlip;
-                    tile.x = xOff;
-                    tile.y = yOff;
+                    tile.x = xOff + scXOffsets[scIndex][size] + (mapIndex % 32) * 8;
+                    tile.y = yOff + scYOffsets[scIndex][size] + (mapIndex / 32) * 8;
 
                     /*
                         Alpha blending:

@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <vector>
 
 
 namespace gbaemu::lcd {
@@ -59,6 +60,26 @@ namespace gbaemu::lcd {
                     rowPtr[ix] = color;
             }
         }
+    };
+
+    template <class PixelType>
+    class MemoryCanvas : public Canvas<PixelType> {
+    private:
+        int32_t width, height;
+        std::vector<PixelType> pixs;
+    public:
+        void beginDraw() override { }
+        void endDraw() override { }
+
+        PixelType *pixels() override {
+            return pixs.data();
+        }
+
+        MemoryCanvas(int32_t w, int32_t h): width(w), height(h) {
+            pixs.resize(w * h);
+        }
+
+        MemoryCanvas(): width(0), height(0) { }
     };
 }
 
