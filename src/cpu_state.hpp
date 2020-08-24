@@ -167,7 +167,7 @@ namespace gbaemu
             std::stringstream ss;
             ss << std::setfill('0') << std::hex;
 
-            for (uint32_t i = addr; i < addr + len; i += 4) {
+            for (uint32_t i = addr; i < addr + len;) {
                 if (getFlag(cpsr_flags::THUMB_STATE)) {
                     uint32_t bytes = memory.read16(i, nullptr);
 
@@ -188,6 +188,8 @@ namespace gbaemu
 
                     /* code */
                     ss << "    " << inst.toString() << '\n';
+
+                    i += 2;
                 } else {
                     uint32_t bytes = memory.read32(i, nullptr);
 
@@ -210,6 +212,8 @@ namespace gbaemu
 
                     /* code */
                     ss << "    " << inst.toString() << '\n';
+
+                    i += 4;
                 }
             }
 
