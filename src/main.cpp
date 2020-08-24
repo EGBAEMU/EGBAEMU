@@ -41,26 +41,6 @@ int main(int argc, char **argv)
 
     gbaemu::CPU cpu;
     cpu.state.memory.loadROM(reinterpret_cast<uint8_t *>(buf.data()), buf.size());
-    //TODO are there conventions about inital reg values?
-
-    /*
-        https://onlinedisassembler.com/odaweb/
-        armv4 + force thumb yielded the best results
-     */
-    /*
-    for (size_t i = 0x204; i < 0x204 + 20; ++i) {
-        uint32_t read = mem[i];
-        uint32_t flipped = (read & 0x000000FF) << 24 |
-                           (read & 0x0000FF00) << 8 |
-                           (read & 0x00FF0000) >> 8 |
-                           (read & 0xFF000000) >> 24;
-        std::cout << std::hex << flipped << std::endl;
-        cpu.decode(read);
-    }*/
-    /*
-    for (;;)
-        cpu.step();
-     */
 
     std::cout << "Game Title: ";
     for (size_t i = 0; i < 12; ++i) {
