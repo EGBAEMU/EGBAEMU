@@ -9,7 +9,6 @@
 #include "lcd/lcd-controller.hpp"
 #include "cpu.hpp"
 
-#define SHOW_WINDOW false
 
 static bool run_window = true;
 
@@ -79,9 +78,6 @@ int main(int argc, char **argv)
         }
     }
 
-    if (!SHOW_WINDOW)
-        return 0;
-
     std::signal(SIGINT, handleSignal);
 
     gbaemu::lcd::Window window(1280, 720);
@@ -90,6 +86,7 @@ int main(int argc, char **argv)
     canv.clear(0xFFFF0000);
     canv.endDraw();
     gbaemu::lcd::LCDisplay display(0, 0, canv);
+    gbaemu::lcd::LCDController controller(display, cpu.state.memory);
 
     while (run_window) {
         SDL_Event event;

@@ -199,14 +199,31 @@ namespace gbaemu::lcd {
         }
     }
 
-    void LCDController::makeBgPriorityList() {
-        for (uint32_t i = 0; i < 4; ++i)
-            bgPriorityList[i] = i;
+    void Background::drawToDisplay(LCDisplay& display) {
+        auto xFrom = std::max(0, xOff);
+        auto xTo = std::min(DIMENSIONS::WIDTH, xOff + canvas.getWidth());
 
-        /* don't swap elements if priority is equal */
-        std::stable_sort(bgPriorityList, bgPriorityList + 4, [&](int32_t i, int32_t j) {
-            return regs->BGCNT[i] - regs->BGCNT[j];
-        });
+        auto yFrom = std::max(0, yOff);
+        auto yTo = std::min(DIMENSIONS::HEIGHT, yOff + canvas.getHeight());
+
+        auto dispPixels = display.canvas.pixels();
+        auto dispStride = display.stride();
+
+        auto canvPixels = canvas.pixels();
+        auto canvStride = canvas.getWidth();
+
+        for (auto y = yFrom; y < yTo; ++y) {
+            for (auto x = xFrom; x < xTo; ++x) {
+                auto cx = x + xOff;
+                auto cy = y + yOff;
+                auto color = canvPixels[cy * canvStride + cx];
+                dispPixels[y * dispStride + x] = color;
+            }
+        }
+    }
+
+    void LCDController::blendBackgrounds() {
+
     }
 
     void LCDController::updateReferences() {
@@ -215,59 +232,42 @@ namespace gbaemu::lcd {
         regs = reinterpret_cast<LCDIORegs *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET));
     }
 
-    void LCDController::renderBGMode0() {
-        /*
-            Mode  Rot/Scal Layers Size               Tiles Colors       Features
-            0     No       0123   256x256..512x515   1024  16/16..256/1 SFMABP
-            Features: S)crolling, F)lip, M)osaic, A)lphaBlending, B)rightness, P)riority.
-         */
-        /* TODO: I guess text mode? */
-        for (uint32_t i = 0; i < 4; ++i) {
-            backgrounds[i].loadSettings(0, i, regs, memory);
-            backgrounds[i].renderBG0(palette);
-        }
-
-        /* TODO: render top alpha last */
-        std::vector<int32_t> backgroundIds = {backgrounds[0].id, backgrounds[1].id, backgrounds[2].id, backgrounds[3].id};
-        std::stable_sort(backgroundIds.begin(), backgroundIds.end(), [&](int32_t id1, int32_t id2) {
-            return backgrounds[id1].priority - backgrounds[id2].priority; });
-
-        /* TODO: alpha blending */
-        for (uint32_t i = 0; i < 4; ++i) {
-            auto bgId = backgroundIds[i];
-        }
-    }
-
-    void LCDController::renderBG3() {
-        /* TODO: This should easily be extendable to support BG4, BG5 */
-        /* BG Mode 3 - 240x160 pixels, 32768 colors */
-        backgrounds[2].loadSettings(3, 2, regs, memory);
-        backgrounds[2].renderBG3(memory);
-    }
-
-    void LCDController::renderBG4() {
-        /* TODO: This should easily be extendable to support BG4, BG5 */
-        /* BG Mode 3 - 240x160 pixels, 32768 colors */
-        uint8_t *pixs = memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET);
-
-        for (int32_t y = 0; y < 160; ++y) {
-            for (int32_t x = 0; x < 240; ++x) {
-                uint8_t index = pixs[y * 240 + x];
-                uint32_t color = palette.getBgColor(index);
-            }
-        }
-    }
-
     uint32_t LCDController::getBackgroundMode() const {
-        return 0;
+        return regs->DISPCNT & DISPCTL::BG_MODE_MASK;
     }
 
     void LCDController::render() {
         uint32_t bgMode = getBackgroundMode();
-        uint32_t vram = gbaemu::Memory::MemoryRegionOffset::VRAM_OFFSET;
 
         if (bgMode == 0) {
-            renderBGMode0();
+            /*
+                Mode  Rot/Scal Layers Size               Tiles Colors       Features
+                0     No       0123   256x256..512x515   1024  16/16..256/1 SFMABP
+                Features: S)crolling, F)lip, M)osaic, A)lphaBlending, B)rightness, P)riority.
+            */
+            /* TODO: I guess text mode? */
+            for (uint32_t i = 0; i < 4; ++i) {
+                backgrounds[i].loadSettings(0, i, regs, memory);
+                backgrounds[i].renderBG0(palette);
+            }
+
+            /* TODO: render top alpha last */
+            std::vector<int32_t> backgroundIds = {backgrounds[0].id, backgrounds[1].id, backgrounds[2].id, backgrounds[3].id};
+            std::stable_sort(backgroundIds.begin(), backgroundIds.end(), [&](int32_t id1, int32_t id2) {
+                return backgrounds[id1].priority - backgrounds[id2].priority; });
+
+            /* TODO: alpha blending */
+            for (uint32_t i = 0; i < 4; ++i) {
+                auto bgId = backgroundIds[i];
+            }
+        } else if (bgMode == 3) {
+            /* TODO: This should easily be extendable to support BG4, BG5 */
+            /* BG Mode 3 - 240x160 pixels, 32768 colors */
+            backgrounds[2].loadSettings(3, 2, regs, memory);
+            backgrounds[2].renderBG3(memory);
+            backgrounds[2].drawToDisplay(display);
         }
+
+        blendBackgrounds();
     }
 }

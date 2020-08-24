@@ -114,6 +114,11 @@ namespace gbaemu::lcd {
                               OBJ_MOSAIC_VSIZE_MASK = 0xF << OBJ_MOSAIC_VSIZE_OFFSET;
     }
 
+    namespace DIMENSIONS {
+        static const int32_t WIDTH = 240,
+                             HEIGHT = 160;
+    }
+
     struct LCDIORegs {
         uint16_t DISPCNT;                       // LCD Control
         uint16_t undocumented0;                 // Undocumented - Green Swap
@@ -224,9 +229,6 @@ namespace gbaemu::lcd {
     public:
         uint32_t targetX, targetY;
     public:
-        static const int32_t WIDTH = 240;
-        static const int32_t HEIGHT = 160;
-
         Canvas<uint32_t>& canvas;
 
         LCDisplay(uint32_t x, uint32_t y, Canvas<uint32_t>& canv):
@@ -259,6 +261,7 @@ namespace gbaemu::lcd {
         void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs *regs, Memory& memory);
         void renderBG0(LCDColorPalette& palette);
         void renderBG3(Memory& memory);
+        void drawToDisplay(LCDisplay& display);
     };
 
     class LCDController {
@@ -267,15 +270,9 @@ namespace gbaemu::lcd {
         Memory& memory;
         LCDColorPalette palette;
         LCDIORegs *regs;
-        uint32_t bgPriorityList[4];
-
         std::array<Background, 4> backgrounds;
 
-        void makeBgPriorityList();
-        void renderBGMode0();
-        void renderBG3();
-        void renderBG4();
-        void renderBG5();
+        void blendBackgrounds();
     public:
         LCDController(LCDisplay& disp, Memory& mem):
             display(disp), memory(mem) {}
