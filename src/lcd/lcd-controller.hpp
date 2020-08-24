@@ -247,6 +247,7 @@ namespace gbaemu::lcd {
         uint32_t priority;
         uint32_t charBaseBlock;
         int32_t xOff, yOff;
+        bool scInUse[4];
         uint32_t scCount;
         uint32_t scXOffset[4];
         uint32_t scYOffset[4];
@@ -255,8 +256,9 @@ namespace gbaemu::lcd {
 
         Background(): id(-1), canvas(512, 512) { }
 
-        void loadSettings(int32_t bgIndex, const LCDIORegs *regs, Memory& memory);
-        void render(LCDColorPalette& palette);
+        void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs *regs, Memory& memory);
+        void renderBG0(LCDColorPalette& palette);
+        void renderBG3(Memory& memory);
     };
 
     class LCDController {
