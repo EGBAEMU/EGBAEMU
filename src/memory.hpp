@@ -145,6 +145,10 @@ namespace gbaemu
             std::copy_n(rom, romSize, this->rom);
         }
 
+        size_t getRomSize() const {
+            return romSize;
+        }
+
         uint8_t read8(uint32_t addr, uint32_t *cycles) const;
         uint16_t read16(uint32_t addr, uint32_t *cycles) const;
         uint32_t read32(uint32_t addr, uint32_t *cycles) const;

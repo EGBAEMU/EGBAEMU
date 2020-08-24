@@ -243,12 +243,6 @@ namespace gbaemu::lcd {
 
         uint8_t *vram = memory.resolveAddr(Memory::VRAM_OFFSET);
 
-        for (uint32_t y = 0; y < DIMENSIONS::HEIGHT * 2; y++)
-            for (uint32_t x = 0; x < DIMENSIONS::WIDTH; ++x)
-                display.canvas.pixels()[y * display.canvas.getWidth() + x] = reinterpret_cast<uint32_t *>(vram)[y * 240 + x];
-
-        return;
-
         if (bgMode == 0) {
             /*
                 Mode  Rot/Scal Layers Size               Tiles Colors       Features
@@ -283,5 +277,66 @@ namespace gbaemu::lcd {
 
         display.canvas.endDraw();
         blendBackgrounds();
+    }
+
+    void LCDController::plotMemory() {
+        display.canvas.beginDraw();
+        /*
+        for (uint32_t y = 0; y < DIMENSIONS::HEIGHT * 2; y++)
+            for (uint32_t x = 0; x < DIMENSIONS::WIDTH; ++x)
+                display.canvas.pixels()[y * display.canvas.getWidth() + x] = reinterpret_cast<uint32_t *>(vram)[y * 240 + x];
+
+        return;
+         */
+
+        static const Memory::MemoryRegionOffset offs[] = {
+            //Memory::BIOS_OFFSET,
+            //Memory::WRAM_OFFSET,
+            //Memory::IWRAM_OFFSET,
+            //Memory::IO_REGS_OFFSET,
+            //Memory::BG_OBJ_RAM_OFFSET,
+            Memory::VRAM_OFFSET,
+            //Memory::OAM_OFFSET,
+            Memory::EXT_ROM_OFFSET,
+            Memory::EXT_SRAM_OFFSET
+        };
+
+        static const Memory::MemoryRegionLimit limits[] = {
+            //Memory::BIOS_LIMIT,
+            //Memory::WRAM_LIMIT,
+            //Memory::IWRAM_LIMIT,
+            //Memory::IO_REGS_LIMIT,
+            //Memory::BG_OBJ_RAM_LIMIT,
+            Memory::VRAM_LIMIT,
+            //Memory::OAM_LIMIT,
+            Memory::EXT_ROM1_LIMIT,
+            Memory::EXT_SRAM_LIMIT
+        };
+
+        static const uint32_t WIDTH = 240;
+
+        for (uint32_t i = 0; i < 3; ++i) {
+            uint32_t *ram = reinterpret_cast<uint32_t *>(memory.resolveAddr(offs[i]));
+            uint32_t size = limits[i] - offs[i];
+
+            if (offs[i] == Memory::EXT_ROM_OFFSET) {
+                size = memory.getRomSize();
+            }
+
+            for (uint32_t j = 0; j < size / 4; ++j) {
+                auto x = j % WIDTH + (WIDTH + 16) * i;
+                auto y = j / WIDTH;
+
+                auto w = display.canvas.getWidth();
+                auto h = display.canvas.getHeight();
+
+                if (x >= w || y >= h)
+                    break;
+
+                display.canvas.pixels()[y * w + x] = ram[j];
+            }
+        }
+
+        display.canvas.endDraw();
     }
 }

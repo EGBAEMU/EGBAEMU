@@ -283,6 +283,7 @@ namespace gbaemu::lcd {
         uint32_t getBackgroundMode() const;
         /* renders the current screen to canvas */
         void render();
+        void plotMemory();
     };
 }
 

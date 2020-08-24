@@ -100,7 +100,7 @@ int main(int argc, char **argv)
                 break;
         }
         
-        controller.render();
+        controller.plotMemory();
         window.present();
 
         if (!run_window)
