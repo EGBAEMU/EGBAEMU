@@ -36,6 +36,7 @@ namespace gbaemu
         } mode = UserMode;
 
       private:
+        //TODO are there conventions about inital reg values?
         struct Regs {
             uint32_t rx[16];
             uint32_t r8_14_fig[7];
@@ -166,7 +167,6 @@ namespace gbaemu
             std::stringstream ss;
             ss << std::setfill('0') << std::hex;
 
-            /* TODO: make this Thumb compatible */
             for (uint32_t i = addr; i < addr + len; i += 4) {
                 if (getFlag(cpsr_flags::THUMB_STATE)) {
                     uint32_t bytes = memory.read16(i, nullptr);

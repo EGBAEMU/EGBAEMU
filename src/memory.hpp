@@ -96,6 +96,7 @@ namespace gbaemu
         };
 
       public:
+        //TODO are there conventions about inital memory values?
         Memory()
         {
             bios = GBA_ALLOC_MEM_REG(BIOS);
