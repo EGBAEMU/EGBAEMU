@@ -1,6 +1,7 @@
 #ifndef LCD_CONTROLLER_HPP
 #define LCD_CONTROLLER_HPP
 
+#include <array>
 #include <memory.hpp>
 #include "canvas.hpp"
 
@@ -67,6 +68,50 @@ namespace gbaemu::lcd {
                                 3      512x512 (8K)   1024x1024 (16K)
                                */
                               SCREEN_SIZE_MASK = 0b11 << 14;
+    }
+
+    namespace BLDCNT {
+        static const uint32_t BG0_TARGET_PIXEL1_MASK = 1,
+                              BG1_TARGET_PIXEL1_MASK = 1 << 1,
+                              BG2_TARGET_PIXEL1_MASK = 1 << 2,
+                              BG3_TARGET_PIXEL1_MASK = 1 << 3,
+                              OBJ_TARGET_PIXEL1_MASK = 1 << 4,
+                              BD_TARGET_PIXEL1_MASK = 1 << 5,
+                              COLOR_SPECIAL_FX_MASK = 0b111 << 6,
+                              BG0_TARGET_PIXEL2_MASK = 1 << 8,
+                              BG1_TARGET_PIXEL2_MASK = 1 << 9,
+                              BG2_TARGET_PIXEL2_MASK = 1 << 10,
+                              BG3_TARGET_PIXEL2_MASK = 1 << 11,
+                              OBJ_TARGET_PIXEL2_MASK = 1 << 12,
+                              BD_TARGET_PIXEL2_MASK = 1 << 13;
+
+        enum ColorSpecialEffect {
+            None,
+            AlphaBlending,
+            BrightnessIncrease,
+            BrightnessDecrease
+        };
+    }
+
+    namespace BLDALPHA {
+        static const uint32_t EVA_COEFF_MASK = 0x1F,
+                              EVB_COEFF_MASK = 0x1F << 8;
+    }
+
+    namespace BLDY {
+        static const uint32_t EVY_COEFF_MASK = 0x1F;
+    }
+
+    namespace MOSAIC {
+        static const uint32_t BG_MOSAIC_HSIZE_OFFSET = 0,
+                              BG_MOSAIC_VSIZE_OFFSET = 4,
+                              OBJ_MOSAIC_HSIZE_OFFSET = 8,
+                              OBJ_MOSAIC_VSIZE_OFFSET = 12;
+
+        static const uint32_t BG_MOSAIC_HSIZE_MASK = 0xF << BG_MOSAIC_HSIZE_OFFSET,
+                              BG_MOSAIC_VSIZE_MASK = 0xF << BG_MOSAIC_VSIZE_OFFSET,
+                              OBJ_MOSAIC_HSIZE_MASK = 0xF << OBJ_MOSAIC_HSIZE_OFFSET,
+                              OBJ_MOSAIC_VSIZE_MASK = 0xF << OBJ_MOSAIC_VSIZE_OFFSET;
     }
 
     struct LCDIORegs {
@@ -175,38 +220,69 @@ namespace gbaemu::lcd {
         uint32_t getObjColor(uint32_t i1, uint32_t i2) const;
     };
 
-    /*
-        Most GBA graphics effectively happen in tile modes. This class represents such
-        a unit with R8G8B8 colors, alpha blending, brightness, transformations and so on.
-     */
-    struct Tile {
-        uint32_t colors[8][8];
+    class LCDisplay {
+    public:
+        uint32_t targetX, targetY;
+    public:
+        static const int32_t WIDTH = 240;
+        static const int32_t HEIGHT = 160;
 
-        void vFlip();
-        void hFlip();
+        Canvas<uint32_t>& canvas;
+
+        LCDisplay(uint32_t x, uint32_t y, Canvas<uint32_t>& canv):
+            targetX(x), targetY(y), canvas(canv) { }
+
+        int32_t stride() const {
+            return canvas.getWidth();
+        }
+    };
+
+    struct Background {
+        /* BG0, BG1, BG2, BG3 */
+        int32_t id;
+        MemoryCanvas<uint32_t> canvas;
+        /* settings */
+        bool mosaicEnabled;
+        bool colorPalette256;
+        uint32_t priority;
+        uint32_t charBaseBlock;
+        int32_t xOff, yOff;
+        uint32_t scCount;
+        uint32_t scXOffset[4];
+        uint32_t scYOffset[4];
+        uint8_t *bgMapBase;
+        uint8_t *tiles;
+
+        Background(): id(-1), canvas(512, 512) { }
+
+        void loadSettings(int32_t bgIndex, const LCDIORegs *regs, Memory& memory);
+        void render(LCDColorPalette& palette);
     };
 
     class LCDController {
     private:
-        Canvas<uint32_t>& canvas;
+        LCDisplay& display;
         Memory& memory;
         LCDColorPalette palette;
         LCDIORegs *regs;
+        uint32_t bgPriorityList[4];
 
-        Tile constructTile(uint8_t *tiles, uint32_t tileNumber, uint32_t tileByteSize, uint32_t paletteNumber);
+        std::array<Background, 4> backgrounds;
+
+        void makeBgPriorityList();
         void renderBGMode0();
         void renderBG3();
         void renderBG4();
         void renderBG5();
     public:
-        LCDController(Canvas<uint32_t>& canv, Memory& mem):
-            canvas(canv), memory(mem) {}
+        LCDController(LCDisplay& disp, Memory& mem):
+            display(disp), memory(mem) {}
 
         /* updates all raw pointers into the sections of memory (in case they might change) */
         void updateReferences();
 
         uint32_t getBackgroundMode() const;
-        /* renders to the current screen to canvas */
+        /* renders the current screen to canvas */
         void render();
     };
 }
