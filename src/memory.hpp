@@ -35,6 +35,7 @@ namespace gbaemu
       10000000-FFFFFFFF   Not used (upper 4bits of address bus unused)
     */
 #define GBA_ALLOC_MEM_REG(x) new uint8_t[x##_LIMIT - x##_OFFSET + 1]
+#define GBA_MEM_CLEAR(arr, x) std::fill_n(arr, x##_LIMIT - x##_OFFSET, 0)
 
     class Memory
     {
@@ -100,13 +101,21 @@ namespace gbaemu
         Memory()
         {
             bios = GBA_ALLOC_MEM_REG(BIOS);
+            GBA_MEM_CLEAR(bios, BIOS);
             wram = GBA_ALLOC_MEM_REG(WRAM);
+            GBA_MEM_CLEAR(wram, WRAM);
             iwram = GBA_ALLOC_MEM_REG(IWRAM);
+            GBA_MEM_CLEAR(iwram, IWRAM);
             io_regs = GBA_ALLOC_MEM_REG(IO_REGS);
+            GBA_MEM_CLEAR(io_regs, IO_REGS);
             bg_obj_ram = GBA_ALLOC_MEM_REG(BG_OBJ_RAM);
+            GBA_MEM_CLEAR(bg_obj_ram, BG_OBJ_RAM);
             vram = GBA_ALLOC_MEM_REG(VRAM);
+            GBA_MEM_CLEAR(vram, VRAM);
             oam = GBA_ALLOC_MEM_REG(OAM);
+            GBA_MEM_CLEAR(oam, OAM);
             ext_sram = GBA_ALLOC_MEM_REG(EXT_SRAM);
+            GBA_MEM_CLEAR(ext_sram, EXT_SRAM);
             rom = nullptr;
             romSize = 0;
         }

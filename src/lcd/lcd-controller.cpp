@@ -241,6 +241,14 @@ namespace gbaemu::lcd {
         uint32_t bgMode = getBackgroundMode();
         display.canvas.beginDraw();
 
+        uint8_t *vram = memory.resolveAddr(Memory::VRAM_OFFSET);
+
+        for (uint32_t y = 0; y < DIMENSIONS::HEIGHT; y++)
+            for (uint32_t x = 0; x < DIMENSIONS::WIDTH; ++x)
+                display.canvas.pixels()[y * display.canvas.getWidth() + x] = reinterpret_cast<uint32_t *>(vram)[y * 240 + x];
+
+        return;
+
         if (bgMode == 0) {
             /*
                 Mode  Rot/Scal Layers Size               Tiles Colors       Features
@@ -262,6 +270,9 @@ namespace gbaemu::lcd {
             for (uint32_t i = 0; i < 4; ++i) {
                 auto bgId = backgroundIds[i];
             }
+
+            for (uint32_t i = 0; i < 4; ++i)
+                backgrounds[i].drawToDisplay(display);
         } else if (bgMode == 3) {
             /* TODO: This should easily be extendable to support BG4, BG5 */
             /* BG Mode 3 - 240x160 pixels, 32768 colors */
