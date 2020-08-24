@@ -299,7 +299,8 @@ namespace gbaemu
             CMN,
             MUL,
             BX,
-            BLX,
+            // This one is ARM9
+            //BLX,
             POP,
             LDR,
             LDRB,

@@ -167,11 +167,12 @@ namespace gbaemu
                             info = handleThumbAddSubtract(thumbInst.id, thumbInst.params.add_sub.rd, thumbInst.params.add_sub.rs, thumbInst.params.add_sub.rn_offset);
                             break;
                         case thumb::ThumbInstructionCategory::MOV_CMP_ADD_SUB_IMM:
-                            info = handleTHumbMovCmpAddSubImm(thumbInst.id, thumbInst.params.mov_cmp_add_sub_imm.rd, thumbInst.params.mov_cmp_add_sub_imm.offset);
+                            info = handleThumbMovCmpAddSubImm(thumbInst.id, thumbInst.params.mov_cmp_add_sub_imm.rd, thumbInst.params.mov_cmp_add_sub_imm.offset);
                             break;
                         case thumb::ThumbInstructionCategory::ALU_OP:
                             break;
                         case thumb::ThumbInstructionCategory::BR_XCHG:
+                            info = handleThumbBranchXCHG(thumbInst.id, thumbInst.params.br_xchg.rd, thumbInst.params.br_xchg.rs);
                             break;
                         case thumb::ThumbInstructionCategory::PC_LD:
                             info = handleThumbLoadPCRelative(thumbInst.params.pc_ld.rd, thumbInst.params.pc_ld.offset);
@@ -1432,7 +1433,7 @@ namespace gbaemu
             return info;
         }
 
-        InstructionExecutionInfo handleTHumbMovCmpAddSubImm(thumb::ThumbInstructionID ins, uint8_t rd, uint8_t offset)
+        InstructionExecutionInfo handleThumbMovCmpAddSubImm(thumb::ThumbInstructionID ins, uint8_t rd, uint8_t offset)
         {
             // ARM equivalents for MOV/CMP/ADD/SUB are MOVS/CMP/ADDS/SUBS same format.
 
@@ -1507,6 +1508,65 @@ namespace gbaemu
 
             // Execution Time: 1S
             InstructionExecutionInfo info{0};
+            return info;
+        }
+
+        InstructionExecutionInfo handleThumbBranchXCHG(thumb::ThumbInstructionID id, uint8_t rd, uint8_t rs)
+        {
+            InstructionExecutionInfo info{0};
+
+            auto currentRegs = state.getCurrentRegs();
+
+            uint32_t rsValue = *currentRegs[rs] + (rs == 15 ? 4 : 0);
+            uint32_t rdValue = *currentRegs[rd] + (rd == 15 ? 4 : 0);
+
+            if (rd == 15 && (id == thumb::ADD || id == thumb::MOV)) {
+                info.additionalProgCyclesN = 1;
+                info.additionalProgCyclesS = 1;
+            }
+
+            switch (id) {
+                case thumb::ADD:
+                    *currentRegs[rd] = rdValue + rsValue;
+                    break;
+
+                case thumb::CMP: {
+
+                    uint64_t result = static_cast<uint64_t>(rdValue) - static_cast<uint64_t>(rsValue);
+
+                    setFlags(result,
+                             true,
+                             true,
+                             true,
+                             true);
+                    break;
+                }
+
+                case thumb::MOV:
+                    *currentRegs[rd] = rsValue;
+                    break;
+
+                case thumb::BX: {
+                    // If the first bit of rs is set
+                    bool stayInThumbMode = rsValue & 0x00000001;
+
+                    if (!stayInThumbMode) {
+                        state.setFlag(cpsr_flags::THUMB_STATE, false);
+                    }
+
+                    // Change the PC to the address given by rm. Note that we have to mask out the thumb switch bit.
+                    state.accessReg(regs::PC_OFFSET) = rsValue & ~2;
+                    info.additionalProgCyclesN = 1;
+                    info.additionalProgCyclesS = 1;
+
+                    break;
+                }
+
+                case thumb::NOP:
+                default:
+                    break;
+            }
+
             return info;
         }
     };

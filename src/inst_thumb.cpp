@@ -35,7 +35,8 @@ namespace gbaemu
                 STRINGIFY_CASE_ID(CMN);
                 STRINGIFY_CASE_ID(MUL);
                 STRINGIFY_CASE_ID(BX);
-                STRINGIFY_CASE_ID(BLX);
+                // This one is ARM9
+                //STRINGIFY_CASE_ID(BLX);
                 STRINGIFY_CASE_ID(POP);
                 STRINGIFY_CASE_ID(LDR);
                 STRINGIFY_CASE_ID(LDRB);
@@ -238,7 +239,7 @@ namespace gbaemu
                         break;
                     case 0b11:
                         if (msbDst) {
-                            instruction.id = ThumbInstructionID::BLX;
+                            //instruction.id = ThumbInstructionID::BLX;
                         } else {
                             instruction.id = ThumbInstructionID::BX;
                         }
