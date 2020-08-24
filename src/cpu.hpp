@@ -77,9 +77,10 @@ namespace gbaemu
             const uint32_t prevPc = state.getCurrentPC();
             const bool prevThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
 
-            if (state.pipeline.decode.lastInstruction.arm.id != arm::ARMInstructionID::INVALID || state.pipeline.decode.lastInstruction.thumb.id != thumb::ThumbInstructionID::INVALID) {
-
-                if (state.pipeline.decode.lastInstruction.isArmInstruction()) {
+            if (state.pipeline.decode.lastInstruction.isArmInstruction()) {
+                if (state.pipeline.decode.lastInstruction.arm.id == arm::ARMInstructionID::INVALID) {
+                    std::cout << "ERROR: trying to execute invalid ARM instruction!" << std::endl;
+                } else {
                     arm::ARMInstruction &armInst = state.pipeline.decode.lastInstruction.arm;
 
                     // Do we even need an execution?
@@ -154,6 +155,10 @@ namespace gbaemu
                                 break;
                         }
                     }
+                }
+            } else {
+                if (state.pipeline.decode.lastInstruction.thumb.id == thumb::ThumbInstructionID::INVALID) {
+                    std::cout << "ERROR: trying to execute invalid THUMB instruction!" << std::endl;
                 } else {
                     thumb::ThumbInstruction &thumbInst = state.pipeline.decode.lastInstruction.thumb;
 
@@ -228,6 +233,10 @@ namespace gbaemu
                             break;
                         case thumb::ThumbInstructionCategory::LONG_BRANCH_WITH_LINK:
                             info = handleThumbLongBranchWithLink(thumbInst.params.long_branch_with_link.h, thumbInst.params.long_branch_with_link.offset);
+                            break;
+
+                        default:
+                            std::cout << "INVALID" << std::endl;
                             break;
                     }
                 }
