@@ -170,6 +170,7 @@ namespace gbaemu
                             info = handleThumbMovCmpAddSubImm(thumbInst.id, thumbInst.params.mov_cmp_add_sub_imm.rd, thumbInst.params.mov_cmp_add_sub_imm.offset);
                             break;
                         case thumb::ThumbInstructionCategory::ALU_OP:
+                            info = handleThumbALUops(thumbInst.id, thumbInst.params.alu_op.rs, thumbInst.params.alu_op.rd);
                             break;
                         case thumb::ThumbInstructionCategory::BR_XCHG:
                             info = handleThumbBranchXCHG(thumbInst.id, thumbInst.params.br_xchg.rd, thumbInst.params.br_xchg.rs);
@@ -1569,7 +1570,134 @@ namespace gbaemu
 
             return info;
         }
-    };
+
+        InstructionExecutionInfo handleThumbALUops(thumb::ThumbInstructionID instID, uint8_t rs, uint8_t rd)
+        {
+
+            static const std::set<thumb::ThumbInstructionID> updateNegative{
+                thumb::ADC, thumb::SBC, thumb::NEG, thumb::CMP, thumb::CMN,
+
+                thumb::LSL, thumb::LSR, thumb::ASR, thumb::ROR,
+
+                thumb::MUL, thumb::AND, thumb::EOR, thumb::TST, thumb::ORR, thumb::BIC, thumb::MVN};
+
+            static const std::set<thumb::ThumbInstructionID> updateZero{
+                thumb::ADC, thumb::SBC, thumb::NEG, thumb::CMP, thumb::CMN,
+
+                thumb::LSL, thumb::LSR, thumb::ASR, thumb::ROR,
+
+                thumb::MUL, thumb::AND, thumb::EOR, thumb::TST, thumb::ORR, thumb::BIC, thumb::MVN};
+
+            static const std::set<thumb::ThumbInstructionID> updateCarry{
+                thumb::ADC, thumb::SBC, thumb::NEG, thumb::CMP, thumb::CMN,
+
+                thumb::LSL, thumb::LSR, thumb::ASR, thumb::ROR};
+
+            static const std::set<thumb::ThumbInstructionID> updateOverflow{
+                thumb::ADC, thumb::SBC, thumb::NEG, thumb::CMP, thumb::CMN};
+
+            static const std::set<thumb::ThumbInstructionID> dontUpdateRD{
+                thumb::TST, thumb::CMP, thumb::CMN};
+
+            static const std::set<thumb::ThumbInstructionID> shiftOps{
+                thumb::LSL, thumb::LSR, thumb::ASR, thumb::ROR};
+
+            InstructionExecutionInfo info{0};
+
+            if (shiftOps.find(instID) != shiftOps.end()) {
+                info.cycleCount = 1;
+            }
+
+            auto currentRegs = state.getCurrentRegs();
+
+            uint64_t rsValue = *currentRegs[rs];
+            uint64_t rdValue = *currentRegs[rd];
+            uint64_t resultValue;
+
+            uint8_t shiftAmount = rsValue & 0xFF;
+
+            bool carry = state.getFlag(cpsr_flags::C_FLAG);
+
+            switch (instID) {
+
+                case thumb::ADC:
+                    resultValue = rdValue + rsValue + (carry ? 1 : 0);
+                    break;
+                case thumb::SBC:
+                    resultValue = rdValue - rsValue - (carry ? 0 : 1);
+                    break;
+                case thumb::NEG:
+                    resultValue = 0 - rsValue;
+                    break;
+                case thumb::CMP:
+                    resultValue = rdValue - rsValue;
+                    break;
+                case thumb::CMN:
+                    resultValue = rdValue + rsValue;
+                    break;
+
+                    //TODO disabled edge cases because they were not mentioned in the corresponding problemkaputt.de/gbatek.htm section
+                case thumb::LSL:
+                    resultValue = arm::shift(rdValue, arm::ShiftType::LSL, shiftAmount, carry, false);
+                    break;
+                case thumb::LSR:
+                    resultValue = arm::shift(rdValue, arm::ShiftType::LSR, shiftAmount, carry, false);
+                    break;
+                case thumb::ASR:
+                    resultValue = arm::shift(rdValue, arm::ShiftType::ASR, shiftAmount, carry, false);
+                    break;
+                case thumb::ROR:
+                    resultValue = arm::shift(rdValue, arm::ShiftType::ROR, shiftAmount, carry, false);
+                    break;
+
+                case thumb::MUL: {
+                    resultValue = rdValue * rsValue;
+
+                    if (((rsValue >> 8) & 0x00FFFFFF) == 0 || ((rsValue >> 8) & 0x00FFFFFF) == 0x00FFFFFF) {
+                        info.cycleCount += 1;
+                    } else if (((rsValue >> 16) & 0x0000FFFF) == 0 || ((rsValue >> 16) & 0x0000FFFF) == 0x0000FFFF) {
+                        info.cycleCount += 2;
+                    } else if (((rsValue >> 24) & 0x000000FF) == 0 || ((rsValue >> 24) & 0x000000FF) == 0x000000FF) {
+                        info.cycleCount += 3;
+                    } else {
+                        info.cycleCount += 4;
+                    }
+                    break;
+                }
+                case thumb::TST:
+                case thumb::AND:
+                    resultValue = rdValue & rsValue;
+                    break;
+                case thumb::EOR:
+                    resultValue = rdValue ^ rsValue;
+                    break;
+                case thumb::ORR:
+                    resultValue = rdValue | rsValue;
+                    break;
+                case thumb::BIC:
+                    resultValue = rdValue & ~rsValue;
+                    break;
+                case thumb::MVN:
+                    resultValue = ~rsValue;
+                    break;
+
+                default:
+                    break;
+            }
+
+            setFlags(
+                resultValue,
+                updateNegative.find(instID) != updateNegative.end(),
+                updateZero.find(instID) != updateZero.end(),
+                updateOverflow.find(instID) != updateOverflow.end(),
+                updateCarry.find(instID) != updateCarry.end() && (shiftOps.find(instID) != shiftOps.end() || shiftAmount != 0));
+
+            if (dontUpdateRD.find(instID) == dontUpdateRD.end())
+                *currentRegs[rd] = resultValue;
+
+            return info;
+        }
+    }; // namespace gbaemu
 
 } // namespace gbaemu
 

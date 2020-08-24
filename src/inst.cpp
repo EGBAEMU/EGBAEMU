@@ -21,7 +21,7 @@ namespace gbaemu
 
         switch (type) {
             case LSL:
-                return value << amount;
+                return static_cast<uint64_t>(value) << amount;
             case LSR: {
                 uint64_t res = value >> amount;
 
