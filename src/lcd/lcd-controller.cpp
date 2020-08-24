@@ -315,7 +315,7 @@ namespace gbaemu::lcd {
 
         static const uint32_t WIDTH = 240;
 
-        for (uint32_t i = 0; i < 5; ++i) {
+        for (uint32_t i = 0; i < sizeof(offs)/sizeof(offs[0]); ++i) {
             uint32_t *ram = reinterpret_cast<uint32_t *>(memory.resolveAddr(offs[i]));
             uint32_t size = limits[i] - offs[i];
 

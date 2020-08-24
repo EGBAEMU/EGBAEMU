@@ -87,7 +87,7 @@ int main(int argc, char **argv)
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
         if (prevPC != postPC) {
-            //std::cout << "========================================================================\n";
+            std::cout << "========================================================================\n";
             std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
 
             ++i;
