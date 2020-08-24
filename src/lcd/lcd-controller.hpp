@@ -1,6 +1,7 @@
 #ifndef LCD_CONTROLLER_HPP
 #define LCD_CONTROLLER_HPP
 
+#include <array>
 #include <memory.hpp>
 #include "canvas.hpp"
 
@@ -219,22 +220,6 @@ namespace gbaemu::lcd {
         uint32_t getObjColor(uint32_t i1, uint32_t i2) const;
     };
 
-    /*
-        Most GBA graphics effectively happen in tile modes. This class represents such
-        a unit with R8G8B8 colors, alpha blending, brightness, transformations and so on.
-     */
-    struct Tile {
-        enum TileSize {
-            TileSize32,
-            TileSize64
-        };
-
-        uint32_t colors[8][8];
-        /* position on screen */
-        int32_t x, y;
-        bool vFlip, hFlip;
-    };
-
     class LCDisplay {
     public:
         uint32_t targetX, targetY;
@@ -254,12 +239,24 @@ namespace gbaemu::lcd {
 
     struct Background {
         /* BG0, BG1, BG2, BG3 */
-        uint32_t id;
+        int32_t id;
         MemoryCanvas<uint32_t> canvas;
+        /* settings */
+        bool mosaicEnabled;
+        bool colorPalette256;
+        uint32_t priority;
+        uint32_t charBaseBlock;
+        int32_t xOff, yOff;
+        uint32_t scCount;
+        uint32_t scXOffset[4];
+        uint32_t scYOffset[4];
+        uint8_t *bgMapBase;
+        uint8_t *tiles;
 
-        Background(): canvas(512, 512) {
-            
-        }
+        Background(): id(-1), canvas(512, 512) { }
+
+        void loadSettings(int32_t bgIndex, const LCDIORegs *regs, Memory& memory);
+        void render(LCDColorPalette& palette);
     };
 
     class LCDController {
@@ -270,9 +267,9 @@ namespace gbaemu::lcd {
         LCDIORegs *regs;
         uint32_t bgPriorityList[4];
 
+        std::array<Background, 4> backgrounds;
+
         void makeBgPriorityList();
-        Tile constructTile(uint8_t *tiles, uint32_t tileNumber, uint32_t tileByteSize, uint32_t paletteNumber);
-        void renderTile(const Tile& tile);
         void renderBGMode0();
         void renderBG3();
         void renderBG4();
