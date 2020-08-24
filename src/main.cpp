@@ -100,7 +100,7 @@ int main(int argc, char **argv)
         SDL_Event event;
         
         if (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT)
+            if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE)
                 break;
         }
 
