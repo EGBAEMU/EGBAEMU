@@ -108,7 +108,7 @@ namespace gbaemu::lcd {
                               OBJ_MOSAIC_VSIZE_OFFSET = 12;
 
         static const uint32_t BG_MOSAIC_HSIZE_MASK = 0xF << BG_MOSAIC_HSIZE_OFFSET,
-                              BG_MOSAIC_VSIZE_MASK = 0xF << BG_MOASIC_VSIZE_OFFSET,
+                              BG_MOSAIC_VSIZE_MASK = 0xF << BG_MOSAIC_VSIZE_OFFSET,
                               OBJ_MOSAIC_HSIZE_MASK = 0xF << OBJ_MOSAIC_HSIZE_OFFSET,
                               OBJ_MOSAIC_VSIZE_MASK = 0xF << OBJ_MOSAIC_VSIZE_OFFSET;
     }
