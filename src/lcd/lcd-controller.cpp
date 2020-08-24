@@ -291,8 +291,8 @@ namespace gbaemu::lcd {
 
         static const Memory::MemoryRegionOffset offs[] = {
             //Memory::BIOS_OFFSET,
-            //Memory::WRAM_OFFSET,
-            //Memory::IWRAM_OFFSET,
+            Memory::WRAM_OFFSET,
+            Memory::IWRAM_OFFSET,
             //Memory::IO_REGS_OFFSET,
             //Memory::BG_OBJ_RAM_OFFSET,
             Memory::VRAM_OFFSET,
@@ -303,8 +303,8 @@ namespace gbaemu::lcd {
 
         static const Memory::MemoryRegionLimit limits[] = {
             //Memory::BIOS_LIMIT,
-            //Memory::WRAM_LIMIT,
-            //Memory::IWRAM_LIMIT,
+            Memory::WRAM_LIMIT,
+            Memory::IWRAM_LIMIT,
             //Memory::IO_REGS_LIMIT,
             //Memory::BG_OBJ_RAM_LIMIT,
             Memory::VRAM_LIMIT,
@@ -315,7 +315,7 @@ namespace gbaemu::lcd {
 
         static const uint32_t WIDTH = 240;
 
-        for (uint32_t i = 0; i < 3; ++i) {
+        for (uint32_t i = 0; i < 5; ++i) {
             uint32_t *ram = reinterpret_cast<uint32_t *>(memory.resolveAddr(offs[i]));
             uint32_t size = limits[i] - offs[i];
 
