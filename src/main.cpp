@@ -1,18 +1,21 @@
+#include <chrono>
+#include <csignal>
 #include <fstream>
 #include <iostream>
 #include <iterator>
 #include <vector>
-#include <chrono>
-#include <csignal>
 
-#include "lcd/window.hpp"
-#include "lcd/lcd-controller.hpp"
 #include "cpu.hpp"
+#include "lcd/lcd-controller.hpp"
+#include "lcd/window.hpp"
 
+#define SHOW_WINDOW true
+#define DISAS_CMD_RANGE 20
 
 static bool run_window = true;
 
-static void handleSignal(int signum) {
+static void handleSignal(int signum)
+{
     if (signum == SIGINT) {
         std::cout << "exiting..." << std::endl;
         run_window = false;
@@ -60,7 +63,7 @@ int main(int argc, char **argv)
     cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
     cpu.initPipeline();
 
-    std::cout << cpu.state.disas(gbaemu::Memory::EXT_ROM_OFFSET, 200);
+    std::cout << cpu.state.disas(gbaemu::Memory::EXT_ROM_OFFSET, DISAS_CMD_RANGE);
 
     for (uint32_t i = 0; i < 20;) {
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
@@ -72,7 +75,7 @@ int main(int argc, char **argv)
         if (prevPC != postPC) {
             std::cout << "========================================================================\n";
 
-            std::cout << cpu.state.disas(postPC, 200);
+            std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
 
             ++i;
         }
