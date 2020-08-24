@@ -2,6 +2,7 @@
 #include "util.hpp"
 
 #include <iostream>
+#include <sstream>
 
 namespace gbaemu
 {
@@ -71,6 +72,15 @@ namespace gbaemu
             }
 
             return "NULL";
+        }
+
+        std::string ThumbInstruction::toString() const
+        {
+            std::stringstream ss;
+
+            ss << instructionIDToString(id);
+
+            return ss.str();
         }
 
         Instruction ThumbInstructionDecoder::decode(uint32_t lastInst) const

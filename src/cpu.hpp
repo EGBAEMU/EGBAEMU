@@ -156,7 +156,6 @@ namespace gbaemu
                     }
                 } else {
                     thumb::ThumbInstruction &thumbInst = state.pipeline.decode.lastInstruction.thumb;
-                    //TODO thumb instruction execution
 
                     // prefer using switch to get warned if a category is not handled
                     switch (thumbInst.cat) {
