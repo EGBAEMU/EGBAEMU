@@ -161,6 +161,7 @@ namespace gbaemu
                     // prefer using switch to get warned if a category is not handled
                     switch (thumbInst.cat) {
                         case thumb::ThumbInstructionCategory::MOV_SHIFT:
+                            info = handleThumbMoveShiftedReg(thumbInst.id, thumbInst.params.mov_shift.rs, thumbInst.params.mov_shift.rd, thumbInst.params.mov_shift.offset);
                             break;
                         case thumb::ThumbInstructionCategory::ADD_SUB:
                             info = handleThumbAddSubtract(thumbInst.id, thumbInst.params.add_sub.rd, thumbInst.params.add_sub.rs, thumbInst.params.add_sub.rn_offset);
@@ -1460,6 +1461,53 @@ namespace gbaemu
 
             return execDataProc(armIns);
         }
+
+        InstructionExecutionInfo handleThumbMoveShiftedReg(thumb::ThumbInstructionID ins, uint8_t rs, uint8_t rd, uint8_t offset)
+        {
+            
+            // Zero shift amount is having special meaning (same as for ARM shifts),
+            // LSL#0 performs no shift (the carry flag remains unchanged), LSR/ASR#0 
+            // are interpreted as LSR/ASR#32. Attempts to specify LSR/ASR#0 in source
+            // code are automatically redirected as LSL#0, and source LSR/ASR#32 is
+            // redirected as opcode LSR/ASR#0.
+            // TODO: Description is a bit contradicting... Are source redirections of higher priority?
+            if (ins != thumb::LSL && offset == 0) {
+                offset = 32;
+            }
+
+            uint64_t rsValue = static_cast<uint64_t>(state.accessReg(rs));
+            uint64_t rdValue = 0;
+
+            switch (ins) {
+                case thumb::LSL:
+                    // 00b: LSL{S} Rd,Rs,#Offset   (logical/arithmetic shift left)
+                    rdValue = rsValue << offset;
+                    break;
+                case thumb::LSR:
+                    // 01b: LSR{S} Rd,Rs,#Offset   (logical    shift right)
+                    rdValue = rsValue >> offset;
+                    break;
+                case thumb::ASR:
+                    // 10b: ASR{S} Rd,Rs,#Offset   (arithmetic shift right)
+                    rdValue = static_cast<uint64_t>(static_cast<int64_t>(rsValue) >> offset);
+                    break;
+            }
+
+            state.accessReg(rd) = static_cast<uint32_t>(rdValue);
+
+            // Flags: Z=zeroflag, N=sign, C=carry (except LSL#0: C=unchanged), V=unchanged.
+            setFlags(
+                rdValue,
+                true, // n Flag
+                true, // z Flag
+                false, // v Flag
+                ins != thumb::LSL); // c flag
+
+            // Execution Time: 1S
+            InstructionExecutionInfo info{0};
+            return info;
+        }
+
     };
 
 } // namespace gbaemu
