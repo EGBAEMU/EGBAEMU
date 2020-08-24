@@ -54,17 +54,6 @@ namespace gbaemu::lcd {
         return getObjColor(i1 * 16 + i2);
     }
 
-    void Tile::hFlip() {
-
-    }
-
-    void Tile::vFlip() {
-
-    }
-
-
-
-
     void LCDController::makeBgPriorityList() {
         for (uint32_t i = 0; i < 4; ++i)
             bgPriorityList[i] = i;
@@ -107,8 +96,22 @@ namespace gbaemu::lcd {
         return t;
     }
 
-    void renderTile(const Tile& tile) {
+    void LCDController::renderTile(const Tile& tile) {
+        auto stride = display.stride();
+        auto pixels = display.canvas.pixels();
 
+        /* clipping */
+        int32_t yFrom = std::max(0, -tile.y);
+        int32_t yTo = std::min(8, 8 - (tile.y - display.canvas.getHeight()));
+
+        int32_t xFrom = std::max(0, -tile.x);
+        int32_t xTo = std::min(8, 8 - (tile.x - display.canvas.getWidth()));
+
+        for (int32_t y = yFrom; y < yTo; ++y) {
+            for (int32_t x = xFrom; x < xTo; ++x) {
+                pixels[(y + tile.y + display.targetY) * stride + (x + tile.x + display.targetY)] = tile.colors[y][x];
+            }
+        }
     }
 
     void LCDController::renderBGMode0() {
@@ -121,8 +124,8 @@ namespace gbaemu::lcd {
 
         uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET);
 
-        /* TODO: change order because priority? */
-        for (uint32_t bgIndex = 0; bgIndex < 4; ++bgIndex) {
+        /* TODO: render top alpha last */
+        for (uint32_t i = 0; i < 4; ++i) {
             /*
                 size = 0:
                 +-----+
@@ -146,6 +149,7 @@ namespace gbaemu::lcd {
                 | SC2 SC3 |
                 +---------+
              */
+            uint32_t bgIndex = bgPriorityList[i];
             uint16_t size = (flip16(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
             uint32_t height = (size <= 1) ? 256 : 512;
             uint32_t width = (size % 2 == 0) ? 256 : 512;
@@ -193,14 +197,22 @@ namespace gbaemu::lcd {
                     uint32_t paletteNumber = (entry >> 12) & 0xF;
 
                     Tile tile = constructTile(tiles, tileNumber, colorPalette256 ? 64 : 32, paletteNumber);
+                    tile.hFlip = hFlip;
+                    tile.vFlip = vFlip;
+                    tile.x = xOff;
+                    tile.y = yOff;
 
-                    if (hFlip)
-                        tile.hFlip();
+                    /*
+                        Alpha blending:
 
-                    if (vFlip)
-                        tile.vFlip();
+                        BG3 -------------------
+                        BG0 -------------------
+                        BG1 -------------------
+                        BG2 -------------------
 
-                    
+                        Order is determined by priority. The top most (priority) transparent pixel is selected (where 1st
+                        target bit is set) and alpha blended with the next lower pixel (where 2nd target bit is set).
+                     */
                 }
             }
         }

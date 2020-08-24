@@ -18,6 +18,14 @@ namespace gbaemu::lcd {
         /* returns a contiguous array of pixels */
         virtual PixelType *pixels() = 0;
 
+        int32_t getWidth() const {
+            return width;
+        }
+
+        int32_t getHeight() const {
+            return height;
+        }
+
         void clear(PixelType color) {
             auto pixs = pixels();
 

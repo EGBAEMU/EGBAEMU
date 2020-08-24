@@ -5,9 +5,10 @@
 #include <chrono>
 
 #include "lcd/window.hpp"
+#include "lcd/lcd-controller.hpp"
 #include "cpu.hpp"
 
-#define SHOW_WINDOW false
+#define SHOW_WINDOW true
 
 int main(int argc, char **argv)
 {
@@ -93,6 +94,7 @@ int main(int argc, char **argv)
 
     gbaemu::lcd::Window window(1280, 720);
     auto canv = window.getCanvas();
+    gbaemu::lcd::LCDisplay display(0, 0, canv);
 
     while (true) {
         SDL_Event event;
@@ -102,11 +104,10 @@ int main(int argc, char **argv)
                 break;
         }
 
-        canv.beginDraw();
-        /* ARGB, A is ignored */
-        canv.clear(0x00FF0000);
-        canv.fillRect(100, 100, 100, 100, 0x0000FF00);
-        canv.endDraw();
+
+
+
+
         window.present();
     }
 

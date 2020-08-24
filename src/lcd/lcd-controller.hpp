@@ -230,14 +230,31 @@ namespace gbaemu::lcd {
         };
 
         uint32_t colors[8][8];
+        /* position on screen */
+        int32_t x, y;
+        bool vFlip, hFlip;
+    };
 
-        void vFlip();
-        void hFlip();
+    class LCDisplay {
+    public:
+        uint32_t targetX, targetY;
+    public:
+        static const int32_t WIDTH = 240;
+        static const int32_t HEIGHT = 160;
+
+        Canvas<uint32_t>& canvas;
+
+        LCDisplay(uint32_t x, uint32_t y, Canvas<uint32_t>& canv):
+            targetX(x), targetY(y), canvas(canv) { }
+
+        int32_t stride() const {
+            return canvas.getWidth();
+        }
     };
 
     class LCDController {
     private:
-        Canvas<uint32_t>& canvas;
+        LCDisplay& display;
         Memory& memory;
         LCDColorPalette palette;
         LCDIORegs *regs;
@@ -251,8 +268,8 @@ namespace gbaemu::lcd {
         void renderBG4();
         void renderBG5();
     public:
-        LCDController(Canvas<uint32_t>& canv, Memory& mem):
-            canvas(canv), memory(mem) {}
+        LCDController(LCDisplay& disp, Memory& mem):
+            display(disp), memory(mem) {}
 
         /* updates all raw pointers into the sections of memory (in case they might change) */
         void updateReferences();
