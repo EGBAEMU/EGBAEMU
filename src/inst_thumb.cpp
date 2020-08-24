@@ -228,8 +228,8 @@ namespace gbaemu
                 uint8_t msbDst = (lastInst >> 7) & 1;
                 // Source Register most significant bit
                 uint8_t msbSrc = (lastInst >> 6) & 1;
-                uint8_t rd = (lastInst & 0x7) | (msbDst << 4);
-                uint8_t rs = ((lastInst >> 3) & 0x7) | (msbSrc << 4);
+                uint8_t rd = (lastInst & 0x7) | (msbDst << 3);
+                uint8_t rs = ((lastInst >> 3) & 0x7) | (msbSrc << 3);
                 instruction.params.br_xchg.rd = rd;
                 instruction.params.br_xchg.rs = rs;
 
