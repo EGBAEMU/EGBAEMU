@@ -127,23 +127,21 @@ namespace gbaemu::lcd {
         for (uint32_t scIndex = 0; scIndex < scCount; ++scIndex) {
             uint16_t *bgMap = reinterpret_cast<uint16_t *>(bgMapBase + scIndex * 0x800);
 
-            if (colorPalette256) {
-                for (uint32_t mapIndex = 0; mapIndex < 32 * 32; ++mapIndex) {
-                    uint16_t entry = bgMap[mapIndex];
+            for (uint32_t mapIndex = 0; mapIndex < 32 * 32; ++mapIndex) {
+                uint16_t entry = bgMap[mapIndex];
 
-                    /* tile info */
-                    uint32_t tileNumber = entry & 0x3F;
+                /* tile info */
+                uint32_t tileNumber = entry & 0x3F;
+
+                int32_t tileX = scXOffset[scIndex] + (mapIndex % 32) * 8;
+                int32_t tileY = scYOffset[scIndex] + (mapIndex / 32) * 8;
+
+                /* TODO: flipping */
+                bool hFlip = (entry >> 10) & 1;
+                bool vFlip = (entry >> 11) & 1;
+
+                if (colorPalette256) {
                     uint8_t *tile = tiles + (tileNumber * 64);
-
-                    int32_t tileX = scXOffset[scIndex] + (mapIndex % 32) * 8;
-                    int32_t tileY = scYOffset[scIndex] + (mapIndex / 32) * 8;
-
-                    /* TODO: flipping */
-                    bool hFlip = (entry >> 10) & 1;
-                    bool vFlip = (entry >> 11) & 1;
-
-                    /* palette */
-                    uint32_t paletteNumber = (entry >> 12) & 0xF;
 
                     for (uint32_t ty = 0; ty < 8; ++ty) {
                         for (uint32_t tx = 0; tx < 8; ++tx) {
@@ -151,23 +149,8 @@ namespace gbaemu::lcd {
                             pixels[(tileY + ty) * stride + (tileX + tx)] = color;
                         }
                     }
-                }
-            } else {
-                for (uint32_t mapIndex = 0; mapIndex < 32 * 32; ++mapIndex) {
-                    uint16_t entry = bgMap[mapIndex];
-
-                    /* tile info */
-                    uint32_t tileNumber = entry & 0x3F;
+                } else {
                     uint8_t *tile = tiles + (tileNumber * 32);
-
-                    int32_t tileX = scXOffset[scIndex] + (mapIndex % 32) * 8;
-                    int32_t tileY = scYOffset[scIndex] + (mapIndex / 32) * 8;
-
-                    /* TODO: flipping */
-                    bool hFlip = (entry >> 10) & 1;
-                    bool vFlip = (entry >> 11) & 1;
-
-                    /* palette */
                     uint32_t paletteNumber = (entry >> 12) & 0xF;
 
                     for (uint32_t ty = 0; ty < 8; ++ty) {
@@ -197,7 +180,7 @@ namespace gbaemu::lcd {
     void LCDController::updateReferences() {
         palette.bgPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET));
         palette.objPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET + 0x200));
-
+        regs = reinterpret_cast<LCDIORegs *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET));
     }
 
     void LCDController::renderBGMode0() {
@@ -207,13 +190,20 @@ namespace gbaemu::lcd {
             Features: S)crolling, F)lip, M)osaic, A)lphaBlending, B)rightness, P)riority.
          */
         /* TODO: I guess text mode? */
-
-        /* TODO: render top alpha last */
         for (uint32_t i = 0; i < 4; ++i) {
             backgrounds[i].loadSettings(i, regs, memory);
+            backgrounds[i].render(palette);
         }
 
+        /* TODO: render top alpha last */
+        std::vector<int32_t> backgroundIds = {backgrounds[0].id, backgrounds[1].id, backgrounds[2].id, backgrounds[3].id};
+        std::stable_sort(backgroundIds.begin(), backgroundIds.end(), [&](int32_t id1, int32_t id2) {
+            return backgrounds[id1].priority - backgrounds[id2].priority; });
 
+        /* TODO: alpha blending */
+        for (uint32_t i = 0; i < 4; ++i) {
+            auto bgId = backgroundIds[i];
+        }
     }
 
     void LCDController::renderBG3() {
