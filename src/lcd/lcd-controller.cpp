@@ -54,7 +54,7 @@ namespace gbaemu::lcd {
         return getObjColor(i1 * 16 + i2);
     }
 
-    void Background::loadSettings(int32_t bgIndex, const LCDIORegs *regs, Memory& memory) {
+    void Background::loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs *regs, Memory& memory) {
         id = bgIndex;
 
         uint16_t size = (flip16(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
@@ -76,6 +76,16 @@ namespace gbaemu::lcd {
         /* TODO: not sure about this one */
         uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET);
         bgMapBase = vramBase + screenBaseBlock * 0x800;
+        
+        if (bgMode == 0) {
+            std::fill_n(scInUse, 4, true);
+        } else if (bgMode == 3) {
+            scInUse[0] = false;
+            scInUse[1] = false;
+            scInUse[2] = true;
+            scInUse[3] = false;
+        }
+
         scCount = (size <= 2) ? 2 : 4;
         /* tile addresses in steps of 0x4000 */
         /* 8x8, also called characters */
@@ -120,7 +130,7 @@ namespace gbaemu::lcd {
         scYOffset[3] = 256;
     }
 
-    void Background::render(LCDColorPalette& palette) {
+    void Background::renderBG0(LCDColorPalette& palette) {
         auto pixels = canvas.pixels();
         auto stride = canvas.getWidth();
 
@@ -167,6 +177,28 @@ namespace gbaemu::lcd {
         }
     }
 
+    void Background::renderBG3(Memory& memory) {
+        auto pixels = canvas.pixels();
+        auto stride = canvas.getWidth();
+        const uint16_t *srcPixels = reinterpret_cast<const uint16_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET));
+
+        for (int32_t y = 0; y < 160; ++y) {
+            for (int32_t x = 0; x < 240; ++x) {
+                uint16_t color = srcPixels[y * 240 + x];
+                /* TODO: endianess? */
+                color = ((color & 0xFF) << 16) | ((color & 0xFF00) >> 16);
+
+                /* convert to R8G8B8 */
+                uint32_t r = static_cast<uint32_t>(color & 0x1F) << 3;
+                uint32_t g = static_cast<uint32_t>((color >> 5) & 0x1F) << 3;
+                uint32_t b = static_cast<uint32_t>((color >> 10) & 0x1F) << 3;
+                uint32_t a8r8g8b8 = 0xFF000000 | (r << 16) | (g << 8) | b;
+
+                pixels[y * stride + x] = a8r8g8b8;
+            }
+        }
+    }
+
     void LCDController::makeBgPriorityList() {
         for (uint32_t i = 0; i < 4; ++i)
             bgPriorityList[i] = i;
@@ -191,8 +223,8 @@ namespace gbaemu::lcd {
          */
         /* TODO: I guess text mode? */
         for (uint32_t i = 0; i < 4; ++i) {
-            backgrounds[i].loadSettings(i, regs, memory);
-            backgrounds[i].render(palette);
+            backgrounds[i].loadSettings(0, i, regs, memory);
+            backgrounds[i].renderBG0(palette);
         }
 
         /* TODO: render top alpha last */
@@ -209,21 +241,8 @@ namespace gbaemu::lcd {
     void LCDController::renderBG3() {
         /* TODO: This should easily be extendable to support BG4, BG5 */
         /* BG Mode 3 - 240x160 pixels, 32768 colors */
-        uint16_t *pixs = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET));
-
-        for (int32_t y = 0; y < 160; ++y) {
-            for (int32_t x = 0; x < 240; ++x) {
-                uint16_t color = pixs[y * 240 + x];
-                /* TODO: endianess? */
-                color = ((color & 0xFF) << 16) | ((color & 0xFF00) >> 16);
-
-                /* convert to R8G8B8 */
-                uint32_t r = static_cast<uint32_t>(color & 0x1F) << 3;
-                uint32_t g = static_cast<uint32_t>((color >> 5) & 0x1F) << 3;
-                uint32_t b = static_cast<uint32_t>((color >> 10) & 0x1F) << 3;
-                uint32_t r8g8b8 = (r << 16) | (g << 8) | b;
-            }
-        }
+        backgrounds[2].loadSettings(3, 2, regs, memory);
+        backgrounds[2].renderBG3(memory);
     }
 
     void LCDController::renderBG4() {

@@ -9,7 +9,7 @@
 #include "lcd/lcd-controller.hpp"
 #include "cpu.hpp"
 
-#define SHOW_WINDOW true
+#define SHOW_WINDOW false
 
 static bool run_window = true;
 
