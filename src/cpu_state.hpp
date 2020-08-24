@@ -162,12 +162,17 @@ namespace gbaemu
             return ss.str();
         }
 
-        std::string disas(uint32_t addr, uint32_t len) const
+        std::string disas(uint32_t addr, uint32_t cmds) const
         {
             std::stringstream ss;
             ss << std::setfill('0') << std::hex;
 
-            for (uint32_t i = addr; i < addr + len;) {
+            uint32_t startAddr = addr - (cmds / 2) * (getFlag(cpsr_flags::THUMB_STATE) ? 2 : 4);
+            if (startAddr < Memory::MemoryRegionOffset::EXT_ROM_OFFSET) {
+                startAddr = Memory::MemoryRegionOffset::EXT_ROM_OFFSET;
+            }
+
+            for (uint32_t i = startAddr; cmds > 0; --cmds) {
                 if (getFlag(cpsr_flags::THUMB_STATE)) {
                     uint32_t bytes = memory.read16(i, nullptr);
 
