@@ -29,6 +29,17 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    /* signal and window stuff */
+    std::signal(SIGINT, handleSignal);
+
+    gbaemu::lcd::Window window(1280, 720);
+    auto canv = window.getCanvas();
+    canv.beginDraw();
+    canv.clear(0xFFFF0000);
+    canv.endDraw();
+    
+
+    /* read gba file */
     std::ifstream file(argv[1], std::ios::binary);
 
     if (!file.is_open()) {
@@ -43,6 +54,9 @@ int main(int argc, char **argv)
 
     gbaemu::CPU cpu;
     cpu.state.memory.loadROM(reinterpret_cast<uint8_t *>(buf.data()), buf.size());
+
+    gbaemu::lcd::LCDisplay display(0, 0, canv);
+    gbaemu::lcd::LCDController controller(display, cpu.state.memory);
 
     std::cout << "Game Title: ";
     for (size_t i = 0; i < 12; ++i) {
@@ -65,7 +79,7 @@ int main(int argc, char **argv)
 
     std::cout << cpu.state.disas(gbaemu::Memory::EXT_ROM_OFFSET, DISAS_CMD_RANGE);
 
-    for (uint32_t i = 0; i < 20;) {
+    for (uint32_t i = 0; i < 0xFFFFFFFF;) {
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
         cpu.step();
@@ -73,25 +87,12 @@ int main(int argc, char **argv)
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
         if (prevPC != postPC) {
-            std::cout << "========================================================================\n";
-
+            //std::cout << "========================================================================\n";
             std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
 
             ++i;
         }
-    }
 
-    std::signal(SIGINT, handleSignal);
-
-    gbaemu::lcd::Window window(1280, 720);
-    auto canv = window.getCanvas();
-    canv.beginDraw();
-    canv.clear(0xFFFF0000);
-    canv.endDraw();
-    gbaemu::lcd::LCDisplay display(0, 0, canv);
-    gbaemu::lcd::LCDController controller(display, cpu.state.memory);
-
-    while (run_window) {
         SDL_Event event;
         
         if (SDL_PollEvent(&event)) {
@@ -99,7 +100,11 @@ int main(int argc, char **argv)
                 break;
         }
         
+        controller.render();
         window.present();
+
+        if (!run_window)
+            break;
     }
 
     return 0;

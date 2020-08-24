@@ -65,7 +65,6 @@ namespace gbaemu::lcd {
     template <class PixelType>
     class MemoryCanvas : public Canvas<PixelType> {
     private:
-        int32_t width, height;
         std::vector<PixelType> pixs;
     public:
         void beginDraw() override { }
@@ -75,11 +74,16 @@ namespace gbaemu::lcd {
             return pixs.data();
         }
 
-        MemoryCanvas(int32_t w, int32_t h): width(w), height(h) {
+        MemoryCanvas(int32_t w, int32_t h) {
+            Canvas<PixelType>::width = w;
+            Canvas<PixelType>::height = h;
             pixs.resize(w * h);
         }
 
-        MemoryCanvas(): width(0), height(0) { }
+        MemoryCanvas() {
+            Canvas<PixelType>::width = 0;
+            Canvas<PixelType>::height = 0;
+        }
     };
 }
 

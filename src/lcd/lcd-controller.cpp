@@ -237,7 +237,9 @@ namespace gbaemu::lcd {
     }
 
     void LCDController::render() {
+        updateReferences();
         uint32_t bgMode = getBackgroundMode();
+        display.canvas.beginDraw();
 
         if (bgMode == 0) {
             /*
@@ -268,6 +270,7 @@ namespace gbaemu::lcd {
             backgrounds[2].drawToDisplay(display);
         }
 
+        display.canvas.endDraw();
         blendBackgrounds();
     }
 }
