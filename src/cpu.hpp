@@ -527,13 +527,23 @@ namespace gbaemu
         /* ALU functions */
         InstructionExecutionInfo execDataProc(arm::ARMInstruction &inst)
         {
+
+            bool negative = state.getFlag(cpsr_flags::N_FLAG),
+                 zero = state.getFlag(cpsr_flags::Z_FLAG),
+                 overflow = state.getFlag(cpsr_flags::V_FLAG),
+                 carry = state.getFlag(cpsr_flags::C_FLAG);
+
             /* calculate shifter operand */
             arm::ShiftType shiftType;
-            uint32_t shiftAmount, rm, rs, imm, shifterOperand;
+            uint32_t shiftAmount;
+            uint32_t rm;
+            uint32_t rs;
+            uint32_t imm;
+            uint64_t shifterOperand;
             bool shiftByReg = inst.params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
 
             if (inst.params.data_proc_psr_transf.i) {
-                shifterOperand = (imm >> shiftAmount) | (imm << (32 - shiftAmount));
+                shifterOperand = arm::shift(imm, arm::ShiftType::ROR, shiftAmount, carry, false);
             } else {
                 if (shiftByReg)
                     shiftAmount = *state.getCurrentRegs()[rs];
@@ -552,27 +562,11 @@ namespace gbaemu
                     }
                 }
 
-                switch (shiftType) {
-                    case arm::ShiftType::LSL:
-                        shifterOperand = rmValue << shiftAmount;
-                        break;
-                    case arm::ShiftType::LSR:
-                        shifterOperand = rmValue >> shiftAmount;
-                        break;
-                    case arm::ShiftType::ASR:
-                        shifterOperand = static_cast<uint32_t>(static_cast<int32_t>(rmValue) >> shiftAmount);
-                        break;
-                    case arm::ShiftType::ROR:
-                        /* shift with wrap around */
-                        shifterOperand = (rmValue >> shiftAmount) | (rmValue << (32 - shiftAmount));
-                        break;
-                }
+                shifterOperand = arm::shift(rmValue, shiftType, shiftAmount, carry, !shiftByReg);
             }
 
-            bool negative = state.getFlag(cpsr_flags::N_FLAG),
-                 zero = state.getFlag(cpsr_flags::Z_FLAG),
-                 overflow = state.getFlag(cpsr_flags::V_FLAG),
-                 carry = state.getFlag(cpsr_flags::C_FLAG);
+            bool shifterOperandCarry = shifterOperand & (static_cast<uint64_t>(1) << 32);
+            shifterOperand &= 0xFFFFFFFF;
 
             uint64_t rnValue = state.accessReg(inst.params.data_proc_psr_transf.rn);
             if (inst.params.data_proc_psr_transf.rn == regs::PC_OFFSET) {
@@ -608,9 +602,12 @@ namespace gbaemu
                 arm::RSB, arm::RSC, arm::SBC, arm::SUB};
 
             static const std::set<arm::ARMInstructionID> updateCarry{
-                arm::ADC, arm::ADD, arm::AND, arm::CMN, arm::CMP,
-                arm::EOR, arm::MVN, arm::ORR, arm::RSB, arm::RSC,
-                arm::SBC, arm::SUB, arm::TEQ, arm::TST};
+                arm::ADC, arm::ADD, arm::CMN, arm::CMP, arm::RSB,
+                arm::RSC, arm::SBC, arm::SUB};
+
+            static const std::set<arm::ARMInstructionID> updateCarryFromShiftOp{
+                arm::AND, arm::EOR, arm::MOV, arm::MVN, arm::ORR,
+                arm::BIC, arm::TEQ, arm::TST};
 
             static const std::set<arm::ARMInstructionID> dontUpdateRD{
                 arm::CMP, arm::CMN, arm::TST, arm::TEQ};
@@ -716,6 +713,11 @@ namespace gbaemu
                     updateZero.find(inst.id) != updateZero.end(),
                     updateOverflow.find(inst.id) != updateOverflow.end(),
                     updateCarry.find(inst.id) != updateCarry.end());
+
+                if (updateCarryFromShiftOp.find(inst.id) != updateCarryFromShiftOp.end() &&
+                    (shiftType != arm::ShiftType::LSL || shiftAmount != 0)) {
+                    state.setFlag(cpsr_flags::C_FLAG, shifterOperandCarry);
+                }
             }
 
             if (dontUpdateRD.find(inst.id) == dontUpdateRD.end())
@@ -809,7 +811,7 @@ namespace gbaemu
                 auto shiftType = static_cast<arm::ShiftType>((inst.params.ls_reg_ubyte.addrMode >> 5) & 0b11);
                 uint32_t rm = inst.params.ls_reg_ubyte.addrMode & 0xF;
 
-                offset = arm::shift(state.accessReg(rm), shiftType, shiftAmount);
+                offset = arm::shift(state.accessReg(rm), shiftType, shiftAmount, state.getFlag(cpsr_flags::C_FLAG), true) & 0xFFFFFFFF;
             }
 
             /* if the offset is added depends on the indexing mode */
@@ -1470,7 +1472,6 @@ namespace gbaemu
             // are interpreted as LSR/ASR#32. Attempts to specify LSR/ASR#0 in source
             // code are automatically redirected as LSL#0, and source LSR/ASR#32 is
             // redirected as opcode LSR/ASR#0.
-            // TODO: Description is a bit contradicting... Are source redirections of higher priority?
             if (ins != thumb::LSL && offset == 0) {
                 offset = 32;
             }
@@ -1478,33 +1479,31 @@ namespace gbaemu
             uint64_t rsValue = static_cast<uint64_t>(state.accessReg(rs));
             uint64_t rdValue = 0;
 
+            arm::ShiftType shiftType = arm::ShiftType::LSL;
             switch (ins) {
                 case thumb::LSL:
-                    // 00b: LSL{S} Rd,Rs,#Offset   (logical/arithmetic shift left)
-                    rdValue = rsValue << offset;
+                    shiftType = arm::ShiftType::LSL;
                     break;
                 case thumb::LSR:
-                    // 01b: LSR{S} Rd,Rs,#Offset   (logical    shift right)
-                    rdValue = rsValue >> offset;
+                    shiftType = arm::ShiftType::LSR;
                     break;
                 case thumb::ASR:
-                    // 10b: ASR{S} Rd,Rs,#Offset   (arithmetic shift right)
-                    rdValue = static_cast<uint64_t>(static_cast<int64_t>(rsValue) >> offset);
+                    shiftType = arm::ShiftType::ASR;
                     break;
-
                 default:
                     break;
             }
+            rdValue = arm::shift(rsValue, shiftType, offset, state.getFlag(cpsr_flags::C_FLAG), true);
 
-            state.accessReg(rd) = static_cast<uint32_t>(rdValue);
+            state.accessReg(rd) = static_cast<uint32_t>(rdValue & 0x0FFFFFFFF);
 
             // Flags: Z=zeroflag, N=sign, C=carry (except LSL#0: C=unchanged), V=unchanged.
             setFlags(
                 rdValue,
-                true,               // n Flag
-                true,               // z Flag
-                false,              // v Flag
-                ins != thumb::LSL); // c flag
+                true,                              // n Flag
+                true,                              // z Flag
+                false,                             // v Flag
+                ins != thumb::LSL || offset != 0); // c flag
 
             // Execution Time: 1S
             InstructionExecutionInfo info{0};

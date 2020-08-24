@@ -165,7 +165,7 @@ namespace gbaemu
             ROR
         };
 
-        uint32_t shift(uint32_t value, ShiftType type, uint32_t amount);
+        uint64_t shift(uint32_t value, arm::ShiftType type, uint32_t amount, bool oldCarry, bool shiftRegByImm);
 
         class ARMInstruction
         {
