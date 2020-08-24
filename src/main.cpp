@@ -3,12 +3,22 @@
 #include <iterator>
 #include <vector>
 #include <chrono>
+#include <csignal>
 
 #include "lcd/window.hpp"
 #include "lcd/lcd-controller.hpp"
 #include "cpu.hpp"
 
 #define SHOW_WINDOW true
+
+static bool run_window = true;
+
+static void handleSignal(int signum) {
+    if (signum == SIGINT) {
+        std::cout << "exiting..." << std::endl;
+        run_window = false;
+    }
+}
 
 int main(int argc, char **argv)
 {
@@ -92,6 +102,8 @@ int main(int argc, char **argv)
     if (!SHOW_WINDOW)
         return 0;
 
+    std::signal(SIGINT, handleSignal);
+
     gbaemu::lcd::Window window(1280, 720);
     auto canv = window.getCanvas();
     canv.beginDraw();
@@ -99,7 +111,7 @@ int main(int argc, char **argv)
     canv.endDraw();
     gbaemu::lcd::LCDisplay display(0, 0, canv);
 
-    while (true) {
+    while (run_window) {
         SDL_Event event;
         
         if (SDL_PollEvent(&event)) {
