@@ -141,7 +141,7 @@ namespace gbaemu
             std::stringstream ss;
 
             /* general purpose registers */
-            for (uint32_t i = 0; i < 16; ++i) {
+            for (uint32_t i = 0; i < 18; ++i) {
                 /* name */
                 ss << "r" << std::dec << i << ' ';
 
@@ -151,6 +151,10 @@ namespace gbaemu
                     ss << "(LR) ";
                 else if (i == regs::SP_OFFSET)
                     ss << "(SP) ";
+                else if (i == regs::CPSR_OFFSET)
+                    ss << "(CPSR) ";
+                else if (i == regs::SPSR_OFFSET)
+                    ss << "(SPSR) ";
 
                 ss << "    ";
 
