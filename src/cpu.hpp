@@ -822,11 +822,16 @@ namespace gbaemu
                 offset = arm::shift(state.accessReg(rm), shiftType, shiftAmount, state.getFlag(cpsr_flags::C_FLAG), true) & 0xFFFFFFFF;
             }
 
+            uint32_t rnValue = state.accessReg(rn);
+
             /* if the offset is added depends on the indexing mode */
             if (pre)
-                memoryAddress = up ? rn + offset : rn - offset;
+                memoryAddress = up ? rnValue + offset : rnValue - offset;
             else
-                memoryAddress = rn;
+                memoryAddress = rnValue;
+
+            if (rn == regs::PC_OFFSET)
+                memoryAddress += 8;
 
             /* transfer */
             if (load) {
@@ -902,7 +907,6 @@ namespace gbaemu
 
             for (uint32_t i = 0; i < 16; ++i) {
                 if (inst.params.block_data_transf.rList & (1 << i)) {
-
                     if (pre && up)
                         address += 4;
                     else if (pre && !up)
@@ -934,7 +938,7 @@ namespace gbaemu
 
             /* TODO: not sure if address (+/-) 4 */
             if (writeback)
-                state.accessReg(rn) = address;
+                state.accessReg(rn) = up ? address + 4 : address - 4;
 
             // Handle edge case: Empty Rlist: Rb=Rb+40h (ARMv4-v5)
             if (edgeCaseEmptyRlist) {

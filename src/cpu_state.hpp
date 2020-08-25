@@ -147,6 +147,10 @@ namespace gbaemu
 
                 if (i == 15)
                     ss << "(PC) ";
+                else if (i == 13)
+                    ss << "(LR) ";
+                else if (i == 13)
+                    ss << "(SP) ";
 
                 ss << "    ";
 
