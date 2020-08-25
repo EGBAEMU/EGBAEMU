@@ -941,7 +941,7 @@ namespace gbaemu
 
             /* TODO: not sure if address (+/-) 4 */
             if (writeback)
-                state.accessReg(rn) = up ? address + 4 : address - 4;
+                state.accessReg(rn) = address;
 
             // Handle edge case: Empty Rlist: Rb=Rb+40h (ARMv4-v5)
             if (edgeCaseEmptyRlist) {
