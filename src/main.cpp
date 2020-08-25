@@ -100,7 +100,7 @@ int main(int argc, char **argv)
             //std::cin.get();
 
             //std::cout << "========================================================================\n";
-            //std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
+            //std::cout << cpu.state.disas(prevPC, DISAS_CMD_RANGE);
             //std::cout << cpu.state.toString() << '\n';
 
             ++i;
