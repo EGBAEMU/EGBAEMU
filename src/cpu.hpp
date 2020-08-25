@@ -901,12 +901,13 @@ namespace gbaemu
             }
 
             for (uint32_t i = 0; i < 16; ++i) {
-                if (pre && up)
-                    address += 4;
-                else if (pre && !up)
-                    address -= 4;
-
                 if (inst.params.block_data_transf.rList & (1 << i)) {
+
+                    if (pre && up)
+                        address += 4;
+                    else if (pre && !up)
+                        address -= 4;
+
                     if (load) {
                         if (i == 15) {
                             state.accessReg(regs::PC_OFFSET) = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount) & 0xFFFFFFFC;
@@ -923,12 +924,12 @@ namespace gbaemu
                         info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(address, sizeof(uint32_t));
                     }
                     nonSeqAccDone = true;
-                }
 
-                if (!pre && up)
-                    address += 4;
-                else if (!pre && !up)
-                    address -= 4;
+                    if (!pre && up)
+                        address += 4;
+                    else if (!pre && !up)
+                        address -= 4;
+                }
             }
 
             /* TODO: not sure if address (+/-) 4 */
