@@ -488,6 +488,7 @@ namespace gbaemu
                 bool l = (lastInst >> 20) & 1;
 
                 instruction.params.block_data_transf.p = p;
+                instruction.params.block_data_transf.s = s;
                 instruction.params.block_data_transf.u = u;
                 instruction.params.block_data_transf.w = w;
                 instruction.params.block_data_transf.l = l;
