@@ -1561,7 +1561,12 @@ namespace gbaemu
                         state.setFlag(cpsr_flags::THUMB_STATE, false);
                     }
 
-                    // Change the PC to the address given by rm. Note that we have to mask out the thumb switch bit.
+                    // Except for BX R15: CPU switches to ARM state, and PC is auto-aligned as (($+4) AND NOT 2).
+                    if (rs == 15) {
+                        rsValue &= ~2;
+                    }
+
+                    // Change the PC to the address given by rs. Note that we have to mask out the thumb switch bit.
                     state.accessReg(regs::PC_OFFSET) = rsValue & ~1;
                     info.additionalProgCyclesN = 1;
                     info.additionalProgCyclesS = 1;
