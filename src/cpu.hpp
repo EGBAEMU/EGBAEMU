@@ -826,7 +826,11 @@ namespace gbaemu
             uint32_t rnValue = state.accessReg(rn);
             uint32_t rdValue = state.accessReg(rd);
 
-            std::cout << "Adding Offset: " << (pre ? "yes" : "no") << " Up: "  << (up ? "yes" : "no") << std::endl;
+            if (rn == regs::PC_OFFSET)
+                rnValue += 8;
+
+            if (rd == regs::PC_OFFSET)
+                rdValue += 12;
 
             /* if the offset is added depends on the indexing mode */
             if (pre)
@@ -834,24 +838,30 @@ namespace gbaemu
             else
                 memoryAddress = rnValue;
 
-            if (rn == regs::PC_OFFSET) {
-                std::cout << "Adding +8 to address, as RN == PC" << std::endl;
-                memoryAddress += 8;
-            }
-
-            if (rd == regs::PC_OFFSET) {
-                std::cout << "Adding +12 to rdValue as RD == PC" << std::endl;
-                rdValue += 12;
-            }
-
-            std::cout << "Final Address: " << memoryAddress << " Load: " << (load ? "yes" : "no") << " Byte: " << (byte ? "yes" : "no") << std::endl;
-
             /* transfer */
             if (load) {
                 if (byte) {
                     state.accessReg(rd) = state.memory.read8(memoryAddress, &info.cycleCount);
                 } else {
-                    state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
+                    // More edge case:
+                    /*
+                    When reading a word from a halfword-aligned address (which is located in the middle between two word-aligned addresses),
+                    the lower 16bit of Rd will contain [address] ie. the addressed halfword, 
+                    and the upper 16bit of Rd will contain [Rd-2] ie. more or less unwanted garbage. 
+                    However, by isolating lower bits this may be used to read a halfword from memory. 
+                    (Above applies to little endian mode, as used in GBA.)
+                    */
+                    if (memoryAddress & 0x02) {
+                        // Not word aligned address
+                        uint16_t lowerBits = state.memory.read16(memoryAddress, nullptr);
+                        uint32_t upperBits = state.memory.read16(rdValue - 2, nullptr);
+                        state.accessReg(rd) = lowerBits | (upperBits << 16);
+
+                        // Super strange edge case simulate normal read for latency
+                        state.memory.read32(memoryAddress, &info.cycleCount);
+                    } else {
+                        state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
+                    }
                 }
             } else {
                 if (byte) {
@@ -1070,13 +1080,22 @@ namespace gbaemu
                 info.additionalProgCyclesN = 1;
             }
 
+            uint32_t rnValue = state.accessReg(rn);
+            uint32_t rdValue = state.accessReg(rd);
+
+            if (rn == regs::PC_OFFSET)
+                rnValue += 8;
+
+            if (rd == regs::PC_OFFSET)
+                rdValue += 12;
+
             if (pre) {
                 if (up)
-                    memoryAddress = state.accessReg(rn) + offset;
+                    memoryAddress = rnValue + offset;
                 else
-                    memoryAddress = state.accessReg(rn) - offset;
+                    memoryAddress = rnValue - offset;
             } else
-                memoryAddress = state.accessReg(rn);
+                memoryAddress = rnValue;
 
             if (load) {
                 if (sign) {
@@ -1094,18 +1113,18 @@ namespace gbaemu
                 }
             } else {
                 if (transferSize == 16) {
-                    state.memory.write16(memoryAddress, state.accessReg(rd), &info.cycleCount);
+                    state.memory.write16(memoryAddress, rdValue, &info.cycleCount);
                 } else {
-                    state.memory.write8(memoryAddress, state.accessReg(rd), &info.cycleCount);
+                    state.memory.write8(memoryAddress, rdValue, &info.cycleCount);
                 }
             }
 
             if (writeback || !pre) {
                 if (!pre) {
                     if (up)
-                        memoryAddress = state.accessReg(rn) + offset;
+                        memoryAddress = rnValue + offset;
                     else
-                        memoryAddress = state.accessReg(rn) - offset;
+                        memoryAddress = rnValue - offset;
                 }
 
                 state.accessReg(rn) = memoryAddress;
