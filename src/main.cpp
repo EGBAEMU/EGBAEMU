@@ -96,16 +96,17 @@ int main(int argc, char **argv)
          */
 
         if (prevPC != postPC) {
-            std::cout << "press enter to continue\n";
-            std::cin.get();
+            //std::cout << "press enter to continue\n";
+            //std::cin.get();
 
-            std::cout << "========================================================================\n";
-            std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
-            std::cout << cpu.state.toString() << '\n';
+            //std::cout << "========================================================================\n";
+            //std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
+            //std::cout << cpu.state.toString() << '\n';
 
             ++i;
         }
 
+        /*
         SDL_Event event;
         
         if (SDL_PollEvent(&event)) {
@@ -115,6 +116,7 @@ int main(int argc, char **argv)
         
         controller.plotMemory();
         window.present();
+         */
 
         if (!run_window)
             break;
