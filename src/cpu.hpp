@@ -814,7 +814,6 @@ namespace gbaemu
             if (immediate) {
                 offset = inst.params.ls_reg_ubyte.addrMode;
             } else {
-                /* TODO: 0 has special meaning */
                 uint32_t shiftAmount = (inst.params.ls_reg_ubyte.addrMode >> 7) & 0x1F;
                 auto shiftType = static_cast<arm::ShiftType>((inst.params.ls_reg_ubyte.addrMode >> 5) & 0b11);
                 uint32_t rm = inst.params.ls_reg_ubyte.addrMode & 0xF;
@@ -823,6 +822,7 @@ namespace gbaemu
             }
 
             uint32_t rnValue = state.accessReg(rn);
+            uint32_t rdValue = state.accessReg(rd);
 
             /* if the offset is added depends on the indexing mode */
             if (pre)
@@ -833,6 +833,9 @@ namespace gbaemu
             if (rn == regs::PC_OFFSET)
                 memoryAddress += 8;
 
+            if (rd == regs::PC_OFFSET)
+                rdValue += 12;
+
             /* transfer */
             if (load) {
                 if (byte) {
@@ -842,9 +845,9 @@ namespace gbaemu
                 }
             } else {
                 if (byte) {
-                    state.memory.write8(memoryAddress, state.accessReg(rd), &info.cycleCount);
+                    state.memory.write8(memoryAddress, rdValue, &info.cycleCount);
                 } else {
-                    state.memory.write32(memoryAddress, state.accessReg(rd), &info.cycleCount);
+                    state.memory.write32(memoryAddress, rdValue, &info.cycleCount);
                 }
             }
 
