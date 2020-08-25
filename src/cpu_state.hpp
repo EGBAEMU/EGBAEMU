@@ -145,11 +145,11 @@ namespace gbaemu
                 /* name */
                 ss << "r" << std::dec << i << ' ';
 
-                if (i == 15)
+                if (i == regs::PC_OFFSET)
                     ss << "(PC) ";
-                else if (i == 13)
+                else if (i == regs::LR_OFFSET)
                     ss << "(LR) ";
-                else if (i == 13)
+                else if (i == regs::SP_OFFSET)
                     ss << "(SP) ";
 
                 ss << "    ";
