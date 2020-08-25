@@ -86,16 +86,27 @@ int main(int argc, char **argv)
 
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
-        if (prevPC != postPC) {
-            std::cout << "press enter to continue\n";
-            std::cin.get();
+        /*
+        // skipping wait loops
+        if (cpu.state.accessReg(gbaemu::regs::PC_OFFSET) == 0x8000186)
+            cpu.state.accessReg(gbaemu::regs::R1_OFFSET) = 4;
 
-            std::cout << "========================================================================\n";
-            std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
+        if (cpu.state.accessReg(gbaemu::regs::PC_OFFSET) == 0x8000192)
+            cpu.state.accessReg(gbaemu::regs::R3_OFFSET) = 4;
+         */
+
+        if (prevPC != postPC) {
+            //std::cout << "press enter to continue\n";
+            //std::cin.get();
+
+            //std::cout << "========================================================================\n";
+            //std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
+            //std::cout << cpu.state.toString() << '\n';
 
             ++i;
         }
 
+        /*
         SDL_Event event;
         
         if (SDL_PollEvent(&event)) {
@@ -105,6 +116,7 @@ int main(int argc, char **argv)
         
         controller.plotMemory();
         window.present();
+         */
 
         if (!run_window)
             break;

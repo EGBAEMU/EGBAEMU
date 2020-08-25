@@ -1562,7 +1562,7 @@ namespace gbaemu
                     }
 
                     // Change the PC to the address given by rm. Note that we have to mask out the thumb switch bit.
-                    state.accessReg(regs::PC_OFFSET) = rsValue & ~2;
+                    state.accessReg(regs::PC_OFFSET) = rsValue & ~1;
                     info.additionalProgCyclesN = 1;
                     info.additionalProgCyclesS = 1;
 
