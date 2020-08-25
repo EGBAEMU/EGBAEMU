@@ -743,6 +743,8 @@ namespace gbaemu
                 info.cycleCount += 1;
             }
 
+            //TODO update current user mode(not thumb/arm)!
+
             return info;
         }
 
@@ -813,14 +815,12 @@ namespace gbaemu
             /* offset is calculated differently, depending on the I-bit */
             if (immediate) {
                 offset = inst.params.ls_reg_ubyte.addrMode;
-                std::cout << "Immediate Offset: " << offset << std::endl;
             } else {
                 uint32_t shiftAmount = (inst.params.ls_reg_ubyte.addrMode >> 7) & 0x1F;
                 auto shiftType = static_cast<arm::ShiftType>((inst.params.ls_reg_ubyte.addrMode >> 5) & 0b11);
                 uint32_t rm = inst.params.ls_reg_ubyte.addrMode & 0xF;
 
                 offset = arm::shift(state.accessReg(rm), shiftType, shiftAmount, state.getFlag(cpsr_flags::C_FLAG), true) & 0xFFFFFFFF;
-                std::cout << "Shifted Offset: " << offset << " Shift Amount: " << shiftAmount << " Source Register: " << rm << " Value RM: " << state.accessReg(rm) << std::endl;
             }
 
             uint32_t rnValue = state.accessReg(rn);
