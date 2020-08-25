@@ -949,7 +949,7 @@ namespace gbaemu
             bool forceUserRegisters = inst.params.block_data_transf.s;
 
             if (forceUserRegisters) {
-                currentRegs = state.getUserRegs();
+                currentRegs = state.getModeRegs(CPUState::UserMode);
             }
 
             bool pre = inst.params.block_data_transf.p;

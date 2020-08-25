@@ -113,6 +113,16 @@ namespace gbaemu
             return regsHacks[mode];
         }
 
+        uint32_t *const *const getModeRegs(CPUMode mode)
+        {
+            return regsHacks[mode];
+        }
+
+        const uint32_t *const *const getModeRegs(CPUMode mode) const
+        {
+            return regsHacks[mode];
+        }
+
         uint32_t &accessReg(uint8_t offset)
         {
             return *(getCurrentRegs()[offset]);
