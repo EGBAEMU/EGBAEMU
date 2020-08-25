@@ -278,6 +278,67 @@ namespace gbaemu
                 state.accessReg(regs::PC_OFFSET) = postPc + (postThumbMode ? 2 : 4);
             }
 
+            //TODO update current user mode(not thumb/arm)!
+            /*
+            The Mode Bits M4-M0 contain the current operating mode.
+                    Binary Hex Dec  Expl.
+                    0xx00b 00h 0  - Old User       ;\26bit Backward Compatibility modes
+                    0xx01b 01h 1  - Old FIQ        ; (supported only on ARMv3, except ARMv3G,
+                    0xx10b 02h 2  - Old IRQ        ; and on some non-T variants of ARMv4)
+                    0xx11b 03h 3  - Old Supervisor ;/
+                    10000b 10h 16 - User (non-privileged)
+                    10001b 11h 17 - FIQ
+                    10010b 12h 18 - IRQ
+                    10011b 13h 19 - Supervisor (SWI)
+                    10111b 17h 23 - Abort
+                    11011b 1Bh 27 - Undefined
+                    11111b 1Fh 31 - System (privileged 'User' mode) (ARMv4 and up)
+            Writing any other values into the Mode bits is not allowed. 
+            */
+            uint8_t modeBits = state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK;
+            switch (modeBits) {
+                case 0b10000:
+                    state.mode = CPUState::UserMode;
+                    break;
+                case 0b10001:
+                    state.mode = CPUState::FIQ;
+                    break;
+                case 0b10010:
+                    state.mode = CPUState::IRQ;
+                    break;
+                case 0b10011:
+                    state.mode = CPUState::SupervisorMode;
+                    break;
+                case 0b10111:
+                    state.mode = CPUState::AbortMode;
+                    break;
+                case 0b11011:
+                    state.mode = CPUState::UndefinedMode;
+                    break;
+                case 0b11111:
+                    state.mode = CPUState::SystemMode;
+                    break;
+
+                default:
+                    /*
+                    switch (modeBits & 0x13) {
+                        case 0b0000:
+                            state.mode = CPUState::UserMode;
+                            break;
+                        case 0b0001:
+                            state.mode = CPUState::FIQ;
+                            break;
+                        case 0b0010:
+                            state.mode = CPUState::IRQ;
+                            break;
+                        case 0b0011:
+                            state.mode = CPUState::SupervisorMode;
+                            break;
+                    }
+                    */
+                    break;
+            }
+
             return info;
         }
 
@@ -742,8 +803,6 @@ namespace gbaemu
             if (shiftByReg) {
                 info.cycleCount += 1;
             }
-
-            //TODO update current user mode(not thumb/arm)!
 
             return info;
         }
