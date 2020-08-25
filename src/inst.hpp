@@ -252,7 +252,7 @@ namespace gbaemu
                 } ls_reg_ubyte;
 
                 struct {
-                    bool p, u, w, l;
+                    bool p, u, w, l, s;
                     uint32_t rn, rList;
                 } block_data_transf;
 

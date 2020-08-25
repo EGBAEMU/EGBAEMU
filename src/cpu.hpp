@@ -813,16 +813,20 @@ namespace gbaemu
             /* offset is calculated differently, depending on the I-bit */
             if (immediate) {
                 offset = inst.params.ls_reg_ubyte.addrMode;
+                std::cout << "Immediate Offset: " << offset << std::endl;
             } else {
                 uint32_t shiftAmount = (inst.params.ls_reg_ubyte.addrMode >> 7) & 0x1F;
                 auto shiftType = static_cast<arm::ShiftType>((inst.params.ls_reg_ubyte.addrMode >> 5) & 0b11);
                 uint32_t rm = inst.params.ls_reg_ubyte.addrMode & 0xF;
 
                 offset = arm::shift(state.accessReg(rm), shiftType, shiftAmount, state.getFlag(cpsr_flags::C_FLAG), true) & 0xFFFFFFFF;
+                std::cout << "Shifted Offset: " << offset << " Shift Amount: " << shiftAmount << " Source Register: " << rm << " Value RM: " << state.accessReg(rm) << std::endl;
             }
 
             uint32_t rnValue = state.accessReg(rn);
             uint32_t rdValue = state.accessReg(rd);
+
+            std::cout << "Adding Offset: " << (pre ? "yes" : "no") << " Up: "  << (up ? "yes" : "no") << std::endl;
 
             /* if the offset is added depends on the indexing mode */
             if (pre)
@@ -830,11 +834,17 @@ namespace gbaemu
             else
                 memoryAddress = rnValue;
 
-            if (rn == regs::PC_OFFSET)
+            if (rn == regs::PC_OFFSET) {
+                std::cout << "Adding +8 to address, as RN == PC" << std::endl;
                 memoryAddress += 8;
+            }
 
-            if (rd == regs::PC_OFFSET)
+            if (rd == regs::PC_OFFSET) {
+                std::cout << "Adding +12 to rdValue as RD == PC" << std::endl;
                 rdValue += 12;
+            }
+
+            std::cout << "Final Address: " << memoryAddress << " Load: " << (load ? "yes" : "no") << " Byte: " << (byte ? "yes" : "no") << std::endl;
 
             /* transfer */
             if (load) {
@@ -864,14 +874,21 @@ namespace gbaemu
 
         InstructionExecutionInfo execDataBlockTransfer(arm::ARMInstruction &inst)
         {
+            auto currentRegs = state.getCurrentRegs();
+
             //TODO S bit seems relevant for register selection, NOTE: this instruction is reused for handleThumbMultLoadStore & handleThumbPushPopRegister
+            bool forceUserRegisters = inst.params.block_data_transf.s;
+
+            if (forceUserRegisters) {
+                currentRegs = state.getUserRegs();
+            }
 
             bool pre = inst.params.block_data_transf.p;
             bool up = inst.params.block_data_transf.u;
             bool writeback = inst.params.block_data_transf.w;
             bool load = inst.params.block_data_transf.l;
             uint32_t rn = inst.params.block_data_transf.rn;
-            uint32_t address = state.accessReg(rn);
+            uint32_t address = *currentRegs[rn];
 
             // Execution Time:
             // For normal LDM, nS+1N+1I. For LDM PC, (n+1)S+2N+1I.
@@ -917,15 +934,15 @@ namespace gbaemu
 
                     if (load) {
                         if (i == 15) {
-                            state.accessReg(regs::PC_OFFSET) = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount) & 0xFFFFFFFC;
+                            *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount) & 0xFFFFFFFC;
                             // Special case for pipeline refill
                             info.additionalProgCyclesN = 1;
                             info.additionalProgCyclesS = 1;
                         } else {
-                            state.accessReg(i) = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount);
+                            *currentRegs[i] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount);
                         }
                     } else {
-                        state.memory.write32(address, state.accessReg(i), nonSeqAccDone ? nullptr : &info.cycleCount);
+                        state.memory.write32(address, *currentRegs[i], nonSeqAccDone ? nullptr : &info.cycleCount);
                     }
                     if (nonSeqAccDone) {
                         info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(address, sizeof(uint32_t));
@@ -941,11 +958,11 @@ namespace gbaemu
 
             /* TODO: not sure if address (+/-) 4 */
             if (writeback)
-                state.accessReg(rn) = address;
+                *currentRegs[rn] = address;
 
             // Handle edge case: Empty Rlist: Rb=Rb+40h (ARMv4-v5)
             if (edgeCaseEmptyRlist) {
-                state.accessReg(rn) = state.accessReg(rn) + 0x40;
+                *currentRegs[rn] = *currentRegs[rn] + 0x40;
             }
 
             return info;
