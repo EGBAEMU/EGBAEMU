@@ -96,14 +96,12 @@ int main(int argc, char **argv)
          */
 
         if (prevPC != postPC) {
-            if (cpu.state.pipeline.decode.instruction.isArm) {
-                std::cout << "press enter to continue\n";
-                std::cin.get();
+            //std::cout << "press enter to continue\n";
+            //std::cin.get();
 
-                std::cout << "========================================================================\n";
-                std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
-                std::cout << cpu.state.toString() << '\n';
-            }
+            //std::cout << "========================================================================\n";
+            //std::cout << cpu.state.disas(prevPC, DISAS_CMD_RANGE);
+            //std::cout << cpu.state.toString() << '\n';
 
             ++i;
         }

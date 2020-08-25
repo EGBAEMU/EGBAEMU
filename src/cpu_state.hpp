@@ -177,6 +177,18 @@ namespace gbaemu
             }
 
             for (uint32_t i = startAddr; cmds > 0; --cmds) {
+
+                /* indicate executed instruction */
+                if (i == addr)
+                    ss << "<- ";
+
+                /* indicate current instruction */
+                if (i == accessReg(regs::PC_OFFSET))
+                    ss << "=> ";
+
+                /* address, pad hex numbers with 0 */
+                ss << "0x" << std::setw(8) << i << "    ";
+
                 if (getFlag(cpsr_flags::THUMB_STATE)) {
                     uint32_t bytes = memory.read16(i, nullptr);
 
@@ -184,13 +196,6 @@ namespace gbaemu
                     uint32_t b1 = memory.read8(i + 1, nullptr);
 
                     auto inst = decoder->decode(bytes).thumb;
-
-                    /* indicate current instruction */
-                    if (i == accessReg(regs::PC_OFFSET))
-                        ss << "=> ";
-
-                    /* address, pad hex numbers with 0 */
-                    ss << "0x" << std::setw(8) << i << "    ";
 
                     /* bytes */
                     ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << " [" << std::setw(4) << bytes << ']';
@@ -208,13 +213,6 @@ namespace gbaemu
                     uint32_t b3 = memory.read8(i + 3, nullptr);
 
                     auto inst = decoder->decode(bytes).arm;
-
-                    /* indicate current instruction */
-                    if (i == accessReg(regs::PC_OFFSET))
-                        ss << "=> ";
-
-                    /* address, pad hex numbers with 0 */
-                    ss << "0x" << std::setw(8) << i << "    ";
 
                     /* bytes */
                     ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << std::setw(2) << b2 << ' ' << std::setw(2) << b3 << " [" << std::setw(8) << bytes << ']';

@@ -242,21 +242,19 @@ namespace gbaemu
                 }
             }
 
-            //TODO check if every instruction has this 1S cycle
-            //TODO we need to consider here branch instructions -> which PC to use for this calculation + how often (pipeline flush?)
-            // Add 1S cycle needed to fetch a instruction if not other requested
-            if (!info.noDefaultSCycle) {
-                info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(state.getCurrentPC(), sizeof(uint32_t));
-            }
-            if (info.additionalProgCyclesN) {
-                info.cycleCount += state.memory.nonSeqWaitCyclesForVirtualAddr(state.getCurrentPC(), sizeof(uint32_t)) * info.additionalProgCyclesN;
-            }
-            if (info.additionalProgCyclesS) {
-                info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(state.getCurrentPC(), sizeof(uint32_t)) * info.additionalProgCyclesS;
-            }
-
             const uint32_t postPc = state.getCurrentPC();
             const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+
+            // Add 1S cycle needed to fetch a instruction if not other requested
+            if (!info.noDefaultSCycle) {
+                info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(postPc, prevThumbMode ? sizeof(uint16_t) : sizeof(uint32_t));
+            }
+            if (info.additionalProgCyclesN) {
+                info.cycleCount += state.memory.nonSeqWaitCyclesForVirtualAddr(postPc, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * info.additionalProgCyclesN;
+            }
+            if (info.additionalProgCyclesS) {
+                info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(postPc, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * info.additionalProgCyclesS;
+            }
 
             // Change from arm mode to thumb mode or vice versa
             if (prevThumbMode != postThumbMode) {
@@ -1568,7 +1566,12 @@ namespace gbaemu
                         state.setFlag(cpsr_flags::THUMB_STATE, false);
                     }
 
-                    // Change the PC to the address given by rm. Note that we have to mask out the thumb switch bit.
+                    // Except for BX R15: CPU switches to ARM state, and PC is auto-aligned as (($+4) AND NOT 2).
+                    if (rs == 15) {
+                        rsValue &= ~2;
+                    }
+
+                    // Change the PC to the address given by rs. Note that we have to mask out the thumb switch bit.
                     state.accessReg(regs::PC_OFFSET) = rsValue & ~1;
                     info.additionalProgCyclesN = 1;
                     info.additionalProgCyclesS = 1;
