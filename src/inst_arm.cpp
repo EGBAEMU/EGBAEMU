@@ -138,7 +138,7 @@ namespace gbaemu
                 ss << instructionIDToString(id) << " r" << params.hw_transf_imm_off.rd;
 
                 if (params.hw_transf_reg_off.p) {
-                    ss << " [r" << params.hw_transf_imm_off.rn << "+" << std::hex << params.hw_transf_imm_off.offset << ']';
+                    ss << " [r" << params.hw_transf_imm_off.rn << "+0x" << std::hex << params.hw_transf_imm_off.offset << ']';
                 } else {
                     ss << " [[r" << params.hw_transf_imm_off.rn << "]+0x" << std::hex << params.hw_transf_imm_off.offset << ']';
                 }
@@ -148,7 +148,7 @@ namespace gbaemu
 
                 ss << instructionIDToString(id) << " r" << params.ls_reg_ubyte.rd;
 
-                if (params.ls_reg_ubyte.i) {
+                if (!params.ls_reg_ubyte.i) {
                     uint32_t immOff = params.ls_reg_ubyte.addrMode & 0xFFF;
 
                     if (pre)
@@ -156,7 +156,7 @@ namespace gbaemu
                     else
                         ss << " [[r" << params.ls_reg_ubyte.rn << ']';
 
-                    ss << upDown << std::hex << immOff << ']';
+                    ss << upDown << "0x"<< std::hex << immOff << ']';
                 } else {
                     uint32_t shiftAmount = (params.ls_reg_ubyte.addrMode >> 7) & 0xF;
                     uint32_t rm = params.ls_reg_ubyte.addrMode & 0xF;
