@@ -971,6 +971,7 @@ namespace gbaemu
 
             if (forceUserRegisters) {
                 currentRegs = state.getModeRegs(CPUState::UserMode);
+                std::cout << "WARNING: force user register bit is set!" << std::endl;
             }
 
             bool pre = inst.params.block_data_transf.p;
@@ -1028,6 +1029,16 @@ namespace gbaemu
                             // Special case for pipeline refill
                             info.additionalProgCyclesN = 1;
                             info.additionalProgCyclesS = 1;
+
+                            // More special cases
+                            /*
+                            When S Bit is set (S=1)
+                            If instruction is LDM and R15 is in the list: (Mode Changes)
+                              While R15 loaded, additionally: CPSR=SPSR_<current mode>
+                            */
+                            if (forceUserRegisters) {
+                                *currentRegs[regs::CPSR_OFFSET] = *state.getCurrentRegs()[regs::SPSR_OFFSET];
+                            }
                         } else {
                             *currentRegs[i] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount);
                         }
