@@ -505,7 +505,7 @@ namespace gbaemu
                 bool p = (lastInst >> 24) & 1;
                 bool u = (lastInst >> 23) & 1;
                 // TODO: Handle S!!!!
-                bool s = (lastInst >> 22) & 1; 
+                bool s = (lastInst >> 22) & 1;
                 bool w = (lastInst >> 21) & 1;
                 bool l = (lastInst >> 20) & 1;
 
