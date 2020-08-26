@@ -1515,7 +1515,7 @@ namespace gbaemu
             InstructionExecutionInfo info{0};
 
             // 7-0    nn - Unsigned offset        (0-1020 in steps of 4)
-            uint32_t memoryAddress = ((state.accessReg(regs::PC_OFFSET) + 4) & ~2) + (offset << 2);
+            uint32_t memoryAddress = ((state.accessReg(regs::PC_OFFSET) + 4) & ~2) + (static_cast<uint32_t>(offset) << 2);
             //  LDR Rd,[PC,#nn]      ;load 32bit    Rd = WORD[PC+nn]
             state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
 
