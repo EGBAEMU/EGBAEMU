@@ -4,6 +4,30 @@
 
 namespace gbaemu
 {
+
+    const char *conditionCodeToString(ConditionOPCode condition)
+    {
+        switch (condition) {
+            STRINGIFY_CASE_ID(EQ);
+            STRINGIFY_CASE_ID(NE);
+            STRINGIFY_CASE_ID(CS_HS);
+            STRINGIFY_CASE_ID(CC_LO);
+            STRINGIFY_CASE_ID(MI);
+            STRINGIFY_CASE_ID(PL);
+            STRINGIFY_CASE_ID(VS);
+            STRINGIFY_CASE_ID(VC);
+            STRINGIFY_CASE_ID(HI);
+            STRINGIFY_CASE_ID(LS);
+            STRINGIFY_CASE_ID(GE);
+            STRINGIFY_CASE_ID(LT);
+            STRINGIFY_CASE_ID(GT);
+            STRINGIFY_CASE_ID(LE);
+            STRINGIFY_CASE_ID(AL);
+            STRINGIFY_CASE_ID(NV);
+        }
+        return "";
+    }
+
     uint64_t arm::shift(uint32_t value, ShiftType type, uint32_t amount, bool oldCarry, bool shiftRegByImm)
     {
         //TODO do those edge cases not apply if shift is done by an reg instead of an Imm?

@@ -88,6 +88,8 @@ namespace gbaemu
         NV
     };
 
+    const char *conditionCodeToString(ConditionOPCode condition);
+
     bool conditionSatisfied(ConditionOPCode condition, const CPUState &state);
 
     namespace arm

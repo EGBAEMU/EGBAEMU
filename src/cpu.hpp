@@ -1222,7 +1222,7 @@ namespace gbaemu
         InstructionExecutionInfo handleThumbUnconditionalBranch(int16_t offset)
         {
             // TODO: Offset may be shifted by 1 or not at all
-            state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(state.getCurrentPC()) + 4 + (offset << 1));
+            state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(state.getCurrentPC()) + 4 + (offset * 2));
 
             // Unconditional branches take 2S + 1N
             InstructionExecutionInfo info{0};
@@ -1239,7 +1239,7 @@ namespace gbaemu
             // Branch will be executed if condition is met
             if (conditionSatisfied(static_cast<ConditionOPCode>(cond), state)) {
 
-                state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(state.getCurrentPC()) + 4 + (offset << 1));
+                state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(state.getCurrentPC()) + 4 + (static_cast<int32_t>(offset) * 2));
 
                 // If branch executed: 2S+1N
                 info.additionalProgCyclesN = 1;
