@@ -577,7 +577,7 @@ namespace gbaemu
             }
 
             // Offset is given in units of 4. Thus we need to shift it first by two
-            offset = offset << 2;
+            offset *= 4;
 
             state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(pc) + 8 + offset);
 
@@ -1324,14 +1324,14 @@ namespace gbaemu
         InstructionExecutionInfo handleThumbAddOffsetToStackPtr(bool s, uint8_t offset)
         {
             // nn - Unsigned Offset    (0-508, step 4)
-            offset <<= 2;
+            uint32_t extOffset = static_cast<uint32_t>(offset) << 2;
 
             if (s) {
                 // 1: ADD  SP,#-nn      ;SP = SP - nn
-                state.accessReg(regs::PC_OFFSET) = state.getCurrentPC() - offset;
+                state.accessReg(regs::PC_OFFSET) = state.getCurrentPC() - extOffset;
             } else {
                 // 0: ADD  SP,#nn       ;SP = SP + nn
-                state.accessReg(regs::PC_OFFSET) = state.getCurrentPC() + offset;
+                state.accessReg(regs::PC_OFFSET) = state.getCurrentPC() + extOffset;
             }
 
             // Execution Time: 1S
@@ -1359,7 +1359,8 @@ namespace gbaemu
         {
             InstructionExecutionInfo info{0};
 
-            uint32_t memoryAddress = state.accessReg(regs::SP_OFFSET) + (offset << 4);
+            // 7-0    nn - Unsigned Offset              (0-1020, step 4)
+            uint32_t memoryAddress = state.accessReg(regs::SP_OFFSET) + (static_cast<uint32_t>(offset) << 2);
 
             if (l) {
                 // 1: LDR  Rd,[SP,#nn]  ;load  32bit data   Rd = WORD[SP+nn]
@@ -1382,7 +1383,7 @@ namespace gbaemu
             InstructionExecutionInfo info{0};
 
             // 10-6   nn - Unsigned Offset              (0-62, step 2)
-            uint32_t memoryAddress = state.accessReg(rb) + (offset << 1);
+            uint32_t memoryAddress = state.accessReg(rb) + (static_cast<uint32_t>(offset) << 1);
 
             if (l) {
 
@@ -1427,7 +1428,7 @@ namespace gbaemu
                 }
             } else {
                 // offset is in words
-                address += (offset << 2);
+                address += (static_cast<uint32_t>(offset) << 2);
                 if (l) {
                     *currentRegs[rd] = state.memory.read32(address, &info.cycleCount);
                 } else {
