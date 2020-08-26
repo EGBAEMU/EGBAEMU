@@ -1279,6 +1279,7 @@ namespace gbaemu
             wrapper.params.block_data_transf.u = true;
             wrapper.params.block_data_transf.w = true;
             wrapper.params.block_data_transf.p = false;
+            wrapper.params.block_data_transf.s = false;
             wrapper.params.block_data_transf.rn = rb;
 
             return execDataBlockTransfer(wrapper);
@@ -1315,6 +1316,8 @@ namespace gbaemu
 
             //TODO you have to consider conventions regarding on which address SP is pointing to: first free vs last used
             wrapper.params.block_data_transf.p = !load;
+
+            wrapper.params.block_data_transf.s = false;
 
             wrapper.params.block_data_transf.rn = regs::SP_OFFSET;
 
