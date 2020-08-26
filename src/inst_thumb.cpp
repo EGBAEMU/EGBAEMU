@@ -100,7 +100,7 @@ namespace gbaemu
 
                 break;
                 case ThumbInstructionCategory::MOV_CMP_ADD_SUB_IMM:
-                    ss << " r" << static_cast<uint32_t>(params.mov_cmp_add_sub_imm.rd) << ", 0x" << std::hex << params.mov_cmp_add_sub_imm.offset;
+                    ss << " r" << static_cast<uint32_t>(params.mov_cmp_add_sub_imm.rd) << ", 0x" << std::hex << static_cast<uint32_t>(params.mov_cmp_add_sub_imm.offset);
                     break;
                 case ThumbInstructionCategory::ALU_OP:
                     ss << " r" << static_cast<uint32_t>(params.alu_op.rd) << ", r" << static_cast<uint32_t>(params.alu_op.rs);
