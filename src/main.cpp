@@ -37,7 +37,6 @@ int main(int argc, char **argv)
     canv.beginDraw();
     canv.clear(0xFFFF0000);
     canv.endDraw();
-    
 
     /* read gba file */
     std::ifstream file(argv[1], std::ios::binary);
@@ -79,6 +78,16 @@ int main(int argc, char **argv)
 
     std::cout << cpu.state.disas(gbaemu::Memory::EXT_ROM_OFFSET, DISAS_CMD_RANGE);
 
+    int checkPointReached = 0;
+// #define TARGET_CHECKPOINT_CNT 3
+// exit of helper for 0 initialization
+// #define CHECKPOINT_PC 0x0800018c
+
+
+#define TARGET_CHECKPOINT_CNT 3
+// exit of helper for copy from ROM to RAM
+#define CHECKPOINT_PC 0x0800019a
+
     for (uint32_t i = 0; i < 0xFFFFFFFF;) {
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
@@ -87,9 +96,14 @@ int main(int argc, char **argv)
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
         if (prevPC != postPC) {
-            if (true) {
-                //std::cout << "press enter to continue\n";
-                //std::cin.get();
+            if (postPC == CHECKPOINT_PC) {
+                ++checkPointReached;
+                std::cout << "CHECKPOINT REACHED: " << checkPointReached << std::endl;
+            }
+
+            if (checkPointReached >= TARGET_CHECKPOINT_CNT) {
+                std::cout << "press enter to continue\n";
+                std::cin.get();
 
                 std::cout << "========================================================================\n";
                 std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
@@ -99,19 +113,18 @@ int main(int argc, char **argv)
             ++i;
         }
 
-        
+        //if (cpu.state.pipeline.decode.lastInstruction.isArmInstruction()) {
+        if (checkPointReached >= TARGET_CHECKPOINT_CNT) {
+            SDL_Event event;
 
-        /*
-        SDL_Event event;
-        
-        if (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE)
-                break;
+            if (SDL_PollEvent(&event)) {
+                if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE)
+                    break;
+            }
+
+            controller.plotMemory();
+            window.present();
         }
-        
-        controller.plotMemory();
-        window.present();
-         */
 
         if (!run_window)
             break;
