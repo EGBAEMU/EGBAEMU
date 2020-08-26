@@ -80,40 +80,62 @@ namespace gbaemu
 
                 ss << idStr;
 
-                if (hasRD)
-                    ss << " r" << rd;
-
-                if (params.data_proc_psr_transf.i) {
-                    if (!hasRN) {
-                        ss << " 0x" << std::hex << imm;
-
-                        if (shiftByReg)
-                            ss << "<<r" << std::dec << rs;
-                        else if (shiftAmount > 0)
-                            ss << "<<" << std::dec << shiftAmount;
+                if (id == MSR) {
+                    // true iff write to flag field is allowed 31-24
+                    bool f = params.data_proc_psr_transf.rn & 0x08;
+                    // true iff write to status field is allowed 23-16
+                    bool s = params.data_proc_psr_transf.rn & 0x04;
+                    // true iff write to extension field is allowed 15-8
+                    bool x = params.data_proc_psr_transf.rn & 0x02;
+                    // true iff write to control field is allowed 7-0
+                    bool c = params.data_proc_psr_transf.rn & 0x01;
+                    ss << (params.data_proc_psr_transf.r ? " SPSR_" : " CPSR_");
+                    ss << (f ? "f" : "");
+                    ss << (s ? "s" : "");
+                    ss << (x ? "x" : "");
+                    ss << (c ? "c" : "");
+                    if (params.data_proc_psr_transf.i) {
+                        uint32_t roredImm = shift(imm, shiftType, shiftAmount, false, false);
+                        ss << ", #" << roredImm;
                     } else {
-                        ss << " r" << rn << " 0x" << std::hex << imm;
-
-                        if (shiftByReg)
-                            ss << "<<r" << std::dec << rs;
-                        else if (shiftAmount > 0)
-                            ss << "<<" << std::dec << shiftAmount;
+                        ss << ", r" << std::dec << rm;
                     }
                 } else {
-                    if (!hasRN) {
-                        ss << " r" << rm;
+                    if (hasRD)
+                        ss << " r" << rd;
 
-                        if (shiftByReg)
-                            ss << "<<r" << std::dec << rs;
-                        else if (shiftAmount > 0)
-                            ss << "<<" << std::dec << shiftAmount;
+                    if (params.data_proc_psr_transf.i) {
+                        if (!hasRN) {
+                            ss << " 0x" << std::hex << imm;
+
+                            if (shiftByReg)
+                                ss << "<<r" << std::dec << rs;
+                            else if (shiftAmount > 0)
+                                ss << "<<" << std::dec << shiftAmount;
+                        } else {
+                            ss << " r" << rn << " 0x" << std::hex << imm;
+
+                            if (shiftByReg)
+                                ss << "<<r" << std::dec << rs;
+                            else if (shiftAmount > 0)
+                                ss << "<<" << std::dec << shiftAmount;
+                        }
                     } else {
-                        ss << " r" << rn << " r" << rm;
+                        if (!hasRN) {
+                            ss << " r" << rm;
 
-                        if (shiftByReg)
-                            ss << "<<r" << rs;
-                        else if (shiftAmount > 0)
-                            ss << std::hex << "<<" << shiftAmount;
+                            if (shiftByReg)
+                                ss << "<<r" << std::dec << rs;
+                            else if (shiftAmount > 0)
+                                ss << "<<" << std::dec << shiftAmount;
+                        } else {
+                            ss << " r" << rn << " r" << rm;
+
+                            if (shiftByReg)
+                                ss << "<<r" << rs;
+                            else if (shiftAmount > 0)
+                                ss << std::hex << "<<" << shiftAmount;
+                        }
                     }
                 }
             } else if (cat == ARMInstructionCategory::MUL_ACC) {
@@ -156,7 +178,7 @@ namespace gbaemu
                     else
                         ss << " [[r" << params.ls_reg_ubyte.rn << ']';
 
-                    ss << upDown << "0x"<< std::hex << immOff << ']';
+                    ss << upDown << "0x" << std::hex << immOff << ']';
                 } else {
                     uint32_t shiftAmount = (params.ls_reg_ubyte.addrMode >> 7) & 0xF;
                     uint32_t rm = params.ls_reg_ubyte.addrMode & 0xF;
