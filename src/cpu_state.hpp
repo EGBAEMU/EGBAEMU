@@ -4,6 +4,7 @@
 #include "inst.hpp"
 #include "memory.hpp"
 #include "regs.hpp"
+#include "util.hpp"
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
@@ -68,6 +69,20 @@ namespace gbaemu
             {regs.rx, regs.rx + 1, regs.rx + 2, regs.rx + 3, regs.rx + 4, regs.rx + 5, regs.rx + 6, regs.rx + 7, regs.rx + 8, regs.rx + 9, regs.rx + 10, regs.rx + 11, regs.rx + 12, regs.r13_14_und, regs.r13_14_und + 1, regs.rx + 15, &regs.CPSR, &regs.SPSR_abt},
             // System / User mode regs
             {regs.rx, regs.rx + 1, regs.rx + 2, regs.rx + 3, regs.rx + 4, regs.rx + 5, regs.rx + 6, regs.rx + 7, regs.rx + 8, regs.rx + 9, regs.rx + 10, regs.rx + 11, regs.rx + 12, regs.rx + 13, regs.rx + 14, regs.rx + 15, &regs.CPSR, &regs.CPSR}};
+
+        const char *cpuModeToString() const
+        {
+            switch (mode) {
+                STRINGIFY_CASE_ID(UserMode);
+                STRINGIFY_CASE_ID(FIQ);
+                STRINGIFY_CASE_ID(IRQ);
+                STRINGIFY_CASE_ID(SupervisorMode);
+                STRINGIFY_CASE_ID(AbortMode);
+                STRINGIFY_CASE_ID(UndefinedMode);
+                STRINGIFY_CASE_ID(SystemMode);
+            }
+            return "UNKNOWN";
+        }
 
       public:
         /* pipeline */
@@ -176,6 +191,8 @@ namespace gbaemu
 
             /* flag registers */
             ss << "N=" << getFlag(cpsr_flags::N_FLAG) << ' ' << "Z=" << getFlag(cpsr_flags::Z_FLAG) << ' ' << "C=" << getFlag(cpsr_flags::C_FLAG) << ' ' << "V=" << getFlag(cpsr_flags::V_FLAG) << ' ' << "Q=" << getFlag(cpsr_flags::Q_FLAG) << '\n';
+            // Cpu Mode
+            ss << "CPU Mode: " << cpuModeToString() << '\n';
 
             return ss.str();
         }
