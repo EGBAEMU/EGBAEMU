@@ -80,6 +80,63 @@ namespace gbaemu
 
             ss << instructionIDToString(id);
 
+            switch (cat) {
+                case ThumbInstructionCategory::MOV_SHIFT:
+                    break;
+                case ThumbInstructionCategory::ADD_SUB: {
+                        uint32_t rd = params.add_sub.rd;
+                        uint32_t rs = params.add_sub.rs;
+                        uint32_t rn_off = params.add_sub.rn_offset;
+
+                        ss << " r" << rd << " r" << rs;
+
+                        if (id == ThumbInstructionID::ADD_SHORT_IMM || id == ThumbInstructionID::SUB_SHORT_IMM)
+                            ss << " 0x" << std::hex << rn_off;
+                        else
+                            ss << " r" << rn_off;
+                    }
+
+                    break;
+                case ThumbInstructionCategory::MOV_CMP_ADD_SUB_IMM:
+                    break;
+                case ThumbInstructionCategory::ALU_OP:
+                    break;
+                case ThumbInstructionCategory::BR_XCHG:
+                    ss << " r" << static_cast<uint32_t>(params.br_xchg.rd) <<
+                        " r" << static_cast<uint32_t>(params.br_xchg.rs);
+                    break;
+                case ThumbInstructionCategory::PC_LD:
+                    break;
+                case ThumbInstructionCategory::LD_ST_REL_OFF:
+                    break;
+                case ThumbInstructionCategory::LD_ST_SIGN_EXT:
+                    break;
+                case ThumbInstructionCategory::LD_ST_IMM_OFF:
+                    break;
+                case ThumbInstructionCategory::LD_ST_HW:
+                    break;
+                case ThumbInstructionCategory::LD_ST_REL_SP:
+                    break;
+                case ThumbInstructionCategory::LOAD_ADDR:
+                    break;
+                case ThumbInstructionCategory::ADD_OFFSET_TO_STACK_PTR:
+                    break;
+                case ThumbInstructionCategory::PUSH_POP_REG:
+                    break;
+                case ThumbInstructionCategory::MULT_LOAD_STORE:
+                    break;
+                case ThumbInstructionCategory::COND_BRANCH:
+                    break;
+                case ThumbInstructionCategory::SOFTWARE_INTERRUPT:
+                    break;
+                case ThumbInstructionCategory::UNCONDITIONAL_BRANCH:
+                    break;
+                case ThumbInstructionCategory::LONG_BRANCH_WITH_LINK:
+                    break;
+                case ThumbInstructionCategory::INVALID_CAT:
+                    break;
+            }
+
             return ss.str();
         }
 

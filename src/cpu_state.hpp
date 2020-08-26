@@ -186,15 +186,15 @@ namespace gbaemu
             ss << std::setfill('0') << std::hex;
 
             uint32_t startAddr = addr - (cmds / 2) * (getFlag(cpsr_flags::THUMB_STATE) ? 2 : 4);
-            if (startAddr < Memory::MemoryRegionOffset::EXT_ROM_OFFSET) {
-                startAddr = Memory::MemoryRegionOffset::EXT_ROM_OFFSET;
-            }
+            //if (startAddr < Memory::MemoryRegionOffset::EXT_ROM_OFFSET) {
+            //    startAddr = Memory::MemoryRegionOffset::EXT_ROM_OFFSET;
+            //}
 
             for (uint32_t i = startAddr; cmds > 0; --cmds) {
 
                 /* indicate executed instruction */
-                if (i == addr)
-                    ss << "<- ";
+                //if (i == addr)
+                //    ss << "<- ";
 
                 /* indicate current instruction */
                 if (i == accessReg(regs::PC_OFFSET))
