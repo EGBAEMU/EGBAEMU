@@ -237,12 +237,12 @@ namespace gbaemu
                             shiftType = static_cast<ShiftType>((operand2 >> 5) & 0b11);
                             rm = operand2 & 0xF;
                             shiftAmountFromReg = (operand2 >> 4) & 1;
-                        }
 
-                        if (shiftAmountFromReg)
-                            rs = (operand2 >> 8) & 0xF;
-                        else
-                            shiftAmount = (operand2 >> 7) & 0b11111;
+                            if (shiftAmountFromReg)
+                                rs = (operand2 >> 8) & 0xF;
+                            else
+                                shiftAmount = (operand2 >> 7) & 0b11111;
+                        }
 
                         return shiftAmountFromReg;
                     }
