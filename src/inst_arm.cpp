@@ -65,6 +65,8 @@ namespace gbaemu
         {
             std::stringstream ss;
 
+            ss << '(' << conditionCodeToString(condition) << ") ";
+
             if (cat == ARMInstructionCategory::DATA_PROC_PSR_TRANSF) {
                 /* TODO: probably not done */
                 bool hasRN = !(id == ARMInstructionID::MOV || id == ARMInstructionID::MVN);
