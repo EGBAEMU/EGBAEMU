@@ -1,6 +1,6 @@
 #include "inst_thumb.hpp"
-#include "util.hpp"
 #include "swi.hpp"
+#include "util.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -139,7 +139,7 @@ namespace gbaemu
                         if (params.push_pop_reg.rlist & (1 << i))
                             ss << "r" << i << ' ';
 
-                    ss << '}' << '{' << (params.push_pop_reg.r ? (params.push_pop_reg.l ? "PC" : "LR"): "") << '}';
+                    ss << '}' << '{' << (params.push_pop_reg.r ? (params.push_pop_reg.l ? "PC" : "LR") : "") << '}';
                     break;
                 }
                 case ThumbInstructionCategory::MULT_LOAD_STORE: {
@@ -161,9 +161,17 @@ namespace gbaemu
                 case ThumbInstructionCategory::UNCONDITIONAL_BRANCH:
                     ss << " PC + 4 + " << (static_cast<int32_t>(params.unconditional_branch.offset) * 2);
                     break;
-                case ThumbInstructionCategory::LONG_BRANCH_WITH_LINK:
+                case ThumbInstructionCategory::LONG_BRANCH_WITH_LINK: {
+                    ss << ' ';
+                    if (params.long_branch_with_link.h) {
+                        ss << "PC = LR + 0x" << std::hex << (static_cast<uint32_t>(params.long_branch_with_link.offset) << 1) << ", LR = (PC + 2) | 1";
+                    } else {
+                        ss << "LR = PC + 4 + 0x" << std::hex << (static_cast<uint32_t>(params.long_branch_with_link.offset) << 12);
+                    }
                     break;
+                }
                 case ThumbInstructionCategory::INVALID_CAT:
+                    ss << " INVALID";
                     break;
             }
 
