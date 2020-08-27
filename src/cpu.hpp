@@ -869,6 +869,18 @@ namespace gbaemu
             bool byte = inst.params.ls_reg_ubyte.b;
             bool writeback = inst.params.ls_reg_ubyte.w;
 
+            auto currentRegs = state.getCurrentRegs();
+
+            if (!pre) {
+                /* TODO: What's this? */
+                bool forceNonPrivAccess = writeback;
+                // I assume that we access user regs... because user mode is the only non-priviledged mode
+                if (forceNonPrivAccess) {
+                    currentRegs = state.getModeRegs(CPUState::UserMode);
+                    std::cout << "WARNING: force non priviledeg access!" << std::endl;
+                }
+            }
+
             uint32_t rn = inst.params.ls_reg_ubyte.rn;
             uint32_t rd = inst.params.ls_reg_ubyte.rd;
             /* these are computed in the next step */
@@ -900,11 +912,11 @@ namespace gbaemu
                 auto shiftType = static_cast<arm::ShiftType>((inst.params.ls_reg_ubyte.addrMode >> 5) & 0b11);
                 uint32_t rm = inst.params.ls_reg_ubyte.addrMode & 0xF;
 
-                offset = arm::shift(state.accessReg(rm), shiftType, shiftAmount, state.getFlag(cpsr_flags::C_FLAG), true) & 0xFFFFFFFF;
+                offset = arm::shift(*currentRegs[rm], shiftType, shiftAmount, state.getFlag(cpsr_flags::C_FLAG), true) & 0xFFFFFFFF;
             }
 
-            uint32_t rnValue = state.accessReg(rn);
-            uint32_t rdValue = state.accessReg(rd);
+            uint32_t rnValue = *currentRegs[rn];
+            uint32_t rdValue = *currentRegs[rd];
 
             if (rn == regs::PC_OFFSET)
                 rnValue += 8;
@@ -921,7 +933,7 @@ namespace gbaemu
             /* transfer */
             if (load) {
                 if (byte) {
-                    state.accessReg(rd) = state.memory.read8(memoryAddress, &info.cycleCount);
+                    *currentRegs[rd] = state.memory.read8(memoryAddress, &info.cycleCount);
                 } else {
                     // More edge case:
                     /*
@@ -937,12 +949,12 @@ namespace gbaemu
                         // Not word aligned address
                         uint16_t lowerBits = state.memory.read16(memoryAddress, nullptr);
                         uint32_t upperBits = state.memory.read16(rdValue - 2, nullptr);
-                        state.accessReg(rd) = lowerBits | (upperBits << 16);
+                        *currentRegs[rd] = lowerBits | (upperBits << 16);
 
                         // Super strange edge case simulate normal read for latency
                         state.memory.read32(memoryAddress, &info.cycleCount);
                     } else {
-                        state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
+                        *currentRegs[rd] = state.memory.read32(memoryAddress, &info.cycleCount);
                     }
                 }
             } else {
@@ -954,12 +966,7 @@ namespace gbaemu
             }
 
             if (!pre || writeback)
-                state.accessReg(rn) = memoryAddress;
-
-            if (!pre) {
-                /* TODO: What's this? */
-                bool forcePrivAccess = writeback;
-            }
+                *currentRegs[rn] = memoryAddress;
 
             return info;
         }
