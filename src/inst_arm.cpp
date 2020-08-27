@@ -103,6 +103,9 @@ namespace gbaemu
                         ss << ", r" << std::dec << rm;
                     }
                 } else {
+                    if (params.data_proc_psr_transf.s)
+                        ss << "{S}";
+
                     if (hasRD)
                         ss << " r" << rd;
 
@@ -141,12 +144,17 @@ namespace gbaemu
                     }
                 }
             } else if (cat == ARMInstructionCategory::MUL_ACC) {
-                ss << instructionIDToString(id) << " r" << params.mul_acc.rd << " r" << params.mul_acc.rm << " r" << params.mul_acc.rs;
-
+                ss << instructionIDToString(id);
+                if (params.mul_acc.s)
+                    ss << "{S}";
+                ss << " r" << params.mul_acc.rd << " r" << params.mul_acc.rm << " r" << params.mul_acc.rs;
                 if (params.mul_acc.a)
                     ss << " +r" << params.mul_acc.rn;
             } else if (cat == ARMInstructionCategory::MUL_ACC_LONG) {
-                ss << instructionIDToString(id) << " r" << params.mul_acc_long.rd_msw << ":r" << params.mul_acc_long.rd_lsw << " r" << params.mul_acc_long.rs << " r" << params.mul_acc_long.rm;
+                ss << instructionIDToString(id);
+                if (params.mul_acc_long.s)
+                    ss << "{S}";
+                ss << " r" << params.mul_acc_long.rd_msw << ":r" << params.mul_acc_long.rd_lsw << " r" << params.mul_acc_long.rs << " r" << params.mul_acc_long.rm;
             } else if (cat == ARMInstructionCategory::HW_TRANSF_REG_OFF) {
                 /* No immediate in this category! */
                 ss << instructionIDToString(id) << " r" << params.hw_transf_reg_off.rd;
