@@ -59,8 +59,8 @@ namespace gbaemu
 
         auto dst = resolveAddr(addr);
 
-        dst[0] = value & 0x00FF;
-        dst[1] = value & 0xFF00;
+        dst[0] = value & 0x0FF;
+        dst[1] = (value >> 8) & 0x0FF;
     }
 
     void Memory::write32(uint32_t addr, uint32_t value, uint32_t *cycles)
@@ -71,10 +71,10 @@ namespace gbaemu
 
         auto dst = resolveAddr(addr);
 
-        dst[0] = value & 0x000000FF;
-        dst[1] = value & 0x0000FF00;
-        dst[2] = value & 0x00FF0000;
-        dst[3] = value & 0xFF000000;
+        dst[0] = value & 0x0FF;
+        dst[1] = (value >> 8) & 0x0FF;
+        dst[2] = (value >> 16) & 0x0FF;
+        dst[3] = (value >> 24) & 0x0FF;
     }
 
     /*
