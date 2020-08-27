@@ -28,6 +28,10 @@ namespace gbaemu
 
     uint32_t Memory::read32(uint32_t addr, uint32_t *cycles) const
     {
+        if (addr & 0x03) {
+            std::cout << "WARNING: word read on non word aligned address!" << std::endl;
+        }
+
         if (cycles != nullptr) {
             *cycles += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint32_t));
         }
@@ -65,6 +69,10 @@ namespace gbaemu
 
     void Memory::write32(uint32_t addr, uint32_t value, uint32_t *cycles)
     {
+        if (addr & 0x03) {
+            std::cout << "WARNING: word write on non word aligned address!" << std::endl;
+        }
+
         if (cycles != nullptr) {
             *cycles += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
         }

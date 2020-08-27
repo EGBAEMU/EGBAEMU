@@ -932,6 +932,8 @@ namespace gbaemu
                     (Above applies to little endian mode, as used in GBA.)
                     */
                     if (memoryAddress & 0x02) {
+                        std::cout << "LDR WARNING: word read on non word aligned address!" << std::endl;
+
                         // Not word aligned address
                         uint16_t lowerBits = state.memory.read16(memoryAddress, nullptr);
                         uint32_t upperBits = state.memory.read16(rdValue - 2, nullptr);
