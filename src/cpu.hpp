@@ -384,8 +384,19 @@ namespace gbaemu
 
         void setFlags(uint64_t resultValue, bool nFlag, bool zFlag, bool vFlag, bool cFlag)
         {
+            /*
+            The arithmetic operations (SUB, RSB, ADD, ADC, SBC, RSC, CMP, CMN) treat each
+            operand as a 32 bit integer (either unsigned or 2’s complement signed, the two are equivalent).
+            the V flag in the CPSR will be set if
+            an overflow occurs into bit 31 of the result(-> bit 32?); this may be ignored if the operands were
+            considered unsigned, but warns of a possible error if the operands were 2’s
+            complement signed. The C flag will be set to the carry out of bit 31 of the ALU, the Z
+            flag will be set if and only if the result was zero, and the N flag will be set to the value
+            of bit 31 of the result (indicating a negative result if the operands are considered to be
+            2’s complement signed).
+            */
             bool negative = resultValue & (1 << 31);
-            bool zero = resultValue == 0;
+            bool zero = (resultValue & 0x0FFFFFFFF) == 0;
             bool overflow = (resultValue >> 32) & 0xFFFFFFFF;
             bool carry = resultValue & (static_cast<uint64_t>(1) << 32);
 
