@@ -962,7 +962,7 @@ namespace gbaemu
             return info;
         }
 
-        InstructionExecutionInfo execDataBlockTransfer(arm::ARMInstruction &inst)
+        InstructionExecutionInfo execDataBlockTransfer(arm::ARMInstruction &inst, bool thumb = false)
         {
             auto currentRegs = state.getCurrentRegs();
 
@@ -1016,16 +1016,25 @@ namespace gbaemu
                 edgeCaseEmptyRlist = true;
             }
 
+            //TODO is it fine to just walk in different direction?
+            /*
+            Transfer Order
+            The lowest Register in Rlist (R0 if its in the list) will be loaded/stored to/from the lowest memory address.
+            Internally, the rlist register are always processed with INCREASING addresses 
+            (ie. for DECREASING addressing modes, the CPU does first calculate the lowest address,
+            and does then process rlist with increasing addresses; this detail can be important when accessing memory mapped I/O ports).
+            */
+            uint32_t addrInc = up ? 4 : static_cast<uint32_t>(static_cast<int32_t>(-4));
+
             for (uint32_t i = 0; i < 16; ++i) {
-                if (inst.params.block_data_transf.rList & (1 << i)) {
-                    if (pre && up)
-                        address += 4;
-                    else if (pre && !up)
-                        address -= 4;
+                uint8_t currentIdx = (up ? i : 15 - i);
+                if (inst.params.block_data_transf.rList & (1 << currentIdx)) {
+                    if (pre)
+                        address += addrInc;
 
                     if (load) {
-                        if (i == 15) {
-                            *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount) & 0xFFFFFFFC;
+                        if (currentIdx == 15) {
+                            *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount) & (thumb ? 0xFFFFFFFE : 0xFFFFFFFC);
                             // Special case for pipeline refill
                             info.additionalProgCyclesN = 1;
                             info.additionalProgCyclesS = 1;
@@ -1040,20 +1049,18 @@ namespace gbaemu
                                 *currentRegs[regs::CPSR_OFFSET] = *state.getCurrentRegs()[regs::SPSR_OFFSET];
                             }
                         } else {
-                            *currentRegs[i] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount);
+                            *currentRegs[currentIdx] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount);
                         }
                     } else {
-                        state.memory.write32(address, *currentRegs[i], nonSeqAccDone ? nullptr : &info.cycleCount);
+                        state.memory.write32(address, *currentRegs[currentIdx], nonSeqAccDone ? nullptr : &info.cycleCount);
                     }
                     if (nonSeqAccDone) {
                         info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(address, sizeof(uint32_t));
                     }
                     nonSeqAccDone = true;
 
-                    if (!pre && up)
-                        address += 4;
-                    else if (!pre && !up)
-                        address -= 4;
+                    if (!pre)
+                        address += addrInc;
                 }
             }
 
@@ -1293,7 +1300,7 @@ namespace gbaemu
             wrapper.params.block_data_transf.s = false;
             wrapper.params.block_data_transf.rn = rb;
 
-            return execDataBlockTransfer(wrapper);
+            return execDataBlockTransfer(wrapper, true);
         }
 
         InstructionExecutionInfo handleThumbPushPopRegister(bool load, bool r, uint8_t rlist)
@@ -1332,7 +1339,7 @@ namespace gbaemu
 
             wrapper.params.block_data_transf.rn = regs::SP_OFFSET;
 
-            return execDataBlockTransfer(wrapper);
+            return execDataBlockTransfer(wrapper, true);
         }
 
         InstructionExecutionInfo handleThumbAddOffsetToStackPtr(bool s, uint8_t offset)
