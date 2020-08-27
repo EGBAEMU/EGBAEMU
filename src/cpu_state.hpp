@@ -197,6 +197,23 @@ namespace gbaemu
             return ss.str();
         }
 
+        std::string printStack(uint32_t words) const
+        {
+            std::stringstream ss;
+            ss << std::setfill('0') << std::hex;
+
+            ss << "Stack:\n";
+            for (uint32_t stackAddr = accessReg(regs::SP_OFFSET); words > 0; --words) {
+                /* address, pad hex numbers with 0 */
+                ss << "0x" << std::setw(8) << stackAddr << ":    "
+                   << "0x" << std::setw(8) << memory.read32(stackAddr, nullptr) << '\n';
+
+                stackAddr += 4;
+            }
+
+            return ss.str();
+        }
+
         std::string disas(uint32_t addr, uint32_t cmds) const
         {
             std::stringstream ss;

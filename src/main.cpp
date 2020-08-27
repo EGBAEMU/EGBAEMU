@@ -11,6 +11,7 @@
 
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5
+#define DEBUG_STACK_PRINT_RANGE 5
 
 static bool run_window = true;
 
@@ -108,6 +109,7 @@ int main(int argc, char **argv)
                 std::cout << "========================================================================\n";
                 std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
                 std::cout << cpu.state.toString() << '\n';
+                std::cout << cpu.state.printStack(DEBUG_STACK_PRINT_RANGE) << '\n';
             }
 
             ++i;

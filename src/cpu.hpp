@@ -1332,7 +1332,6 @@ namespace gbaemu
             wrapper.params.block_data_transf.w = true;
             // P - Pre/Post (0=post; add offset after transfer, 1=pre; before trans.)
 
-            //TODO you have to consider conventions regarding on which address SP is pointing to: first free vs last used
             wrapper.params.block_data_transf.p = !load;
 
             wrapper.params.block_data_transf.s = false;
