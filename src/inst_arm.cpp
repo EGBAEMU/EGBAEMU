@@ -280,7 +280,7 @@ namespace gbaemu
 
                 instruction.params.data_swp.rn = (lastInst >> 16) & 0x0F;
                 instruction.params.data_swp.rd = (lastInst >> 12) & 0x0F;
-                instruction.params.data_swp.rm = lastInst & 0x0FF;
+                instruction.params.data_swp.rm = lastInst & 0x0F;
 
                 if (!b) {
                     instruction.id = ARMInstructionID::SWP;
