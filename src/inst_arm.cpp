@@ -302,8 +302,8 @@ namespace gbaemu
                 instruction.params.hw_transf_reg_off.l = l;
 
                 instruction.params.hw_transf_reg_off.rn = (lastInst >> 16) & 0xF;
-                instruction.params.hw_transf_reg_off.rd = (lastInst >> 16) & 0xF;
-                instruction.params.hw_transf_reg_off.rm = lastInst & 0x0FF;
+                instruction.params.hw_transf_reg_off.rd = (lastInst >> 12) & 0xF;
+                instruction.params.hw_transf_reg_off.rm = lastInst & 0x0F;
 
                 // register offset variants
                 if (l) {
