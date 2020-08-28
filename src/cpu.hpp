@@ -520,7 +520,7 @@ namespace gbaemu
                 // -> negative is checked at bit 63
                 // -> zero flag <=> all 64 bit == 0
                 bool negative = mulRes & (static_cast<uint64_t>(1) << 63);
-                bool zero = resultValue == 0;
+                bool zero = mulRes == 0;
 
                 state.setFlag(cpsr_flags::N_FLAG, negative);
 
