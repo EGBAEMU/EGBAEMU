@@ -1215,26 +1215,23 @@ namespace gbaemu
                 rdValue += 12;
 
             if (pre) {
-                if (up)
-                    memoryAddress = rnValue + offset;
-                else
-                    memoryAddress = rnValue - offset;
+                memoryAddress = rnValue + (up ? offset : -offset);
             } else
                 memoryAddress = rnValue;
 
             if (load) {
-                if (sign) {
-                    if (transferSize == 16) {
-                        state.accessReg(rd) = static_cast<int32_t>(state.memory.read16(memoryAddress, &info.cycleCount));
-                    } else {
-                        state.accessReg(rd) = static_cast<int32_t>(state.memory.read8(memoryAddress, &info.cycleCount));
-                    }
+                uint32_t readData;
+                if (transferSize == 16) {
+                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &info.cycleCount));
                 } else {
-                    if (transferSize == 16) {
-                        state.accessReg(rd) = state.memory.read16(memoryAddress, &info.cycleCount);
-                    } else {
-                        state.accessReg(rd) = state.memory.read8(memoryAddress, &info.cycleCount);
-                    }
+                    readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &info.cycleCount));
+                }
+
+                if (sign) {
+                    // Do the sign extension by moving MSB to bit 31 and then reinterpret as signed and divide by power of 2 for a sign extended shift back
+                    state.accessReg(rd) = static_cast<uint32_t>(static_cast<int32_t>(readData << transferSize) / (1 << transferSize));
+                } else {
+                    state.accessReg(rd) = readData;
                 }
             } else {
                 if (transferSize == 16) {
@@ -1246,10 +1243,7 @@ namespace gbaemu
 
             if (writeback || !pre) {
                 if (!pre) {
-                    if (up)
-                        memoryAddress = rnValue + offset;
-                    else
-                        memoryAddress = rnValue - offset;
+                    memoryAddress += (up ? offset : -offset);
                 }
 
                 state.accessReg(rn) = memoryAddress;
