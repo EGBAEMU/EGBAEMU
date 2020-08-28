@@ -634,10 +634,7 @@ namespace gbaemu
         InstructionExecutionInfo execDataProc(arm::ARMInstruction &inst)
         {
 
-            bool negative = state.getFlag(cpsr_flags::N_FLAG),
-                 zero = state.getFlag(cpsr_flags::Z_FLAG),
-                 overflow = state.getFlag(cpsr_flags::V_FLAG),
-                 carry = state.getFlag(cpsr_flags::C_FLAG);
+            bool carry = state.getFlag(cpsr_flags::C_FLAG);
 
             /* calculate shifter operand */
             arm::ShiftType shiftType;
