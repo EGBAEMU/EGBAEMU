@@ -330,7 +330,7 @@ namespace gbaemu
                 instruction.params.hw_transf_imm_off.rd = (lastInst >> 12) & 0x0F;
 
                 /* called addr_mode in detailed doc but is really offset because immediate flag I is 1 */
-                instruction.params.hw_transf_imm_off.offset = ((lastInst >> 8) & 0x0F) | (lastInst & 0x0F);
+                instruction.params.hw_transf_imm_off.offset = (((lastInst >> 8) & 0x0F) << 4) | (lastInst & 0x0F);
 
                 if (l) {
                     instruction.id = ARMInstructionID::LDRH;
@@ -360,7 +360,7 @@ namespace gbaemu
                 instruction.params.sign_transf.rn = (lastInst >> 16) & 0x0F;
                 instruction.params.sign_transf.rd = (lastInst >> 12) & 0x0F;
 
-                instruction.params.sign_transf.addrMode = ((lastInst >> 8) & 0xF) | (lastInst & 0xF);
+                instruction.params.sign_transf.addrMode = (((lastInst >> 8) & 0x0F) << 4) | (lastInst & 0x0F);
 
                 if (l && !h) {
                     instruction.id = ARMInstructionID::LDRSB;
