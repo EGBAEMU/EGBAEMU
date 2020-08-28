@@ -1017,7 +1017,6 @@ namespace gbaemu
                 info.cycleCount = 1;
             } else {
                 // same edge case as for STR
-                //TODO not sure why STR instructions have 2N ...
                 info.noDefaultSCycle = true;
                 info.additionalProgCyclesN = 1;
             }
@@ -1025,16 +1024,6 @@ namespace gbaemu
             // The first read / write is non sequential but afterwards all accesses are sequential
             // because the memory class always adds non sequential accesses we need to handle this case explicitly
             bool nonSeqAccDone = false;
-
-            // TODO there are even more edge cases:
-            /* Different behaviour dependent on mode...
-            ARM:
-            Writeback with Rb included in Rlist: Store OLD base if Rb is FIRST entry in Rlist, otherwise store NEW base (STM/ARMv4), always store OLD base (STM/ARMv5), no writeback (LDM/ARMv4), writeback if Rb is "the ONLY register, or NOT the LAST register" in Rlist (LDM/ARMv5).
-
-            THUMB:
-            Writeback with Rb included in Rlist: Store OLD base if Rb is FIRST entry in Rlist, otherwise store NEW base (STM/ARMv4), always store OLD base (STM/ARMv5), no writeback (LDM/ARMv4/ARMv5; at this point, THUMB opcodes work different than ARM opcodes).
-
-            */
 
             bool edgeCaseEmptyRlist = false;
             // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
@@ -1053,9 +1042,12 @@ namespace gbaemu
             */
             uint32_t addrInc = up ? 4 : static_cast<uint32_t>(static_cast<int32_t>(-4));
 
+            uint32_t patchMemAddr;
+
             for (uint32_t i = 0; i < 16; ++i) {
                 uint8_t currentIdx = (up ? i : 15 - i);
                 if (inst.params.block_data_transf.rList & (1 << currentIdx)) {
+
                     if (pre)
                         address += addrInc;
 
@@ -1079,6 +1071,11 @@ namespace gbaemu
                             *currentRegs[currentIdx] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount);
                         }
                     } else {
+                        // Shady hack to make edge case treatment easier
+                        if (rn == currentIdx) {
+                            patchMemAddr = address;
+                        }
+
                         // Edge case of storing PC -> PC + 12 will be stored
                         state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? 12 : 0), nonSeqAccDone ? nullptr : &info.cycleCount);
                     }
@@ -1093,9 +1090,25 @@ namespace gbaemu
                 }
             }
 
-            /* TODO: not sure if address (+/-) 4 */
-            if (writeback)
+            // Edge case: writeback enabled & rn is inside rlist
+            if ((inst.params.block_data_transf.rList & (1 << rn)) && writeback) {
+                // If load then it was overwritten anyway & we should not do another writeback as writeback comes before read!
+                // else on STM it depends if this register was the first written to memory
+                // if so we need to write the unchanged memory address into memory (which is what we currently do by default)
+                // else we need to patch the written memory & store the address that would normally written back
+                if (!load) {
+                    // Check if there are any registers that were written first to memory
+                    if (inst.params.block_data_transf.rList & ((1 << rn) - 1)) {
+                        // We need to patch mem
+                        state.memory.write32(patchMemAddr, address, nullptr);
+                    }
+
+                    // Also do the write back to the register!
+                    *currentRegs[rn] = address;
+                }
+            } else if (writeback) {
                 *currentRegs[rn] = address;
+            }
 
             // Handle edge case: Empty Rlist: Rb=Rb+40h (ARMv4-v5)
             if (edgeCaseEmptyRlist) {
