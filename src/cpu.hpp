@@ -1053,9 +1053,12 @@ namespace gbaemu
             */
             uint32_t addrInc = up ? 4 : static_cast<uint32_t>(static_cast<int32_t>(-4));
 
+            uint32_t patchMemAddr;
+
             for (uint32_t i = 0; i < 16; ++i) {
                 uint8_t currentIdx = (up ? i : 15 - i);
                 if (inst.params.block_data_transf.rList & (1 << currentIdx)) {
+
                     if (pre)
                         address += addrInc;
 
@@ -1079,6 +1082,11 @@ namespace gbaemu
                             *currentRegs[currentIdx] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount);
                         }
                     } else {
+                        // Shady hack to make edge case treatment easier
+                        if (rn == currentIdx) {
+                            patchMemAddr = address;
+                        }
+
                         // Edge case of storing PC -> PC + 12 will be stored
                         state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? 12 : 0), nonSeqAccDone ? nullptr : &info.cycleCount);
                     }
@@ -1093,9 +1101,25 @@ namespace gbaemu
                 }
             }
 
-            /* TODO: not sure if address (+/-) 4 */
-            if (writeback)
+            // Edge case: writeback enabled & rn is inside rlist
+            if ((inst.params.block_data_transf.rList & (1 << rn)) && writeback) {
+                // If load then it was overwritten anyway & we should not do another writeback as writeback comes before read!
+                // else on STM it depends if this register was the first written to memory
+                // if so we need to write the unchanged memory address into memory (which is what we currently do by default)
+                // else we need to patch the written memory & store the address that would normally written back
+                if (!load) {
+                    // Check if there are any registers that were written first to memory
+                    if ((inst.params.block_data_transf.rList & ((1 << rn) - 1)) {
+                        // We need to patch mem
+                        state.memory.write32(patchMemAddr, address, nullptr);
+                    }
+
+                    // Also do the write back to the register!
+                    *currentRegs[rn] = address;
+                }
+            } else if (writeback) {
                 *currentRegs[rn] = address;
+            }
 
             // Handle edge case: Empty Rlist: Rb=Rb+40h (ARMv4-v5)
             if (edgeCaseEmptyRlist) {
