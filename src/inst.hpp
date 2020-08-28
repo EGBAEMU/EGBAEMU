@@ -495,6 +495,7 @@ namespace gbaemu
         void setArmInstruction(arm::ARMInstruction &armInstruction);
         void setThumbInstruction(thumb::ThumbInstruction &thumbInstruction);
         bool isArmInstruction() const;
+        std::string toString() const;
         static Instruction fromARM(arm::ARMInstruction &armInst);
         static Instruction fromThumb(thumb::ThumbInstruction &thumbInst);
     };

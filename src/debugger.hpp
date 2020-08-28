@@ -27,7 +27,7 @@ namespace gbaemu::debugger {
     public:
         void trigger(uint32_t prevPC, uint32_t postPC, const Instruction& inst, const CPUState& state) override;
         bool satisfied(uint32_t prevPC, uint32_t postPC, const Instruction& inst, const CPUState& state) override;
-        void print();
+        std::string toString() const;
     };
 
     /*

@@ -96,14 +96,13 @@ int main(int argc, char **argv)
 
     for (uint32_t i = 0; i < 0xFFFFFFFF;) {
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
-
-        //auto inst = cpu.state.pipeline.decode.instruction;
+        auto inst = cpu.state.pipeline.decode.instruction;
         cpu.step();
 
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
         if (prevPC != postPC) {
-            //charlie.check(prevPC, postPC, inst, cpu.state);
+            charlie.check(prevPC, postPC, inst, cpu.state);
 
             if (postPC == CHECKPOINT_PC) {
                 ++checkPointReached;
@@ -137,7 +136,10 @@ int main(int argc, char **argv)
         }
 
         if (!run_window) {
-            jumpTrap.print();            
+            std::ofstream jumpFile("jumps.txt", std::ios::out);
+            jumpFile << jumpTrap.toString();
+            jumpFile.close();
+
             break;
         }
     }

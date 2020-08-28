@@ -32,12 +32,16 @@ namespace gbaemu::debugger {
          */
     }
 
-    void JumpTrap::print() {
-        std::cout << std::hex;
+    std::string JumpTrap::toString() const {
+        std::stringstream ss;
+        ss << std::hex;
 
         for (auto e : jumps) {
-            std::cout << e.from << " ----> " << e.to << "\n";
+            ss << e.inst.toString() << '\n';
+            ss << e.from << " ----> " << e.to << '\n';
         }
+
+        return ss.str();
     }
 
     void Watchdog::registerTrap(Trap& t) {

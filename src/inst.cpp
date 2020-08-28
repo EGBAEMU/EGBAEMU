@@ -117,6 +117,13 @@ namespace gbaemu
         return isArm;
     }
 
+    std::string Instruction::toString() const {
+        if (isArm)
+            return arm.toString();
+        else
+            return thumb.toString();
+    }
+
     Instruction Instruction::fromARM(arm::ARMInstruction &armInst)
     {
         Instruction result;
