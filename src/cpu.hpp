@@ -979,6 +979,9 @@ namespace gbaemu
                 }
             }
 
+            if (!pre)
+                memoryAddress += up ? offset : -offset;
+
             if (!pre || writeback)
                 *currentRegs[rn] = memoryAddress;
 
