@@ -1098,7 +1098,7 @@ namespace gbaemu
                 // else we need to patch the written memory & store the address that would normally written back
                 if (!load) {
                     // Check if there are any registers that were written first to memory
-                    if ((inst.params.block_data_transf.rList & ((1 << rn) - 1)) {
+                    if (inst.params.block_data_transf.rList & ((1 << rn) - 1)) {
                         // We need to patch mem
                         state.memory.write32(patchMemAddr, address, nullptr);
                     }
