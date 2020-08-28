@@ -392,14 +392,43 @@ namespace gbaemu
                 instruction.params.data_proc_psr_transf.operand2 = lastInst & 0x0FFF;
 
                 switch (opCode) {
-                    case 0b0101:
-                        instruction.id = ARMInstructionID::ADC;
+                    case 0b0000:
+                        instruction.id = ARMInstructionID::AND;
+                        break;
+                    case 0b0001:
+                        instruction.id = ARMInstructionID::EOR;
+                        break;
+                    case 0b0010:
+                        instruction.id = ARMInstructionID::SUB;
+                        break;
+                    case 0b0011:
+                        instruction.id = ARMInstructionID::RSB;
                         break;
                     case 0b0100:
                         instruction.id = ARMInstructionID::ADD;
                         break;
-                    case 0b0000:
-                        instruction.id = ARMInstructionID::AND;
+                    case 0b0101:
+                        instruction.id = ARMInstructionID::ADC;
+                        break;
+                    case 0b0110:
+                        instruction.id = ARMInstructionID::SBC;
+                        break;
+                    case 0b0111:
+                        instruction.id = ARMInstructionID::RSC;
+                        break;
+                    case 0b1000:
+                        if (s) {
+                            instruction.id = ARMInstructionID::TST;
+                        } else {
+                            instruction.id = ARMInstructionID::MRS;
+                        }
+                        break;
+                    case 0b1001:
+                        if (s) {
+                            instruction.id = ARMInstructionID::TEQ;
+                        } else {
+                            instruction.id = ARMInstructionID::MSR;
+                        }
                         break;
                     case 0b1010:
                         if (s) {
@@ -415,8 +444,8 @@ namespace gbaemu
                             instruction.id = ARMInstructionID::MSR;
                         }
                         break;
-                    case 0b0001:
-                        instruction.id = ARMInstructionID::EOR;
+                    case 0b1100:
+                        instruction.id = ARMInstructionID::ORR;
                         break;
                     case 0b1101:
                         instruction.id = ARMInstructionID::MOV;
@@ -426,35 +455,6 @@ namespace gbaemu
                         break;
                     case 0b1111:
                         instruction.id = ARMInstructionID::MVN;
-                        break;
-                    case 0b1100:
-                        instruction.id = ARMInstructionID::ORR;
-                        break;
-                    case 0b0011:
-                        instruction.id = ARMInstructionID::RSB;
-                        break;
-                    case 0b0111:
-                        instruction.id = ARMInstructionID::RSC;
-                        break;
-                    case 0b0110:
-                        instruction.id = ARMInstructionID::SBC;
-                        break;
-                    case 0b0010:
-                        instruction.id = ARMInstructionID::SUB;
-                        break;
-                    case 0b1001:
-                        if (s) {
-                            instruction.id = ARMInstructionID::TEQ;
-                        } else {
-                            instruction.id = ARMInstructionID::MSR;
-                        }
-                        break;
-                    case 0b1000:
-                        if (s) {
-                            instruction.id = ARMInstructionID::TST;
-                        } else {
-                            instruction.id = ARMInstructionID::MRS;
-                        }
                         break;
                 }
             } else if ((lastInst & MASK_LS_REG_UBYTE) == VAL_LS_REG_UBYTE) {
