@@ -1185,6 +1185,8 @@ namespace gbaemu
                     transferSize = 8;
 
                 sign = true;
+            } else {
+                std::cout << "ERROR: Invalid arm instruction category given to execHalfwordDataTransferImmRegSignedTransfer: " << inst.cat << std::endl;
             }
 
             //Execution Time: For Normal LDR, 1S+1N+1I. For LDR PC, 2S+2N+1I. For STRH 2N
