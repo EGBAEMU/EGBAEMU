@@ -86,9 +86,9 @@ int main(int argc, char **argv)
 // #define CHECKPOINT_PC 0x0800018c
 
 
-#define TARGET_CHECKPOINT_CNT 3
+#define TARGET_CHECKPOINT_CNT 1
 // exit of helper for copy from ROM to RAM
-#define CHECKPOINT_PC 0x0800019a
+#define CHECKPOINT_PC 0x080001b0
 
     gbaemu::debugger::Watchdog charlie;
     gbaemu::debugger::JumpTrap jumpTrap;
