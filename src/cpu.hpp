@@ -1640,16 +1640,6 @@ namespace gbaemu
 
         InstructionExecutionInfo handleThumbMoveShiftedReg(thumb::ThumbInstructionID ins, uint8_t rs, uint8_t rd, uint8_t offset)
         {
-
-            // Zero shift amount is having special meaning (same as for ARM shifts),
-            // LSL#0 performs no shift (the carry flag remains unchanged), LSR/ASR#0
-            // are interpreted as LSR/ASR#32. Attempts to specify LSR/ASR#0 in source
-            // code are automatically redirected as LSL#0, and source LSR/ASR#32 is
-            // redirected as opcode LSR/ASR#0.
-            if (ins != thumb::LSL && offset == 0) {
-                offset = 32;
-            }
-
             uint64_t rsValue = static_cast<uint64_t>(state.accessReg(rs));
             uint64_t rdValue = 0;
 
