@@ -391,7 +391,6 @@ namespace gbaemu
                 /* often shifter */
                 instruction.params.data_proc_psr_transf.operand2 = lastInst & 0x0FFF;
 
-                //TODO take a second look
                 switch (opCode) {
                     case 0b0101:
                         instruction.id = ARMInstructionID::ADC;
@@ -498,7 +497,6 @@ namespace gbaemu
 
                 bool p = (lastInst >> 24) & 1;
                 bool u = (lastInst >> 23) & 1;
-                // TODO: Handle S!!!!
                 bool s = (lastInst >> 22) & 1;
                 bool w = (lastInst >> 21) & 1;
                 bool l = (lastInst >> 20) & 1;
