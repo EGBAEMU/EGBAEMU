@@ -1060,7 +1060,7 @@ namespace gbaemu
                         address += addrInc;
 
                     if (load) {
-                        if (currentIdx == 15) {
+                        if (currentIdx == regs::PC_OFFSET) {
                             *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount) & (thumb ? 0xFFFFFFFE : 0xFFFFFFFC);
                             // Special case for pipeline refill
                             info.additionalProgCyclesN = 1;
@@ -1079,8 +1079,10 @@ namespace gbaemu
                             *currentRegs[currentIdx] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount);
                         }
                     } else {
-                        state.memory.write32(address, *currentRegs[currentIdx], nonSeqAccDone ? nullptr : &info.cycleCount);
+                        // Edge case of storing PC -> PC + 12 will be stored
+                        state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? 12 : 0), nonSeqAccDone ? nullptr : &info.cycleCount);
                     }
+
                     if (nonSeqAccDone) {
                         info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(address, sizeof(uint32_t));
                     }
