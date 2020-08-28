@@ -636,7 +636,7 @@ namespace gbaemu
 
             /* calculate shifter operand */
             arm::ShiftType shiftType;
-            uint32_t shiftAmount;
+            uint8_t shiftAmount;
             uint32_t rm;
             uint32_t rs;
             uint32_t imm;

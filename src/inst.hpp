@@ -167,7 +167,7 @@ namespace gbaemu
             ROR
         };
 
-        uint64_t shift(uint32_t value, arm::ShiftType type, uint32_t amount, bool oldCarry, bool shiftRegByImm);
+        uint64_t shift(uint32_t value, arm::ShiftType type, uint8_t amount, bool oldCarry, bool shiftRegByImm);
 
         class ARMInstruction
         {
@@ -224,7 +224,7 @@ namespace gbaemu
                     uint32_t opCode, rn, rd;
                     uint16_t operand2;
 
-                    bool extractOperand2(ShiftType &shiftType, uint32_t &shiftAmount, uint32_t &rm, uint32_t &rs, uint32_t &imm) const
+                    bool extractOperand2(ShiftType &shiftType, uint8_t &shiftAmount, uint32_t &rm, uint32_t &rs, uint32_t &imm) const
                     {
                         bool shiftAmountFromReg = false;
 

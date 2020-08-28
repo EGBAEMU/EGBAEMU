@@ -28,13 +28,14 @@ namespace gbaemu
         return "";
     }
 
-    uint64_t arm::shift(uint32_t value, ShiftType type, uint32_t amount, bool oldCarry, bool shiftRegByImm)
+    uint64_t arm::shift(uint32_t value, ShiftType type, uint8_t amount, bool oldCarry, bool shiftByImm)
     {
-        //TODO do those edge cases not apply if shift is done by an reg instead of an Imm?
+        // Only the least significant byte of the contents of Rs is used to determine the shift amount. -> uint8_t rules!
 
         bool initialZeroAmount = false;
 
-        if (shiftRegByImm && type != LSL && amount == 0) {
+        // Edge cases for shifts with immediates: Assembler uses value 0 for special cases
+        if (shiftByImm && type != LSL && amount == 0) {
             if (type != ROR) {
                 amount = 32;
             } else {
@@ -43,22 +44,43 @@ namespace gbaemu
             initialZeroAmount = true;
         }
 
+        // Edge cases for shifts by register value: Value of 0 does nothing & keeps old carry!
+        if (!shiftByImm && amount == 0) {
+            return static_cast<uint64_t>(value) | (oldCarry ? (static_cast<uint64_t>(1) << 32) : 0x0);
+        }
+
         switch (type) {
             case LSL:
                 return static_cast<uint64_t>(value) << amount;
             case LSR: {
-                uint64_t res = value >> amount;
+                /*
+                Carry flag is the MSB of the out shifted values! -> bit amount - 1
+                */
+                uint64_t carry = (amount > 32 ? 0 : (static_cast<uint64_t>((value >> (amount - 1)) & 0x1) << 32));
+                uint64_t res = (value >> amount) | carry;
 
                 // LSR#0: Interpreted as LSR#32, ie. Op2 becomes zero, C becomes Bit 31 of Rm
                 if (initialZeroAmount) {
-                    res |= (value & (1 << 31)) << 1;
+                    res |= static_cast<uint64_t>(value & (1 << 31)) << 1;
                 }
 
                 return res;
             }
-            case ASR:
-                return static_cast<uint64_t>(static_cast<int64_t>(static_cast<uint64_t>(value) << 32) / (static_cast<uint64_t>(1) << (32 + amount)));
+            case ASR: {
+
+                /*
+                Carry flag is the MSB of the out shifted values! -> bit amount - 1
+                */
+                // ensure a value in range of [0, 32]
+                uint8_t multipleOf32 = amount / 32;
+                amount = amount - (multipleOf32 > 1 ? (multipleOf32 - 1) * 32 : 0);
+                uint64_t carry = (static_cast<uint64_t>((value >> (amount - 1)) & 0x1) << 32);
+                return static_cast<uint64_t>(static_cast<int64_t>(static_cast<uint64_t>(value) << 32) / (static_cast<uint64_t>(1) << (32 + amount))) | carry;
+            }
             case ROR: {
+                // ensure a value in range of [0, 32]
+                uint8_t multipleOf32 = amount / 32;
+                amount = amount - (multipleOf32 > 1 ? (multipleOf32 - 1) * 32 : 0);
                 uint32_t res = (value >> amount) | (value << (32 - amount));
 
                 // ROR#0: Interpreted as RRX#1 (RCR), like ROR#1, but Op2 Bit 31 set to old C.
@@ -66,7 +88,12 @@ namespace gbaemu
                     res = (res & ~(1 << 31)) | (oldCarry ? (1 << 31) : 0);
                 }
 
-                return res;
+                /*
+                Carry flag is the MSB of the out shifted values! -> bit amount - 1
+                */
+                uint64_t extendedRes = static_cast<uint64_t>(res) | (static_cast<uint64_t>((value >> (amount - 1)) & 0x1) << 32);
+
+                return extendedRes;
             }
             default:
                 std::cout << "WARNING: Unknown shift type!";
