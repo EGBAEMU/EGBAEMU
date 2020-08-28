@@ -112,24 +112,20 @@ namespace gbaemu
                     if (hasRD)
                         ss << " r" << rd;
 
-                    if (params.data_proc_psr_transf.i) {
-                        if (!hasRN) {
-                            ss << " 0x" << std::hex << imm;
-                        } else {
-                            ss << " r" << rn << " 0x" << std::hex << imm;
-                        }
-                    } else {
-                        if (!hasRN) {
-                            ss << " r" << rm;
-                        } else {
-                            ss << " r" << rn << " r" << rm;
-                        }
-                    }
+                    if (hasRN)
+                        ss << " r" << rn;
 
-                    if (shiftByReg)
-                        ss << "<<r" << std::dec << rs;
-                    else if (shiftAmount > 0)
-                        ss << "<<" << std::dec << static_cast<uint32_t>(shiftAmount);
+                    if (params.data_proc_psr_transf.i) {
+                        uint32_t roredImm = shift(imm, shiftType, shiftAmount, false, false);
+                        ss << ", #" << roredImm;
+                    } else {
+                        ss << " r" << rm;
+
+                        if (shiftByReg)
+                            ss << "<<r" << std::dec << rs;
+                        else if (shiftAmount > 0)
+                            ss << "<<" << std::dec << static_cast<uint32_t>(shiftAmount);
+                    }
                 }
             } else if (cat == ARMInstructionCategory::MUL_ACC) {
                 ss << instructionIDToString(id);
