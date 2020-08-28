@@ -516,12 +516,15 @@ namespace gbaemu
             if (s) {
                 // update zero flag & signed flags
                 // the rest is unaffected
-                setFlags(
-                    mulRes,
-                    true,
-                    true,
-                    false,
-                    false);
+                // for the flags the whole 64 bit are considered as this is the result beeing returned
+                // -> negative is checked at bit 63
+                // -> zero flag <=> all 64 bit == 0
+                bool negative = mulRes & (static_cast<uint64_t>(1) << 63);
+                bool zero = resultValue == 0;
+
+                state.setFlag(cpsr_flags::N_FLAG, negative);
+
+                state.setFlag(cpsr_flags::Z_FLAG, zero);
             }
 
             /*
