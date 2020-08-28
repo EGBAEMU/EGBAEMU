@@ -953,7 +953,7 @@ namespace gbaemu
                     /*
                     When reading a word from a halfword-aligned address (which is located in the middle between two word-aligned addresses),
                     the lower 16bit of Rd will contain [address] ie. the addressed halfword, 
-                    and the upper 16bit of Rd will contain [Rd-2] ie. more or less unwanted garbage. 
+                    and the upper 16bit of Rd will contain [address-2] ie. more or less unwanted garbage. 
                     However, by isolating lower bits this may be used to read a halfword from memory. 
                     (Above applies to little endian mode, as used in GBA.)
                     */
@@ -962,11 +962,11 @@ namespace gbaemu
 
                         // Not word aligned address
                         uint16_t lowerBits = state.memory.read16(memoryAddress, nullptr);
-                        uint32_t upperBits = state.memory.read16(rdValue - 2, nullptr);
+                        uint32_t upperBits = state.memory.read16(memoryAddress - 2, nullptr);
                         *currentRegs[rd] = lowerBits | (upperBits << 16);
 
-                        // Super strange edge case simulate normal read for latency
-                        state.memory.read32(memoryAddress, &info.cycleCount);
+                        // simulate normal read for latency as if read word aligned address
+                        state.memory.read32(memoryAddress - 2, &info.cycleCount);
                     } else {
                         *currentRegs[rd] = state.memory.read32(memoryAddress, &info.cycleCount);
                     }
