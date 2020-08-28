@@ -8,6 +8,7 @@
 #include "cpu.hpp"
 #include "lcd/lcd-controller.hpp"
 #include "lcd/window.hpp"
+#include "debugger.hpp"
 
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5
@@ -89,14 +90,21 @@ int main(int argc, char **argv)
 // exit of helper for copy from ROM to RAM
 #define CHECKPOINT_PC 0x0800019a
 
+    gbaemu::debugger::Watchdog charlie;
+    gbaemu::debugger::JumpTrap jumpTrap;
+    charlie.registerTrap(jumpTrap);
+
     for (uint32_t i = 0; i < 0xFFFFFFFF;) {
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
+        //auto inst = cpu.state.pipeline.decode.instruction;
         cpu.step();
 
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
         if (prevPC != postPC) {
+            //charlie.check(prevPC, postPC, inst, cpu.state);
+
             if (postPC == CHECKPOINT_PC) {
                 ++checkPointReached;
                 std::cout << "CHECKPOINT REACHED: " << checkPointReached << std::endl;
@@ -128,8 +136,10 @@ int main(int argc, char **argv)
             window.present();
         }
 
-        if (!run_window)
+        if (!run_window) {
+            jumpTrap.print();            
             break;
+        }
     }
 
     return 0;

@@ -132,6 +132,16 @@ namespace gbaemu
             delete[] ext_sram;
             if (romSize)
                 delete[] rom;
+
+            bios = nullptr;
+            wram = nullptr;
+            iwram = nullptr;
+            io_regs = nullptr;
+            bg_obj_ram = nullptr;
+            vram = nullptr;
+            oam = nullptr;
+            ext_sram = nullptr;
+            rom = nullptr;
         }
 
         //TODO this would be too simple to work :D

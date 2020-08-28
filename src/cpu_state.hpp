@@ -110,7 +110,11 @@ namespace gbaemu
 
         const InstructionDecoder *decoder;
 
-        uint32_t getCurrentPC()
+        ~CPUState() {
+
+        }
+
+        uint32_t getCurrentPC() const
         {
             // TODO: This is somewhat finshy as there are 3 active pc's due to pipelining. As the regs
             // only get modified by the EXECUTE stage, this will return the pc for the exec stage.
