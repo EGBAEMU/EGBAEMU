@@ -516,12 +516,15 @@ namespace gbaemu
             if (s) {
                 // update zero flag & signed flags
                 // the rest is unaffected
-                setFlags(
-                    mulRes,
-                    true,
-                    true,
-                    false,
-                    false);
+                // for the flags the whole 64 bit are considered as this is the result beeing returned
+                // -> negative is checked at bit 63
+                // -> zero flag <=> all 64 bit == 0
+                bool negative = mulRes & (static_cast<uint64_t>(1) << 63);
+                bool zero = mulRes == 0;
+
+                state.setFlag(cpsr_flags::N_FLAG, negative);
+
+                state.setFlag(cpsr_flags::Z_FLAG, zero);
             }
 
             /*
@@ -950,7 +953,7 @@ namespace gbaemu
                     /*
                     When reading a word from a halfword-aligned address (which is located in the middle between two word-aligned addresses),
                     the lower 16bit of Rd will contain [address] ie. the addressed halfword, 
-                    and the upper 16bit of Rd will contain [Rd-2] ie. more or less unwanted garbage. 
+                    and the upper 16bit of Rd will contain [address-2] ie. more or less unwanted garbage. 
                     However, by isolating lower bits this may be used to read a halfword from memory. 
                     (Above applies to little endian mode, as used in GBA.)
                     */
@@ -959,11 +962,11 @@ namespace gbaemu
 
                         // Not word aligned address
                         uint16_t lowerBits = state.memory.read16(memoryAddress, nullptr);
-                        uint32_t upperBits = state.memory.read16(rdValue - 2, nullptr);
+                        uint32_t upperBits = state.memory.read16(memoryAddress - 2, nullptr);
                         *currentRegs[rd] = lowerBits | (upperBits << 16);
 
-                        // Super strange edge case simulate normal read for latency
-                        state.memory.read32(memoryAddress, &info.cycleCount);
+                        // simulate normal read for latency as if read word aligned address
+                        state.memory.read32(memoryAddress - 2, &info.cycleCount);
                     } else {
                         *currentRegs[rd] = state.memory.read32(memoryAddress, &info.cycleCount);
                     }
@@ -975,6 +978,9 @@ namespace gbaemu
                     state.memory.write32(memoryAddress, rdValue, &info.cycleCount);
                 }
             }
+
+            if (!pre)
+                memoryAddress += up ? offset : -offset;
 
             if (!pre || writeback)
                 *currentRegs[rn] = memoryAddress;
@@ -1209,26 +1215,23 @@ namespace gbaemu
                 rdValue += 12;
 
             if (pre) {
-                if (up)
-                    memoryAddress = rnValue + offset;
-                else
-                    memoryAddress = rnValue - offset;
+                memoryAddress = rnValue + (up ? offset : -offset);
             } else
                 memoryAddress = rnValue;
 
             if (load) {
-                if (sign) {
-                    if (transferSize == 16) {
-                        state.accessReg(rd) = static_cast<int32_t>(state.memory.read16(memoryAddress, &info.cycleCount));
-                    } else {
-                        state.accessReg(rd) = static_cast<int32_t>(state.memory.read8(memoryAddress, &info.cycleCount));
-                    }
+                uint32_t readData;
+                if (transferSize == 16) {
+                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &info.cycleCount));
                 } else {
-                    if (transferSize == 16) {
-                        state.accessReg(rd) = state.memory.read16(memoryAddress, &info.cycleCount);
-                    } else {
-                        state.accessReg(rd) = state.memory.read8(memoryAddress, &info.cycleCount);
-                    }
+                    readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &info.cycleCount));
+                }
+
+                if (sign) {
+                    // Do the sign extension by moving MSB to bit 31 and then reinterpret as signed and divide by power of 2 for a sign extended shift back
+                    state.accessReg(rd) = static_cast<uint32_t>(static_cast<int32_t>(readData << transferSize) / (1 << transferSize));
+                } else {
+                    state.accessReg(rd) = readData;
                 }
             } else {
                 if (transferSize == 16) {
@@ -1240,10 +1243,7 @@ namespace gbaemu
 
             if (writeback || !pre) {
                 if (!pre) {
-                    if (up)
-                        memoryAddress = rnValue + offset;
-                    else
-                        memoryAddress = rnValue - offset;
+                    memoryAddress += (up ? offset : -offset);
                 }
 
                 state.accessReg(rn) = memoryAddress;
