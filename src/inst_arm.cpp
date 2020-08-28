@@ -301,8 +301,8 @@ namespace gbaemu
                 instruction.params.hw_transf_reg_off.w = w;
                 instruction.params.hw_transf_reg_off.l = l;
 
-                instruction.params.hw_transf_reg_off.rn = (lastInst >> 16) & 0xF;
-                instruction.params.hw_transf_reg_off.rd = (lastInst >> 12) & 0xF;
+                instruction.params.hw_transf_reg_off.rn = (lastInst >> 16) & 0x0F;
+                instruction.params.hw_transf_reg_off.rd = (lastInst >> 12) & 0x0F;
                 instruction.params.hw_transf_reg_off.rm = lastInst & 0x0F;
 
                 // register offset variants
@@ -377,7 +377,7 @@ namespace gbaemu
                 instruction.cat = ARMInstructionCategory::DATA_PROC_PSR_TRANSF;
 
                 uint32_t opCode = (lastInst >> 21) & 0x0F;
-                bool i = (lastInst >> 25) & 1; //lastInst & (1 << 25);
+                bool i = (lastInst >> 25) & 1;
                 bool s = lastInst & (1 << 20);
                 bool r = (lastInst >> 2) & 1;
 
