@@ -989,15 +989,16 @@ namespace gbaemu
             //TODO S bit seems relevant for register selection, NOTE: this instruction is reused for handleThumbMultLoadStore & handleThumbPushPopRegister
             bool forceUserRegisters = inst.params.block_data_transf.s;
 
-            if (forceUserRegisters) {
-                currentRegs = state.getModeRegs(CPUState::UserMode);
-                std::cout << "WARNING: force user register bit is set!" << std::endl;
-            }
-
             bool pre = inst.params.block_data_transf.p;
             bool up = inst.params.block_data_transf.u;
             bool writeback = inst.params.block_data_transf.w;
             bool load = inst.params.block_data_transf.l;
+
+            if (forceUserRegisters && (!load || (inst.params.block_data_transf.rList & (1 << regs::PC_OFFSET)) == 0)) {
+                currentRegs = state.getModeRegs(CPUState::UserMode);
+                std::cout << "WARNING: force user registers!" << std::endl;
+            }
+
             uint32_t rn = inst.params.block_data_transf.rn;
             uint32_t address = *currentRegs[rn];
 
