@@ -261,7 +261,7 @@ namespace gbaemu
                 }
 
                 // Magic sign extension
-                *currentRegs[rd] = static_cast<int32_t>(static_cast<uint32_t>(data) << shiftAmount) / (1 << shiftAmount);
+                *currentRegs[rd] = static_cast<int32_t>(static_cast<uint32_t>(data) << shiftAmount) / (static_cast<uint32_t>(1) << shiftAmount);
             } else {
                 // LDRH zero extended
                 *currentRegs[rd] = state.memory.read16(memoryAddress, &info.cycleCount);

@@ -452,7 +452,7 @@ namespace gbaemu
             const uint8_t srcUnitWidth = state->memory.read8(unpackFormatPtr + 2, &info.cycleCount);
             const uint8_t destUnitWidth = state->memory.read8(unpackFormatPtr + 3, &info.cycleCount);
             uint32_t dataOffset = state->memory.read32(unpackFormatPtr + 4, &info.cycleCount);
-            const bool zeroDataOff = dataOffset & (1 << 31);
+            const bool zeroDataOff = dataOffset & (static_cast<uint32_t>(1) << 31);
             dataOffset &= 0x7FFFFFF;
 
             // data is should be written in 32 bit batches, therefore we have to buffer the decompressed data and keep track of the left space

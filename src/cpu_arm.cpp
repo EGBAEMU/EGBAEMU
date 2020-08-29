@@ -835,7 +835,7 @@ namespace gbaemu
 
             if (sign) {
                 // Do the sign extension by moving MSB to bit 31 and then reinterpret as signed and divide by power of 2 for a sign extended shift back
-                state.accessReg(rd) = static_cast<uint32_t>(static_cast<int32_t>(readData << transferSize) / (1 << transferSize));
+                state.accessReg(rd) = static_cast<uint32_t>(static_cast<int32_t>(readData << transferSize) / (static_cast<uint32_t>(1) << transferSize));
             } else {
                 state.accessReg(rd) = readData;
             }
