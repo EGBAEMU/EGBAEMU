@@ -38,13 +38,21 @@ namespace gbaemu::lcd {
     }
 
     namespace DISPSTAT {
-        static const uint32_t VBANK_FLAG_MASK = 1,
-                              HBANK_FLAG_MASK = 1 << 1,
-                              VCOUNTER_FLAG_MASK = 1 << 2,
-                              VBLANK_IRQ_ENABLE_MASK = 1 << 3,
-                              HBLANK_IRQ_ENABLE_MASK = 1 << 4,
-                              VCOUNTER_IRQ_ENABLE_MASK = 1 << 5,
-                              VCOUNT_SETTING_MASK = 0xFF << 8;
+        static const uint16_t VBANK_FLAG_OFFSET = 0,
+                              HBANK_FLAG_OFFSET = 1,
+                              VCOUNTER_FLAG_OFFSET = 2,
+                              VBLANK_IRQ_ENABLE_OFFSET = 3,
+                              HBLANK_IRQ_ENABLE_OFFSET = 4,
+                              VCOUNTER_IRQ_ENABLE_OFFSET = 5,
+                              VCOUNT_SETTING_OFFSET = 8;
+
+        static const uint16_t VBANK_FLAG_MASK = 1,
+                              HBANK_FLAG_MASK = 1,
+                              VCOUNTER_FLAG_MASK = 1,
+                              VBLANK_IRQ_ENABLE_MASK = 1,
+                              HBLANK_IRQ_ENABLE_MASK = 1,
+                              VCOUNTER_IRQ_ENABLE_MASK = 1,
+                              VCOUNT_SETTING_MASK = 0xFF;
     }
 
     namespace VCOUNT {
@@ -261,6 +269,7 @@ namespace gbaemu::lcd {
         void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs *regs, Memory& memory);
         void renderBG0(LCDColorPalette& palette);
         void renderBG3(Memory& memory);
+        void renderBG4(LCDColorPalette& palette, Memory& memory);
         void drawToDisplay(LCDisplay& display);
     };
 
@@ -273,15 +282,31 @@ namespace gbaemu::lcd {
         std::array<Background, 4> backgrounds;
 
         struct {
-            uint32_t hIndex;
+            /*
+                For each line:
 
-            uint32_t vIndex;
+                takes 960 cycles ---->
+                [p1]...[p240]
+                h-blanking takes 272 cycles <----
+
+                v-blanking takes 83776 cycles
+             */
+            uint32_t cycle;
+            uint16_t vCount;
+
+            bool hBlanking;
+            bool vBlanking;
         } counters;
 
         void blendBackgrounds();
     public:
         LCDController(LCDisplay& disp, Memory& mem):
-            display(disp), memory(mem) {}
+            display(disp), memory(mem) {
+            counters.cycle = 0;
+            counters.vCount = 0;
+            counters.hBlanking = false;
+            counters.vBlanking = false;
+        }
 
         /* updates all raw pointers into the sections of memory (in case they might change) */
         void updateReferences();
@@ -290,7 +315,7 @@ namespace gbaemu::lcd {
         /* renders the current screen to canvas */
         void render();
         void plotMemory();
-        void tick();
+        bool tick();
     };
 }
 
