@@ -77,7 +77,7 @@ namespace gbaemu
                 uint8_t multipleOf32 = amount / 32;
                 amount = amount - (multipleOf32 > 1 ? (multipleOf32 - 1) * 32 : 0);
                 uint64_t carry = (static_cast<uint64_t>((extendedVal >> (amount - 1)) & 0x1) << 32);
-                return static_cast<uint64_t>(static_cast<int64_t>(extendedVal << 32) / (static_cast<uint64_t>(1) << (32 + amount))) | carry;
+                return (static_cast<uint64_t>(static_cast<int64_t>(extendedVal << 32) / (static_cast<int64_t>(1) << amount)) >> 32) | carry;
             }
             case ROR: {
                 // ensure a value in range of [0, 32]
