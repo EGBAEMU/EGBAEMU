@@ -1,4 +1,5 @@
 #include "cpu.hpp"
+#include <set>
 
 namespace gbaemu
 {

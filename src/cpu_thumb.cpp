@@ -1,4 +1,5 @@
 #include "cpu.hpp"
+#include <set>
 
 namespace gbaemu
 {
@@ -614,4 +615,4 @@ namespace gbaemu
 
         return info;
     }
-}
+} // namespace gbaemu

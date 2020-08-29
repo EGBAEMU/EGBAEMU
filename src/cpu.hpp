@@ -5,12 +5,7 @@
 #include "inst_arm.hpp"
 #include "inst_thumb.hpp"
 #include "regs.hpp"
-#include "swi.hpp"
-#include <array>
 #include <cstdint>
-#include <functional>
-#include <set>
-#include <string>
 
 namespace gbaemu
 {
