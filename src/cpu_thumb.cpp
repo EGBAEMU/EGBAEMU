@@ -346,12 +346,15 @@ namespace gbaemu
 
         *currentRegs[rd] = result;
 
+        bool isAdd = (insID == thumb::ADD) || (insID == thumb::ADD_SHORT_IMM);
+
         setFlags(
             result,
             true,
             true,
             true,
-            true);
+            true,
+            isAdd);
 
         InstructionExecutionInfo info{0};
         return info;
@@ -418,7 +421,8 @@ namespace gbaemu
             true,                              // n Flag
             true,                              // z Flag
             false,                             // v Flag
-            ins != thumb::LSL || offset != 0); // c flag
+            ins != thumb::LSL || offset != 0, // c flag
+            false);
 
         // Execution Time: 1S
         InstructionExecutionInfo info{0};
@@ -452,7 +456,8 @@ namespace gbaemu
                          true,
                          true,
                          true,
-                         true);
+                         true,
+                         false);
                 break;
             }
 
@@ -520,6 +525,9 @@ namespace gbaemu
         static const std::set<thumb::ThumbInstructionID> shiftOps{
             thumb::LSL, thumb::LSR, thumb::ASR, thumb::ROR};
 
+        static const std::set<thumb::ThumbInstructionID> invertCarry{
+            thumb::SBC, thumb::CMP, thumb::CMN};
+
         InstructionExecutionInfo info{0};
 
         if (shiftOps.find(instID) != shiftOps.end()) {
@@ -530,7 +538,7 @@ namespace gbaemu
 
         uint64_t rsValue = *currentRegs[rs];
         uint64_t rdValue = *currentRegs[rd];
-        uint64_t resultValue;
+        int64_t resultValue;
 
         uint8_t shiftAmount = rsValue & 0xFF;
 
@@ -608,7 +616,8 @@ namespace gbaemu
             updateNegative.find(instID) != updateNegative.end(),
             updateZero.find(instID) != updateZero.end(),
             updateOverflow.find(instID) != updateOverflow.end(),
-            updateCarry.find(instID) != updateCarry.end() && (shiftOps.find(instID) != shiftOps.end() || shiftAmount != 0));
+            updateCarry.find(instID) != updateCarry.end() && (shiftOps.find(instID) != shiftOps.end() || shiftAmount != 0),
+            invertCarry.find(instID) != invertCarry.end());
 
         if (dontUpdateRD.find(instID) == dontUpdateRD.end())
             *currentRegs[rd] = resultValue;

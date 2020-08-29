@@ -34,6 +34,7 @@ namespace gbaemu
                 true,
                 true,
                 false,
+                false,
                 false);
         }
 
@@ -274,7 +275,7 @@ namespace gbaemu
             }
         }
 
-        uint64_t resultValue;
+        int64_t resultValue;
 
         /* Different instructions cause different flags to be changed. */
         /* TODO: This can be extended for all instructions. */
@@ -304,6 +305,9 @@ namespace gbaemu
 
         static const std::set<arm::ARMInstructionID> dontUpdateRD{
             arm::CMP, arm::CMN, arm::TST, arm::TEQ};
+
+        static const std::set<arm::ARMInstructionID> invertCarry{
+            arm::CMP, arm::CMN, arm::SUB, arm::SBC};
 
         /* execute functions */
         switch (inst.id) {
@@ -384,9 +388,13 @@ namespace gbaemu
                 break;
             case arm::SBC:
                 resultValue = static_cast<uint32_t>(rnValue) - shifterOperand - (carry ? 0 : 1);
+
+                if (static_cast<uint32_t>(resultValue) < 0)
+                    resultValue |= 0xFFFFFFFF00000000;
                 break;
             case arm::SUB:
-                resultValue = static_cast<uint32_t>(rnValue) - shifterOperand;
+                resultValue = static_cast<int64_t>(rnValue) - static_cast<int64_t>(shifterOperand);
+                //resultValue |= 0xFFFFFFFF00000000;
                 break;
             case arm::TEQ:
                 resultValue = rnValue ^ shifterOperand;
@@ -405,7 +413,8 @@ namespace gbaemu
                 updateNegative.find(inst.id) != updateNegative.end(),
                 updateZero.find(inst.id) != updateZero.end(),
                 updateOverflow.find(inst.id) != updateOverflow.end(),
-                updateCarry.find(inst.id) != updateCarry.end());
+                updateCarry.find(inst.id) != updateCarry.end(),
+                invertCarry.find(inst.id) != invertCarry.end());
 
             if (updateCarryFromShiftOp.find(inst.id) != updateCarryFromShiftOp.end() &&
                 (shiftType != arm::ShiftType::LSL || shiftAmount != 0)) {

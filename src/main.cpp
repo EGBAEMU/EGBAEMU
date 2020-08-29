@@ -93,7 +93,7 @@ int main(int argc, char **argv)
     gbaemu::debugger::Watchdog charlie;
     gbaemu::debugger::JumpTrap jumpTrap;
     bool stepMode = false;
-    gbaemu::debugger::AddressTrap bp1(0x08000000 + 0x34c, &stepMode);
+    gbaemu::debugger::AddressTrap bp1(0x08000000 + 0x430, &stepMode);
     charlie.registerTrap(jumpTrap);
     charlie.registerTrap(bp1);
 

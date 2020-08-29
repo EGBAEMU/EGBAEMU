@@ -1,5 +1,6 @@
 #include "cpu.hpp"
 #include "swi.hpp"
+#include <limits>
 
 namespace gbaemu
 {
@@ -89,7 +90,7 @@ namespace gbaemu
         }
     }
 
-    void CPU::setFlags(uint64_t resultValue, bool nFlag, bool zFlag, bool vFlag, bool cFlag)
+    void CPU::setFlags(int64_t resultValue, bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry)
     {
         /*
             The arithmetic operations (SUB, RSB, ADD, ADC, SBC, RSC, CMP, CMN) treat each
@@ -104,7 +105,8 @@ namespace gbaemu
             */
         bool negative = (resultValue) & (static_cast<uint64_t>(1) << 31);
         bool zero = (resultValue & 0x0FFFFFFFF) == 0;
-        bool overflow = (resultValue >> 32) & 0xFFFFFFFF;
+        bool overflow = ((resultValue < std::numeric_limits<int32_t>::min()) ||
+            (resultValue > std::numeric_limits<int32_t>::max())); //(resultValue >> 32) & 0xFFFFFFFF;
         bool carry = resultValue & (static_cast<uint64_t>(1) << 32);
 
         if (nFlag)
@@ -116,8 +118,12 @@ namespace gbaemu
         if (vFlag)
             state.setFlag(cpsr_flags::V_FLAG, overflow);
 
-        if (cFlag)
-            state.setFlag(cpsr_flags::C_FLAG, carry);
+        if (cFlag) {
+            if (!invertCarry)
+                state.setFlag(cpsr_flags::C_FLAG, carry);
+            else
+                state.setFlag(cpsr_flags::C_FLAG, !carry);
+        }
     }
 
     InstructionExecutionInfo CPU::execute()
