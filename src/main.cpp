@@ -109,7 +109,7 @@ int main(int argc, char **argv)
                 std::cout << "CHECKPOINT REACHED: " << checkPointReached << std::endl;
             }
 
-            if (checkPointReached >= TARGET_CHECKPOINT_CNT) {
+            if (true || checkPointReached >= TARGET_CHECKPOINT_CNT) {
                 std::cout << "press enter to continue\n";
                 std::cin.get();
 
