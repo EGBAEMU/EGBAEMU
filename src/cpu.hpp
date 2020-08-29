@@ -40,7 +40,7 @@ namespace gbaemu
         /* ALU functions */
         InstructionExecutionInfo execDataProc(arm::ARMInstruction &inst);
         InstructionExecutionInfo execLoadStoreRegUByte(const arm::ARMInstruction &inst);
-        InstructionExecutionInfo execDataBlockTransfer(arm::ARMInstruction &inst, bool thumb = false);
+        InstructionExecutionInfo execDataBlockTransfer(arm::ARMInstruction &inst);
         InstructionExecutionInfo execHalfwordDataTransferImmRegSignedTransfer(const arm::ARMInstruction &inst);
 
         // THUMB instruction execution helpers

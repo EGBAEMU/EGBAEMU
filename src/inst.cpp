@@ -61,7 +61,7 @@ namespace gbaemu
 
                 // LSR#0: Interpreted as LSR#32, ie. Op2 becomes zero, C becomes Bit 31 of Rm
                 if (initialZeroAmount) {
-                    res |= static_cast<uint64_t>(value & (1 << 31)) << 1;
+                    res |= static_cast<uint64_t>(value & (static_cast<uint32_t>(1) << 31)) << 1;
                 }
 
                 return res;
@@ -85,7 +85,7 @@ namespace gbaemu
 
                 // ROR#0: Interpreted as RRX#1 (RCR), like ROR#1, but Op2 Bit 31 set to old C.
                 if (initialZeroAmount) {
-                    res = (res & ~(1 << 31)) | (oldCarry ? (1 << 31) : 0);
+                    res = (res & ~(static_cast<uint32_t>(1) << 31)) | (oldCarry ? (static_cast<uint32_t>(1) << 31) : 0);
                 }
 
                 /*

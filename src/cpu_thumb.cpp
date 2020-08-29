@@ -72,7 +72,7 @@ namespace gbaemu
         wrapper.params.block_data_transf.s = false;
         wrapper.params.block_data_transf.rn = rb;
 
-        return execDataBlockTransfer(wrapper, true);
+        return execDataBlockTransfer(wrapper);
     }
 
     InstructionExecutionInfo CPU::handleThumbPushPopRegister(bool load, bool r, uint8_t rlist)
@@ -110,7 +110,7 @@ namespace gbaemu
 
         wrapper.params.block_data_transf.rn = regs::SP_OFFSET;
 
-        return execDataBlockTransfer(wrapper, true);
+        return execDataBlockTransfer(wrapper);
     }
 
     InstructionExecutionInfo CPU::handleThumbAddOffsetToStackPtr(bool s, uint8_t offset)
@@ -261,7 +261,7 @@ namespace gbaemu
                 }
 
                 // Magic sign extension
-                *currentRegs[rd] = static_cast<int32_t>(static_cast<uint32_t>(data) << shiftAmount) / (1 << shiftAmount);
+                *currentRegs[rd] = static_cast<int32_t>(static_cast<uint32_t>(data) << shiftAmount) / (static_cast<uint32_t>(1) << shiftAmount);
             } else {
                 // LDRH zero extended
                 *currentRegs[rd] = state.memory.read16(memoryAddress, &info.cycleCount);
