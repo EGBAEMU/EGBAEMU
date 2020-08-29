@@ -229,7 +229,7 @@ namespace gbaemu::lcd {
     void LCDController::updateReferences() {
         palette.bgPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET));
         palette.objPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET + 0x200));
-        regs = reinterpret_cast<LCDIORegs *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET));
+        regs = reinterpret_cast<LCDIORegs *>(memory.resolveAddr(gbaemu::Memory::IO_REGS_OFFSET));
     }
 
     uint32_t LCDController::getBackgroundMode() const {
@@ -338,5 +338,11 @@ namespace gbaemu::lcd {
         }
 
         display.canvas.endDraw();
+    }
+
+    void LCDController::tick() {
+        updateReferences();
+        if (!regs->DISPSTAT)
+            regs->DISPSTAT = 0xFFFF;
     }
 }

@@ -98,6 +98,7 @@ int main(int argc, char **argv)
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
         auto inst = cpu.state.pipeline.decode.instruction;
         cpu.step();
+        controller.tick();
 
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 

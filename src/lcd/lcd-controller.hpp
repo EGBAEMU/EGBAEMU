@@ -272,6 +272,12 @@ namespace gbaemu::lcd {
         LCDIORegs *regs;
         std::array<Background, 4> backgrounds;
 
+        struct {
+            uint32_t hIndex;
+
+            uint32_t vIndex;
+        } counters;
+
         void blendBackgrounds();
     public:
         LCDController(LCDisplay& disp, Memory& mem):
@@ -284,6 +290,7 @@ namespace gbaemu::lcd {
         /* renders the current screen to canvas */
         void render();
         void plotMemory();
+        void tick();
     };
 }
 
