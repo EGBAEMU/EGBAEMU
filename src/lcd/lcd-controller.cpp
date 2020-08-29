@@ -199,6 +199,29 @@ namespace gbaemu::lcd {
         }
     }
 
+    void Background::renderBG4(LCDColorPalette& palette, Memory& memory) {
+        auto pixels = canvas.pixels();
+        auto stride = canvas.getWidth();
+        const uint8_t *srcPixels = reinterpret_cast<const uint8_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET));
+
+        for (int32_t y = 0; y < 160; ++y) {
+            for (int32_t x = 0; x < 240; ++x) {
+                uint16_t color = srcPixels[y * 240 + x];
+                /* TODO: endianess? */
+                //color = ((color & 0xFF) << 16) | ((color & 0xFF00) >> 16);
+
+                /* convert to R8G8B8 */
+                //uint32_t r = static_cast<uint32_t>(color & 0x1F) << 3;
+                //uint32_t g = static_cast<uint32_t>((color >> 5) & 0x1F) << 3;
+                //uint32_t b = static_cast<uint32_t>((color >> 10) & 0x1F) << 3;
+                //uint32_t a8r8g8b8 = 0xFF000000 | (r << 16) | (g << 8) | b;
+                uint32_t a8r8g8b8 = palette.getBgColor(color);
+
+                pixels[y * stride + x] = a8r8g8b8;
+            }
+        }
+    }
+
     void Background::drawToDisplay(LCDisplay& display) {
         auto xFrom = std::max(0, xOff);
         auto xTo = std::min(DIMENSIONS::WIDTH, xOff + canvas.getWidth());
@@ -273,6 +296,10 @@ namespace gbaemu::lcd {
             backgrounds[2].loadSettings(3, 2, regs, memory);
             backgrounds[2].renderBG3(memory);
             backgrounds[2].drawToDisplay(display);
+        } else if (bgMode == 4) {
+            backgrounds[2].loadSettings(4, 2, regs, memory);
+            backgrounds[2].renderBG4(palette, memory);
+            backgrounds[2].drawToDisplay(display);
         }
 
         display.canvas.endDraw();
@@ -340,9 +367,42 @@ namespace gbaemu::lcd {
         display.canvas.endDraw();
     }
 
-    void LCDController::tick() {
+    bool LCDController::tick() {
         updateReferences();
-        if (!regs->DISPSTAT)
-            regs->DISPSTAT = 0xFFFF;
+
+        bool result = false;
+        uint32_t vState = counters.cycle % 280896;
+        counters.vBlanking = vState >= 197120;
+
+        /* TODO: this is guesswork, maybe h and v blanking can be enabled concurrently */
+        if (!counters.vBlanking) {
+            uint32_t hState = counters.cycle % 1232;
+            counters.hBlanking = hState >= 960;
+            counters.vCount = counters.cycle / 1232;
+        } else {
+            counters.vCount = 0;
+        }
+
+        if (counters.hBlanking) {
+            render();
+            result = true;
+        }
+
+        //std::cout << std::dec << counters.cycle << " " << counters.hBlanking << " " << counters.vBlanking << "\n";
+
+        /* update stat */
+        uint16_t stat = flip16(regs->DISPSTAT);
+        stat = stat & (DISPSTAT::VBANK_FLAG_MASK << DISPSTAT::VBANK_FLAG_OFFSET);
+
+        stat = bitSet(stat, DISPSTAT::VBANK_FLAG_MASK, DISPSTAT::VBANK_FLAG_OFFSET, bmap<uint16_t>(counters.vBlanking));
+        stat = bitSet(stat, DISPSTAT::HBANK_FLAG_MASK, DISPSTAT::HBANK_FLAG_OFFSET, bmap<uint16_t>(counters.hBlanking));
+        stat = bitSet(stat, DISPSTAT::VCOUNT_SETTING_MASK, DISPSTAT::VCOUNT_SETTING_OFFSET, counters.vCount);
+
+        regs->DISPSTAT = flip16(stat);
+
+        ++counters.cycle;
+
+        return result;
     }
 }
+

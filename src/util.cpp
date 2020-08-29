@@ -18,4 +18,17 @@ namespace gbaemu
 
         return result;
     }
+
+    template <class T>
+    T bitSet(T val, T mask, T off, T insVal) {
+        return (val & ~(mask << off)) | (insVal << off);
+    }
+
+    template <class T>
+    T bmap(bool b) {
+        return static_cast<T>(b ? 1 : 0);
+    }
 } // namespace gbaemu
+
+template uint16_t gbaemu::bitSet<uint16_t>(uint16_t, uint16_t, uint16_t, uint16_t);
+template uint16_t gbaemu::bmap<uint16_t>(bool);

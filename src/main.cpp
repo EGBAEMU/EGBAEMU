@@ -98,7 +98,8 @@ int main(int argc, char **argv)
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
         auto inst = cpu.state.pipeline.decode.instruction;
         cpu.step();
-        controller.tick();
+        if (controller.tick())
+            window.present();
 
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
@@ -110,7 +111,7 @@ int main(int argc, char **argv)
                 std::cout << "CHECKPOINT REACHED: " << checkPointReached << std::endl;
             }
 
-            if (true || checkPointReached >= TARGET_CHECKPOINT_CNT) {
+            if (false && checkPointReached >= TARGET_CHECKPOINT_CNT) {
                 std::cout << "press enter to continue\n";
                 std::cin.get();
 
