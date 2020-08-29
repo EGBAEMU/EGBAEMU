@@ -72,7 +72,7 @@ namespace gbaemu
         wrapper.params.block_data_transf.s = false;
         wrapper.params.block_data_transf.rn = rb;
 
-        return execDataBlockTransfer(wrapper, true);
+        return execDataBlockTransfer(wrapper);
     }
 
     InstructionExecutionInfo CPU::handleThumbPushPopRegister(bool load, bool r, uint8_t rlist)
@@ -110,7 +110,7 @@ namespace gbaemu
 
         wrapper.params.block_data_transf.rn = regs::SP_OFFSET;
 
-        return execDataBlockTransfer(wrapper, true);
+        return execDataBlockTransfer(wrapper);
     }
 
     InstructionExecutionInfo CPU::handleThumbAddOffsetToStackPtr(bool s, uint8_t offset)

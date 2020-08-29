@@ -577,7 +577,7 @@ namespace gbaemu
         return info;
     }
 
-    InstructionExecutionInfo CPU::execDataBlockTransfer(arm::ARMInstruction &inst, bool thumb)
+    InstructionExecutionInfo CPU::execDataBlockTransfer(arm::ARMInstruction &inst)
     {
         auto currentRegs = state.getCurrentRegs();
 
@@ -642,7 +642,7 @@ namespace gbaemu
 
                 if (load) {
                     if (currentIdx == regs::PC_OFFSET) {
-                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount) & (thumb ? 0xFFFFFFFE : 0xFFFFFFFC);
+                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount);
                         // Special case for pipeline refill
                         info.additionalProgCyclesN = 1;
                         info.additionalProgCyclesS = 1;

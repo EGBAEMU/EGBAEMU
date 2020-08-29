@@ -292,8 +292,9 @@ namespace gbaemu
             }
         }
 
-        const uint32_t postPc = state.getCurrentPC();
         const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+        // Ensure that pc is word / halfword aligned
+        const uint32_t postPc = (state.accessReg(regs::PC_OFFSET) &= (postThumbMode ? 0xFFFFFFFE : 0xFFFFFFFC));
 
         // Add 1S cycle needed to fetch a instruction if not other requested
         if (!info.noDefaultSCycle) {
