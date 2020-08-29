@@ -44,6 +44,16 @@ namespace gbaemu::debugger {
         return ss.str();
     }
 
+    void AddressTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction& inst, const CPUState& state) {
+        //asm("int $3");
+        *setStepMode = true;
+    }
+
+    bool AddressTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction& inst, const CPUState& state) {
+        return postPC == address;
+    }
+
+
     void Watchdog::registerTrap(Trap& t) {
         traps.push_back(std::shared_ptr<Trap>(&t));
     }

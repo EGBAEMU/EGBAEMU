@@ -92,7 +92,10 @@ int main(int argc, char **argv)
 
     gbaemu::debugger::Watchdog charlie;
     gbaemu::debugger::JumpTrap jumpTrap;
+    bool stepMode = false;
+    gbaemu::debugger::AddressTrap bp1(0x08000000 + 0x34c, &stepMode);
     charlie.registerTrap(jumpTrap);
+    charlie.registerTrap(bp1);
 
     for (uint32_t i = 0; i < 0xFFFFFFFF;) {
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
@@ -111,7 +114,7 @@ int main(int argc, char **argv)
                 std::cout << "CHECKPOINT REACHED: " << checkPointReached << std::endl;
             }
 
-            if (false && checkPointReached >= TARGET_CHECKPOINT_CNT) {
+            if (stepMode) {
                 std::cout << "press enter to continue\n";
                 std::cin.get();
 

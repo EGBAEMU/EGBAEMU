@@ -30,6 +30,18 @@ namespace gbaemu::debugger {
         std::string toString() const;
     };
 
+    class AddressTrap : public Trap {
+    private:
+        uint32_t address;
+        bool *setStepMode;
+    public:
+        AddressTrap(uint32_t addr, bool *stepMode = nullptr):
+            address(addr), setStepMode(stepMode) { }
+
+        void trigger(uint32_t prevPC, uint32_t postPC, const Instruction& inst, const CPUState& state) override;
+        bool satisfied(uint32_t prevPC, uint32_t postPC, const Instruction& inst, const CPUState& state) override;
+    };
+
     /*
         A Watchdog checks at every instruction/CPU-state if any of the traps can trigger
         and calls their trigger function.
