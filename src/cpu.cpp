@@ -102,7 +102,7 @@ namespace gbaemu
             of bit 31 of the result (indicating a negative result if the operands are considered to be
             2’s complement signed).
             */
-        bool negative = resultValue & (1 << 31);
+        bool negative = (resultValue) & (static_cast<uint64_t>(1) << 31);
         bool zero = (resultValue & 0x0FFFFFFFF) == 0;
         bool overflow = (resultValue >> 32) & 0xFFFFFFFF;
         bool carry = resultValue & (static_cast<uint64_t>(1) << 32);
