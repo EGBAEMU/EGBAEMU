@@ -552,6 +552,8 @@ namespace gbaemu
 
         InstructionExecutionInfo handleDataSwp(bool b, uint32_t rn, uint32_t rd, uint32_t rm)
         {
+            //TODO maybe replace by LDR followed by STR?
+
             if (rd == regs::PC_OFFSET || rn == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
                 std::cout << "ERROR: SWP/SWPB PC register may not be involved in calculations!" << std::endl;
             }
@@ -632,10 +634,7 @@ namespace gbaemu
         InstructionExecutionInfo execDataProc(arm::ARMInstruction &inst)
         {
 
-            bool negative = state.getFlag(cpsr_flags::N_FLAG),
-                 zero = state.getFlag(cpsr_flags::Z_FLAG),
-                 overflow = state.getFlag(cpsr_flags::V_FLAG),
-                 carry = state.getFlag(cpsr_flags::C_FLAG);
+            bool carry = state.getFlag(cpsr_flags::C_FLAG);
 
             /* calculate shifter operand */
             arm::ShiftType shiftType;
@@ -1189,8 +1188,8 @@ namespace gbaemu
                 rd = inst.params.sign_transf.rd;
 
                 if (inst.params.sign_transf.b) {
-                    uint32_t rd = inst.params.sign_transf.addrMode & 0xF;
-                    offset = state.accessReg(rd);
+                    uint32_t rm = inst.params.sign_transf.addrMode & 0x0F;
+                    offset = state.accessReg(rm);
                 } else
                     offset = inst.params.sign_transf.addrMode;
 
