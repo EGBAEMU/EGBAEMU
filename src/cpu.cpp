@@ -315,9 +315,6 @@ namespace gbaemu
 
         // Change from arm mode to thumb mode or vice versa
         if (prevThumbMode != postThumbMode) {
-            //TODO change fetch and decode strategy to corresponding code
-
-            std::cout << "INFO: MODE CHANGE" << std::endl;
             if (state.decoder == &armDecoder) {
                 state.decoder = &thumbDecoder;
             } else {
@@ -327,7 +324,6 @@ namespace gbaemu
         }
         // We have a branch, return or something that changed our PC
         if (prevPc != postPc) {
-            std::cout << "INFO: PIPELINE FLUSH" << std::endl;
             initPipeline();
         } else {
             //TODO this is probably unwanted if we changed the mode?
@@ -335,7 +331,6 @@ namespace gbaemu
             state.accessReg(regs::PC_OFFSET) = postPc + (postThumbMode ? 2 : 4);
         }
 
-        //TODO update current user mode(not thumb/arm)!
         /*
             The Mode Bits M4-M0 contain the current operating mode.
                     Binary Hex Dec  Expl.
