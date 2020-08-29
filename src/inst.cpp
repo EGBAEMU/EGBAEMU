@@ -74,15 +74,15 @@ namespace gbaemu
                 Carry flag is the MSB of the out shifted values! -> bit amount - 1
                 */
                 // ensure a value in range of [0, 32]
-                uint8_t multipleOf32 = amount / 32;
-                amount = amount - (multipleOf32 > 1 ? (multipleOf32 - 1) * 32 : 0);
+                uint8_t restOf32 = amount % 32;
+                amount = (amount > 32 ? (restOf32 ? restOf32 : 32) : amount);
                 uint64_t carry = (static_cast<uint64_t>((extendedVal >> (amount - 1)) & 0x1) << 32);
                 return (static_cast<uint64_t>(static_cast<int64_t>(extendedVal << 32) / (static_cast<int64_t>(1) << amount)) >> 32) | carry;
             }
             case ROR: {
                 // ensure a value in range of [0, 32]
-                uint8_t multipleOf32 = amount / 32;
-                amount = amount - (multipleOf32 > 1 ? (multipleOf32 - 1) * 32 : 0);
+                uint8_t restOf32 = amount % 32;
+                amount = (amount > 32 ? (restOf32 ? restOf32 : 32) : amount);
                 uint32_t res = (extendedVal >> amount) | (extendedVal << (32 - amount));
 
                 // ROR#0: Interpreted as RRX#1 (RCR), like ROR#1, but Op2 Bit 31 set to old C.
@@ -119,7 +119,8 @@ namespace gbaemu
         return isArm;
     }
 
-    std::string Instruction::toString() const {
+    std::string Instruction::toString() const
+    {
         if (isArm)
             return arm.toString();
         else
