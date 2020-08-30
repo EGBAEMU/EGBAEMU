@@ -847,7 +847,9 @@ namespace gbaemu
         if (load) {
             uint32_t readData;
             if (transferSize == 16) {
-                readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &info));
+                // Handle misaligned address with ROR (see LDR with non word aligned)
+                readData = static_cast<uint32_t>(state.memory.read16(memoryAddress & 0xFFFFFFFE, &info));
+                readData = arm::shift(readData, arm::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
             } else {
                 readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &info));
             }
@@ -860,7 +862,8 @@ namespace gbaemu
             }
         } else {
             if (transferSize == 16) {
-                state.memory.write16(memoryAddress, rdValue, &info);
+                // Enforce halfword alignment
+                state.memory.write16(memoryAddress & 0xFFFFFFFE, rdValue, &info);
             } else {
                 state.memory.write8(memoryAddress, rdValue, &info);
             }
