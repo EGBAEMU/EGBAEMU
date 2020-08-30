@@ -313,6 +313,7 @@ namespace gbaemu
 
         if (static_cast<Memory::MemoryRegion>((state.getCurrentPC() >> 24) & 0x0F) >= Memory::MemoryRegion::EXT_ROM1) {
             //TODO proper ROM mirroring... cause this is shady AF
+            //TODO we need something similar in the memory class...
             uint32_t romSizeLog2 = state.memory.getRomSize();
             // Uff: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
             romSizeLog2--;
