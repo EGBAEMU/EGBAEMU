@@ -537,7 +537,7 @@ namespace gbaemu
         if (immediate) {
             offset = inst.params.ls_reg_ubyte.addrMode;
         } else {
-            uint32_t shiftAmount = (inst.params.ls_reg_ubyte.addrMode >> 7) & 0x1F;
+            uint8_t shiftAmount = (inst.params.ls_reg_ubyte.addrMode >> 7) & 0x1F;
             auto shiftType = static_cast<arm::ShiftType>((inst.params.ls_reg_ubyte.addrMode >> 5) & 0b11);
             uint32_t rm = inst.params.ls_reg_ubyte.addrMode & 0xF;
 

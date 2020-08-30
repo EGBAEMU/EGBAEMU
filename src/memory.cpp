@@ -126,7 +126,7 @@ namespace gbaemu
     {
         static const uint8_t zeroMem[4] = {0};
 
-        MemoryRegion memoryRegion = static_cast<MemoryRegion>(addr >> 24);
+        MemoryRegion memoryRegion = static_cast<MemoryRegion>((addr >> 24) & 0x0F);
 
         switch (memoryRegion) {
             PATCH_MEM_REG(addr, BIOS, bios);
@@ -159,7 +159,7 @@ namespace gbaemu
     {
         static uint8_t wasteMem[4];
 
-        MemoryRegion memoryRegion = static_cast<MemoryRegion>(addr >> 24);
+        MemoryRegion memoryRegion = static_cast<MemoryRegion>((addr >> 24) & 0x0F);
 
         switch (memoryRegion) {
             PATCH_MEM_REG(addr, BIOS, bios);
@@ -190,7 +190,7 @@ namespace gbaemu
 
     uint8_t Memory::nonSeqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const
     {
-        MemoryRegion memoryRegion = static_cast<MemoryRegion>(address >> 24);
+        MemoryRegion memoryRegion = static_cast<MemoryRegion>((address >> 24) & 0x0F);
 
         switch (memoryRegion) {
             case WRAM: {
@@ -254,7 +254,7 @@ namespace gbaemu
 
     uint8_t Memory::seqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const
     {
-        MemoryRegion memoryRegion = static_cast<MemoryRegion>(address >> 24);
+        MemoryRegion memoryRegion = static_cast<MemoryRegion>((address >> 24) & 0x0F);
 
         switch (memoryRegion) {
             case WRAM: {
