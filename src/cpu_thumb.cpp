@@ -120,10 +120,10 @@ namespace gbaemu
 
         if (s) {
             // 1: ADD  SP,#-nn      ;SP = SP - nn
-            state.accessReg(regs::PC_OFFSET) = state.getCurrentPC() - extOffset;
+            state.accessReg(regs::SP_OFFSET) -= extOffset;
         } else {
             // 0: ADD  SP,#nn       ;SP = SP + nn
-            state.accessReg(regs::PC_OFFSET) = state.getCurrentPC() + extOffset;
+            state.accessReg(regs::SP_OFFSET) += extOffset;
         }
 
         // Execution Time: 1S
