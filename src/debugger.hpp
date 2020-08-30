@@ -60,6 +60,20 @@ namespace gbaemu::debugger
         bool satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
     };
 
+    class RegisterNonZeroTrap : public Trap
+    {
+      private:
+        uint8_t targetReg;
+        bool *stepMode;
+        uint32_t minPcOffset;
+      
+      public:
+        RegisterNonZeroTrap(uint8_t targetReg, uint32_t minPcOffset, bool *stepMode) : targetReg(targetReg), stepMode(stepMode), minPcOffset(minPcOffset) {}
+
+        void trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
+        bool satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
+    };
+
     /*
         A Watchdog checks at every instruction/CPU-state if any of the traps can trigger
         and calls their trigger function.

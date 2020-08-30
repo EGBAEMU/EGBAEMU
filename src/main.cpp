@@ -92,10 +92,14 @@ int main(int argc, char **argv)
 
     gbaemu::debugger::Watchdog charlie;
     gbaemu::debugger::JumpTrap jumpTrap;
+    
     bool stepMode = false;
-    gbaemu::debugger::AddressTrap bp1(0x0800079c, &stepMode);
+    //gbaemu::debugger::AddressTrap bp1(0x0800079c, &stepMode);
+    gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x0800079c, &stepMode);
+
     charlie.registerTrap(jumpTrap);
     //charlie.registerTrap(bp1);
+    charlie.registerTrap(r12trap);
 
     for (uint32_t i = 0; i < 0xFFFFFFFF;) {
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);

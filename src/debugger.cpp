@@ -48,6 +48,18 @@ namespace gbaemu::debugger
         return ss.str();
     }
 
+
+    void RegisterNonZeroTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
+    {
+        *stepMode = true;
+    }
+
+    bool RegisterNonZeroTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
+    {
+        return minPcOffset < postPC && state.accessReg(targetReg) != 0;
+    }
+
+
     void AddressTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
     {
         //asm("int $3");
