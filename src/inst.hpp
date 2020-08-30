@@ -14,6 +14,10 @@ namespace gbaemu
     instruction set
     http://www.ecs.csun.edu/~smirzaei/docs/ece425/arm7tdmi_instruction_set_reference.pdf
  */
+    struct InstructionExecutionException {
+
+    };
+
     struct InstructionExecutionInfo {
         /*
             1. open https://static.docs.arm.com/ddi0029/g/DDI0029.pdf
@@ -51,6 +55,9 @@ namespace gbaemu
         uint32_t additionalProgCyclesN;
         // Do not add 1S cycle (only relevant for STR AFAIK)
         bool noDefaultSCycle;
+
+        bool hasCausedException;
+        InstructionExecutionException exception;
     };
 
     enum ConditionOPCode : uint8_t {
