@@ -145,6 +145,9 @@ namespace gbaemu
             rom = nullptr;
         }
 
+        Memory(const Memory &) = delete;
+        Memory& operator=(const Memory &) = delete;
+
         //TODO this would be too simple to work :D
         void loadROM(uint8_t *rom, size_t romSize)
         {
