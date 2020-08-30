@@ -404,7 +404,7 @@ namespace gbaemu
                 uint32_t opCode = (lastInst >> 21) & 0x0F;
                 bool i = (lastInst >> 25) & 1;
                 bool s = lastInst & (1 << 20);
-                bool r = (lastInst >> 2) & 1;
+                bool r = (lastInst >> 22) & 1;
 
                 instruction.params.data_proc_psr_transf.opCode = opCode;
                 instruction.params.data_proc_psr_transf.i = i;
