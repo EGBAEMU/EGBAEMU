@@ -309,7 +309,23 @@ namespace gbaemu
 
         const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
         // Ensure that pc is word / halfword aligned
-        const uint32_t postPc = (state.accessReg(regs::PC_OFFSET) &= (postThumbMode ? 0xFFFFFFFE : 0xFFFFFFFC));
+        state.accessReg(regs::PC_OFFSET) &= (postThumbMode ? 0xFFFFFFFE : 0xFFFFFFFC);
+
+        if (static_cast<Memory::MemoryRegion>((state.getCurrentPC() >> 24) & 0x0F) >= Memory::MemoryRegion::EXT_ROM1) {
+            //TODO proper ROM mirroring... cause this is shady AF
+            uint32_t romSizeLog2 = state.memory.getRomSize();
+            // Uff: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+            romSizeLog2--;
+            romSizeLog2 |= romSizeLog2 >> 1;
+            romSizeLog2 |= romSizeLog2 >> 2;
+            romSizeLog2 |= romSizeLog2 >> 4;
+            romSizeLog2 |= romSizeLog2 >> 8;
+            romSizeLog2 |= romSizeLog2 >> 16;
+            romSizeLog2++;
+            state.accessReg(regs::PC_OFFSET) = ((state.accessReg(regs::PC_OFFSET) - Memory::EXT_ROM_OFFSET) & (romSizeLog2 - 1)) + Memory::EXT_ROM_OFFSET;
+        }
+
+        const uint32_t postPc = state.accessReg(regs::PC_OFFSET);
 
         // Add 1S cycle needed to fetch a instruction if not other requested
         if (!info.noDefaultSCycle) {
