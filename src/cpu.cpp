@@ -131,10 +131,7 @@ namespace gbaemu
             state.setFlag(cpsr_flags::V_FLAG, overflow);
 
         if (cFlag) {
-            if (!invertCarry)
-                state.setFlag(cpsr_flags::C_FLAG, carry);
-            else
-                state.setFlag(cpsr_flags::C_FLAG, !carry);
+            state.setFlag(cpsr_flags::C_FLAG, carry ^ invertCarry);
         }
     }
 
