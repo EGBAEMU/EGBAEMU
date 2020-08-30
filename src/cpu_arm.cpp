@@ -566,25 +566,16 @@ namespace gbaemu
             } else {
                 // More edge case:
                 /*
-                    When reading a word from a halfword-aligned address (which is located in the middle between two word-aligned addresses),
-                    the lower 16bit of Rd will contain [address] ie. the addressed halfword, 
-                    and the upper 16bit of Rd will contain [address-2] ie. more or less unwanted garbage. 
-                    However, by isolating lower bits this may be used to read a halfword from memory. 
-                    (Above applies to little endian mode, as used in GBA.)
-                    */
-                if (memoryAddress & 0x02) {
-                    std::cout << "LDR WARNING: word read on non word aligned address!" << std::endl;
+                When reading a word from a halfword-aligned address (which is located in the middle between two word-aligned addresses),
+                the lower 16bit of Rd will contain [address] ie. the addressed halfword, 
+                and the upper 16bit of Rd will contain [address-2] ie. more or less unwanted garbage. 
+                However, by isolating lower bits this may be used to read a halfword from memory. 
+                (Above applies to little endian mode, as used in GBA.)
+                */
 
-                    // Not word aligned address
-                    uint16_t lowerBits = state.memory.read16(memoryAddress, nullptr);
-                    uint32_t upperBits = state.memory.read16(memoryAddress - 2, nullptr);
-                    *currentRegs[rd] = lowerBits | (upperBits << 16);
-
-                    // simulate normal read for latency as if read word aligned address
-                    state.memory.read32(memoryAddress - 2, &info);
-                } else {
-                    *currentRegs[rd] = state.memory.read32(memoryAddress, &info);
-                }
+                uint32_t alignedWord = state.memory.read32(memoryAddress & 0xFFFFFFFC, &info);
+                alignedWord = arm::shift(alignedWord, arm::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
+                *currentRegs[rd] = alignedWord;
             }
         } else {
             if (byte) {
