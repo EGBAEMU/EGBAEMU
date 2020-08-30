@@ -25,7 +25,7 @@ namespace gbaemu
         void fetch();
         void decode();
         InstructionExecutionInfo execute();
-        void step();
+        bool step();
 
         void setFlags(uint64_t resultValue, bool msbOp1, bool msbOp2, bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry);
 

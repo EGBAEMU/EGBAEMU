@@ -4,39 +4,39 @@
 
 namespace gbaemu
 {
-    uint8_t Memory::read8(uint32_t addr, uint32_t *cycles) const
+    uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo *execInfo) const
     {
-        if (cycles != nullptr) {
-            *cycles += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint8_t));
+        if (execInfo != nullptr) {
+            execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint8_t));
         }
 
-        auto src = resolveAddr(addr);
+        const auto src = resolveAddr(addr, execInfo);
         return src[0];
     }
 
-    uint16_t Memory::read16(uint32_t addr, uint32_t *cycles) const
+    uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo *execInfo) const
     {
-        if (cycles != nullptr) {
-            *cycles += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint16_t));
+        if (execInfo != nullptr) {
+            execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint16_t));
         }
 
-        auto src = resolveAddr(addr);
+        const auto src = resolveAddr(addr, execInfo);
 
         return (static_cast<uint16_t>(src[0]) << 0) |
                (static_cast<uint16_t>(src[1]) << 8);
     }
 
-    uint32_t Memory::read32(uint32_t addr, uint32_t *cycles) const
+    uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo) const
     {
         if (addr & 0x03) {
             std::cout << "WARNING: word read on non word aligned address!" << std::endl;
         }
 
-        if (cycles != nullptr) {
-            *cycles += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint32_t));
+        if (execInfo != nullptr) {
+            execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint32_t));
         }
 
-        auto src = resolveAddr(addr);
+        const auto src = resolveAddr(addr, execInfo);
 
         return (static_cast<uint32_t>(src[0]) << 0) |
                (static_cast<uint32_t>(src[1]) << 8) |
@@ -44,40 +44,40 @@ namespace gbaemu
                (static_cast<uint32_t>(src[3]) << 24);
     }
 
-    void Memory::write8(uint32_t addr, uint8_t value, uint32_t *cycles)
+    void Memory::write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo)
     {
-        if (cycles != nullptr) {
-            *cycles += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
+        if (execInfo != nullptr) {
+            execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
         }
 
-        auto dst = resolveAddr(addr);
+        auto dst = resolveAddr(addr, execInfo);
 
         dst[0] = value;
     }
 
-    void Memory::write16(uint32_t addr, uint16_t value, uint32_t *cycles)
+    void Memory::write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo)
     {
-        if (cycles != nullptr) {
-            *cycles += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
+        if (execInfo != nullptr) {
+            execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
         }
 
-        auto dst = resolveAddr(addr);
+        auto dst = resolveAddr(addr, execInfo);
 
         dst[0] = value & 0x0FF;
         dst[1] = (value >> 8) & 0x0FF;
     }
 
-    void Memory::write32(uint32_t addr, uint32_t value, uint32_t *cycles)
+    void Memory::write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo)
     {
         if (addr & 0x03) {
             std::cout << "WARNING: word write on non word aligned address!" << std::endl;
         }
 
-        if (cycles != nullptr) {
-            *cycles += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
+        if (execInfo != nullptr) {
+            execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
         }
 
-        auto dst = resolveAddr(addr);
+        auto dst = resolveAddr(addr, execInfo);
 
         dst[0] = value & 0x0FF;
         dst[1] = (value >> 8) & 0x0FF;
@@ -122,8 +122,10 @@ namespace gbaemu
     case lim:                                   \
         return (storage + ((addr & lim##_LIMIT) - off##_OFFSET))
 
-    const uint8_t *Memory::resolveAddr(uint32_t addr) const
+    const uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo) const
     {
+        static const uint8_t zeroMem[4] = {0};
+
         MemoryRegion memoryRegion = static_cast<MemoryRegion>(addr >> 24);
 
         switch (memoryRegion) {
@@ -143,15 +145,20 @@ namespace gbaemu
                 PATCH_MEM_REG_(addr, EXT_ROM3, EXT_ROM, rom);
         }
 
-        //TODO abort?
         // invalid address!
         std::cout << "ERROR: trying to access invalid memory address: " << std::hex << addr << std::endl;
-
-        return nullptr;
+        if (execInfo != nullptr) {
+            execInfo->hasCausedException = true;
+        } else {
+            std::cout << "CRITICAL ERROR: could indicate that an exception has been caused!" << std::endl;
+        }
+        return zeroMem;
     }
 
-    uint8_t *Memory::resolveAddr(uint32_t addr)
+    uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo)
     {
+        static uint8_t wasteMem[4];
+
         MemoryRegion memoryRegion = static_cast<MemoryRegion>(addr >> 24);
 
         switch (memoryRegion) {
@@ -171,11 +178,14 @@ namespace gbaemu
                 PATCH_MEM_REG_(addr, EXT_ROM3, EXT_ROM, rom);
         }
 
-        //TODO abort?
         // invalid address!
         std::cout << "ERROR: trying to access invalid memory address: " << std::hex << addr << std::endl;
-
-        return nullptr;
+        if (execInfo != nullptr) {
+            execInfo->hasCausedException = true;
+        } else {
+            std::cout << "CRITICAL ERROR: could indicate that an exception has been caused!" << std::endl;
+        }
+        return wasteMem;
     }
 
     uint8_t Memory::nonSeqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const

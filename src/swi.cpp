@@ -206,14 +206,19 @@ namespace gbaemu
         */
         InstructionExecutionInfo cpuFastSet(CPUState *state)
         {
-            const auto currentRegs = state->getCurrentRegs();
-            //TODO we need to rewrite this code for memory access calculations or calculate it manually!
-            uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET]);
-            uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET]);
-            uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
-
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
+
+            const auto currentRegs = state->getCurrentRegs();
+            //TODO we need to rewrite this code for memory access calculations or calculate it manually!
+            uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET], &info);
+            uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET], &info);
+            uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
+
+            // as we do more than 4 byte accesses this is no more safe and we need to exit now!
+            if (info.hasCausedException) {
+                return info;
+            }
 
             uint32_t length = length_mode & 0x001FFFFF;
             uint32_t rest = length % 8;
@@ -252,13 +257,18 @@ namespace gbaemu
         InstructionExecutionInfo cpuSet(CPUState *state)
         {
             const auto currentRegs = state->getCurrentRegs();
-            //TODO we need to rewrite this code for memory access calculations or calculate it manually!
-            uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET]);
-            uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET]);
-            uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
-
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
+
+            //TODO we need to rewrite this code for memory access calculations or calculate it manually!
+            uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET], &info);
+            uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET], &info);
+            uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
+
+            // as we do more than 4 byte accesses this is no more safe and we need to exit now!
+            if (info.hasCausedException) {
+                return info;
+            }
 
             uint32_t length = length_mode & 0x001FFFFF;
             bool fixedMode = length_mode & (1 << 24);
@@ -326,41 +336,42 @@ namespace gbaemu
         */
         InstructionExecutionInfo bgAffineSet(CPUState *state)
         {
+            //TODO do those read & writes count as non sequential?
+            //TODO proper time calculation
+            InstructionExecutionInfo info{0};
+
             const auto currentRegs = state->getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
             uint32_t iterationCount = *currentRegs[regs::R2_OFFSET];
 
             auto &m = state->memory;
-            //TODO do those read & writes count as non sequential?
-            //TODO proper time calculation
-            InstructionExecutionInfo info{0};
 
             for (size_t i = 0; i < iterationCount; ++i) {
                 common::math::mat<3, 3> scale{
-                    {m.read32(sourceAddr, &info.cycleCount) / 256.f, 0, 0},
-                    {0, m.read32(sourceAddr + 4, &info.cycleCount) / 256.f, 0},
+                    {m.read32(sourceAddr, &info) / 256.f, 0, 0},
+                    {0, m.read32(sourceAddr + 4, &info) / 256.f, 0},
                     {0, 0, 1}};
 
                 uint32_t off = i * 20;
-                float ox = m.read32(off + sourceAddr, &info.cycleCount) / 256.f;
-                float oy = m.read32(off + sourceAddr + 4, &info.cycleCount) / 256.f;
-                float cx = m.read16(off + sourceAddr + 8, &info.cycleCount);
-                float cy = m.read16(off + sourceAddr + 10, &info.cycleCount);
-                float sx = m.read16(off + sourceAddr + 12, &info.cycleCount) / 256.f;
-                float sy = m.read16(off + sourceAddr + 14, &info.cycleCount) / 256.f;
-                float theta = (m.read32(sourceAddr + 16, &info.cycleCount) >> 8) / 128.f * M_PI;
+                float ox = m.read32(off + sourceAddr, &info) / 256.f;
+                float oy = m.read32(off + sourceAddr + 4, &info) / 256.f;
+                float cx = m.read16(off + sourceAddr + 8, &info);
+                float cy = m.read16(off + sourceAddr + 10, &info);
+                float sx = m.read16(off + sourceAddr + 12, &info) / 256.f;
+                float sy = m.read16(off + sourceAddr + 14, &info) / 256.f;
+                float theta = (m.read32(sourceAddr + 16, &info) >> 8) / 128.f * M_PI;
 
                 auto r = common::math::scale_matrix({sx, sy, 1}) *
                          common::math::rotation_around_matrix(theta, {0, 0, 1}, {cx - ox, cy - oy, 1});
 
                 uint32_t dstOff = i * 16;
-                m.write16(dstOff + destAddr, r[0][0] * 256, &info.cycleCount);
-                m.write16(dstOff + destAddr + 2, r[0][1] * 256, &info.cycleCount);
-                m.write16(dstOff + destAddr + 4, r[1][0] * 256, &info.cycleCount);
-                m.write16(dstOff + destAddr + 6, r[1][1] * 256, &info.cycleCount);
-                m.write32(dstOff + destAddr + 8, r[0][2] * 256, &info.cycleCount);
-                m.write32(dstOff + destAddr + 12, r[1][2] * 256, &info.cycleCount);
+                m.write16(dstOff + destAddr, r[0][0] * 256, &info);
+                m.write16(dstOff + destAddr + 2, r[0][1] * 256, &info);
+                m.write16(dstOff + destAddr + 4, r[1][0] * 256, &info);
+                m.write16(dstOff + destAddr + 6, r[1][1] * 256, &info);
+                m.write32(dstOff + destAddr + 8, r[0][2] * 256, &info);
+                m.write32(dstOff + destAddr + 12, r[1][2] * 256, &info);
             }
 
             return info;
@@ -404,18 +415,18 @@ namespace gbaemu
 
             for (size_t i = 0; i < iterationCount; ++i) {
                 uint32_t srcOff = i * 8;
-                float sx = m.read16(srcOff + sourceAddr, &info.cycleCount) / 256.f;
-                float sy = m.read16(srcOff + sourceAddr + 2, &info.cycleCount) / 256.f;
-                float theta = (m.read16(srcOff + sourceAddr + 4, &info.cycleCount) >> 8) / 128.f * M_PI;
+                float sx = m.read16(srcOff + sourceAddr, &info) / 256.f;
+                float sy = m.read16(srcOff + sourceAddr + 2, &info) / 256.f;
+                float theta = (m.read16(srcOff + sourceAddr + 4, &info) >> 8) / 128.f * M_PI;
 
                 auto r = common::math::scale_matrix(sx, sy, 0) *
                          common::math::rotation_matrix(theta, {0, 0, 1});
 
                 uint32_t destOff = diff * 4;
-                m.write16(destOff + destAddr, r[0][0] * 256, &info.cycleCount);
-                m.write16(destOff + destAddr + diff, r[0][1] * 256, &info.cycleCount);
-                m.write16(destOff + destAddr + diff * 2, r[1][0] * 256, &info.cycleCount);
-                m.write16(destOff + destAddr + diff * 3, r[1][1] * 256, &info.cycleCount);
+                m.write16(destOff + destAddr, r[0][0] * 256, &info);
+                m.write16(destOff + destAddr + diff, r[0][1] * 256, &info);
+                m.write16(destOff + destAddr + diff * 2, r[1][0] * 256, &info);
+                m.write16(destOff + destAddr + diff * 3, r[1][1] * 256, &info);
             }
 
             return info;
@@ -448,10 +459,10 @@ namespace gbaemu
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
 
-            uint16_t srcByteCount = state->memory.read16(unpackFormatPtr, &info.cycleCount);
-            const uint8_t srcUnitWidth = state->memory.read8(unpackFormatPtr + 2, &info.cycleCount);
-            const uint8_t destUnitWidth = state->memory.read8(unpackFormatPtr + 3, &info.cycleCount);
-            uint32_t dataOffset = state->memory.read32(unpackFormatPtr + 4, &info.cycleCount);
+            uint16_t srcByteCount = state->memory.read16(unpackFormatPtr, &info);
+            const uint8_t srcUnitWidth = state->memory.read8(unpackFormatPtr + 2, &info);
+            const uint8_t destUnitWidth = state->memory.read8(unpackFormatPtr + 3, &info);
+            uint32_t dataOffset = state->memory.read32(unpackFormatPtr + 4, &info);
             const bool zeroDataOff = dataOffset & (static_cast<uint32_t>(1) << 31);
             dataOffset &= 0x7FFFFFF;
 
@@ -460,7 +471,7 @@ namespace gbaemu
             uint8_t writeBufOffset = 0;
 
             for (; srcByteCount > 0; --srcByteCount) {
-                uint8_t srcUnits = state->memory.read8(sourceAddr++, &info.cycleCount);
+                uint8_t srcUnits = state->memory.read8(sourceAddr++, &info);
 
                 // units of size < 8 will be concatenated so we need to extract them before storing
                 for (uint8_t srcUnitBitsLeft = 8; srcUnitBitsLeft > 0; srcUnitBitsLeft -= srcUnitWidth) {
@@ -484,7 +495,7 @@ namespace gbaemu
                     // if there is no more space for another unit we have to flush our buffer
                     // flushing is also needed if this is the very last unit!
                     if (writeBufOffset + destUnitWidth > 32 || (srcByteCount == 1 && srcUnitBitsLeft <= srcUnitWidth)) {
-                        state->memory.write32(destAddr, writeBuf, &info.cycleCount);
+                        state->memory.write32(destAddr, writeBuf, &info);
                         destAddr += 4;
                         writeBuf = 0;
                         writeBufOffset = 0;
@@ -535,7 +546,7 @@ namespace gbaemu
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
 
-            const uint32_t dataHeader = state->memory.read32(sourceAddr, &info.cycleCount);
+            const uint32_t dataHeader = state->memory.read32(sourceAddr, &info);
             sourceAddr += 4;
 
             const uint8_t compressedType = (dataHeader >> 4) & 0x0F;
@@ -548,7 +559,7 @@ namespace gbaemu
             }
 
             while (decompressedSize > 0) {
-                const uint8_t typeBitset = state->memory.read8(sourceAddr++, &info.cycleCount);
+                const uint8_t typeBitset = state->memory.read8(sourceAddr++, &info);
 
                 // process each block
                 for (uint8_t i = 0; i < 8; ++i) {
@@ -556,7 +567,7 @@ namespace gbaemu
 
                     if (type1) {
                         // Type 1 uses previously written data as lookup source
-                        uint16_t type1Desc = state->memory.read16(sourceAddr, &info.cycleCount);
+                        uint16_t type1Desc = state->memory.read16(sourceAddr, &info);
                         sourceAddr += 2;
 
                         uint16_t disp = (((type1Desc & 0x0F) << 8) | ((type1Desc >> 8) & 0x0FF)) + 1;
@@ -568,13 +579,13 @@ namespace gbaemu
                         // Copy N Bytes from Dest-Disp to Dest (+3 and - 1 already applied)
                         uint32_t readAddr = destAddr - disp;
                         while (n > 0) {
-                            state->memory.write8(destAddr++, state->memory.read8(readAddr++, &info.cycleCount), &info.cycleCount);
+                            state->memory.write8(destAddr++, state->memory.read8(readAddr++, &info), &info);
                         }
                     } else {
                         // Type 0 is one uncompressed byte of data
-                        uint8_t data = state->memory.read8(sourceAddr++, &info.cycleCount);
+                        uint8_t data = state->memory.read8(sourceAddr++, &info);
                         --decompressedSize;
-                        state->memory.write8(destAddr++, data, &info.cycleCount);
+                        state->memory.write8(destAddr++, data, &info);
                     }
                 }
             }
@@ -629,7 +640,7 @@ namespace gbaemu
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
 
-            uint32_t dataHeader = state->memory.read32(sourceAddr, &info.cycleCount);
+            uint32_t dataHeader = state->memory.read32(sourceAddr, &info);
             sourceAddr += 4;
 
             uint32_t decompressedBits = ((dataHeader >> 8) & 0x00FFFFFF) * 8;
@@ -649,7 +660,7 @@ namespace gbaemu
                 return info;
             }
 
-            uint8_t treeSize = state->memory.read8(sourceAddr, &info.cycleCount);
+            uint8_t treeSize = state->memory.read8(sourceAddr, &info);
             sourceAddr += 1;
 
             const uint32_t treeRoot = sourceAddr;
@@ -660,7 +671,7 @@ namespace gbaemu
             uint8_t writeBufOffset = 0;
 
             // as bits needed for decompressions varies we need to keep track of bits left in the read buffer
-            uint32_t readBuf = state->memory.read32(sourceAddr, &info.cycleCount);
+            uint32_t readBuf = state->memory.read32(sourceAddr, &info);
             sourceAddr += 4;
             uint8_t readBufBitsLeft = 32;
 
@@ -675,7 +686,7 @@ namespace gbaemu
 
                 // Bit wise tree walk
                 for (;;) {
-                    uint8_t node = state->memory.read8(currentParsingAddr, &info.cycleCount);
+                    uint8_t node = state->memory.read8(currentParsingAddr, &info);
 
                     if (isDataNode) {
                         writeBuf |= (static_cast<uint32_t>(node) << writeBufOffset);
@@ -696,7 +707,7 @@ namespace gbaemu
 
                     // Fill empty read buffer again
                     if (readBufBitsLeft == 0) {
-                        readBuf = state->memory.read32(sourceAddr, &info.cycleCount);
+                        readBuf = state->memory.read32(sourceAddr, &info);
                         sourceAddr += 4;
                         readBufBitsLeft = 32;
                     }
@@ -704,7 +715,7 @@ namespace gbaemu
 
                 // Is there is no more space left for decompressed data or we are done decompressing(only dataSize bits left) then we have to flush our buffer
                 if (writeBufOffset + dataSize > 32 || decompressedBits == dataSize) {
-                    state->memory.write32(destAddr, writeBuf, &info.cycleCount);
+                    state->memory.write32(destAddr, writeBuf, &info);
                     destAddr += 4;
                     // Reset buf state
                     writeBufOffset = 0;
@@ -747,7 +758,7 @@ namespace gbaemu
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
 
-            const uint32_t dataHeader = state->memory.read32(sourceAddr, &info.cycleCount);
+            const uint32_t dataHeader = state->memory.read32(sourceAddr, &info);
             sourceAddr += 4;
 
             const uint8_t compressedType = (dataHeader >> 4) & 0x0F;
@@ -760,7 +771,7 @@ namespace gbaemu
             }
 
             while (decompressedSize > 0) {
-                uint8_t flagData = state->memory.read8(sourceAddr++, &info.cycleCount);
+                uint8_t flagData = state->memory.read8(sourceAddr++, &info);
 
                 bool compressed = (flagData >> 7) & 0x1;
                 uint8_t decompressedDataLength = (flagData & 0x7F) + (compressed ? 3 : 1);
@@ -771,11 +782,11 @@ namespace gbaemu
                 }
                 decompressedSize -= decompressedDataLength;
 
-                uint8_t data = state->memory.read8(sourceAddr++, &info.cycleCount);
+                uint8_t data = state->memory.read8(sourceAddr++, &info);
 
                 // write read data byte N times for decompression
                 for (; decompressedDataLength > 0; --decompressedDataLength) {
-                    state->memory.write8(destAddr++, data, &info.cycleCount);
+                    state->memory.write8(destAddr++, data, &info);
                 }
             }
 
@@ -823,7 +834,7 @@ namespace gbaemu
             //TODO proper time calculation considering bit width!
             InstructionExecutionInfo cycleInfo{0};
 
-            uint32_t info = state->memory.read32(srcAddr, &cycleInfo.cycleCount);
+            uint32_t info = state->memory.read32(srcAddr, &cycleInfo);
             srcAddr += 4;
 
             //TODO not sure if we need those... maybe for sanity checks
@@ -836,9 +847,9 @@ namespace gbaemu
 
             uint16_t current = 0;
             do {
-                uint16_t diff = bits8 ? state->memory.read8(srcAddr, &cycleInfo.cycleCount) : state->memory.read16(srcAddr, &cycleInfo.cycleCount);
+                uint16_t diff = bits8 ? state->memory.read8(srcAddr, &cycleInfo) : state->memory.read16(srcAddr, &cycleInfo);
                 current += diff;
-                bits8 ? state->memory.write8(destAddr, static_cast<uint8_t>(current & 0x0FF), &cycleInfo.cycleCount) : state->memory.write16(srcAddr, current, &cycleInfo.cycleCount);
+                bits8 ? state->memory.write8(destAddr, static_cast<uint8_t>(current & 0x0FF), &cycleInfo) : state->memory.write16(srcAddr, current, &cycleInfo);
                 destAddr += addressInc;
                 srcAddr += addressInc;
             } while (--size);

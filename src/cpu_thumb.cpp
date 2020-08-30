@@ -156,11 +156,11 @@ namespace gbaemu
 
         if (l) {
             // 1: LDR  Rd,[SP,#nn]  ;load  32bit data   Rd = WORD[SP+nn]
-            state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
+            state.accessReg(rd) = state.memory.read32(memoryAddress, &info);
             info.cycleCount += 1;
         } else {
             // 0: STR  Rd,[SP,#nn]  ;store 32bit data   WORD[SP+nn] = Rd
-            state.memory.write32(memoryAddress, state.accessReg(rd), &info.cycleCount);
+            state.memory.write32(memoryAddress, state.accessReg(rd), &info);
 
             info.noDefaultSCycle = true;
             info.additionalProgCyclesN = 1;
@@ -180,13 +180,13 @@ namespace gbaemu
         if (l) {
 
             // 1: LDRH Rd,[Rb,#nn]  ;load  16bit data   Rd = HALFWORD[Rb+nn]
-            state.accessReg(rd) = state.memory.read16(memoryAddress, &info.cycleCount);
+            state.accessReg(rd) = state.memory.read16(memoryAddress, &info);
 
             info.cycleCount += 1;
         } else {
 
             //  0: STRH Rd,[Rb,#nn]  ;store 16bit data   HALFWORD[Rb+nn] = Rd
-            state.memory.write16(memoryAddress, state.accessReg(rd) & 0x0FFFF, &info.cycleCount);
+            state.memory.write16(memoryAddress, state.accessReg(rd) & 0x0FFFF, &info);
 
             info.noDefaultSCycle = true;
             info.additionalProgCyclesN = 1;
@@ -214,17 +214,17 @@ namespace gbaemu
         if (b) {
             address += offset;
             if (l) {
-                *currentRegs[rd] = state.memory.read8(address, &info.cycleCount);
+                *currentRegs[rd] = state.memory.read8(address, &info);
             } else {
-                state.memory.write8(address, *currentRegs[rd] & 0x0FF, &info.cycleCount);
+                state.memory.write8(address, *currentRegs[rd] & 0x0FF, &info);
             }
         } else {
             // offset is in words
             address += (static_cast<uint32_t>(offset) << 2);
             if (l) {
-                *currentRegs[rd] = state.memory.read32(address, &info.cycleCount);
+                *currentRegs[rd] = state.memory.read32(address, &info);
             } else {
-                state.memory.write16(address, *currentRegs[rd], &info.cycleCount);
+                state.memory.write16(address, *currentRegs[rd], &info);
             }
         }
 
@@ -241,7 +241,7 @@ namespace gbaemu
 
         if (!h && !s) {
             // STRH
-            state.memory.write16(memoryAddress, *currentRegs[rd], &info.cycleCount);
+            state.memory.write16(memoryAddress, *currentRegs[rd], &info);
             info.noDefaultSCycle = true;
             info.additionalProgCyclesN = 1;
         } else {
@@ -253,10 +253,10 @@ namespace gbaemu
                 uint8_t shiftAmount;
 
                 if (h) {
-                    data = state.memory.read16(memoryAddress, &info.cycleCount);
+                    data = state.memory.read16(memoryAddress, &info);
                     shiftAmount = 16;
                 } else {
-                    data = state.memory.read8(memoryAddress, &info.cycleCount);
+                    data = state.memory.read8(memoryAddress, &info);
                     shiftAmount = 8;
                 }
 
@@ -264,7 +264,7 @@ namespace gbaemu
                 *currentRegs[rd] = static_cast<int32_t>(static_cast<uint32_t>(data) << shiftAmount) / (static_cast<uint32_t>(1) << shiftAmount);
             } else {
                 // LDRH zero extended
-                *currentRegs[rd] = state.memory.read16(memoryAddress, &info.cycleCount);
+                *currentRegs[rd] = state.memory.read16(memoryAddress, &info);
             }
         }
 
@@ -280,20 +280,20 @@ namespace gbaemu
         if (l) {
             if (b) {
                 // 3: LDRB Rd,[Rb,Ro]   ;load   8bit data  Rd = BYTE[Rb+Ro]
-                state.accessReg(rd) = state.memory.read8(memoryAddress, &info.cycleCount);
+                state.accessReg(rd) = state.memory.read8(memoryAddress, &info);
             } else {
                 // 2: LDR  Rd,[Rb,Ro]   ;load  32bit data  Rd = WORD[Rb+Ro]
-                state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
+                state.accessReg(rd) = state.memory.read32(memoryAddress, &info);
             }
 
             info.cycleCount += 1;
         } else {
             if (b) {
                 // 1: STRB Rd,[Rb,Ro]   ;store  8bit data  BYTE[Rb+Ro] = Rd
-                state.memory.write8(memoryAddress, state.accessReg(rd) & 0x0F, &info.cycleCount);
+                state.memory.write8(memoryAddress, state.accessReg(rd) & 0x0F, &info);
             } else {
                 // 0: STR  Rd,[Rb,Ro]   ;store 32bit data  WORD[Rb+Ro] = Rd
-                state.memory.write32(memoryAddress, state.accessReg(rd), &info.cycleCount);
+                state.memory.write32(memoryAddress, state.accessReg(rd), &info);
             }
 
             info.noDefaultSCycle = true;
@@ -310,7 +310,7 @@ namespace gbaemu
         // 7-0    nn - Unsigned offset        (0-1020 in steps of 4)
         uint32_t memoryAddress = ((state.accessReg(regs::PC_OFFSET) + 4) & ~2) + (static_cast<uint32_t>(offset) << 2);
         //  LDR Rd,[PC,#nn]      ;load 32bit    Rd = WORD[PC+nn]
-        state.accessReg(rd) = state.memory.read32(memoryAddress, &info.cycleCount);
+        state.accessReg(rd) = state.memory.read32(memoryAddress, &info);
 
         // Execution Time: 1S+1N+1I
         info.cycleCount += 1;
