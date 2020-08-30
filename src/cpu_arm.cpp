@@ -311,6 +311,11 @@ namespace gbaemu
         static const std::set<arm::ARMInstructionID> invertCarry{
             arm::CMP, arm::CMN, arm::SUB, arm::SBC};
 
+        static const std::set<arm::ARMInstructionID> movSPSR{
+            arm::SUB, arm::MVN, arm::ADC, arm::ADD, arm::AND,
+            arm::BIC, arm::EOR, arm::MOV, arm::ORR, arm::RSB,
+            arm::RSC, arm::SBC};
+
         /* execute functions */
         switch (inst.id) {
             case arm::ADC:
@@ -338,8 +343,6 @@ namespace gbaemu
                 break;
             case arm::MOV:
                 resultValue = shifterOperand;
-                if (inst.params.data_proc_psr_transf.s && inst.params.data_proc_psr_transf.rd == 15)
-                    state.accessReg(regs::CPSR_OFFSET) = state.accessReg(regs::SPSR_OFFSET);
                 break;
             case arm::MRS:
                 if (inst.params.data_proc_psr_transf.r)
@@ -377,8 +380,6 @@ namespace gbaemu
             }
             case arm::MVN:
                 resultValue = ~shifterOperand;
-                if (inst.params.data_proc_psr_transf.s && inst.params.data_proc_psr_transf.rd == 15)
-                    state.accessReg(regs::CPSR_OFFSET) = state.accessReg(regs::SPSR_OFFSET);
                 break;
             case arm::ORR:
                 resultValue = rnValue | shifterOperand;
@@ -412,6 +413,12 @@ namespace gbaemu
                 break;
             default:
                 break;
+        }
+
+        // Special case 9000
+        if (movSPSR.find(inst.id) != movSPSR.end() && inst.params.data_proc_psr_transf.s && inst.params.data_proc_psr_transf.rd == regs::PC_OFFSET) {
+            state.accessReg(regs::CPSR_OFFSET) = state.accessReg(regs::SPSR_OFFSET);
+            inst.params.data_proc_psr_transf.s = false;
         }
 
         /* set flags */
