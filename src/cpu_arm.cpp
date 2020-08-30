@@ -160,13 +160,13 @@ namespace gbaemu
         info.cycleCount = 1;
 
         if (b) {
-            uint8_t memVal = state.memory.read8(memAddr, &info.cycleCount);
-            state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF), &info.cycleCount);
+            uint8_t memVal = state.memory.read8(memAddr, &info);
+            state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF), &info);
             //TODO overwrite upper 24 bits?
             *currentRegs[rd] = static_cast<uint32_t>(memVal);
         } else {
-            uint32_t memVal = state.memory.read32(memAddr, &info.cycleCount);
-            state.memory.write32(memAddr, newMemVal, &info.cycleCount);
+            uint32_t memVal = state.memory.read32(memAddr, &info);
+            state.memory.write32(memAddr, newMemVal, &info);
             *currentRegs[rd] = memVal;
         }
 
@@ -555,7 +555,7 @@ namespace gbaemu
         /* transfer */
         if (load) {
             if (byte) {
-                *currentRegs[rd] = state.memory.read8(memoryAddress, &info.cycleCount);
+                *currentRegs[rd] = state.memory.read8(memoryAddress, &info);
             } else {
                 // More edge case:
                 /*
@@ -574,16 +574,16 @@ namespace gbaemu
                     *currentRegs[rd] = lowerBits | (upperBits << 16);
 
                     // simulate normal read for latency as if read word aligned address
-                    state.memory.read32(memoryAddress - 2, &info.cycleCount);
+                    state.memory.read32(memoryAddress - 2, &info);
                 } else {
-                    *currentRegs[rd] = state.memory.read32(memoryAddress, &info.cycleCount);
+                    *currentRegs[rd] = state.memory.read32(memoryAddress, &info);
                 }
             }
         } else {
             if (byte) {
-                state.memory.write8(memoryAddress, rdValue, &info.cycleCount);
+                state.memory.write8(memoryAddress, rdValue, &info);
             } else {
-                state.memory.write32(memoryAddress, rdValue, &info.cycleCount);
+                state.memory.write32(memoryAddress, rdValue, &info);
             }
         }
 
@@ -661,7 +661,7 @@ namespace gbaemu
 
                 if (load) {
                     if (currentIdx == regs::PC_OFFSET) {
-                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount);
+                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info);
                         // Special case for pipeline refill
                         info.additionalProgCyclesN = 1;
                         info.additionalProgCyclesS = 1;
@@ -676,7 +676,7 @@ namespace gbaemu
                             *currentRegs[regs::CPSR_OFFSET] = *state.getCurrentRegs()[regs::SPSR_OFFSET];
                         }
                     } else {
-                        *currentRegs[currentIdx] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info.cycleCount);
+                        *currentRegs[currentIdx] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info);
                     }
                 } else {
                     // Shady hack to make edge case treatment easier
@@ -685,7 +685,7 @@ namespace gbaemu
                     }
 
                     // Edge case of storing PC -> PC + 12 will be stored
-                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? 12 : 0), nonSeqAccDone ? nullptr : &info.cycleCount);
+                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? 12 : 0), nonSeqAccDone ? nullptr : &info);
                 }
 
                 if (nonSeqAccDone) {
@@ -847,9 +847,9 @@ namespace gbaemu
         if (load) {
             uint32_t readData;
             if (transferSize == 16) {
-                readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &info.cycleCount));
+                readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &info));
             } else {
-                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &info.cycleCount));
+                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &info));
             }
 
             if (sign) {
@@ -860,9 +860,9 @@ namespace gbaemu
             }
         } else {
             if (transferSize == 16) {
-                state.memory.write16(memoryAddress, rdValue, &info.cycleCount);
+                state.memory.write16(memoryAddress, rdValue, &info);
             } else {
-                state.memory.write8(memoryAddress, rdValue, &info.cycleCount);
+                state.memory.write8(memoryAddress, rdValue, &info);
             }
         }
 

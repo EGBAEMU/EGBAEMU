@@ -74,7 +74,7 @@ namespace gbaemu::lcd {
 
         /* 32x32 tiles, arrangement depends on resolution */
         /* TODO: not sure about this one */
-        uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET);
+        uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr);
         bgMapBase = vramBase + screenBaseBlock * 0x800;
         
         if (bgMode == 0) {
@@ -180,7 +180,7 @@ namespace gbaemu::lcd {
     void Background::renderBG3(Memory& memory) {
         auto pixels = canvas.pixels();
         auto stride = canvas.getWidth();
-        const uint16_t *srcPixels = reinterpret_cast<const uint16_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET));
+        const uint16_t *srcPixels = reinterpret_cast<const uint16_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET, nullptr));
 
         for (int32_t y = 0; y < 160; ++y) {
             for (int32_t x = 0; x < 240; ++x) {
@@ -202,7 +202,7 @@ namespace gbaemu::lcd {
     void Background::renderBG4(LCDColorPalette& palette, Memory& memory) {
         auto pixels = canvas.pixels();
         auto stride = canvas.getWidth();
-        const uint8_t *srcPixels = reinterpret_cast<const uint8_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET));
+        const uint8_t *srcPixels = reinterpret_cast<const uint8_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET, nullptr));
 
         for (int32_t y = 0; y < 160; ++y) {
             for (int32_t x = 0; x < 240; ++x) {
@@ -250,9 +250,9 @@ namespace gbaemu::lcd {
     }
 
     void LCDController::updateReferences() {
-        palette.bgPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET));
-        palette.objPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET + 0x200));
-        regs = reinterpret_cast<LCDIORegs *>(memory.resolveAddr(gbaemu::Memory::IO_REGS_OFFSET));
+        palette.bgPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET, nullptr));
+        palette.objPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET + 0x200, nullptr));
+        regs = reinterpret_cast<LCDIORegs *>(memory.resolveAddr(gbaemu::Memory::IO_REGS_OFFSET, nullptr));
     }
 
     uint32_t LCDController::getBackgroundMode() const {
@@ -264,7 +264,7 @@ namespace gbaemu::lcd {
         uint32_t bgMode = getBackgroundMode();
         display.canvas.beginDraw();
 
-        uint8_t *vram = memory.resolveAddr(Memory::VRAM_OFFSET);
+        uint8_t *vram = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr);
 
         if (bgMode == 0) {
             /*
@@ -343,7 +343,7 @@ namespace gbaemu::lcd {
         static const uint32_t WIDTH = 240;
 
         for (uint32_t i = 0; i < sizeof(offs)/sizeof(offs[0]); ++i) {
-            uint32_t *ram = reinterpret_cast<uint32_t *>(memory.resolveAddr(offs[i]));
+            uint32_t *ram = reinterpret_cast<uint32_t *>(memory.resolveAddr(offs[i], nullptr));
             uint32_t size = limits[i] - offs[i];
 
             if (offs[i] == Memory::EXT_ROM_OFFSET) {

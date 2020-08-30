@@ -71,7 +71,7 @@ namespace gbaemu
         state.pipeline.decode.instruction = state.decoder->decode(state.pipeline.fetch.lastInstruction);
     }
 
-    void CPU::step()
+    bool CPU::step()
     {
         static InstructionExecutionInfo info{0};
 
@@ -82,12 +82,25 @@ namespace gbaemu
             // TODO: Fetch can be executed always. Decode and Execute stages might have been flushed after branch
             fetch();
             decode();
+            uint32_t prevPC = state.getCurrentPC();
             info = execute();
             // Current cycle must be removed
             --info.cycleCount;
+
+            if (info.hasCausedException) {
+                std::cout << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception" << std::endl;
+                //TODO print cause
+                //TODO set cause in memory class
+
+                //TODO maybe return reason? as this might be needed to exit a game?
+                // Abort
+                return true;
+            }
         } else {
             --info.cycleCount;
         }
+
+        return false;
     }
 
     void CPU::setFlags(uint64_t resultValue, bool msbOp1, bool msbOp2, bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry)
