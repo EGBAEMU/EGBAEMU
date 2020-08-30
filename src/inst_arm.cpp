@@ -165,6 +165,22 @@ namespace gbaemu
                     }
                     break;
                 }
+                case ARMInstructionCategory::SIGN_TRANSF: {
+                    /* Immediate in this category! */
+                    ss << " r" << params.sign_transf.rd;
+
+                    if (params.hw_transf_reg_off.p) {
+                        ss << " [r" << params.sign_transf.rn;
+                    } else {
+                        ss << " [[r" << params.sign_transf.rn << "]";
+                    }
+                    if (params.sign_transf.b) {
+                        ss << "+0x"<<std::hex << params.sign_transf.addrMode << ']';
+                    } else {
+                        ss << ", r" << std::dec << (params.sign_transf.addrMode & 0x0F) << ']';
+                    }
+                    break;
+                }
                 case ARMInstructionCategory::LS_REG_UBYTE: {
                     bool pre = params.ls_reg_ubyte.p;
                     char upDown = params.ls_reg_ubyte.u ? '+' : '-';
@@ -221,7 +237,6 @@ namespace gbaemu
                 }
 
                 case ARMInstructionCategory::DATA_SWP:
-                case ARMInstructionCategory::SIGN_TRANSF:
                 case ARMInstructionCategory::INVALID_CAT:
                 default: {
                     ss << "?";

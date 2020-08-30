@@ -51,8 +51,6 @@ int main(int argc, char **argv)
     std::vector<char> buf(std::istreambuf_iterator<char>(file), {});
     file.close();
 
-    std::cout << "read " << buf.size() << " bytes\n";
-
     gbaemu::CPU cpu;
     cpu.state.memory.loadROM(reinterpret_cast<uint8_t *>(buf.data()), buf.size());
 
@@ -77,8 +75,6 @@ int main(int argc, char **argv)
 
     cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
     cpu.initPipeline();
-
-    std::cout << cpu.state.disas(gbaemu::Memory::EXT_ROM_OFFSET, DISAS_CMD_RANGE);
 
     int checkPointReached = 0;
 // #define TARGET_CHECKPOINT_CNT 3

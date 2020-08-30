@@ -796,10 +796,11 @@ namespace gbaemu
             rd = inst.params.sign_transf.rd;
 
             if (inst.params.sign_transf.b) {
+                offset = inst.params.sign_transf.addrMode;
+            } else {
                 uint32_t rm = inst.params.sign_transf.addrMode & 0x0F;
                 offset = state.accessReg(rm);
-            } else
-                offset = inst.params.sign_transf.addrMode;
+            }
 
             if (inst.params.sign_transf.h)
                 transferSize = 16;
