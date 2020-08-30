@@ -590,7 +590,8 @@ namespace gbaemu
             if (byte) {
                 state.memory.write8(memoryAddress, rdValue, &info);
             } else {
-                state.memory.write32(memoryAddress, rdValue, &info);
+                // Mask out unaligned bits!
+                state.memory.write32(memoryAddress & 0xFFFFFFFC, rdValue, &info);
             }
         }
 
