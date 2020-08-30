@@ -31,6 +31,8 @@ namespace gbaemu
             // the rest is unaffected
             setFlags(
                 mulRes,
+                false,
+                false,
                 true,
                 true,
                 false,
@@ -275,7 +277,7 @@ namespace gbaemu
             }
         }
 
-        int64_t resultValue;
+        uint64_t resultValue;
 
         /* Different instructions cause different flags to be changed. */
         /* TODO: This can be extended for all instructions. */
@@ -327,7 +329,9 @@ namespace gbaemu
                 resultValue = rnValue + shifterOperand;
                 break;
             case arm::CMP:
-                resultValue = rnValue - shifterOperand;
+                resultValue = static_cast<int64_t>(rnValue) - static_cast<int64_t>(shifterOperand);
+                // resultValue = (rnValue | (static_cast<uint64_t>(1) << 32)) + shifterOperand;
+                shifterOperand = (-shifterOperand) & 0x0FFFFFFFF;
                 break;
             case arm::EOR:
                 resultValue = rnValue ^ shifterOperand;
@@ -381,20 +385,24 @@ namespace gbaemu
                 break;
                 /* TODO: subtraction is oh no */
             case arm::RSB:
-                resultValue = shifterOperand - static_cast<uint32_t>(rnValue);
+                resultValue = static_cast<int64_t>(shifterOperand) - static_cast<int64_t>(rnValue);
+                // resultValue = (shifterOperand | (static_cast<uint64_t>(1) << 32)) + rnValue;
+                rnValue = (-rnValue) & 0x0FFFFFFFF;
                 break;
             case arm::RSC:
-                resultValue = shifterOperand - static_cast<uint32_t>(rnValue) - (carry ? 0 : 1);
+                resultValue = static_cast<int64_t>(shifterOperand) - static_cast<int64_t>(rnValue) - (carry ? 0 : 1);
+                // resultValue = (shifterOperand | (static_cast<uint64_t>(1) << 32)) + rnValue - (carry ? 0 : 1);
+                rnValue = (-rnValue) & 0x0FFFFFFFF;
                 break;
             case arm::SBC:
-                resultValue = static_cast<uint32_t>(rnValue) - shifterOperand - (carry ? 0 : 1);
-
-                if (static_cast<uint32_t>(resultValue) < 0)
-                    resultValue |= 0xFFFFFFFF00000000;
+                resultValue = static_cast<int64_t>(rnValue) - static_cast<int64_t>(shifterOperand) - (carry ? 0 : 1);
+                // resultValue = (rnValue | (static_cast<uint64_t>(1) << 32)) + shifterOperand - (carry ? 0 : 1);
+                shifterOperand = (-shifterOperand) & 0x0FFFFFFFF;
                 break;
             case arm::SUB:
                 resultValue = static_cast<int64_t>(rnValue) - static_cast<int64_t>(shifterOperand);
-                //resultValue |= 0xFFFFFFFF00000000;
+                shifterOperand = (-shifterOperand) & 0x0FFFFFFFF;
+                // resultValue = (rnValue | (static_cast<uint64_t>(1) << 32)) + shifterOperand;
                 break;
             case arm::TEQ:
                 resultValue = rnValue ^ shifterOperand;
@@ -410,6 +418,8 @@ namespace gbaemu
         if (inst.params.data_proc_psr_transf.s) {
             setFlags(
                 resultValue,
+                (rnValue >> 31) & 1,
+                (shifterOperand >> 31) & 1,
                 updateNegative.find(inst.id) != updateNegative.end(),
                 updateZero.find(inst.id) != updateZero.end(),
                 updateOverflow.find(inst.id) != updateOverflow.end(),

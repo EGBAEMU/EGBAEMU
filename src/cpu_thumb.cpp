@@ -350,11 +350,13 @@ namespace gbaemu
 
         setFlags(
             result,
+            (rsVal >> 31) & 1,
+            ((insID == thumb::SUB || insID == thumb::ADD ? rnVal : rn_offset) >> 31) & 1,
             true,
             true,
             true,
             true,
-            isAdd);
+            !isAdd);
 
         InstructionExecutionInfo info{0};
         return info;
@@ -418,6 +420,8 @@ namespace gbaemu
         // Flags: Z=zeroflag, N=sign, C=carry (except LSL#0: C=unchanged), V=unchanged.
         setFlags(
             rdValue,
+            false,
+            false,
             true,                              // n Flag
             true,                              // z Flag
             false,                             // v Flag
@@ -453,6 +457,8 @@ namespace gbaemu
                 uint64_t result = static_cast<uint64_t>(rdValue) - static_cast<uint64_t>(rsValue);
 
                 setFlags(result,
+                         (rdValue >> 31) & 1,
+                         (rsValue >> 31) & 1,
                          true,
                          true,
                          true,
@@ -613,6 +619,9 @@ namespace gbaemu
 
         setFlags(
             resultValue,
+            //TODO this does probably not work for all instructions!!!
+            (rdValue >> 31) & 1,
+            (rsValue >> 31) & 1,
             updateNegative.find(instID) != updateNegative.end(),
             updateZero.find(instID) != updateZero.end(),
             updateOverflow.find(instID) != updateOverflow.end(),

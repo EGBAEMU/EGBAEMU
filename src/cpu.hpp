@@ -27,7 +27,7 @@ namespace gbaemu
         InstructionExecutionInfo execute();
         void step();
 
-        void setFlags(int64_t resultValue, bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry);
+        void setFlags(uint64_t resultValue, bool msbOp1, bool msbOp2, bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry);
 
         // ARM instructions execution helpers
         InstructionExecutionInfo handleMultAcc(bool a, bool s, uint32_t rd, uint32_t rn, uint32_t rs, uint32_t rm);
