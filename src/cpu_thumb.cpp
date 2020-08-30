@@ -574,7 +574,6 @@ namespace gbaemu
                 resultValue = rdValue + rsValue;
                 break;
 
-                //TODO disabled edge cases because they were not mentioned in the corresponding problemkaputt.de/gbatek.htm section
             case thumb::LSL:
                 resultValue = arm::shift(rdValue, arm::ShiftType::LSL, shiftAmount, carry, false);
                 break;
@@ -631,7 +630,7 @@ namespace gbaemu
             updateNegative.find(instID) != updateNegative.end(),
             updateZero.find(instID) != updateZero.end(),
             updateOverflow.find(instID) != updateOverflow.end(),
-            updateCarry.find(instID) != updateCarry.end() && (shiftOps.find(instID) != shiftOps.end() || shiftAmount != 0),
+            updateCarry.find(instID) != updateCarry.end() && (shiftOps.find(instID) == shiftOps.end() || shiftAmount != 0),
             invertCarry.find(instID) != invertCarry.end());
 
         if (dontUpdateRD.find(instID) == dontUpdateRD.end())
