@@ -312,6 +312,11 @@ t223:
         b       t224
 
 f223:
+        ; mov     r12, 223 and 0xFF
+        ; orr     r12, 223 and 0xFF00
+        ; b eval
+
+
         m_exit  223
 
 t224:
