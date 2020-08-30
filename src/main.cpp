@@ -94,8 +94,8 @@ int main(int argc, char **argv)
     gbaemu::debugger::JumpTrap jumpTrap;
     bool stepMode = false;
     gbaemu::debugger::AddressTrap bp1(0x08000000 + 0x430, &stepMode);
-    charlie.registerTrap(jumpTrap);
-    charlie.registerTrap(bp1);
+    //charlie.registerTrap(jumpTrap);
+    //charlie.registerTrap(bp1);
 
     for (uint32_t i = 0; i < 0xFFFFFFFF;) {
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
