@@ -332,13 +332,15 @@ namespace gbaemu
                 result = rsVal + rnVal;
                 break;
             case thumb::SUB:
-                result = static_cast<uint32_t>(rsVal) - rnVal;
+                result = static_cast<int64_t>(rsVal) - static_cast<int64_t>(rnVal);
+                rnVal = (-rnVal) & 0x0FFFFFFFF;
                 break;
             case thumb::ADD_SHORT_IMM:
                 result = rsVal + rn_offset;
                 break;
             case thumb::SUB_SHORT_IMM:
-                result = static_cast<uint32_t>(rsVal) - rn_offset;
+                result = static_cast<int64_t>(rsVal) - static_cast<int64_t>(rn_offset);
+                rn_offset = (-rn_offset) & 0x0FFFFFFFF;
                 break;
             default:
                 break;
@@ -532,7 +534,7 @@ namespace gbaemu
             thumb::LSL, thumb::LSR, thumb::ASR, thumb::ROR};
 
         static const std::set<thumb::ThumbInstructionID> invertCarry{
-            thumb::SBC, thumb::CMP, thumb::CMN};
+            thumb::SBC, thumb::CMP, thumb::NEG, thumb::SUB};
 
         InstructionExecutionInfo info{0};
 
@@ -556,13 +558,17 @@ namespace gbaemu
                 resultValue = rdValue + rsValue + (carry ? 1 : 0);
                 break;
             case thumb::SBC:
-                resultValue = rdValue - rsValue - (carry ? 0 : 1);
+                resultValue = static_cast<int64_t>(rdValue) - static_cast<int64_t>(rsValue) - (carry ? 0 : 1);
+                rsValue = (-rsValue) & 0x0FFFFFFFF;
                 break;
             case thumb::NEG:
-                resultValue = 0 - rsValue;
+                resultValue = 0 - static_cast<int64_t>(rsValue);
+                rdValue = 0;
+                rsValue = (-rsValue) & 0x0FFFFFFFF;
                 break;
             case thumb::CMP:
-                resultValue = rdValue - rsValue;
+                resultValue = static_cast<int64_t>(rdValue) - static_cast<int64_t>(rsValue);
+                rsValue = (-rsValue) & 0x0FFFFFFFF;
                 break;
             case thumb::CMN:
                 resultValue = rdValue + rsValue;
