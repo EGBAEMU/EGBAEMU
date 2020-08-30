@@ -309,7 +309,7 @@ namespace gbaemu
             arm::CMP, arm::CMN, arm::TST, arm::TEQ};
 
         static const std::set<arm::ARMInstructionID> invertCarry{
-            arm::CMP, arm::CMN, arm::SUB, arm::SBC};
+            arm::CMP, arm::SUB, arm::SBC, arm::RSB, arm::RSC};
 
         static const std::set<arm::ARMInstructionID> movSPSR{
             arm::SUB, arm::MVN, arm::ADC, arm::ADD, arm::AND,
@@ -319,6 +319,7 @@ namespace gbaemu
         /* execute functions */
         switch (inst.id) {
             case arm::ADC:
+                //TODO not sure how carry might affect the overflow flag!
                 resultValue = rnValue + shifterOperand + (carry ? 1 : 0);
                 break;
             case arm::ADD:
