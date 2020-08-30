@@ -1,22 +1,25 @@
 #include "debugger.hpp"
 
-
-namespace gbaemu::debugger {
-    bool JumpTrap::isLoop(uint32_t from, uint32_t to) const {
+namespace gbaemu::debugger
+{
+    bool JumpTrap::isLoop(uint32_t from, uint32_t to) const
+    {
         if (jumps.size() == 0)
             return false;
-        
-        const auto& last = jumps.back();
+
+        const auto &last = jumps.back();
         return (last.from == from) && (last.to == to);
     }
 
-    void JumpTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction& inst, const CPUState& state) {
+    void JumpTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
+    {
 
         if (!isLoop(prevPC, postPC))
             jumps.push_back({inst, prevPC, postPC});
     }
 
-    bool JumpTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction& inst, const CPUState& state) {
+    bool JumpTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
+    {
         return (prevPC != postPC) && (prevPC + 2 != postPC) && (prevPC + 4 != postPC);
 
         /*
@@ -32,7 +35,8 @@ namespace gbaemu::debugger {
          */
     }
 
-    std::string JumpTrap::toString() const {
+    std::string JumpTrap::toString() const
+    {
         std::stringstream ss;
         ss << std::hex;
 
@@ -44,23 +48,36 @@ namespace gbaemu::debugger {
         return ss.str();
     }
 
-    void AddressTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction& inst, const CPUState& state) {
+    void AddressTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
+    {
         //asm("int $3");
         *setStepMode = true;
     }
 
-    bool AddressTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction& inst, const CPUState& state) {
+    bool AddressTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
+    {
         return postPC == address;
     }
 
+    void CPUModeTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
+    {
+        *stepMode = true;
+    }
 
-    void Watchdog::registerTrap(Trap& t) {
+    bool CPUModeTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
+    {
+        return state.mode == trapMode;
+    }
+
+    void Watchdog::registerTrap(Trap &t)
+    {
         traps.push_back(std::shared_ptr<Trap>(&t));
     }
 
-    void Watchdog::check(uint32_t prevPC, uint32_t postPC, const Instruction& inst, const CPUState& state) {
-        for (auto& trap : traps)
+    void Watchdog::check(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
+    {
+        for (auto &trap : traps)
             if (trap->satisfied(prevPC, postPC, inst, state))
                 trap->trigger(prevPC, postPC, inst, state);
     }
-}
+} // namespace gbaemu::debugger
