@@ -589,7 +589,7 @@ namespace gbaemu
         if (!pre)
             memoryAddress += up ? offset : -offset;
 
-        if (!pre || writeback)
+        if ((!pre || writeback) && (!load || rn != rd))
             *currentRegs[rn] = memoryAddress;
 
         return info;
