@@ -40,8 +40,9 @@ namespace gbaemu
         /* ALU functions */
         InstructionExecutionInfo execDataProc(arm::ARMInstruction &inst);
         InstructionExecutionInfo execDataBlockTransfer(arm::ARMInstruction &inst, bool thumb = false);
-        InstructionExecutionInfo execLoadStoreRegUByte(const arm::ARMInstruction &inst);
-        InstructionExecutionInfo execHalfwordDataTransferImmRegSignedTransfer(const arm::ARMInstruction &inst);
+        InstructionExecutionInfo execLoadStoreRegUByte(const arm::ARMInstruction &inst, bool thumb = false);
+        InstructionExecutionInfo execHalfwordDataTransferImmRegSignedTransfer(bool pre, bool up, bool load, bool writeback, bool sign,
+                                                                              uint8_t rn, uint8_t rd, uint32_t offset, uint8_t transferSize, bool thumb = false);
 
         // THUMB instruction execution helpers
         InstructionExecutionInfo handleThumbLongBranchWithLink(bool h, uint16_t offset);
@@ -51,12 +52,17 @@ namespace gbaemu
         InstructionExecutionInfo handleThumbPushPopRegister(bool load, bool r, uint8_t rlist);
         InstructionExecutionInfo handleThumbAddOffsetToStackPtr(bool s, uint8_t offset);
         InstructionExecutionInfo handleThumbRelAddr(bool sp, uint8_t offset, uint8_t rd);
+/*
         InstructionExecutionInfo handleThumbLoadStoreSPRelative(bool l, uint8_t rd, uint8_t offset);
         InstructionExecutionInfo handleThumbLoadStoreHalfword(bool l, uint8_t offset, uint8_t rb, uint8_t rd);
         InstructionExecutionInfo handleThumbLoadStoreImmOff(bool l, bool b, uint8_t offset, uint8_t rb, uint8_t rd);
         InstructionExecutionInfo handleThumbLoadStoreSignExt(bool h, bool s, uint8_t ro, uint8_t rb, uint8_t rd);
         InstructionExecutionInfo handleThumbLoadStoreRegisterOffset(bool l, bool b, uint8_t ro, uint8_t rb, uint8_t rd);
         InstructionExecutionInfo handleThumbLoadPCRelative(uint8_t rd, uint8_t offset);
+*/
+        InstructionExecutionInfo handleThumbLoadStore(const thumb::ThumbInstruction &inst);
+        InstructionExecutionInfo handleThumbLoadStoreSignHalfword(const thumb::ThumbInstruction &inst);
+
         InstructionExecutionInfo handleThumbAddSubtract(thumb::ThumbInstructionID insID, uint8_t rd, uint8_t rs, uint8_t rn_offset);
         InstructionExecutionInfo handleThumbMovCmpAddSubImm(thumb::ThumbInstructionID ins, uint8_t rd, uint8_t offset);
         InstructionExecutionInfo handleThumbMoveShiftedReg(thumb::ThumbInstructionID ins, uint8_t rs, uint8_t rd, uint8_t offset);

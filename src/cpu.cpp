@@ -181,9 +181,40 @@ namespace gbaemu
                             break;
                             /* those two are the same */
                         case arm::ARMInstructionCategory::HW_TRANSF_REG_OFF:
+                            info = execHalfwordDataTransferImmRegSignedTransfer(
+                                armInst.params.hw_transf_reg_off.p,
+                                armInst.params.hw_transf_reg_off.u,
+                                armInst.params.hw_transf_reg_off.l,
+                                armInst.params.hw_transf_reg_off.w,
+                                false,
+                                armInst.params.hw_transf_reg_off.rn,
+                                armInst.params.hw_transf_reg_off.rd,
+                                state.accessReg(armInst.params.hw_transf_reg_off.rm),
+                                16);
+                            break;
                         case arm::ARMInstructionCategory::HW_TRANSF_IMM_OFF:
+                            info = execHalfwordDataTransferImmRegSignedTransfer(
+                                armInst.params.hw_transf_imm_off.p,
+                                armInst.params.hw_transf_imm_off.u,
+                                armInst.params.hw_transf_imm_off.l,
+                                armInst.params.hw_transf_imm_off.w,
+                                false,
+                                armInst.params.hw_transf_imm_off.rn,
+                                armInst.params.hw_transf_imm_off.rd,
+                                armInst.params.hw_transf_imm_off.offset,
+                                16);
+                            break;
                         case arm::ARMInstructionCategory::SIGN_TRANSF:
-                            info = execHalfwordDataTransferImmRegSignedTransfer(armInst);
+                            info = execHalfwordDataTransferImmRegSignedTransfer(
+                                armInst.params.sign_transf.p,
+                                armInst.params.sign_transf.u,
+                                armInst.params.sign_transf.l,
+                                armInst.params.sign_transf.w,
+                                true,
+                                armInst.params.sign_transf.rn,
+                                armInst.params.sign_transf.rd,
+                                armInst.params.sign_transf.b ? armInst.params.sign_transf.addrMode : state.accessReg(armInst.params.sign_transf.addrMode & 0x0F),
+                                armInst.params.sign_transf.h ? 16 : 8);
                             break;
                         case arm::ARMInstructionCategory::DATA_PROC_PSR_TRANSF:
                             info = execDataProc(armInst);
@@ -245,22 +276,24 @@ namespace gbaemu
                         info = handleThumbBranchXCHG(thumbInst.id, thumbInst.params.br_xchg.rd, thumbInst.params.br_xchg.rs);
                         break;
                     case thumb::ThumbInstructionCategory::PC_LD:
-                        info = handleThumbLoadPCRelative(thumbInst.params.pc_ld.rd, thumbInst.params.pc_ld.offset);
-                        break;
+                        // info = handleThumbLoadPCRelative(thumbInst.params.pc_ld.rd, thumbInst.params.pc_ld.offset);
+                        // break;
                     case thumb::ThumbInstructionCategory::LD_ST_REL_OFF:
-                        info = handleThumbLoadStoreRegisterOffset(thumbInst.params.ld_st_rel_off.l, thumbInst.params.ld_st_rel_off.b, thumbInst.params.ld_st_rel_off.ro, thumbInst.params.ld_st_rel_off.rb, thumbInst.params.ld_st_rel_off.rd);
+                        // info = handleThumbLoadStoreRegisterOffset(thumbInst.params.ld_st_rel_off.l, thumbInst.params.ld_st_rel_off.b, thumbInst.params.ld_st_rel_off.ro, thumbInst.params.ld_st_rel_off.rb, thumbInst.params.ld_st_rel_off.rd);
+                        // break;
+                    case thumb::ThumbInstructionCategory::LD_ST_IMM_OFF:
+                        // info = handleThumbLoadStoreImmOff(thumbInst.params.ld_st_imm_off.l, thumbInst.params.ld_st_imm_off.b, thumbInst.params.ld_st_imm_off.offset, thumbInst.params.ld_st_imm_off.rb, thumbInst.params.ld_st_imm_off.rd);
+                        // break;
+                    case thumb::ThumbInstructionCategory::LD_ST_REL_SP:
+                        // info = handleThumbLoadStoreSPRelative(thumbInst.params.ld_st_rel_sp.l, thumbInst.params.ld_st_rel_sp.rd, thumbInst.params.ld_st_rel_sp.offset);
+                        info = handleThumbLoadStore(thumbInst);
                         break;
                     case thumb::ThumbInstructionCategory::LD_ST_SIGN_EXT:
-                        info = handleThumbLoadStoreSignExt(thumbInst.params.ld_st_sign_ext.h, thumbInst.params.ld_st_sign_ext.s, thumbInst.params.ld_st_sign_ext.ro, thumbInst.params.ld_st_sign_ext.rb, thumbInst.params.ld_st_sign_ext.rd);
-                        break;
-                    case thumb::ThumbInstructionCategory::LD_ST_IMM_OFF:
-                        info = handleThumbLoadStoreImmOff(thumbInst.params.ld_st_imm_off.l, thumbInst.params.ld_st_imm_off.b, thumbInst.params.ld_st_imm_off.offset, thumbInst.params.ld_st_imm_off.rb, thumbInst.params.ld_st_imm_off.rd);
-                        break;
+                        // info = handleThumbLoadStoreSignExt(thumbInst.params.ld_st_sign_ext.h, thumbInst.params.ld_st_sign_ext.s, thumbInst.params.ld_st_sign_ext.ro, thumbInst.params.ld_st_sign_ext.rb, thumbInst.params.ld_st_sign_ext.rd);
+                        // break;
                     case thumb::ThumbInstructionCategory::LD_ST_HW:
-                        info = handleThumbLoadStoreHalfword(thumbInst.params.ld_st_hw.l, thumbInst.params.ld_st_hw.offset, thumbInst.params.ld_st_hw.rb, thumbInst.params.ld_st_hw.rd);
-                        break;
-                    case thumb::ThumbInstructionCategory::LD_ST_REL_SP:
-                        info = handleThumbLoadStoreSPRelative(thumbInst.params.ld_st_rel_sp.l, thumbInst.params.ld_st_rel_sp.rd, thumbInst.params.ld_st_rel_sp.offset);
+                        // info = handleThumbLoadStoreHalfword(thumbInst.params.ld_st_hw.l, thumbInst.params.ld_st_hw.offset, thumbInst.params.ld_st_hw.rb, thumbInst.params.ld_st_hw.rd);
+                        info = handleThumbLoadStoreSignHalfword(thumbInst);
                         break;
                     case thumb::ThumbInstructionCategory::LOAD_ADDR:
                         info = handleThumbRelAddr(thumbInst.params.load_addr.sp, thumbInst.params.load_addr.offset, thumbInst.params.load_addr.rd);

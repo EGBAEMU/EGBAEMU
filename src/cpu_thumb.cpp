@@ -111,6 +111,144 @@ namespace gbaemu
         return execDataBlockTransfer(wrapper, true);
     }
 
+    InstructionExecutionInfo CPU::handleThumbLoadStore(const thumb::ThumbInstruction &inst)
+    {
+        arm::ARMInstruction wrapper;
+
+        wrapper.params.ls_reg_ubyte.addrMode = 0;
+        wrapper.params.ls_reg_ubyte.l = false;
+        wrapper.params.ls_reg_ubyte.b = false;
+        wrapper.params.ls_reg_ubyte.i = false;
+        // we want to apply the offset before reading/writing
+        wrapper.params.ls_reg_ubyte.p = true;
+        // all offsets here are added
+        wrapper.params.ls_reg_ubyte.u = true;
+        wrapper.params.ls_reg_ubyte.w = false;
+        wrapper.params.ls_reg_ubyte.rn = 0;
+        wrapper.params.ls_reg_ubyte.rd = 0;
+
+        switch (inst.cat) {
+            case thumb::ThumbInstructionCategory::LD_ST_REL_OFF: {
+                // load/store
+                wrapper.params.ls_reg_ubyte.l = inst.params.ld_st_rel_off.l;
+                // byte/word
+                wrapper.params.ls_reg_ubyte.b = inst.params.ld_st_rel_off.b;
+                // base reg
+                wrapper.params.ls_reg_ubyte.rn = inst.params.ld_st_rel_off.rb;
+                // target reg
+                wrapper.params.ls_reg_ubyte.rd = inst.params.ld_st_rel_off.rd;
+                // register offset with LSL#0
+                wrapper.params.ls_reg_ubyte.addrMode = (arm::ShiftType::LSL << 5) | static_cast<uint32_t>(inst.params.ld_st_rel_off.ro);
+                break;
+            }
+
+            case thumb::ThumbInstructionCategory::LD_ST_IMM_OFF: {
+                // load/store
+                wrapper.params.ls_reg_ubyte.l = inst.params.ld_st_imm_off.l;
+                // byte/word
+                wrapper.params.ls_reg_ubyte.b = inst.params.ld_st_imm_off.b;
+                // immediate
+                wrapper.params.ls_reg_ubyte.i = true;
+                // offset is in words(steps of 4) iff !b
+                wrapper.params.ls_reg_ubyte.addrMode = static_cast<uint32_t>(inst.params.ld_st_imm_off.offset) << (inst.params.ld_st_imm_off.b ? 0 : 2);
+                // base reg
+                wrapper.params.ls_reg_ubyte.rn = inst.params.ld_st_imm_off.rb;
+                // target reg
+                wrapper.params.ls_reg_ubyte.rd = inst.params.ld_st_imm_off.rd;
+                break;
+            }
+
+            case thumb::ThumbInstructionCategory::LD_ST_REL_SP: {
+                // load/store
+                wrapper.params.ls_reg_ubyte.l = inst.params.ld_st_rel_sp.l;
+                // immediate
+                wrapper.params.ls_reg_ubyte.i = true;
+                // offset
+                // 7-0    nn - Unsigned Offset              (0-1020, step 4)
+                wrapper.params.ls_reg_ubyte.addrMode = (static_cast<uint32_t>(inst.params.ld_st_rel_sp.offset) << 2);
+                // target reg
+                wrapper.params.ls_reg_ubyte.rd = inst.params.ld_st_rel_sp.rd;
+                // base reg
+                wrapper.params.ls_reg_ubyte.rn = regs::SP_OFFSET;
+                break;
+            }
+            case thumb::ThumbInstructionCategory::PC_LD: {
+                // load
+                wrapper.params.ls_reg_ubyte.l = true;
+                // immediate
+                wrapper.params.ls_reg_ubyte.i = true;
+                // offset
+                wrapper.params.ls_reg_ubyte.addrMode = (static_cast<uint32_t>(inst.params.pc_ld.offset) << 2);
+                // target reg
+                wrapper.params.ls_reg_ubyte.rd = inst.params.pc_ld.rd;
+                // base reg
+                wrapper.params.ls_reg_ubyte.rn = regs::PC_OFFSET;
+                break;
+            }
+
+            default:
+                break;
+        }
+
+        // i is inverted immediate bool
+        wrapper.params.ls_reg_ubyte.i = !wrapper.params.ls_reg_ubyte.i;
+
+        return execLoadStoreRegUByte(wrapper, true);
+    }
+
+    InstructionExecutionInfo CPU::handleThumbLoadStoreSignHalfword(const thumb::ThumbInstruction &inst)
+    {
+        bool pre = true;
+        bool up = true;
+        bool load = false;
+        bool writeback = false;
+        bool sign = false;
+        uint8_t rn = 0;
+        uint8_t rd = 0;
+        uint32_t offset = 0;
+        uint8_t transferSize = 16;
+
+        switch (inst.cat) {
+            case thumb::ThumbInstructionCategory::LD_ST_SIGN_EXT: {
+                if (!inst.params.ld_st_sign_ext.h && !inst.params.ld_st_sign_ext.s) {
+                    transferSize = 16;
+                    load = false;
+                } else {
+                    transferSize = inst.params.ld_st_sign_ext.h ? 16 : 8;
+                    sign = inst.params.ld_st_sign_ext.s;
+                    load = true;
+                }
+                rn = inst.params.ld_st_sign_ext.rb;
+                rd = inst.params.ld_st_sign_ext.rd;
+                offset = state.accessReg(inst.params.ld_st_sign_ext.ro);
+                break;
+            }
+
+            case thumb::ThumbInstructionCategory::LD_ST_HW: {
+                load = inst.params.ld_st_hw.l;
+                // 10-6   nn - Unsigned Offset              (0-62, step 2)
+                offset = static_cast<uint32_t>(inst.params.ld_st_hw.offset) << 1;
+                rn = inst.params.ld_st_hw.rb;
+                rd = inst.params.ld_st_hw.rd;
+                break;
+            }
+
+            default:
+                break;
+        }
+
+        return execHalfwordDataTransferImmRegSignedTransfer(pre,
+                                                            up,
+                                                            load,
+                                                            writeback,
+                                                            sign,
+                                                            rn,
+                                                            rd,
+                                                            offset,
+                                                            transferSize,
+                                                            true);
+    }
+
     InstructionExecutionInfo CPU::handleThumbAddOffsetToStackPtr(bool s, uint8_t offset)
     {
         // nn - Unsigned Offset    (0-508, step 4)
@@ -145,6 +283,7 @@ namespace gbaemu
         return info;
     }
 
+    /*
     InstructionExecutionInfo CPU::handleThumbLoadStoreSPRelative(bool l, uint8_t rd, uint8_t offset)
     {
         InstructionExecutionInfo info{0};
@@ -335,6 +474,7 @@ namespace gbaemu
 
         return info;
     }
+    */
 
     InstructionExecutionInfo CPU::handleThumbAddSubtract(thumb::ThumbInstructionID insID, uint8_t rd, uint8_t rs, uint8_t rn_offset)
     {

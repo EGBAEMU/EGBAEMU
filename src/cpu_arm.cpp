@@ -611,7 +611,7 @@ namespace gbaemu
         return info;
     }
 
-    InstructionExecutionInfo CPU::execLoadStoreRegUByte(const arm::ARMInstruction &inst)
+    InstructionExecutionInfo CPU::execLoadStoreRegUByte(const arm::ARMInstruction &inst, bool thumb)
     {
         /*
                 Opcode Format
@@ -655,7 +655,6 @@ namespace gbaemu
         auto currentRegs = state.getCurrentRegs();
 
         if (!pre) {
-            /* TODO: What's this? */
             bool forceNonPrivAccess = writeback;
             // I assume that we access user regs... because user mode is the only non-priviledged mode
             if (forceNonPrivAccess) {
@@ -682,7 +681,6 @@ namespace gbaemu
                 info.additionalProgCyclesS = 1;
             }
         } else {
-            //TODO not sure why STR instructions have 2N ...
             info.additionalProgCyclesN = 1;
             info.noDefaultSCycle = true;
         }
@@ -701,11 +699,19 @@ namespace gbaemu
         uint32_t rnValue = *currentRegs[rn];
         uint32_t rdValue = *currentRegs[rd];
 
-        if (rn == regs::PC_OFFSET)
-            rnValue += 8;
+        if (rn == regs::PC_OFFSET) {
+            rnValue += thumb ? 4 : 8;
 
-        if (rd == regs::PC_OFFSET)
-            rdValue += 12;
+            if (thumb) {
+                // special case for thumb PC_LD
+                //TODO check that this wont affect other thumb instructions... probably not because normally they can only address r0-r7
+                rnValue &= ~2;
+            }
+        }
+
+        if (rd == regs::PC_OFFSET) {
+            rdValue += thumb ? 6 : 12;
+        }
 
         /* if the offset is added depends on the indexing mode */
         if (pre)
@@ -749,7 +755,8 @@ namespace gbaemu
         return info;
     }
 
-    InstructionExecutionInfo CPU::execHalfwordDataTransferImmRegSignedTransfer(const arm::ARMInstruction &inst)
+    InstructionExecutionInfo CPU::execHalfwordDataTransferImmRegSignedTransfer(bool pre, bool up, bool load, bool writeback, bool sign,
+                                                                               uint8_t rn, uint8_t rd, uint32_t offset, uint8_t transferSize, bool thumb)
     {
         /*
                 Bit    Expl.
@@ -787,54 +794,6 @@ namespace gbaemu
                         When above Bit 22 I=1:
                         Immediate Offset (lower 4bits)  (0-255, together with upper bits)
              */
-        bool pre, up, load, writeback, sign;
-        uint32_t rn, rd, offset, memoryAddress, transferSize;
-
-        /* this is the only difference between imm and reg */
-        if (inst.cat == arm::ARMInstructionCategory::HW_TRANSF_IMM_OFF) {
-            pre = inst.params.hw_transf_imm_off.p;
-            up = inst.params.hw_transf_imm_off.u;
-            load = inst.params.hw_transf_imm_off.l;
-            writeback = inst.params.hw_transf_imm_off.w;
-            rn = inst.params.hw_transf_imm_off.rn;
-            rd = inst.params.hw_transf_imm_off.rd;
-            offset = inst.params.hw_transf_imm_off.offset;
-            transferSize = 16;
-            sign = false;
-        } else if (inst.cat == arm::ARMInstructionCategory::HW_TRANSF_REG_OFF) {
-            pre = inst.params.hw_transf_reg_off.p;
-            up = inst.params.hw_transf_reg_off.u;
-            load = inst.params.hw_transf_reg_off.l;
-            writeback = inst.params.hw_transf_reg_off.w;
-            rn = inst.params.hw_transf_reg_off.rn;
-            rd = inst.params.hw_transf_reg_off.rd;
-            offset = state.accessReg(inst.params.hw_transf_reg_off.rm);
-            transferSize = 16;
-            sign = false;
-        } else if (inst.cat == arm::ARMInstructionCategory::SIGN_TRANSF) {
-            pre = inst.params.sign_transf.p;
-            up = inst.params.sign_transf.u;
-            load = inst.params.sign_transf.l;
-            writeback = inst.params.sign_transf.w;
-            rn = inst.params.sign_transf.rn;
-            rd = inst.params.sign_transf.rd;
-
-            if (inst.params.sign_transf.b) {
-                offset = inst.params.sign_transf.addrMode;
-            } else {
-                uint32_t rm = inst.params.sign_transf.addrMode & 0x0F;
-                offset = state.accessReg(rm);
-            }
-
-            if (inst.params.sign_transf.h)
-                transferSize = 16;
-            else
-                transferSize = 8;
-
-            sign = true;
-        } else {
-            std::cout << "ERROR: Invalid arm instruction category given to execHalfwordDataTransferImmRegSignedTransfer: " << inst.cat << std::endl;
-        }
 
         //Execution Time: For Normal LDR, 1S+1N+1I. For LDR PC, 2S+2N+1I. For STRH 2N
         InstructionExecutionInfo info{0};
@@ -849,7 +808,6 @@ namespace gbaemu
             }
         } else {
             // same edge case as for STR
-            //TODO not sure why STR instructions have 2N ...
             info.noDefaultSCycle = true;
             info.additionalProgCyclesN = 1;
         }
@@ -857,12 +815,15 @@ namespace gbaemu
         uint32_t rnValue = state.accessReg(rn);
         uint32_t rdValue = state.accessReg(rd);
 
-        if (rn == regs::PC_OFFSET)
-            rnValue += 8;
+        if (rn == regs::PC_OFFSET) {
+            rnValue += thumb ? 4 : 8;
+        }
 
-        if (rd == regs::PC_OFFSET)
-            rdValue += 12;
+        if (rd == regs::PC_OFFSET) {
+            rdValue += thumb ? 6 : 12;
+        }
 
+        uint32_t memoryAddress;
         if (pre) {
             memoryAddress = rnValue + (up ? offset : -offset);
         } else
