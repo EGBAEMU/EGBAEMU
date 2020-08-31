@@ -52,14 +52,7 @@ namespace gbaemu
         InstructionExecutionInfo handleThumbPushPopRegister(bool load, bool r, uint8_t rlist);
         InstructionExecutionInfo handleThumbAddOffsetToStackPtr(bool s, uint8_t offset);
         InstructionExecutionInfo handleThumbRelAddr(bool sp, uint8_t offset, uint8_t rd);
-/*
-        InstructionExecutionInfo handleThumbLoadStoreSPRelative(bool l, uint8_t rd, uint8_t offset);
-        InstructionExecutionInfo handleThumbLoadStoreHalfword(bool l, uint8_t offset, uint8_t rb, uint8_t rd);
-        InstructionExecutionInfo handleThumbLoadStoreImmOff(bool l, bool b, uint8_t offset, uint8_t rb, uint8_t rd);
-        InstructionExecutionInfo handleThumbLoadStoreSignExt(bool h, bool s, uint8_t ro, uint8_t rb, uint8_t rd);
-        InstructionExecutionInfo handleThumbLoadStoreRegisterOffset(bool l, bool b, uint8_t ro, uint8_t rb, uint8_t rd);
-        InstructionExecutionInfo handleThumbLoadPCRelative(uint8_t rd, uint8_t offset);
-*/
+
         InstructionExecutionInfo handleThumbLoadStore(const thumb::ThumbInstruction &inst);
         InstructionExecutionInfo handleThumbLoadStoreSignHalfword(const thumb::ThumbInstruction &inst);
 
