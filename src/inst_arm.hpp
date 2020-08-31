@@ -92,7 +92,7 @@ namespace gbaemu
     value 0b 0000 0110 0000 0000 0000 0000 0001 0000
     
     Block data transfercond100PU0WLRnregisterli
-    mask  0b 0000 1110 0100 0000 0000 0000 0000 0000
+    mask  0b 0000 1110 0000 0000 0000 0000 0000 0000
     value 0b 0000 1000 0000 0000 0000 0000 0000 0000
 
     Branch cond 1 0 1 L offset
