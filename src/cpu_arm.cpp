@@ -639,7 +639,7 @@ namespace gbaemu
         bool edgeCaseEmptyRlist = false;
         // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
         if (inst.params.block_data_transf.rList == 0) {
-            inst.params.block_data_transf.rList = (1 << 15);
+            inst.params.block_data_transf.rList = (1 << regs::PC_OFFSET);
             edgeCaseEmptyRlist = true;
         }
 
@@ -701,8 +701,11 @@ namespace gbaemu
             }
         }
 
-        // Edge case: writeback enabled & rn is inside rlist
-        if ((inst.params.block_data_transf.rList & (1 << rn)) && writeback) {
+        // Handle edge case: Empty Rlist: Rb=Rb+40h (ARMv4-v5)
+        if (edgeCaseEmptyRlist) {
+            *currentRegs[rn] = *currentRegs[rn] + 0x40;
+        } else if ((inst.params.block_data_transf.rList & (1 << rn)) && writeback) {
+            // Edge case: writeback enabled & rn is inside rlist
             // If load then it was overwritten anyway & we should not do another writeback as writeback comes before read!
             // else on STM it depends if this register was the first written to memory
             // if so we need to write the unchanged memory address into memory (which is what we currently do by default)
@@ -719,11 +722,6 @@ namespace gbaemu
             }
         } else if (writeback) {
             *currentRegs[rn] = address;
-        }
-
-        // Handle edge case: Empty Rlist: Rb=Rb+40h (ARMv4-v5)
-        if (edgeCaseEmptyRlist) {
-            *currentRegs[rn] = *currentRegs[rn] + 0x40;
         }
 
         return info;
