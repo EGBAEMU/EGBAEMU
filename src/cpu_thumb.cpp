@@ -290,7 +290,7 @@ namespace gbaemu
         } else {
             if (b) {
                 // 1: STRB Rd,[Rb,Ro]   ;store  8bit data  BYTE[Rb+Ro] = Rd
-                state.memory.write8(memoryAddress, state.accessReg(rd) & 0x0F, &info);
+                state.memory.write8(memoryAddress, state.accessReg(rd) & 0x0FF, &info);
             } else {
                 // 0: STR  Rd,[Rb,Ro]   ;store 32bit data  WORD[Rb+Ro] = Rd
                 state.memory.write32(memoryAddress, state.accessReg(rd), &info);
