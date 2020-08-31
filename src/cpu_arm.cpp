@@ -162,12 +162,15 @@ namespace gbaemu
         if (b) {
             uint8_t memVal = state.memory.read8(memAddr, &info);
             state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF), &info);
-            //TODO overwrite upper 24 bits?
             *currentRegs[rd] = static_cast<uint32_t>(memVal);
         } else {
-            uint32_t memVal = state.memory.read32(memAddr, &info);
-            state.memory.write32(memAddr, newMemVal, &info);
-            *currentRegs[rd] = memVal;
+            // LDR part
+            uint32_t alignedWord = state.memory.read32(memAddr & 0xFFFFFFFC, &info);
+            alignedWord = arm::shift(alignedWord, arm::ShiftType::ROR, (memAddr & 0x03) * 8, false, false) & 0xFFFFFFFF;
+            *currentRegs[rd] = alignedWord;
+
+            // STR part
+            state.memory.write32(memAddr & 0xFFFFFFFC, newMemVal, &info);
         }
 
         return info;
