@@ -39,8 +39,8 @@ namespace gbaemu
         InstructionExecutionInfo handleBranchAndExchange(uint32_t rn);
         /* ALU functions */
         InstructionExecutionInfo execDataProc(arm::ARMInstruction &inst);
-        InstructionExecutionInfo execLoadStoreRegUByte(const arm::ARMInstruction &inst);
         InstructionExecutionInfo execDataBlockTransfer(arm::ARMInstruction &inst, bool thumb = false);
+        InstructionExecutionInfo execLoadStoreRegUByte(const arm::ARMInstruction &inst);
         InstructionExecutionInfo execHalfwordDataTransferImmRegSignedTransfer(const arm::ARMInstruction &inst);
 
         // THUMB instruction execution helpers

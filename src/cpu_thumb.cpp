@@ -15,7 +15,6 @@ namespace gbaemu
             extendedAddr <<= 1;
             uint32_t pcVal = *currentRegs[regs::PC_OFFSET];
             *currentRegs[regs::PC_OFFSET] = *currentRegs[regs::LR_OFFSET] + extendedAddr;
-            // TODO OR 1? not sure if we need this, this would cause invalid addresses if not catched by fetch (masking out)
             *currentRegs[regs::LR_OFFSET] = (pcVal + 2) | 1;
         } else {
             // First instruction
@@ -32,7 +31,6 @@ namespace gbaemu
 
     InstructionExecutionInfo CPU::handleThumbUnconditionalBranch(int16_t offset)
     {
-        // TODO: Offset may be shifted by 1 or not at all
         state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(state.getCurrentPC()) + 4 + (offset * 2));
 
         // Unconditional branches take 2S + 1N

@@ -461,6 +461,156 @@ namespace gbaemu
         return info;
     }
 
+    InstructionExecutionInfo CPU::execDataBlockTransfer(arm::ARMInstruction &inst, bool thumb)
+    {
+        auto currentRegs = state.getCurrentRegs();
+
+        //TODO S bit seems relevant for register selection, NOTE: this instruction is reused for handleThumbMultLoadStore & handleThumbPushPopRegister
+        bool forceUserRegisters = inst.params.block_data_transf.s;
+
+        bool pre = inst.params.block_data_transf.p;
+        bool up = inst.params.block_data_transf.u;
+        bool writeback = inst.params.block_data_transf.w;
+        bool load = inst.params.block_data_transf.l;
+
+        if (forceUserRegisters && (!load || (inst.params.block_data_transf.rList & (1 << regs::PC_OFFSET)) == 0)) {
+            currentRegs = state.getModeRegs(CPUState::UserMode);
+        }
+
+        uint32_t rn = inst.params.block_data_transf.rn;
+        uint32_t address = *currentRegs[rn];
+
+        // Execution Time:
+        // For normal LDM, nS+1N+1I. For LDM PC, (n+1)S+2N+1I.
+        // For STM (n-1)S+2N. Where n is the number of words transferred.
+        InstructionExecutionInfo info{0};
+        if (load) {
+            // handle +1I
+            info.cycleCount = 1;
+        } else {
+            // same edge case as for STR
+            info.noDefaultSCycle = true;
+            info.additionalProgCyclesN = 1;
+        }
+
+        // The first read / write is non sequential but afterwards all accesses are sequential
+        // because the memory class always adds non sequential accesses we need to handle this case explicitly
+        bool nonSeqAccDone = false;
+
+        //TODO is it fine to just walk in different direction?
+        /*
+            Transfer Order
+            The lowest Register in Rlist (R0 if its in the list) will be loaded/stored to/from the lowest memory address.
+            Internally, the rlist register are always processed with INCREASING addresses 
+            (ie. for DECREASING addressing modes, the CPU does first calculate the lowest address,
+            and does then process rlist with increasing addresses; this detail can be important when accessing memory mapped I/O ports).
+            */
+        uint32_t addrInc = up ? 4 : -static_cast<uint32_t>(4);
+
+        bool edgeCaseEmptyRlist = false;
+        uint32_t edgeCaseEmptyRlistAddrInc = 0;
+        // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
+        // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
+        /*
+        empty rlist edge cases:
+        STMIA: str -> r0
+            r0 = r0 + 0x40
+        STMIB: str->r0 +4
+            r0 = r0 + 0x40
+        STMDB: str ->r0 - 0x40
+            r0 = r0 - 0x40
+        STMDA: str -> r0 -0x3C
+            r0 = r0 - 0x40
+        */
+        if (inst.params.block_data_transf.rList == 0) {
+            edgeCaseEmptyRlist = true;
+            inst.params.block_data_transf.rList = (1 << regs::PC_OFFSET);
+            writeback = true;
+            if (up) {
+                edgeCaseEmptyRlistAddrInc = static_cast<uint32_t>(0x3C);
+            } else {
+                addrInc = -(pre ? static_cast<uint32_t>(0x40) : static_cast<uint32_t>(0x3C));
+                edgeCaseEmptyRlistAddrInc = pre ? 0 : -static_cast<uint32_t>(4);
+                pre = true;
+            }
+        }
+
+        uint32_t patchMemAddr;
+
+        for (uint32_t i = 0; i < 16; ++i) {
+            uint8_t currentIdx = (up ? i : 15 - i);
+            if (inst.params.block_data_transf.rList & (1 << currentIdx)) {
+
+                if (pre) {
+                    address += addrInc;
+                }
+
+                if (load) {
+                    if (currentIdx == regs::PC_OFFSET) {
+                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info);
+                        // Special case for pipeline refill
+                        info.additionalProgCyclesN = 1;
+                        info.additionalProgCyclesS = 1;
+
+                        // More special cases
+                        /*
+                            When S Bit is set (S=1)
+                            If instruction is LDM and R15 is in the list: (Mode Changes)
+                              While R15 loaded, additionally: CPSR=SPSR_<current mode>
+                            */
+                        if (forceUserRegisters) {
+                            *currentRegs[regs::CPSR_OFFSET] = *state.getCurrentRegs()[regs::SPSR_OFFSET];
+                        }
+                    } else {
+                        *currentRegs[currentIdx] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info);
+                    }
+                } else {
+                    // Shady hack to make edge case treatment easier
+                    if (rn == currentIdx) {
+                        patchMemAddr = address;
+                    }
+
+                    // Edge case of storing PC -> PC + 12 will be stored
+                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb ? 6 : 12) : 0), nonSeqAccDone ? nullptr : &info);
+                }
+
+                if (nonSeqAccDone) {
+                    info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(address, sizeof(uint32_t));
+                }
+                nonSeqAccDone = true;
+
+                if (!pre) {
+                    address += addrInc;
+                }
+            }
+        }
+
+        // Final edge case address patch
+        address += edgeCaseEmptyRlistAddrInc;
+
+        if (!edgeCaseEmptyRlist && (inst.params.block_data_transf.rList & (1 << rn)) && writeback) {
+            // Edge case: writeback enabled & rn is inside rlist
+            // If load then it was overwritten anyway & we should not do another writeback as writeback comes before read!
+            // else on STM it depends if this register was the first written to memory
+            // if so we need to write the unchanged memory address into memory (which is what we currently do by default)
+            // else we need to patch the written memory & store the address that would normally written back
+            if (!load) {
+                // Check if there are any registers that were written first to memory
+                if (inst.params.block_data_transf.rList & ((1 << rn) - 1)) {
+                    // We need to patch mem
+                    state.memory.write32(patchMemAddr, address, nullptr);
+                }
+
+                // Also do the write back to the register!
+                *currentRegs[rn] = address;
+            }
+        } else if (writeback) {
+            *currentRegs[rn] = address;
+        }
+
+        return info;
+    }
+
     InstructionExecutionInfo CPU::execLoadStoreRegUByte(const arm::ARMInstruction &inst)
     {
         /*
@@ -595,156 +745,6 @@ namespace gbaemu
 
         if ((!pre || writeback) && (!load || rn != rd))
             *currentRegs[rn] = memoryAddress;
-
-        return info;
-    }
-
-    InstructionExecutionInfo CPU::execDataBlockTransfer(arm::ARMInstruction &inst, bool thumb)
-    {
-        auto currentRegs = state.getCurrentRegs();
-
-        //TODO S bit seems relevant for register selection, NOTE: this instruction is reused for handleThumbMultLoadStore & handleThumbPushPopRegister
-        bool forceUserRegisters = inst.params.block_data_transf.s;
-
-        bool pre = inst.params.block_data_transf.p;
-        bool up = inst.params.block_data_transf.u;
-        bool writeback = inst.params.block_data_transf.w;
-        bool load = inst.params.block_data_transf.l;
-
-        if (forceUserRegisters && (!load || (inst.params.block_data_transf.rList & (1 << regs::PC_OFFSET)) == 0)) {
-            currentRegs = state.getModeRegs(CPUState::UserMode);
-        }
-
-        uint32_t rn = inst.params.block_data_transf.rn;
-        uint32_t address = *currentRegs[rn];
-
-        // Execution Time:
-        // For normal LDM, nS+1N+1I. For LDM PC, (n+1)S+2N+1I.
-        // For STM (n-1)S+2N. Where n is the number of words transferred.
-        InstructionExecutionInfo info{0};
-        if (load) {
-            // handle +1I
-            info.cycleCount = 1;
-        } else {
-            // same edge case as for STR
-            info.noDefaultSCycle = true;
-            info.additionalProgCyclesN = 1;
-        }
-
-        // The first read / write is non sequential but afterwards all accesses are sequential
-        // because the memory class always adds non sequential accesses we need to handle this case explicitly
-        bool nonSeqAccDone = false;
-
-        //TODO is it fine to just walk in different direction?
-        /*
-            Transfer Order
-            The lowest Register in Rlist (R0 if its in the list) will be loaded/stored to/from the lowest memory address.
-            Internally, the rlist register are always processed with INCREASING addresses 
-            (ie. for DECREASING addressing modes, the CPU does first calculate the lowest address,
-            and does then process rlist with increasing addresses; this detail can be important when accessing memory mapped I/O ports).
-            */
-        uint32_t addrInc = up ? 4 : -static_cast<uint32_t>(4);
-
-        bool edgeCaseEmptyRlist = false;
-        uint32_t edgeCaseEmptyRlistAddrInc = 0;
-        // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
-        // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
-        /*
-        empty rlist edge cases:
-        STMIA: str -> r0
-            r0 = r0 + 0x40
-        STMIB: str->r0 +4
-            r0 = r0 + 0x40
-        STMDB: str ->r0 - 0x40
-            r0 = r0 - 0x40
-        STMDA: str -> r0 -0x3C
-            r0 = r0 - 0x40
-        */
-        if (inst.params.block_data_transf.rList == 0) {
-            edgeCaseEmptyRlist = true;
-            inst.params.block_data_transf.rList = (1 << regs::PC_OFFSET);
-            writeback = true;
-            if (up) {
-                edgeCaseEmptyRlistAddrInc = static_cast<uint32_t>(0x3C);
-            } else {
-                addrInc = -(pre ? static_cast<uint32_t>(0x40) : static_cast<uint32_t>(0x3C));
-                edgeCaseEmptyRlistAddrInc = pre ? 0 : -static_cast<uint32_t>(4);
-                pre = true;
-            }
-        }
-
-        uint32_t patchMemAddr;
-
-        for (uint32_t i = 0; i < 16; ++i) {
-            uint8_t currentIdx = (up ? i : 15 - i);
-            if (inst.params.block_data_transf.rList & (1 << currentIdx)) {
-
-                if (pre) {
-                    address += addrInc;
-                }
-
-                if (load) {
-                    if (currentIdx == regs::PC_OFFSET) {
-                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info);
-                        // Special case for pipeline refill
-                        info.additionalProgCyclesN = 1;
-                        info.additionalProgCyclesS = 1;
-
-                        // More special cases
-                        /*
-                            When S Bit is set (S=1)
-                            If instruction is LDM and R15 is in the list: (Mode Changes)
-                              While R15 loaded, additionally: CPSR=SPSR_<current mode>
-                            */
-                        if (forceUserRegisters) {
-                            *currentRegs[regs::CPSR_OFFSET] = *state.getCurrentRegs()[regs::SPSR_OFFSET];
-                        }
-                    } else {
-                        *currentRegs[currentIdx] = state.memory.read32(address, nonSeqAccDone ? nullptr : &info);
-                    }
-                } else {
-                    // Shady hack to make edge case treatment easier
-                    if (rn == currentIdx) {
-                        patchMemAddr = address;
-                    }
-
-                    // Edge case of storing PC -> PC + 12 will be stored
-                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb? 6 : 12) : 0), nonSeqAccDone ? nullptr : &info);
-                }
-
-                if (nonSeqAccDone) {
-                    info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(address, sizeof(uint32_t));
-                }
-                nonSeqAccDone = true;
-
-                if (!pre) {
-                    address += addrInc;
-                }
-            }
-        }
-
-        // Final edge case address patch
-        address += edgeCaseEmptyRlistAddrInc;
-
-        if (!edgeCaseEmptyRlist && (inst.params.block_data_transf.rList & (1 << rn)) && writeback) {
-            // Edge case: writeback enabled & rn is inside rlist
-            // If load then it was overwritten anyway & we should not do another writeback as writeback comes before read!
-            // else on STM it depends if this register was the first written to memory
-            // if so we need to write the unchanged memory address into memory (which is what we currently do by default)
-            // else we need to patch the written memory & store the address that would normally written back
-            if (!load) {
-                // Check if there are any registers that were written first to memory
-                if (inst.params.block_data_transf.rList & ((1 << rn) - 1)) {
-                    // We need to patch mem
-                    state.memory.write32(patchMemAddr, address, nullptr);
-                }
-
-                // Also do the write back to the register!
-                *currentRegs[rn] = address;
-            }
-        } else if (writeback) {
-            *currentRegs[rn] = address;
-        }
 
         return info;
     }

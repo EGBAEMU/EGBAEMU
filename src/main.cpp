@@ -98,7 +98,7 @@ int main(int argc, char **argv)
 
     charlie.registerTrap(jumpTrap);
     // charlie.registerTrap(bp1);
-    charlie.registerTrap(r12trap);
+    //charlie.registerTrap(r12trap);
 
     for (uint32_t i = 0; i < 0xFFFFFFFF;) {
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
