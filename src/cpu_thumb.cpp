@@ -285,48 +285,22 @@ namespace gbaemu
 
     InstructionExecutionInfo CPU::handleThumbAddSubtract(InstructionID insID, uint8_t rd, uint8_t rs, uint8_t rn_offset)
     {
-        auto currentRegs = state.getCurrentRegs();
+        arm::ARMInstruction wrapper;
+        wrapper.id = insID;
+        // Imm?
+        wrapper.params.data_proc_psr_transf.i = insID == ADD_SHORT_IMM || insID == SUB_SHORT_IMM;
+        // encode rs register or imm (both at lower bits and rest 0 -> ROR#0 / LSL#0)
+        wrapper.params.data_proc_psr_transf.operand2 = rn_offset;
+        // Only for MSR & MRS relevant
+        wrapper.params.data_proc_psr_transf.r = false;
+        // First operand
+        wrapper.params.data_proc_psr_transf.rn = rs;
+        // Dest reg
+        wrapper.params.data_proc_psr_transf.rd = rd;
+        // We want to update flags!
+        wrapper.params.data_proc_psr_transf.s = true;
 
-        uint32_t rsVal = *currentRegs[rs];
-        uint32_t rnVal = *currentRegs[rn_offset];
-
-        uint64_t result;
-
-        switch (insID) {
-            case ADD:
-                result = rsVal + rnVal;
-                break;
-            case SUB:
-                result = static_cast<int64_t>(rsVal) - static_cast<int64_t>(rnVal);
-                rnVal = (-rnVal) & 0x0FFFFFFFF;
-                break;
-            case ADD_SHORT_IMM:
-                result = rsVal + rn_offset;
-                break;
-            case SUB_SHORT_IMM:
-                result = static_cast<int64_t>(rsVal) - static_cast<int64_t>(rn_offset);
-                rn_offset = (-rn_offset) & 0x0FFFFFFFF;
-                break;
-            default:
-                break;
-        }
-
-        *currentRegs[rd] = result;
-
-        bool isAdd = (insID == ADD) || (insID == ADD_SHORT_IMM);
-
-        setFlags(
-            result,
-            (rsVal >> 31) & 1,
-            ((insID == SUB || insID == ADD ? rnVal : rn_offset) >> 31) & 1,
-            true,
-            true,
-            true,
-            true,
-            !isAdd);
-
-        InstructionExecutionInfo info{0};
-        return info;
+        return execDataProc(wrapper, true);
     }
 
     InstructionExecutionInfo CPU::handleThumbMovCmpAddSubImm(InstructionID ins, uint8_t rd, uint8_t offset)
@@ -372,10 +346,10 @@ namespace gbaemu
             rdValue,
             false,
             false,
-            true,                             // n Flag
-            true,                             // z Flag
-            false,                            // v Flag
-            ins != LSL || offset != 0, // c flag
+            true,  // n Flag
+            true,  // z Flag
+            false, // v Flag
+            true,  // c flag
             false);
 
         // Execution Time: 1S
@@ -452,138 +426,61 @@ namespace gbaemu
 
     InstructionExecutionInfo CPU::handleThumbALUops(InstructionID instID, uint8_t rs, uint8_t rd)
     {
+        arm::ARMInstruction wrapper;
+        wrapper.id = instID;
 
-        static const std::set<InstructionID> updateNegative{
-            ADC, SBC, NEG, CMP, CMN,
+        // We have no immediate
+        wrapper.params.data_proc_psr_transf.i = false;
+        // Only relevant for MSR/MRS
+        wrapper.params.data_proc_psr_transf.r = false;
+        // We want to update the flags!
+        wrapper.params.data_proc_psr_transf.s = true;
+        // Destination reg
+        wrapper.params.data_proc_psr_transf.rd = rd;
+        // First operand
+        wrapper.params.data_proc_psr_transf.rn = rd;
 
-            LSL, LSR, ASR, ROR,
-
-            MUL, AND, EOR, TST, ORR, BIC, MVN};
-
-        static const std::set<InstructionID> updateZero{
-            ADC, SBC, NEG, CMP, CMN,
-
-            LSL, LSR, ASR, ROR,
-
-            MUL, AND, EOR, TST, ORR, BIC, MVN};
-
-        static const std::set<InstructionID> updateCarry{
-            ADC, SBC, NEG, CMP, CMN,
-
-            LSL, LSR, ASR, ROR};
-
-        static const std::set<InstructionID> updateOverflow{
-            ADC, SBC, NEG, CMP, CMN};
-
-        static const std::set<InstructionID> dontUpdateRD{
-            TST, CMP, CMN};
-
-        static const std::set<InstructionID> shiftOps{
-            LSL, LSR, ASR, ROR};
-
-        static const std::set<InstructionID> invertCarry{
-            SBC, CMP, NEG, SUB};
-
-        InstructionExecutionInfo info{0};
-
-        if (shiftOps.find(instID) != shiftOps.end()) {
-            info.cycleCount = 1;
-        }
-
-        auto currentRegs = state.getCurrentRegs();
-
-        uint64_t rsValue = *currentRegs[rs];
-        uint64_t rdValue = *currentRegs[rd];
-        int64_t resultValue;
-
-        uint8_t shiftAmount = rsValue & 0xFF;
-
-        bool carry = state.getFlag(cpsr_flags::C_FLAG);
+        shifts::ShiftType shiftType = shifts::ShiftType::LSL;
 
         switch (instID) {
-
-            case ADC:
-                resultValue = rdValue + rsValue + (carry ? 1 : 0);
-                break;
-            case SBC:
-                resultValue = static_cast<int64_t>(rdValue) - static_cast<int64_t>(rsValue) - (carry ? 0 : 1);
-                rsValue = (-rsValue) & 0x0FFFFFFFF;
-                break;
-            case NEG:
-                resultValue = 0 - static_cast<int64_t>(rsValue);
-                rdValue = 0;
-                rsValue = (-rsValue) & 0x0FFFFFFFF;
-                break;
-            case CMP:
-                resultValue = static_cast<int64_t>(rdValue) - static_cast<int64_t>(rsValue);
-                rsValue = (-rsValue) & 0x0FFFFFFFF;
-                break;
-            case CMN:
-                resultValue = rdValue + rsValue;
-                break;
-
             case LSL:
-                resultValue = shifts::shift(rdValue, shifts::ShiftType::LSL, shiftAmount, carry, false);
+                shiftType = shifts::ShiftType::LSL;
                 break;
             case LSR:
-                resultValue = shifts::shift(rdValue, shifts::ShiftType::LSR, shiftAmount, carry, false);
+                shiftType = shifts::ShiftType::LSR;
                 break;
             case ASR:
-                resultValue = shifts::shift(rdValue, shifts::ShiftType::ASR, shiftAmount, carry, false);
+                shiftType = shifts::ShiftType::ASR;
                 break;
             case ROR:
-                resultValue = shifts::shift(rdValue, shifts::ShiftType::ROR, shiftAmount, carry, false);
+                shiftType = shifts::ShiftType::ROR;
                 break;
-
-            case MUL: {
-                resultValue = rdValue * rsValue;
-
-                if (((rsValue >> 8) & 0x00FFFFFF) == 0 || ((rsValue >> 8) & 0x00FFFFFF) == 0x00FFFFFF) {
-                    info.cycleCount += 1;
-                } else if (((rsValue >> 16) & 0x0000FFFF) == 0 || ((rsValue >> 16) & 0x0000FFFF) == 0x0000FFFF) {
-                    info.cycleCount += 2;
-                } else if (((rsValue >> 24) & 0x000000FF) == 0 || ((rsValue >> 24) & 0x000000FF) == 0x000000FF) {
-                    info.cycleCount += 3;
-                } else {
-                    info.cycleCount += 4;
-                }
-                break;
-            }
-            case TST:
-            case AND:
-                resultValue = rdValue & rsValue;
-                break;
-            case EOR:
-                resultValue = rdValue ^ rsValue;
-                break;
-            case ORR:
-                resultValue = rdValue | rsValue;
-                break;
-            case BIC:
-                resultValue = rdValue & ~rsValue;
-                break;
-            case MVN:
-                resultValue = ~rsValue;
-                break;
-
             default:
                 break;
         }
 
-        setFlags(
-            resultValue,
-            //TODO this does probably not work for all instructions!!!
-            (rdValue >> 31) & 1,
-            (rsValue >> 31) & 1,
-            updateNegative.find(instID) != updateNegative.end(),
-            updateZero.find(instID) != updateZero.end(),
-            updateOverflow.find(instID) != updateOverflow.end(),
-            updateCarry.find(instID) != updateCarry.end() && (shiftOps.find(instID) == shiftOps.end() || shiftAmount != 0),
-            invertCarry.find(instID) != invertCarry.end());
+        switch (instID) {
+            case LSL:
+            case LSR:
+            case ASR:
+            case ROR:
+                // Patch id to MOV as shifts is done during operand2 evaluation
+                wrapper.id = MOV;
+                //TODO previously we did: uint8_t shiftAmount = rsValue & 0xFF; we might need to enforce this in execDataProc as well!
+                // Set bit 4 for shiftAmountFromReg flag & move regs at their positions & include the shifttype to use
+                wrapper.params.data_proc_psr_transf.operand2 = (static_cast<uint16_t>(1) << 4) | rd | (static_cast<uint16_t>(rs) << 8) | (static_cast<uint16_t>(shiftType) << 5);
+                break;
 
-        if (dontUpdateRD.find(instID) == dontUpdateRD.end())
-            *currentRegs[rd] = resultValue;
+            case MUL: {
+                return handleMultAcc(false, true, rd, 0, rs, rd);
+            }
 
-        return info;
+            default:
+                // We only want the value of rs & nothing else
+                wrapper.params.data_proc_psr_transf.operand2 = rs;
+                break;
+        }
+
+        return execDataProc(wrapper, true);
     }
 } // namespace gbaemu

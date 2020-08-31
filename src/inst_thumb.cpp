@@ -460,60 +460,6 @@ namespace gbaemu
                 instruction.params.cond_branch.cond = cond;
                 instruction.params.cond_branch.offset = static_cast<int8_t>(lastInst & 0x0FF);
 
-                /*
-                switch (cond) {
-                    case 0b0000:
-                        instruction.id = InstructionID::BEQ;
-                        break;
-                    case 0b0001:
-                        instruction.id = InstructionID::BNE;
-                        break;
-                    case 0b0010:
-                        instruction.id = InstructionID::BCS_BHS;
-                        break;
-                    case 0b0011:
-                        instruction.id = InstructionID::BCC_BLO;
-                        break;
-                    case 0b0100:
-                        instruction.id = InstructionID::BMI;
-                        break;
-                    case 0b0101:
-                        instruction.id = InstructionID::BPL;
-                        break;
-                    case 0b0110:
-                        instruction.id = InstructionID::BVS;
-                        break;
-                    case 0b0111:
-                        instruction.id = InstructionID::BVC;
-                        break;
-                    case 0b1000:
-                        instruction.id = InstructionID::BHI;
-                        break;
-                    case 0b1001:
-                        instruction.id = InstructionID::BLS;
-                        break;
-                    case 0b1010:
-                        instruction.id = InstructionID::BGE;
-                        break;
-                    case 0b1011:
-                        instruction.id = InstructionID::BLT;
-                        break;
-                    case 0b1100:
-                        instruction.id = InstructionID::BGT;
-                        break;
-                    case 0b1101:
-                        instruction.id = InstructionID::BLE;
-                        break;
-                        // Undefined
-                    case 0b1110:
-                        std::cerr << "WARNING: Undefined instruction: " << std::hex << lastInst << std::endl;
-                        break;
-
-                        // This case belongs to SOFTWARE_INTERRUPT
-                    case 0b1111:
-                        break;
-                }
-                */
                 instruction.id = InstructionID::B;
 
             } else if ((lastInst & MASK_THUMB_UNCONDITIONAL_BRANCH) == VAL_THUMB_UNCONDITIONAL_BRANCH) {

@@ -25,13 +25,13 @@ namespace gbaemu
                     bool hasRD = !(id == InstructionID::TST || id == InstructionID::TEQ ||
                                    id == InstructionID::CMP || id == InstructionID::CMN);
 
-                    uint32_t rd = params.data_proc_psr_transf.rd;
-                    uint32_t rn = params.data_proc_psr_transf.rn;
+                    uint8_t rd = params.data_proc_psr_transf.rd;
+                    uint8_t rn = params.data_proc_psr_transf.rn;
                     shifts::ShiftType shiftType;
                     uint8_t shiftAmount;
-                    uint32_t rm;
-                    uint32_t rs;
-                    uint32_t imm;
+                    uint8_t rm;
+                    uint8_t rs;
+                    uint8_t imm;
                     bool shiftByReg = params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
 
                     if (id == MSR) {
@@ -52,26 +52,26 @@ namespace gbaemu
                             uint32_t roredImm = shift(imm, shiftType, shiftAmount, false, false);
                             ss << ", #" << roredImm;
                         } else {
-                            ss << ", r" << std::dec << rm;
+                            ss << ", r" << std::dec << static_cast<uint32_t>(rm);
                         }
                     } else {
                         if (params.data_proc_psr_transf.s)
                             ss << "{S}";
 
                         if (hasRD)
-                            ss << " r" << rd;
+                            ss << " r" << static_cast<uint32_t>(rd);
 
                         if (hasRN)
-                            ss << " r" << rn;
+                            ss << " r" << static_cast<uint32_t>(rn);
 
                         if (params.data_proc_psr_transf.i) {
                             uint32_t roredImm = shift(imm, shiftType, shiftAmount, false, false);
                             ss << ", #" << roredImm;
                         } else {
-                            ss << " r" << rm;
+                            ss << " r" << static_cast<uint32_t>(rm);
 
                             if (shiftByReg)
-                                ss << "<<r" << std::dec << rs;
+                                ss << "<<r" << std::dec << static_cast<uint32_t>(rs);
                             else if (shiftAmount > 0)
                                 ss << "<<" << std::dec << static_cast<uint32_t>(shiftAmount);
                         }
@@ -125,7 +125,7 @@ namespace gbaemu
                         ss << " [[r" << params.sign_transf.rn << "]";
                     }
                     if (params.sign_transf.b) {
-                        ss << "+0x"<<std::hex << params.sign_transf.addrMode << ']';
+                        ss << "+0x" << std::hex << params.sign_transf.addrMode << ']';
                     } else {
                         ss << ", r" << std::dec << (params.sign_transf.addrMode & 0x0F) << ']';
                     }
@@ -356,9 +356,10 @@ namespace gbaemu
                     instruction.id = InstructionID::LDRSB;
                 } else if (l && h) {
                     instruction.id = InstructionID::LDRSH;
-                } else if (!l && h) {
+                } /*else if (!l && h) { // supported arm5 and up
                     instruction.id = InstructionID::STRD;
-                } else if (!l && !h) {
+                }*/
+                else if (!l && !h) {
                     instruction.id = InstructionID::LDRD;
                 }
 
@@ -366,12 +367,12 @@ namespace gbaemu
 
                 instruction.cat = ARMInstructionCategory::DATA_PROC_PSR_TRANSF;
 
-                uint32_t opCode = (lastInst >> 21) & 0x0F;
+                uint8_t opCode = (lastInst >> 21) & 0x0F;
                 bool i = (lastInst >> 25) & 1;
                 bool s = lastInst & (1 << 20);
                 bool r = (lastInst >> 22) & 1;
 
-                instruction.params.data_proc_psr_transf.opCode = opCode;
+                //instruction.params.data_proc_psr_transf.opCode = opCode;
                 instruction.params.data_proc_psr_transf.i = i;
                 instruction.params.data_proc_psr_transf.s = s;
                 instruction.params.data_proc_psr_transf.r = r;

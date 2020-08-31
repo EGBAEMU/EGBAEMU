@@ -3,7 +3,7 @@
 
 namespace gbaemu
 {
-    InstructionExecutionInfo CPU::handleMultAcc(bool a, bool s, uint32_t rd, uint32_t rn, uint32_t rs, uint32_t rm)
+    InstructionExecutionInfo CPU::handleMultAcc(bool a, bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm)
     {
         // Check given restrictions
         if (rd == rm) {
@@ -62,7 +62,7 @@ namespace gbaemu
         return info;
     }
 
-    InstructionExecutionInfo CPU::handleMultAccLong(bool signMul, bool a, bool s, uint32_t rd_msw, uint32_t rd_lsw, uint32_t rs, uint32_t rm)
+    InstructionExecutionInfo CPU::handleMultAccLong(bool signMul, bool a, bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm)
     {
         if (rd_lsw == rd_msw || rd_lsw == rm || rd_msw == rm) {
             std::cout << "ERROR: SMULL/SMLAL/UMULL/UMLAL lo, high & rm registers may not be the same!" << std::endl;
@@ -143,7 +143,7 @@ namespace gbaemu
         return info;
     }
 
-    InstructionExecutionInfo CPU::handleDataSwp(bool b, uint32_t rn, uint32_t rd, uint32_t rm)
+    InstructionExecutionInfo CPU::handleDataSwp(bool b, uint8_t rn, uint8_t rd, uint8_t rm)
     {
         //TODO maybe replace by LDR followed by STR?
 
@@ -202,7 +202,7 @@ namespace gbaemu
     }
 
     // Executes instructions belonging to the branch and execute subsection
-    InstructionExecutionInfo CPU::handleBranchAndExchange(uint32_t rn)
+    InstructionExecutionInfo CPU::handleBranchAndExchange(uint8_t rn)
     {
         auto currentRegs = state.getCurrentRegs();
 
@@ -227,7 +227,7 @@ namespace gbaemu
     }
 
     /* ALU functions */
-    InstructionExecutionInfo CPU::execDataProc(arm::ARMInstruction &inst)
+    InstructionExecutionInfo CPU::execDataProc(arm::ARMInstruction &inst, bool thumb)
     {
 
         bool carry = state.getFlag(cpsr_flags::C_FLAG);
@@ -235,9 +235,9 @@ namespace gbaemu
         /* calculate shifter operand */
         shifts::ShiftType shiftType;
         uint8_t shiftAmount;
-        uint32_t rm;
-        uint32_t rs;
-        uint32_t imm;
+        uint8_t rm;
+        uint8_t rs;
+        uint8_t imm;
         uint64_t shifterOperand;
         bool shiftByReg = inst.params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
 
@@ -253,11 +253,10 @@ namespace gbaemu
                 // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
                 // PC+12 if I=0,R=1 (shift by register),
                 // otherwise PC+8 (shift by immediate).
-                std::cout << "INFO: Edge case triggered, by using PC as RM operand on ALU operation! Pls verify that this is correct behaviour for this instruction!" << std::endl;
                 if (!inst.params.data_proc_psr_transf.i && shiftByReg) {
-                    rmValue += 12;
+                    rmValue += thumb ? 6 : 12;
                 } else {
-                    rmValue += 8;
+                    rmValue += thumb ? 4 : 8;
                 }
             }
 
@@ -272,11 +271,10 @@ namespace gbaemu
             // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
             // PC+12 if I=0,R=1 (shift by register),
             // otherwise PC+8 (shift by immediate).
-            std::cout << "INFO: Edge case triggered, by using PC as RN operand on ALU operation! Pls verify that this is correct behaviour for this instruction!" << std::endl;
             if (!inst.params.data_proc_psr_transf.i && shiftByReg) {
-                rnValue += 12;
+                rnValue += thumb ? 6 : 12;
             } else {
-                rnValue += 8;
+                rnValue += thumb ? 4 : 8;
             }
         }
 
@@ -288,21 +286,21 @@ namespace gbaemu
             ADC, ADD, AND, BIC, CMN,
             CMP, EOR, MOV, MVN, ORR,
             RSB, RSC, SBC, SUB, TEQ,
-            TST};
+            TST, ADD_SHORT_IMM, SUB_SHORT_IMM, MUL, NEG};
 
         static const std::set<InstructionID> updateZero{
             ADC, ADD, AND, BIC, CMN,
             CMP, EOR, MOV, MVN, ORR,
             RSB, RSC, SBC, SUB, TEQ,
-            TST};
-
-        static const std::set<InstructionID> updateOverflow{
-            ADC, ADD, CMN, CMP, MOV,
-            RSB, RSC, SBC, SUB};
+            TST, ADD_SHORT_IMM, SUB_SHORT_IMM, MUL, NEG};
 
         static const std::set<InstructionID> updateCarry{
             ADC, ADD, CMN, CMP, RSB,
-            RSC, SBC, SUB};
+            RSC, SBC, SUB, ADD_SHORT_IMM, SUB_SHORT_IMM, NEG};
+
+        static const std::set<InstructionID> updateOverflow{
+            ADC, ADD, CMN, CMP, MOV,
+            RSB, RSC, SBC, SUB, ADD_SHORT_IMM, SUB_SHORT_IMM, NEG};
 
         static const std::set<InstructionID> updateCarryFromShiftOp{
             AND, EOR, MOV, MVN, ORR,
@@ -312,12 +310,12 @@ namespace gbaemu
             CMP, CMN, TST, TEQ};
 
         static const std::set<InstructionID> invertCarry{
-            CMP, SUB, SBC, RSB, RSC};
+            CMP, SUB, SBC, RSB, RSC, NEG};
 
         static const std::set<InstructionID> movSPSR{
             SUB, MVN, ADC, ADD, AND,
             BIC, EOR, MOV, ORR, RSB,
-            RSC, SBC};
+            RSC, SBC, ADD_SHORT_IMM, SUB_SHORT_IMM};
 
         /* execute functions */
         switch (inst.id) {
@@ -325,23 +323,19 @@ namespace gbaemu
                 //TODO not sure how carry might affect the overflow flag!
                 resultValue = rnValue + shifterOperand + (carry ? 1 : 0);
                 break;
+            case CMN:
             case ADD:
+            case ADD_SHORT_IMM:
                 resultValue = rnValue + shifterOperand;
                 break;
+            case TST:
             case AND:
                 resultValue = rnValue & shifterOperand;
                 break;
             case BIC:
                 resultValue = rnValue & (~shifterOperand);
                 break;
-            case CMN:
-                resultValue = rnValue + shifterOperand;
-                break;
-            case CMP:
-                resultValue = static_cast<int64_t>(rnValue) - static_cast<int64_t>(shifterOperand);
-                // resultValue = (rnValue | (static_cast<uint64_t>(1) << 32)) + shifterOperand;
-                shifterOperand = (-shifterOperand) & 0x0FFFFFFFF;
-                break;
+            case TEQ:
             case EOR:
                 resultValue = rnValue ^ shifterOperand;
                 break;
@@ -388,34 +382,32 @@ namespace gbaemu
             case ORR:
                 resultValue = rnValue | shifterOperand;
                 break;
-                /* TODO: subtraction is oh no */
             case RSB:
                 resultValue = static_cast<int64_t>(shifterOperand) - static_cast<int64_t>(rnValue);
-                // resultValue = (shifterOperand | (static_cast<uint64_t>(1) << 32)) + rnValue;
                 rnValue = (-rnValue) & 0x0FFFFFFFF;
                 break;
             case RSC:
                 resultValue = static_cast<int64_t>(shifterOperand) - static_cast<int64_t>(rnValue) - (carry ? 0 : 1);
-                // resultValue = (shifterOperand | (static_cast<uint64_t>(1) << 32)) + rnValue - (carry ? 0 : 1);
                 rnValue = (-rnValue) & 0x0FFFFFFFF;
                 break;
             case SBC:
                 resultValue = static_cast<int64_t>(rnValue) - static_cast<int64_t>(shifterOperand) - (carry ? 0 : 1);
-                // resultValue = (rnValue | (static_cast<uint64_t>(1) << 32)) + shifterOperand - (carry ? 0 : 1);
                 shifterOperand = (-shifterOperand) & 0x0FFFFFFFF;
                 break;
+            case CMP:
             case SUB:
+            case SUB_SHORT_IMM:
                 resultValue = static_cast<int64_t>(rnValue) - static_cast<int64_t>(shifterOperand);
                 shifterOperand = (-shifterOperand) & 0x0FFFFFFFF;
-                // resultValue = (rnValue | (static_cast<uint64_t>(1) << 32)) + shifterOperand;
                 break;
-            case TEQ:
-                resultValue = rnValue ^ shifterOperand;
+            case NEG:
+                resultValue = 0 - static_cast<int64_t>(rnValue);
+                shifterOperand = (-rnValue) & 0x0FFFFFFFF;
+                rnValue = 0;
                 break;
-            case TST:
-                resultValue = rnValue & shifterOperand;
-                break;
+
             default:
+                std::cout << "ERROR: execDataProc can not handle instruction: " << instructionIDToString(inst.id) << std::endl;
                 break;
         }
 
@@ -446,7 +438,6 @@ namespace gbaemu
         if (dontUpdateRD.find(inst.id) == dontUpdateRD.end())
             state.accessReg(inst.params.data_proc_psr_transf.rd) = resultValue;
 
-        /* TODO: cycle timings */
         InstructionExecutionInfo info{0};
         bool destPC = inst.params.data_proc_psr_transf.rd == regs::PC_OFFSET;
 
@@ -477,7 +468,7 @@ namespace gbaemu
             currentRegs = state.getModeRegs(CPUState::UserMode);
         }
 
-        uint32_t rn = inst.params.block_data_transf.rn;
+        uint8_t rn = inst.params.block_data_transf.rn;
         uint32_t address = *currentRegs[rn];
 
         // Execution Time:
@@ -663,8 +654,8 @@ namespace gbaemu
             }
         }
 
-        uint32_t rn = inst.params.ls_reg_ubyte.rn;
-        uint32_t rd = inst.params.ls_reg_ubyte.rd;
+        uint8_t rn = inst.params.ls_reg_ubyte.rn;
+        uint8_t rd = inst.params.ls_reg_ubyte.rd;
         /* these are computed in the next step */
         uint32_t memoryAddress;
         uint32_t offset;
@@ -691,7 +682,7 @@ namespace gbaemu
         } else {
             uint8_t shiftAmount = (inst.params.ls_reg_ubyte.addrMode >> 7) & 0x1F;
             auto shiftType = static_cast<shifts::ShiftType>((inst.params.ls_reg_ubyte.addrMode >> 5) & 0b11);
-            uint32_t rm = inst.params.ls_reg_ubyte.addrMode & 0xF;
+            uint8_t rm = inst.params.ls_reg_ubyte.addrMode & 0xF;
 
             offset = shifts::shift(*currentRegs[rm], shiftType, shiftAmount, state.getFlag(cpsr_flags::C_FLAG), true) & 0xFFFFFFFF;
         }

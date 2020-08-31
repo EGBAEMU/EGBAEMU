@@ -131,7 +131,7 @@ namespace gbaemu
         STR,
         STRB,
         STRH,
-        STRD, /* supported arm5 and up */
+        //STRD, /* supported arm5 and up */
         SUB,
         SWI,
         SWP,
@@ -207,12 +207,18 @@ namespace gbaemu
             union {
                 struct {
                     bool a, s;
-                    uint32_t rd, rn, rs, rm;
+                    uint8_t rn;
+                    uint8_t rs;
+                    uint8_t rd;
+                    uint8_t rm;
                 } mul_acc;
 
                 struct {
                     bool u, a, s;
-                    uint32_t rd_msw, rd_lsw, rs, rm;
+                    uint8_t rd_msw;
+                    uint8_t rd_lsw;
+                    uint8_t rs;
+                    uint8_t rm;
                 } mul_acc_long;
 
                 struct {
@@ -221,17 +227,23 @@ namespace gbaemu
 
                 struct {
                     bool b;
-                    uint32_t rn, rd, rm;
+                    uint8_t rn;
+                    uint8_t rd;
+                    uint8_t rm;
                 } data_swp;
 
                 struct {
                     bool p, u, w, l;
-                    uint32_t rn, rd, rm;
+                    uint8_t rn;
+                    uint8_t rd;
+                    uint8_t rm;
                 } hw_transf_reg_off;
 
                 struct {
                     bool p, u, w, l;
-                    uint32_t rn, rd, offset;
+                    uint8_t rn;
+                    uint8_t rd;
+                    uint32_t offset;
                 } hw_transf_imm_off;
 
                 struct {
@@ -244,15 +256,19 @@ namespace gbaemu
                         halfword/word                    
                      */
                     bool p, u, b, w, l, h;
-                    uint32_t rn, rd, addrMode;
+                    uint8_t rn;
+                    uint8_t rd;
+                    uint32_t addrMode;
                 } sign_transf;
 
                 struct {
                     bool i, s, r /* only used in MRS/MSR */;
-                    uint32_t opCode, rn, rd;
+                    //uint8_t opCode;
+                    uint8_t rn;
+                    uint8_t rd;
                     uint16_t operand2;
 
-                    bool extractOperand2(shifts::ShiftType &shiftType, uint8_t &shiftAmount, uint32_t &rm, uint32_t &rs, uint32_t &imm) const
+                    bool extractOperand2(shifts::ShiftType &shiftType, uint8_t &shiftAmount, uint8_t &rm, uint8_t &rs, uint8_t &imm) const
                     {
                         bool shiftAmountFromReg = false;
 
@@ -278,12 +294,15 @@ namespace gbaemu
 
                 struct {
                     bool i, p, u, b, w, l;
-                    uint32_t rn, rd, addrMode;
+                    uint8_t rn;
+                    uint8_t rd;
+                    uint32_t addrMode;
                 } ls_reg_ubyte;
 
                 struct {
                     bool p, u, w, l, s;
-                    uint32_t rn, rList;
+                    uint8_t rn;
+                    uint32_t rList;
                 } block_data_transf;
 
                 struct {

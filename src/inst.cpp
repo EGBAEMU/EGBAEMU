@@ -63,7 +63,8 @@ namespace gbaemu
             STRINGIFY_CASE_ID(STR);
             STRINGIFY_CASE_ID(STRB);
             STRINGIFY_CASE_ID(STRH);
-            STRINGIFY_CASE_ID(STRD);
+            // supported arm5 and up
+            //STRINGIFY_CASE_ID(STRD);
             STRINGIFY_CASE_ID(SUB);
             STRINGIFY_CASE_ID(SWI);
             STRINGIFY_CASE_ID(SWP);

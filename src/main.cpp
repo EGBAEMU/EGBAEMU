@@ -6,9 +6,9 @@
 #include <vector>
 
 #include "cpu.hpp"
+#include "debugger.hpp"
 #include "lcd/lcd-controller.hpp"
 #include "lcd/window.hpp"
-#include "debugger.hpp"
 
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5

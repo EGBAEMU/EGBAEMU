@@ -30,15 +30,15 @@ namespace gbaemu
         void setFlags(uint64_t resultValue, bool msbOp1, bool msbOp2, bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry);
 
         // ARM instructions execution helpers
-        InstructionExecutionInfo handleMultAcc(bool a, bool s, uint32_t rd, uint32_t rn, uint32_t rs, uint32_t rm);
-        InstructionExecutionInfo handleMultAccLong(bool signMul, bool a, bool s, uint32_t rd_msw, uint32_t rd_lsw, uint32_t rs, uint32_t rm);
-        InstructionExecutionInfo handleDataSwp(bool b, uint32_t rn, uint32_t rd, uint32_t rm);
+        InstructionExecutionInfo handleMultAcc(bool a, bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm);
+        InstructionExecutionInfo handleMultAccLong(bool signMul, bool a, bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm);
+        InstructionExecutionInfo handleDataSwp(bool b, uint8_t rn, uint8_t rd, uint8_t rm);
         // Executes instructions belonging to the branch subsection
         InstructionExecutionInfo handleBranch(bool link, int32_t offset);
         // Executes instructions belonging to the branch and execute subsection
-        InstructionExecutionInfo handleBranchAndExchange(uint32_t rn);
+        InstructionExecutionInfo handleBranchAndExchange(uint8_t rn);
         /* ALU functions */
-        InstructionExecutionInfo execDataProc(arm::ARMInstruction &inst);
+        InstructionExecutionInfo execDataProc(arm::ARMInstruction &inst, bool thumb = false);
         InstructionExecutionInfo execDataBlockTransfer(arm::ARMInstruction &inst, bool thumb = false);
         InstructionExecutionInfo execLoadStoreRegUByte(const arm::ARMInstruction &inst, bool thumb = false);
         InstructionExecutionInfo execHalfwordDataTransferImmRegSignedTransfer(bool pre, bool up, bool load, bool writeback, bool sign,
