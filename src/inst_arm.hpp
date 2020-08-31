@@ -146,7 +146,7 @@ namespace gbaemu
         static const uint32_t MASK_UNDEFINED = 0b00001110000000000000000000010000;
         static const uint32_t VAL_UNDEFINED = 0b00000110000000000000000000010000;
         // Block data transfercond100PU0WLRnregisterli
-        static const uint32_t MASK_BLOCK_DATA_TRANSF = 0b00001110010000000000000000000000;
+        static const uint32_t MASK_BLOCK_DATA_TRANSF = 0b00001110000000000000000000000000;
         static const uint32_t VAL_BLOCK_DATA_TRANSF = 0b00001000000000000000000000000000;
         //Branch cond 1 01 L offset
         static const uint32_t MASK_BRANCH = 0b00001110000000000000000000000000;
