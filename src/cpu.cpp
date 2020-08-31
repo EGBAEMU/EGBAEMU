@@ -143,7 +143,7 @@ namespace gbaemu
         const bool prevThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
 
         if (state.pipeline.decode.lastInstruction.isArmInstruction()) {
-            if (state.pipeline.decode.lastInstruction.arm.id == arm::ARMInstructionID::INVALID) {
+            if (state.pipeline.decode.lastInstruction.arm.id == InstructionID::INVALID) {
                 std::cout << "ERROR: trying to execute invalid ARM instruction!" << std::endl;
             } else {
                 arm::ARMInstruction &armInst = state.pipeline.decode.lastInstruction.arm;
@@ -253,7 +253,7 @@ namespace gbaemu
                 }
             }
         } else {
-            if (state.pipeline.decode.lastInstruction.thumb.id == thumb::ThumbInstructionID::INVALID) {
+            if (state.pipeline.decode.lastInstruction.thumb.id == InstructionID::INVALID) {
                 std::cout << "ERROR: trying to execute invalid THUMB instruction!" << std::endl;
             } else {
                 thumb::ThumbInstruction &thumbInst = state.pipeline.decode.lastInstruction.thumb;

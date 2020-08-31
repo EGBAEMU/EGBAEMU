@@ -11,56 +11,6 @@ namespace gbaemu
     namespace arm
     {
 
-        const char *instructionIDToString(ARMInstructionID id)
-        {
-            switch (id) {
-                STRINGIFY_CASE_ID(ADC);
-                STRINGIFY_CASE_ID(ADD);
-                STRINGIFY_CASE_ID(AND);
-                STRINGIFY_CASE_ID(B);
-                STRINGIFY_CASE_ID(BIC);
-                STRINGIFY_CASE_ID(BX);
-                STRINGIFY_CASE_ID(CMN);
-                STRINGIFY_CASE_ID(CMP);
-                STRINGIFY_CASE_ID(EOR);
-                STRINGIFY_CASE_ID(LDM);
-                STRINGIFY_CASE_ID(LDR);
-                STRINGIFY_CASE_ID(LDRB);
-                STRINGIFY_CASE_ID(LDRH);
-                STRINGIFY_CASE_ID(LDRSB);
-                STRINGIFY_CASE_ID(LDRSH);
-                STRINGIFY_CASE_ID(LDRD);
-                STRINGIFY_CASE_ID(MLA);
-                STRINGIFY_CASE_ID(MOV);
-                STRINGIFY_CASE_ID(MRS);
-                STRINGIFY_CASE_ID(MSR);
-                STRINGIFY_CASE_ID(MUL);
-                STRINGIFY_CASE_ID(MVN);
-                STRINGIFY_CASE_ID(ORR);
-                STRINGIFY_CASE_ID(RSB);
-                STRINGIFY_CASE_ID(RSC);
-                STRINGIFY_CASE_ID(SBC);
-                STRINGIFY_CASE_ID(SMLAL);
-                STRINGIFY_CASE_ID(SMULL);
-                STRINGIFY_CASE_ID(STM);
-                STRINGIFY_CASE_ID(STR);
-                STRINGIFY_CASE_ID(STRB);
-                STRINGIFY_CASE_ID(STRH);
-                STRINGIFY_CASE_ID(STRD);
-                STRINGIFY_CASE_ID(SUB);
-                STRINGIFY_CASE_ID(SWI);
-                STRINGIFY_CASE_ID(SWP);
-                STRINGIFY_CASE_ID(SWPB);
-                STRINGIFY_CASE_ID(TEQ);
-                STRINGIFY_CASE_ID(TST);
-                STRINGIFY_CASE_ID(UMLAL);
-                STRINGIFY_CASE_ID(UMULL);
-                STRINGIFY_CASE_ID(INVALID);
-            }
-
-            return "NULL";
-        }
-
         std::string ARMInstruction::toString() const
         {
             std::stringstream ss;
@@ -71,13 +21,13 @@ namespace gbaemu
 
                 case ARMInstructionCategory::DATA_PROC_PSR_TRANSF: {
                     /* TODO: probably not done */
-                    bool hasRN = !(id == ARMInstructionID::MOV || id == ARMInstructionID::MVN);
-                    bool hasRD = !(id == ARMInstructionID::TST || id == ARMInstructionID::TEQ ||
-                                   id == ARMInstructionID::CMP || id == ARMInstructionID::CMN);
+                    bool hasRN = !(id == InstructionID::MOV || id == InstructionID::MVN);
+                    bool hasRD = !(id == InstructionID::TST || id == InstructionID::TEQ ||
+                                   id == InstructionID::CMP || id == InstructionID::CMN);
 
                     uint32_t rd = params.data_proc_psr_transf.rd;
                     uint32_t rn = params.data_proc_psr_transf.rn;
-                    ShiftType shiftType;
+                    shifts::ShiftType shiftType;
                     uint8_t shiftAmount;
                     uint32_t rm;
                     uint32_t rs;
@@ -252,7 +202,7 @@ namespace gbaemu
             ARMInstruction instruction;
 
             // Default the instruction id to invalid
-            instruction.id = ARMInstructionID::INVALID;
+            instruction.id = InstructionID::INVALID;
             instruction.cat = ARMInstructionCategory::INVALID_CAT;
             instruction.condition = static_cast<ConditionOPCode>(lastInst >> 28);
 
@@ -271,9 +221,9 @@ namespace gbaemu
                 instruction.params.mul_acc.rm = lastInst & 0x0F;
 
                 if (a) {
-                    instruction.id = ARMInstructionID::MLA;
+                    instruction.id = InstructionID::MLA;
                 } else {
-                    instruction.id = ARMInstructionID::MUL;
+                    instruction.id = InstructionID::MUL;
                 }
 
             } else if ((lastInst & MASK_MUL_ACC_LONG) == VAL_MUL_ACC_LONG) {
@@ -294,19 +244,19 @@ namespace gbaemu
                 instruction.params.mul_acc_long.rm = lastInst & 0x0F;
 
                 if (u && a) {
-                    instruction.id = ARMInstructionID::SMLAL;
+                    instruction.id = InstructionID::SMLAL;
                 } else if (u && !a) {
-                    instruction.id = ARMInstructionID::SMULL;
+                    instruction.id = InstructionID::SMULL;
                 } else if (!u && a) {
-                    instruction.id = ARMInstructionID::UMLAL;
+                    instruction.id = InstructionID::UMLAL;
                 } else {
-                    instruction.id = ARMInstructionID::UMULL;
+                    instruction.id = InstructionID::UMULL;
                 }
 
             } else if ((lastInst & MASK_BRANCH_XCHG) == VAL_BRANCH_XCHG) {
 
                 instruction.cat = ARMInstructionCategory::BRANCH_XCHG;
-                instruction.id = ARMInstructionID::BX;
+                instruction.id = InstructionID::BX;
                 instruction.params.branch_xchg.rn = lastInst & 0x0F;
 
             } else if ((lastInst & MASK_DATA_SWP) == VAL_DATA_SWP) {
@@ -323,9 +273,9 @@ namespace gbaemu
                 instruction.params.data_swp.rm = lastInst & 0x0F;
 
                 if (!b) {
-                    instruction.id = ARMInstructionID::SWP;
+                    instruction.id = InstructionID::SWP;
                 } else {
-                    instruction.id = ARMInstructionID::SWPB;
+                    instruction.id = InstructionID::SWPB;
                 }
 
             } else if ((lastInst & MASK_HW_TRANSF_REG_OFF) == VAL_HW_TRANSF_REG_OFF) {
@@ -347,9 +297,9 @@ namespace gbaemu
 
                 // register offset variants
                 if (l) {
-                    instruction.id = ARMInstructionID::LDRH;
+                    instruction.id = InstructionID::LDRH;
                 } else {
-                    instruction.id = ARMInstructionID::STRH;
+                    instruction.id = InstructionID::STRH;
                 }
 
             } else if ((lastInst & MASK_HW_TRANSF_IMM_OFF) == VAL_HW_TRANSF_IMM_OFF) {
@@ -373,9 +323,9 @@ namespace gbaemu
                 instruction.params.hw_transf_imm_off.offset = (((lastInst >> 8) & 0x0F) << 4) | (lastInst & 0x0F);
 
                 if (l) {
-                    instruction.id = ARMInstructionID::LDRH;
+                    instruction.id = InstructionID::LDRH;
                 } else {
-                    instruction.id = ARMInstructionID::STRH;
+                    instruction.id = InstructionID::STRH;
                 }
 
             } else if ((lastInst & MASK_SIGN_TRANSF) == VAL_SIGN_TRANSF) {
@@ -403,13 +353,13 @@ namespace gbaemu
                 instruction.params.sign_transf.addrMode = (((lastInst >> 8) & 0x0F) << 4) | (lastInst & 0x0F);
 
                 if (l && !h) {
-                    instruction.id = ARMInstructionID::LDRSB;
+                    instruction.id = InstructionID::LDRSB;
                 } else if (l && h) {
-                    instruction.id = ARMInstructionID::LDRSH;
+                    instruction.id = InstructionID::LDRSH;
                 } else if (!l && h) {
-                    instruction.id = ARMInstructionID::STRD;
+                    instruction.id = InstructionID::STRD;
                 } else if (!l && !h) {
-                    instruction.id = ARMInstructionID::LDRD;
+                    instruction.id = InstructionID::LDRD;
                 }
 
             } else if ((lastInst & MASK_DATA_PROC_PSR_TRANSF) == VAL_DATA_PROC_PSR_TRANSF) {
@@ -433,68 +383,68 @@ namespace gbaemu
 
                 switch (opCode) {
                     case 0b0000:
-                        instruction.id = ARMInstructionID::AND;
+                        instruction.id = InstructionID::AND;
                         break;
                     case 0b0001:
-                        instruction.id = ARMInstructionID::EOR;
+                        instruction.id = InstructionID::EOR;
                         break;
                     case 0b0010:
-                        instruction.id = ARMInstructionID::SUB;
+                        instruction.id = InstructionID::SUB;
                         break;
                     case 0b0011:
-                        instruction.id = ARMInstructionID::RSB;
+                        instruction.id = InstructionID::RSB;
                         break;
                     case 0b0100:
-                        instruction.id = ARMInstructionID::ADD;
+                        instruction.id = InstructionID::ADD;
                         break;
                     case 0b0101:
-                        instruction.id = ARMInstructionID::ADC;
+                        instruction.id = InstructionID::ADC;
                         break;
                     case 0b0110:
-                        instruction.id = ARMInstructionID::SBC;
+                        instruction.id = InstructionID::SBC;
                         break;
                     case 0b0111:
-                        instruction.id = ARMInstructionID::RSC;
+                        instruction.id = InstructionID::RSC;
                         break;
                     case 0b1000:
                         if (s) {
-                            instruction.id = ARMInstructionID::TST;
+                            instruction.id = InstructionID::TST;
                         } else {
-                            instruction.id = ARMInstructionID::MRS;
+                            instruction.id = InstructionID::MRS;
                         }
                         break;
                     case 0b1001:
                         if (s) {
-                            instruction.id = ARMInstructionID::TEQ;
+                            instruction.id = InstructionID::TEQ;
                         } else {
-                            instruction.id = ARMInstructionID::MSR;
+                            instruction.id = InstructionID::MSR;
                         }
                         break;
                     case 0b1010:
                         if (s) {
-                            instruction.id = ARMInstructionID::CMP;
+                            instruction.id = InstructionID::CMP;
                         } else {
-                            instruction.id = ARMInstructionID::MRS;
+                            instruction.id = InstructionID::MRS;
                         }
                         break;
                     case 0b1011:
                         if (s) {
-                            instruction.id = ARMInstructionID::CMN;
+                            instruction.id = InstructionID::CMN;
                         } else {
-                            instruction.id = ARMInstructionID::MSR;
+                            instruction.id = InstructionID::MSR;
                         }
                         break;
                     case 0b1100:
-                        instruction.id = ARMInstructionID::ORR;
+                        instruction.id = InstructionID::ORR;
                         break;
                     case 0b1101:
-                        instruction.id = ARMInstructionID::MOV;
+                        instruction.id = InstructionID::MOV;
                         break;
                     case 0b1110:
-                        instruction.id = ARMInstructionID::BIC;
+                        instruction.id = InstructionID::BIC;
                         break;
                     case 0b1111:
-                        instruction.id = ARMInstructionID::MVN;
+                        instruction.id = InstructionID::MVN;
                         break;
                 }
             } else if ((lastInst & MASK_LS_REG_UBYTE) == VAL_LS_REG_UBYTE) {
@@ -520,13 +470,13 @@ namespace gbaemu
                 instruction.params.ls_reg_ubyte.addrMode = lastInst & 0x0FFF;
 
                 if (!b && l) {
-                    instruction.id = ARMInstructionID::LDR;
+                    instruction.id = InstructionID::LDR;
                 } else if (b && l) {
-                    instruction.id = ARMInstructionID::LDRB;
+                    instruction.id = InstructionID::LDRB;
                 } else if (!b && !l) {
-                    instruction.id = ARMInstructionID::STR;
+                    instruction.id = InstructionID::STR;
                 } else {
-                    instruction.id = ARMInstructionID::STRB;
+                    instruction.id = InstructionID::STRB;
                 }
 
             } else if ((lastInst & MASK_UNDEFINED) == VAL_UNDEFINED) {
@@ -552,9 +502,9 @@ namespace gbaemu
 
                 /* docs say there are two more distinct instructions in this category */
                 if (l) {
-                    instruction.id = ARMInstructionID::LDM;
+                    instruction.id = InstructionID::LDM;
                 } else {
-                    instruction.id = ARMInstructionID::STM;
+                    instruction.id = InstructionID::STM;
                 }
 
             } else if ((lastInst & MASK_BRANCH) == VAL_BRANCH) {
@@ -570,7 +520,7 @@ namespace gbaemu
                 uint32_t si = lastInst & 0x00FFFFFF;
                 instruction.params.branch.offset = static_cast<int32_t>(si << 8) / (1 << 8);
 
-                instruction.id = ARMInstructionID::B;
+                instruction.id = InstructionID::B;
 
             } else if ((lastInst & MASK_COPROC_DATA_TRANSF) == VAL_COPROC_DATA_TRANSF) {
                 //TODO
@@ -582,13 +532,13 @@ namespace gbaemu
 
                 instruction.cat = ARMInstructionCategory::SOFTWARE_INTERRUPT;
 
-                instruction.id = ARMInstructionID::SWI;
+                instruction.id = InstructionID::SWI;
                 instruction.params.software_interrupt.comment = lastInst & 0x00FFFFFF;
             } else {
                 //std::cerr << "ERROR: Could not decode instruction: " << std::hex << lastInst << std::endl;
             }
 
-            //if (instruction.id != ARMInstructionID::SWI && instruction.id != ARMInstructionID::INVALID)
+            //if (instruction.id != InstructionID::SWI && instruction.id != InstructionID::INVALID)
             //    std::cout << instructionIDToString(instruction.id) << std::endl;
 
             //std::cout << instruction.toString() << std::endl;

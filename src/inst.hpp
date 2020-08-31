@@ -15,7 +15,6 @@ namespace gbaemu
     http://www.ecs.csun.edu/~smirzaei/docs/ece425/arm7tdmi_instruction_set_reference.pdf
  */
     struct InstructionExecutionException {
-
     };
 
     struct InstructionExecutionInfo {
@@ -99,6 +98,86 @@ namespace gbaemu
 
     bool conditionSatisfied(ConditionOPCode condition, const CPUState &state);
 
+    enum InstructionID : uint8_t {
+        ADC,
+        ADD,
+        AND,
+        B, /* includes BL */
+        BIC,
+        BX,
+        CMN,
+        CMP,
+        EOR,
+        LDM,
+        LDR,
+        LDRB,
+        LDRH,
+        LDRSB,
+        LDRSH,
+        LDRD, /* supported arm5 and up */
+        MLA,
+        MOV,
+        MRS,
+        MSR,
+        MUL,
+        MVN,
+        ORR,
+        RSB,
+        RSC,
+        SBC,
+        SMLAL,
+        SMULL,
+        STM,
+        STR,
+        STRB,
+        STRH,
+        STRD, /* supported arm5 and up */
+        SUB,
+        SWI,
+        SWP,
+        SWPB,
+        TEQ,
+        TST,
+        UMLAL,
+        UMULL,
+
+        // THUMB specials
+        LSL,
+        LSR,
+        ASR,
+        ROR,
+        NOP,
+        ADD_SHORT_IMM,
+        SUB_SHORT_IMM,
+        NEG,
+        // This one is ARM9
+        //BLX,
+        POP,
+        PUSH,
+        STMIA,
+        LDMIA,
+
+        INVALID
+    };
+
+    const char *instructionIDToString(InstructionID id);
+
+    namespace shifts
+    {
+        enum ShiftType : uint8_t {
+            /* logical shift left */
+            LSL = 0,
+            /* logical shift right */
+            LSR,
+            /* arithmetic shift right */
+            ASR,
+            /* circular shift right (wrap around) */
+            ROR
+        };
+
+        uint64_t shift(uint32_t value, ShiftType type, uint8_t amount, bool oldCarry, bool shiftByImm);
+    } // namespace shifts
+
     namespace arm
     {
 
@@ -118,68 +197,10 @@ namespace gbaemu
             INVALID_CAT
         };
 
-        enum ARMInstructionID : uint8_t {
-            ADC,
-            ADD,
-            AND,
-            B, /* includes BL */
-            BIC,
-            BX,
-            CMN,
-            CMP,
-            EOR,
-            LDM,
-            LDR,
-            LDRB,
-            LDRH,
-            LDRSB,
-            LDRSH,
-            LDRD, /* supported arm5 and up */
-            MLA,
-            MOV,
-            MRS,
-            MSR,
-            MUL,
-            MVN,
-            ORR,
-            RSB,
-            RSC,
-            SBC,
-            SMLAL,
-            SMULL,
-            STM,
-            STR,
-            STRB,
-            STRH,
-            STRD, /* supported arm5 and up */
-            SUB,
-            SWI,
-            SWP,
-            SWPB,
-            TEQ,
-            TST,
-            UMLAL,
-            UMULL,
-            INVALID
-        };
-
-        enum ShiftType : uint8_t {
-            /* logical shift left */
-            LSL = 0,
-            /* logical shift right */
-            LSR,
-            /* arithmetic shift right */
-            ASR,
-            /* circular shift right (wrap around) */
-            ROR
-        };
-
-        uint64_t shift(uint32_t value, arm::ShiftType type, uint8_t amount, bool oldCarry, bool shiftByImm);
-
         class ARMInstruction
         {
           public:
-            ARMInstructionID id;
+            InstructionID id;
             ARMInstructionCategory cat;
             ConditionOPCode condition;
 
@@ -231,17 +252,17 @@ namespace gbaemu
                     uint32_t opCode, rn, rd;
                     uint16_t operand2;
 
-                    bool extractOperand2(ShiftType &shiftType, uint8_t &shiftAmount, uint32_t &rm, uint32_t &rs, uint32_t &imm) const
+                    bool extractOperand2(shifts::ShiftType &shiftType, uint8_t &shiftAmount, uint32_t &rm, uint32_t &rs, uint32_t &imm) const
                     {
                         bool shiftAmountFromReg = false;
 
                         if (i) {
                             /* ROR */
-                            shiftType = ShiftType::ROR;
+                            shiftType = shifts::ShiftType::ROR;
                             imm = operand2 & 0x0FF;
                             shiftAmount = ((operand2 >> 8) & 0x0F) * 2;
                         } else {
-                            shiftType = static_cast<ShiftType>((operand2 >> 5) & 0b11);
+                            shiftType = static_cast<shifts::ShiftType>((operand2 >> 5) & 0b11);
                             rm = operand2 & 0xF;
                             shiftAmountFromReg = (operand2 >> 4) & 1;
 
@@ -283,7 +304,7 @@ namespace gbaemu
 
     namespace thumb
     {
-
+        /*
         enum ThumbInstructionID : uint8_t {
             MVN,
             AND,
@@ -322,27 +343,11 @@ namespace gbaemu
             PUSH,
             STMIA,
             LDMIA,
-            /*
-            BEQ,
-            BNE,
-            BCS_BHS,
-            BCC_BLO,
-            BMI,
-            BPL,
-            BVS,
-            BVC,
-            BHI,
-            BLS,
-            BGE,
-            BLT,
-            BGT,
-            BLE,
-            */
             SWI,
             B,
             INVALID
         };
-
+*/
         enum ThumbInstructionCategory {
             MOV_SHIFT,
             ADD_SUB,
@@ -369,7 +374,7 @@ namespace gbaemu
         class ThumbInstruction
         {
           public:
-            ThumbInstructionID id;
+            InstructionID id;
             ThumbInstructionCategory cat;
 
             union {

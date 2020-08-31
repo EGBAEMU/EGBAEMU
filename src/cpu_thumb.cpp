@@ -138,7 +138,7 @@ namespace gbaemu
                 // target reg
                 wrapper.params.ls_reg_ubyte.rd = inst.params.ld_st_rel_off.rd;
                 // register offset with LSL#0
-                wrapper.params.ls_reg_ubyte.addrMode = (arm::ShiftType::LSL << 5) | static_cast<uint32_t>(inst.params.ld_st_rel_off.ro);
+                wrapper.params.ls_reg_ubyte.addrMode = (shifts::ShiftType::LSL << 5) | static_cast<uint32_t>(inst.params.ld_st_rel_off.ro);
                 break;
             }
 
@@ -283,7 +283,7 @@ namespace gbaemu
         return info;
     }
 
-    InstructionExecutionInfo CPU::handleThumbAddSubtract(thumb::ThumbInstructionID insID, uint8_t rd, uint8_t rs, uint8_t rn_offset)
+    InstructionExecutionInfo CPU::handleThumbAddSubtract(InstructionID insID, uint8_t rd, uint8_t rs, uint8_t rn_offset)
     {
         auto currentRegs = state.getCurrentRegs();
 
@@ -293,17 +293,17 @@ namespace gbaemu
         uint64_t result;
 
         switch (insID) {
-            case thumb::ADD:
+            case ADD:
                 result = rsVal + rnVal;
                 break;
-            case thumb::SUB:
+            case SUB:
                 result = static_cast<int64_t>(rsVal) - static_cast<int64_t>(rnVal);
                 rnVal = (-rnVal) & 0x0FFFFFFFF;
                 break;
-            case thumb::ADD_SHORT_IMM:
+            case ADD_SHORT_IMM:
                 result = rsVal + rn_offset;
                 break;
-            case thumb::SUB_SHORT_IMM:
+            case SUB_SHORT_IMM:
                 result = static_cast<int64_t>(rsVal) - static_cast<int64_t>(rn_offset);
                 rn_offset = (-rn_offset) & 0x0FFFFFFFF;
                 break;
@@ -313,12 +313,12 @@ namespace gbaemu
 
         *currentRegs[rd] = result;
 
-        bool isAdd = (insID == thumb::ADD) || (insID == thumb::ADD_SHORT_IMM);
+        bool isAdd = (insID == ADD) || (insID == ADD_SHORT_IMM);
 
         setFlags(
             result,
             (rsVal >> 31) & 1,
-            ((insID == thumb::SUB || insID == thumb::ADD ? rnVal : rn_offset) >> 31) & 1,
+            ((insID == SUB || insID == ADD ? rnVal : rn_offset) >> 31) & 1,
             true,
             true,
             true,
@@ -329,7 +329,7 @@ namespace gbaemu
         return info;
     }
 
-    InstructionExecutionInfo CPU::handleThumbMovCmpAddSubImm(thumb::ThumbInstructionID ins, uint8_t rd, uint8_t offset)
+    InstructionExecutionInfo CPU::handleThumbMovCmpAddSubImm(InstructionID ins, uint8_t rd, uint8_t offset)
     {
         // ARM equivalents for MOV/CMP/ADD/SUB are MOVS/CMP/ADDS/SUBS same format.
 
@@ -339,48 +339,31 @@ namespace gbaemu
         armIns.params.data_proc_psr_transf.rd = rd;
         armIns.params.data_proc_psr_transf.rn = rd;
         armIns.params.data_proc_psr_transf.operand2 = offset;
-
-        switch (ins) {
-            case thumb::ADD:
-                armIns.id = arm::ADD;
-                break;
-            case thumb::SUB:
-                armIns.id = arm::SUB;
-                break;
-            case thumb::CMP:
-                armIns.id = arm::CMP;
-                break;
-            case thumb::MOV:
-                armIns.id = arm::MOV;
-                break;
-
-            default:
-                break;
-        }
+        armIns.id = ins;
 
         return execDataProc(armIns);
     }
 
-    InstructionExecutionInfo CPU::handleThumbMoveShiftedReg(thumb::ThumbInstructionID ins, uint8_t rs, uint8_t rd, uint8_t offset)
+    InstructionExecutionInfo CPU::handleThumbMoveShiftedReg(InstructionID ins, uint8_t rs, uint8_t rd, uint8_t offset)
     {
         uint64_t rsValue = static_cast<uint64_t>(state.accessReg(rs));
         uint64_t rdValue = 0;
 
-        arm::ShiftType shiftType = arm::ShiftType::LSL;
+        shifts::ShiftType shiftType = shifts::ShiftType::LSL;
         switch (ins) {
-            case thumb::LSL:
-                shiftType = arm::ShiftType::LSL;
+            case LSL:
+                shiftType = shifts::ShiftType::LSL;
                 break;
-            case thumb::LSR:
-                shiftType = arm::ShiftType::LSR;
+            case LSR:
+                shiftType = shifts::ShiftType::LSR;
                 break;
-            case thumb::ASR:
-                shiftType = arm::ShiftType::ASR;
+            case ASR:
+                shiftType = shifts::ShiftType::ASR;
                 break;
             default:
                 break;
         }
-        rdValue = arm::shift(rsValue, shiftType, offset, state.getFlag(cpsr_flags::C_FLAG), true);
+        rdValue = shifts::shift(rsValue, shiftType, offset, state.getFlag(cpsr_flags::C_FLAG), true);
 
         state.accessReg(rd) = static_cast<uint32_t>(rdValue & 0x0FFFFFFFF);
 
@@ -392,7 +375,7 @@ namespace gbaemu
             true,                             // n Flag
             true,                             // z Flag
             false,                            // v Flag
-            ins != thumb::LSL || offset != 0, // c flag
+            ins != LSL || offset != 0, // c flag
             false);
 
         // Execution Time: 1S
@@ -400,7 +383,7 @@ namespace gbaemu
         return info;
     }
 
-    InstructionExecutionInfo CPU::handleThumbBranchXCHG(thumb::ThumbInstructionID id, uint8_t rd, uint8_t rs)
+    InstructionExecutionInfo CPU::handleThumbBranchXCHG(InstructionID id, uint8_t rd, uint8_t rs)
     {
         InstructionExecutionInfo info{0};
 
@@ -409,17 +392,17 @@ namespace gbaemu
         uint32_t rsValue = *currentRegs[rs] + (rs == 15 ? 4 : 0);
         uint32_t rdValue = *currentRegs[rd] + (rd == 15 ? 4 : 0);
 
-        if (rd == 15 && (id == thumb::ADD || id == thumb::MOV)) {
+        if (rd == 15 && (id == ADD || id == MOV)) {
             info.additionalProgCyclesN = 1;
             info.additionalProgCyclesS = 1;
         }
 
         switch (id) {
-            case thumb::ADD:
+            case ADD:
                 *currentRegs[rd] = rdValue + rsValue;
                 break;
 
-            case thumb::CMP: {
+            case CMP: {
 
                 uint64_t result = static_cast<uint64_t>(rdValue) - static_cast<uint64_t>(rsValue);
 
@@ -434,11 +417,11 @@ namespace gbaemu
                 break;
             }
 
-            case thumb::MOV:
+            case MOV:
                 *currentRegs[rd] = rsValue;
                 break;
 
-            case thumb::BX: {
+            case BX: {
                 // If the first bit of rs is set
                 bool stayInThumbMode = rsValue & 0x00000001;
 
@@ -459,7 +442,7 @@ namespace gbaemu
                 break;
             }
 
-            case thumb::NOP:
+            case NOP:
             default:
                 break;
         }
@@ -467,39 +450,39 @@ namespace gbaemu
         return info;
     }
 
-    InstructionExecutionInfo CPU::handleThumbALUops(thumb::ThumbInstructionID instID, uint8_t rs, uint8_t rd)
+    InstructionExecutionInfo CPU::handleThumbALUops(InstructionID instID, uint8_t rs, uint8_t rd)
     {
 
-        static const std::set<thumb::ThumbInstructionID> updateNegative{
-            thumb::ADC, thumb::SBC, thumb::NEG, thumb::CMP, thumb::CMN,
+        static const std::set<InstructionID> updateNegative{
+            ADC, SBC, NEG, CMP, CMN,
 
-            thumb::LSL, thumb::LSR, thumb::ASR, thumb::ROR,
+            LSL, LSR, ASR, ROR,
 
-            thumb::MUL, thumb::AND, thumb::EOR, thumb::TST, thumb::ORR, thumb::BIC, thumb::MVN};
+            MUL, AND, EOR, TST, ORR, BIC, MVN};
 
-        static const std::set<thumb::ThumbInstructionID> updateZero{
-            thumb::ADC, thumb::SBC, thumb::NEG, thumb::CMP, thumb::CMN,
+        static const std::set<InstructionID> updateZero{
+            ADC, SBC, NEG, CMP, CMN,
 
-            thumb::LSL, thumb::LSR, thumb::ASR, thumb::ROR,
+            LSL, LSR, ASR, ROR,
 
-            thumb::MUL, thumb::AND, thumb::EOR, thumb::TST, thumb::ORR, thumb::BIC, thumb::MVN};
+            MUL, AND, EOR, TST, ORR, BIC, MVN};
 
-        static const std::set<thumb::ThumbInstructionID> updateCarry{
-            thumb::ADC, thumb::SBC, thumb::NEG, thumb::CMP, thumb::CMN,
+        static const std::set<InstructionID> updateCarry{
+            ADC, SBC, NEG, CMP, CMN,
 
-            thumb::LSL, thumb::LSR, thumb::ASR, thumb::ROR};
+            LSL, LSR, ASR, ROR};
 
-        static const std::set<thumb::ThumbInstructionID> updateOverflow{
-            thumb::ADC, thumb::SBC, thumb::NEG, thumb::CMP, thumb::CMN};
+        static const std::set<InstructionID> updateOverflow{
+            ADC, SBC, NEG, CMP, CMN};
 
-        static const std::set<thumb::ThumbInstructionID> dontUpdateRD{
-            thumb::TST, thumb::CMP, thumb::CMN};
+        static const std::set<InstructionID> dontUpdateRD{
+            TST, CMP, CMN};
 
-        static const std::set<thumb::ThumbInstructionID> shiftOps{
-            thumb::LSL, thumb::LSR, thumb::ASR, thumb::ROR};
+        static const std::set<InstructionID> shiftOps{
+            LSL, LSR, ASR, ROR};
 
-        static const std::set<thumb::ThumbInstructionID> invertCarry{
-            thumb::SBC, thumb::CMP, thumb::NEG, thumb::SUB};
+        static const std::set<InstructionID> invertCarry{
+            SBC, CMP, NEG, SUB};
 
         InstructionExecutionInfo info{0};
 
@@ -519,40 +502,40 @@ namespace gbaemu
 
         switch (instID) {
 
-            case thumb::ADC:
+            case ADC:
                 resultValue = rdValue + rsValue + (carry ? 1 : 0);
                 break;
-            case thumb::SBC:
+            case SBC:
                 resultValue = static_cast<int64_t>(rdValue) - static_cast<int64_t>(rsValue) - (carry ? 0 : 1);
                 rsValue = (-rsValue) & 0x0FFFFFFFF;
                 break;
-            case thumb::NEG:
+            case NEG:
                 resultValue = 0 - static_cast<int64_t>(rsValue);
                 rdValue = 0;
                 rsValue = (-rsValue) & 0x0FFFFFFFF;
                 break;
-            case thumb::CMP:
+            case CMP:
                 resultValue = static_cast<int64_t>(rdValue) - static_cast<int64_t>(rsValue);
                 rsValue = (-rsValue) & 0x0FFFFFFFF;
                 break;
-            case thumb::CMN:
+            case CMN:
                 resultValue = rdValue + rsValue;
                 break;
 
-            case thumb::LSL:
-                resultValue = arm::shift(rdValue, arm::ShiftType::LSL, shiftAmount, carry, false);
+            case LSL:
+                resultValue = shifts::shift(rdValue, shifts::ShiftType::LSL, shiftAmount, carry, false);
                 break;
-            case thumb::LSR:
-                resultValue = arm::shift(rdValue, arm::ShiftType::LSR, shiftAmount, carry, false);
+            case LSR:
+                resultValue = shifts::shift(rdValue, shifts::ShiftType::LSR, shiftAmount, carry, false);
                 break;
-            case thumb::ASR:
-                resultValue = arm::shift(rdValue, arm::ShiftType::ASR, shiftAmount, carry, false);
+            case ASR:
+                resultValue = shifts::shift(rdValue, shifts::ShiftType::ASR, shiftAmount, carry, false);
                 break;
-            case thumb::ROR:
-                resultValue = arm::shift(rdValue, arm::ShiftType::ROR, shiftAmount, carry, false);
+            case ROR:
+                resultValue = shifts::shift(rdValue, shifts::ShiftType::ROR, shiftAmount, carry, false);
                 break;
 
-            case thumb::MUL: {
+            case MUL: {
                 resultValue = rdValue * rsValue;
 
                 if (((rsValue >> 8) & 0x00FFFFFF) == 0 || ((rsValue >> 8) & 0x00FFFFFF) == 0x00FFFFFF) {
@@ -566,20 +549,20 @@ namespace gbaemu
                 }
                 break;
             }
-            case thumb::TST:
-            case thumb::AND:
+            case TST:
+            case AND:
                 resultValue = rdValue & rsValue;
                 break;
-            case thumb::EOR:
+            case EOR:
                 resultValue = rdValue ^ rsValue;
                 break;
-            case thumb::ORR:
+            case ORR:
                 resultValue = rdValue | rsValue;
                 break;
-            case thumb::BIC:
+            case BIC:
                 resultValue = rdValue & ~rsValue;
                 break;
-            case thumb::MVN:
+            case MVN:
                 resultValue = ~rsValue;
                 break;
 

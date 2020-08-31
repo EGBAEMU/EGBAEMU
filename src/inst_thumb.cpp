@@ -11,70 +11,6 @@ namespace gbaemu
     namespace thumb
     {
 
-        const char *instructionIDToString(ThumbInstructionID id)
-        {
-            switch (id) {
-                STRINGIFY_CASE_ID(MVN);
-                STRINGIFY_CASE_ID(AND);
-                STRINGIFY_CASE_ID(TST);
-                STRINGIFY_CASE_ID(BIC);
-                STRINGIFY_CASE_ID(ORR);
-                STRINGIFY_CASE_ID(EOR);
-                STRINGIFY_CASE_ID(LSL);
-                STRINGIFY_CASE_ID(LSR);
-                STRINGIFY_CASE_ID(ASR);
-                STRINGIFY_CASE_ID(ROR);
-                STRINGIFY_CASE_ID(NOP);
-                STRINGIFY_CASE_ID(ADC);
-                STRINGIFY_CASE_ID(ADD);
-                STRINGIFY_CASE_ID(ADD_SHORT_IMM);
-                STRINGIFY_CASE_ID(SUB);
-                STRINGIFY_CASE_ID(SUB_SHORT_IMM);
-                STRINGIFY_CASE_ID(MOV);
-                STRINGIFY_CASE_ID(CMP);
-                STRINGIFY_CASE_ID(SBC);
-                STRINGIFY_CASE_ID(NEG);
-                STRINGIFY_CASE_ID(CMN);
-                STRINGIFY_CASE_ID(MUL);
-                STRINGIFY_CASE_ID(BX);
-                // This one is ARM9
-                //STRINGIFY_CASE_ID(BLX);
-                STRINGIFY_CASE_ID(POP);
-                STRINGIFY_CASE_ID(LDR);
-                STRINGIFY_CASE_ID(LDRB);
-                STRINGIFY_CASE_ID(LDRH);
-                STRINGIFY_CASE_ID(LDSB);
-                STRINGIFY_CASE_ID(LDSH);
-                STRINGIFY_CASE_ID(STR);
-                STRINGIFY_CASE_ID(STRB);
-                STRINGIFY_CASE_ID(STRH);
-                STRINGIFY_CASE_ID(PUSH);
-                STRINGIFY_CASE_ID(STMIA);
-                STRINGIFY_CASE_ID(LDMIA);
-                /*
-                STRINGIFY_CASE_ID(BEQ);
-                STRINGIFY_CASE_ID(BNE);
-                STRINGIFY_CASE_ID(BCS_BHS);
-                STRINGIFY_CASE_ID(BCC_BLO);
-                STRINGIFY_CASE_ID(BMI);
-                STRINGIFY_CASE_ID(BPL);
-                STRINGIFY_CASE_ID(BVS);
-                STRINGIFY_CASE_ID(BVC);
-                STRINGIFY_CASE_ID(BHI);
-                STRINGIFY_CASE_ID(BLS);
-                STRINGIFY_CASE_ID(BGE);
-                STRINGIFY_CASE_ID(BLT);
-                STRINGIFY_CASE_ID(BGT);
-                STRINGIFY_CASE_ID(BLE);
-                */
-                STRINGIFY_CASE_ID(SWI);
-                STRINGIFY_CASE_ID(B);
-                STRINGIFY_CASE_ID(INVALID);
-            }
-
-            return "NULL";
-        }
-
         std::string ThumbInstruction::toString() const
         {
             std::stringstream ss;
@@ -92,7 +28,7 @@ namespace gbaemu
 
                     ss << " r" << rd << ", r" << rs;
 
-                    if (id == ThumbInstructionID::ADD_SHORT_IMM || id == ThumbInstructionID::SUB_SHORT_IMM)
+                    if (id == InstructionID::ADD_SHORT_IMM || id == InstructionID::SUB_SHORT_IMM)
                         ss << " 0x" << std::hex << rn_off;
                     else
                         ss << " r" << rn_off;
@@ -181,7 +117,7 @@ namespace gbaemu
         Instruction ThumbInstructionDecoder::decode(uint32_t lastInst) const
         {
             ThumbInstruction instruction;
-            instruction.id = ThumbInstructionID::INVALID;
+            instruction.id = InstructionID::INVALID;
             instruction.cat = ThumbInstructionCategory::INVALID_CAT;
 
             if ((lastInst & MASK_THUMB_ADD_SUB) == VAL_THUMB_ADD_SUB) {
@@ -196,16 +132,16 @@ namespace gbaemu
 
                 switch (opCode) {
                     case 0b00:
-                        instruction.id = ThumbInstructionID::ADD;
+                        instruction.id = InstructionID::ADD;
                         break;
                     case 0b01:
-                        instruction.id = ThumbInstructionID::SUB;
+                        instruction.id = InstructionID::SUB;
                         break;
                     case 0b10:
-                        instruction.id = ThumbInstructionID::ADD_SHORT_IMM;
+                        instruction.id = InstructionID::ADD_SHORT_IMM;
                         break;
                     case 0b11:
-                        instruction.id = ThumbInstructionID::SUB_SHORT_IMM;
+                        instruction.id = InstructionID::SUB_SHORT_IMM;
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_MOV_SHIFT) == VAL_THUMB_MOV_SHIFT) {
@@ -220,13 +156,13 @@ namespace gbaemu
 
                 switch (opCode) {
                     case 0b00:
-                        instruction.id = ThumbInstructionID::LSL;
+                        instruction.id = InstructionID::LSL;
                         break;
                     case 0b01:
-                        instruction.id = ThumbInstructionID::LSR;
+                        instruction.id = InstructionID::LSR;
                         break;
                     case 0b10:
-                        instruction.id = ThumbInstructionID::ASR;
+                        instruction.id = InstructionID::ASR;
                         break;
 
                     // This case belongs to ADD_SUB
@@ -244,16 +180,16 @@ namespace gbaemu
 
                 switch (opCode) {
                     case 0b00:
-                        instruction.id = ThumbInstructionID::MOV;
+                        instruction.id = InstructionID::MOV;
                         break;
                     case 0b01:
-                        instruction.id = ThumbInstructionID::CMP;
+                        instruction.id = InstructionID::CMP;
                         break;
                     case 0b10:
-                        instruction.id = ThumbInstructionID::ADD;
+                        instruction.id = InstructionID::ADD;
                         break;
                     case 0b11:
-                        instruction.id = ThumbInstructionID::SUB;
+                        instruction.id = InstructionID::SUB;
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_ALU_OP) == VAL_THUMB_ALU_OP) {
@@ -266,52 +202,52 @@ namespace gbaemu
 
                 switch (opCode) {
                     case 0b0000:
-                        instruction.id = ThumbInstructionID::AND;
+                        instruction.id = InstructionID::AND;
                         break;
                     case 0b0001:
-                        instruction.id = ThumbInstructionID::EOR;
+                        instruction.id = InstructionID::EOR;
                         break;
                     case 0b0010:
-                        instruction.id = ThumbInstructionID::LSL;
+                        instruction.id = InstructionID::LSL;
                         break;
                     case 0b0011:
-                        instruction.id = ThumbInstructionID::LSR;
+                        instruction.id = InstructionID::LSR;
                         break;
                     case 0b0100:
-                        instruction.id = ThumbInstructionID::ASR;
+                        instruction.id = InstructionID::ASR;
                         break;
                     case 0b0101:
-                        instruction.id = ThumbInstructionID::ADC;
+                        instruction.id = InstructionID::ADC;
                         break;
                     case 0b0110:
-                        instruction.id = ThumbInstructionID::SBC;
+                        instruction.id = InstructionID::SBC;
                         break;
                     case 0b0111:
-                        instruction.id = ThumbInstructionID::ROR;
+                        instruction.id = InstructionID::ROR;
                         break;
                     case 0b1000:
-                        instruction.id = ThumbInstructionID::TST;
+                        instruction.id = InstructionID::TST;
                         break;
                     case 0b1001:
-                        instruction.id = ThumbInstructionID::NEG;
+                        instruction.id = InstructionID::NEG;
                         break;
                     case 0b1010:
-                        instruction.id = ThumbInstructionID::CMP;
+                        instruction.id = InstructionID::CMP;
                         break;
                     case 0b1011:
-                        instruction.id = ThumbInstructionID::CMN;
+                        instruction.id = InstructionID::CMN;
                         break;
                     case 0b1100:
-                        instruction.id = ThumbInstructionID::ORR;
+                        instruction.id = InstructionID::ORR;
                         break;
                     case 0b1101:
-                        instruction.id = ThumbInstructionID::MUL;
+                        instruction.id = InstructionID::MUL;
                         break;
                     case 0b1110:
-                        instruction.id = ThumbInstructionID::BIC;
+                        instruction.id = InstructionID::BIC;
                         break;
                     case 0b1111:
-                        instruction.id = ThumbInstructionID::MVN;
+                        instruction.id = InstructionID::MVN;
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_BR_XCHG) == VAL_THUMB_BR_XCHG) {
@@ -330,31 +266,31 @@ namespace gbaemu
 
                 switch (opCode) {
                     case 0b00:
-                        instruction.id = ThumbInstructionID::ADD;
+                        instruction.id = InstructionID::ADD;
                         break;
                     case 0b01:
-                        instruction.id = ThumbInstructionID::CMP;
+                        instruction.id = InstructionID::CMP;
                         break;
                     case 0b10:
                         //Assemblers/Disassemblers should use MOV R8,R8 as NOP (in THUMB mode)
                         if (rd == rs && rd == regs::R8_OFFSET) {
-                            instruction.id = ThumbInstructionID::NOP;
+                            instruction.id = InstructionID::NOP;
                         } else {
-                            instruction.id = ThumbInstructionID::MOV;
+                            instruction.id = InstructionID::MOV;
                         }
                         break;
                     case 0b11:
                         if (msbDst) {
-                            //instruction.id = ThumbInstructionID::BLX;
+                            //instruction.id = InstructionID::BLX;
                         } else {
-                            instruction.id = ThumbInstructionID::BX;
+                            instruction.id = InstructionID::BX;
                         }
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_PC_LD) == VAL_THUMB_PC_LD) {
 
                 instruction.cat = ThumbInstructionCategory::PC_LD;
-                instruction.id = ThumbInstructionID::LDR;
+                instruction.id = InstructionID::LDR;
 
                 instruction.params.pc_ld.offset = lastInst & 0x0FF;
                 instruction.params.pc_ld.rd = (lastInst >> 8) & 0x7;
@@ -371,16 +307,16 @@ namespace gbaemu
 
                 switch (opCode) {
                     case 0b00:
-                        instruction.id = ThumbInstructionID::STR;
+                        instruction.id = InstructionID::STR;
                         break;
                     case 0b01:
-                        instruction.id = ThumbInstructionID::STRB;
+                        instruction.id = InstructionID::STRB;
                         break;
                     case 0b10:
-                        instruction.id = ThumbInstructionID::LDR;
+                        instruction.id = InstructionID::LDR;
                         break;
                     case 0b11:
-                        instruction.id = ThumbInstructionID::LDRB;
+                        instruction.id = InstructionID::LDRB;
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_LD_ST_SIGN_EXT) == VAL_THUMB_LD_ST_SIGN_EXT) {
@@ -396,16 +332,16 @@ namespace gbaemu
 
                 switch (opCode) {
                     case 0b00:
-                        instruction.id = ThumbInstructionID::STRH;
+                        instruction.id = InstructionID::STRH;
                         break;
                     case 0b01:
-                        instruction.id = ThumbInstructionID::LDSB;
+                        instruction.id = InstructionID::LDRSB;
                         break;
                     case 0b10:
-                        instruction.id = ThumbInstructionID::LDRH;
+                        instruction.id = InstructionID::LDRH;
                         break;
                     case 0b11:
-                        instruction.id = ThumbInstructionID::LDSH;
+                        instruction.id = InstructionID::LDRSH;
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_LD_ST_IMM_OFF) == VAL_THUMB_LD_ST_IMM_OFF) {
@@ -421,16 +357,16 @@ namespace gbaemu
 
                 switch (opCode) {
                     case 0b00:
-                        instruction.id = ThumbInstructionID::STR;
+                        instruction.id = InstructionID::STR;
                         break;
                     case 0b01:
-                        instruction.id = ThumbInstructionID::LDR;
+                        instruction.id = InstructionID::LDR;
                         break;
                     case 0b10:
-                        instruction.id = ThumbInstructionID::STRB;
+                        instruction.id = InstructionID::STRB;
                         break;
                     case 0b11:
-                        instruction.id = ThumbInstructionID::LDRB;
+                        instruction.id = InstructionID::LDRB;
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_LD_ST_HW) == VAL_THUMB_LD_ST_HW) {
@@ -444,9 +380,9 @@ namespace gbaemu
                 instruction.params.ld_st_hw.rd = lastInst & 0x7;
 
                 if (l) {
-                    instruction.id = ThumbInstructionID::LDRH;
+                    instruction.id = InstructionID::LDRH;
                 } else {
-                    instruction.id = ThumbInstructionID::STRH;
+                    instruction.id = InstructionID::STRH;
                 }
             } else if ((lastInst & MASK_THUMB_LD_ST_REL_SP) == VAL_THUMB_LD_ST_REL_SP) {
 
@@ -458,9 +394,9 @@ namespace gbaemu
                 instruction.params.ld_st_rel_sp.rd = (lastInst >> 8) & 0x7;
 
                 if (l) {
-                    instruction.id = ThumbInstructionID::LDR;
+                    instruction.id = InstructionID::LDR;
                 } else {
-                    instruction.id = ThumbInstructionID::STR;
+                    instruction.id = InstructionID::STR;
                 }
             } else if ((lastInst & MASK_THUMB_LOAD_ADDR) == VAL_THUMB_LOAD_ADDR) {
 
@@ -471,7 +407,7 @@ namespace gbaemu
                 instruction.params.load_addr.offset = lastInst & 0x0FF;
                 instruction.params.load_addr.rd = (lastInst >> 8) & 0x7;
 
-                instruction.id = ThumbInstructionID::ADD;
+                instruction.id = InstructionID::ADD;
             } else if ((lastInst & MASK_THUMB_ADD_OFFSET_TO_STACK_PTR) == VAL_THUMB_ADD_OFFSET_TO_STACK_PTR) {
 
                 instruction.cat = ThumbInstructionCategory::ADD_OFFSET_TO_STACK_PTR;
@@ -480,7 +416,7 @@ namespace gbaemu
                 instruction.params.add_offset_to_stack_ptr.s = s;
                 instruction.params.add_offset_to_stack_ptr.offset = lastInst & 0x7F;
 
-                instruction.id = ThumbInstructionID::ADD;
+                instruction.id = InstructionID::ADD;
             } else if ((lastInst & MASK_THUMB_PUSH_POP_REG) == VAL_THUMB_PUSH_POP_REG) {
 
                 instruction.cat = ThumbInstructionCategory::PUSH_POP_REG;
@@ -492,9 +428,9 @@ namespace gbaemu
                 instruction.params.push_pop_reg.rlist = lastInst & 0x0FF;
 
                 if (l) {
-                    instruction.id = ThumbInstructionID::POP;
+                    instruction.id = InstructionID::POP;
                 } else {
-                    instruction.id = ThumbInstructionID::PUSH;
+                    instruction.id = InstructionID::PUSH;
                 }
             } else if ((lastInst & MASK_THUMB_MULT_LOAD_STORE) == VAL_THUMB_MULT_LOAD_STORE) {
 
@@ -506,15 +442,15 @@ namespace gbaemu
                 instruction.params.mult_load_store.rlist = lastInst & 0x0FF;
 
                 if (l) {
-                    instruction.id = ThumbInstructionID::LDMIA;
+                    instruction.id = InstructionID::LDMIA;
                 } else {
-                    instruction.id = ThumbInstructionID::STMIA;
+                    instruction.id = InstructionID::STMIA;
                 }
             } else if ((lastInst & MASK_THUMB_SOFTWARE_INTERRUPT) == VAL_THUMB_SOFTWARE_INTERRUPT) {
 
                 instruction.cat = ThumbInstructionCategory::SOFTWARE_INTERRUPT;
 
-                instruction.id = ThumbInstructionID::SWI;
+                instruction.id = InstructionID::SWI;
                 instruction.params.software_interrupt.comment = lastInst & 0x0FF;
             } else if ((lastInst & MASK_THUMB_COND_BRANCH) == VAL_THUMB_COND_BRANCH) {
 
@@ -527,46 +463,46 @@ namespace gbaemu
                 /*
                 switch (cond) {
                     case 0b0000:
-                        instruction.id = ThumbInstructionID::BEQ;
+                        instruction.id = InstructionID::BEQ;
                         break;
                     case 0b0001:
-                        instruction.id = ThumbInstructionID::BNE;
+                        instruction.id = InstructionID::BNE;
                         break;
                     case 0b0010:
-                        instruction.id = ThumbInstructionID::BCS_BHS;
+                        instruction.id = InstructionID::BCS_BHS;
                         break;
                     case 0b0011:
-                        instruction.id = ThumbInstructionID::BCC_BLO;
+                        instruction.id = InstructionID::BCC_BLO;
                         break;
                     case 0b0100:
-                        instruction.id = ThumbInstructionID::BMI;
+                        instruction.id = InstructionID::BMI;
                         break;
                     case 0b0101:
-                        instruction.id = ThumbInstructionID::BPL;
+                        instruction.id = InstructionID::BPL;
                         break;
                     case 0b0110:
-                        instruction.id = ThumbInstructionID::BVS;
+                        instruction.id = InstructionID::BVS;
                         break;
                     case 0b0111:
-                        instruction.id = ThumbInstructionID::BVC;
+                        instruction.id = InstructionID::BVC;
                         break;
                     case 0b1000:
-                        instruction.id = ThumbInstructionID::BHI;
+                        instruction.id = InstructionID::BHI;
                         break;
                     case 0b1001:
-                        instruction.id = ThumbInstructionID::BLS;
+                        instruction.id = InstructionID::BLS;
                         break;
                     case 0b1010:
-                        instruction.id = ThumbInstructionID::BGE;
+                        instruction.id = InstructionID::BGE;
                         break;
                     case 0b1011:
-                        instruction.id = ThumbInstructionID::BLT;
+                        instruction.id = InstructionID::BLT;
                         break;
                     case 0b1100:
-                        instruction.id = ThumbInstructionID::BGT;
+                        instruction.id = InstructionID::BGT;
                         break;
                     case 0b1101:
-                        instruction.id = ThumbInstructionID::BLE;
+                        instruction.id = InstructionID::BLE;
                         break;
                         // Undefined
                     case 0b1110:
@@ -578,13 +514,13 @@ namespace gbaemu
                         break;
                 }
                 */
-                instruction.id = ThumbInstructionID::B;
+                instruction.id = InstructionID::B;
 
             } else if ((lastInst & MASK_THUMB_UNCONDITIONAL_BRANCH) == VAL_THUMB_UNCONDITIONAL_BRANCH) {
 
                 instruction.cat = ThumbInstructionCategory::UNCONDITIONAL_BRANCH;
 
-                instruction.id = ThumbInstructionID::B;
+                instruction.id = InstructionID::B;
 
                 // first we extract the 11 bit offset, then we place it at the MSB so we can automatically sign extend it after casting to a signed type
                 // finally shift back where it came from but this time with correct sign
@@ -592,7 +528,7 @@ namespace gbaemu
             } else if ((lastInst & MASK_THUMB_LONG_BRANCH_WITH_LINK) == VAL_THUMB_LONG_BRANCH_WITH_LINK) {
 
                 instruction.cat = ThumbInstructionCategory::LONG_BRANCH_WITH_LINK;
-                instruction.id = ThumbInstructionID::B;
+                instruction.id = InstructionID::B;
 
                 bool h = lastInst & (1 << 11);
                 instruction.params.long_branch_with_link.h = h;

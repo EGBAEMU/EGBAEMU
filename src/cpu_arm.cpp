@@ -166,7 +166,7 @@ namespace gbaemu
         } else {
             // LDR part
             uint32_t alignedWord = state.memory.read32(memAddr & 0xFFFFFFFC, &info);
-            alignedWord = arm::shift(alignedWord, arm::ShiftType::ROR, (memAddr & 0x03) * 8, false, false) & 0xFFFFFFFF;
+            alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memAddr & 0x03) * 8, false, false) & 0xFFFFFFFF;
             *currentRegs[rd] = alignedWord;
 
             // STR part
@@ -233,7 +233,7 @@ namespace gbaemu
         bool carry = state.getFlag(cpsr_flags::C_FLAG);
 
         /* calculate shifter operand */
-        arm::ShiftType shiftType;
+        shifts::ShiftType shiftType;
         uint8_t shiftAmount;
         uint32_t rm;
         uint32_t rs;
@@ -242,7 +242,7 @@ namespace gbaemu
         bool shiftByReg = inst.params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
 
         if (inst.params.data_proc_psr_transf.i) {
-            shifterOperand = arm::shift(imm, arm::ShiftType::ROR, shiftAmount, carry, false);
+            shifterOperand = shifts::shift(imm, shifts::ShiftType::ROR, shiftAmount, carry, false);
         } else {
             if (shiftByReg)
                 shiftAmount = *state.getCurrentRegs()[rs];
@@ -261,7 +261,7 @@ namespace gbaemu
                 }
             }
 
-            shifterOperand = arm::shift(rmValue, shiftType, shiftAmount, carry, !shiftByReg);
+            shifterOperand = shifts::shift(rmValue, shiftType, shiftAmount, carry, !shiftByReg);
         }
 
         bool shifterOperandCarry = shifterOperand & (static_cast<uint64_t>(1) << 32);
@@ -284,77 +284,77 @@ namespace gbaemu
 
         /* Different instructions cause different flags to be changed. */
         /* TODO: This can be extended for all instructions. */
-        static const std::set<arm::ARMInstructionID> updateNegative{
-            arm::ADC, arm::ADD, arm::AND, arm::BIC, arm::CMN,
-            arm::CMP, arm::EOR, arm::MOV, arm::MVN, arm::ORR,
-            arm::RSB, arm::RSC, arm::SBC, arm::SUB, arm::TEQ,
-            arm::TST};
+        static const std::set<InstructionID> updateNegative{
+            ADC, ADD, AND, BIC, CMN,
+            CMP, EOR, MOV, MVN, ORR,
+            RSB, RSC, SBC, SUB, TEQ,
+            TST};
 
-        static const std::set<arm::ARMInstructionID> updateZero{
-            arm::ADC, arm::ADD, arm::AND, arm::BIC, arm::CMN,
-            arm::CMP, arm::EOR, arm::MOV, arm::MVN, arm::ORR,
-            arm::RSB, arm::RSC, arm::SBC, arm::SUB, arm::TEQ,
-            arm::TST};
+        static const std::set<InstructionID> updateZero{
+            ADC, ADD, AND, BIC, CMN,
+            CMP, EOR, MOV, MVN, ORR,
+            RSB, RSC, SBC, SUB, TEQ,
+            TST};
 
-        static const std::set<arm::ARMInstructionID> updateOverflow{
-            arm::ADC, arm::ADD, arm::CMN, arm::CMP, arm::MOV,
-            arm::RSB, arm::RSC, arm::SBC, arm::SUB};
+        static const std::set<InstructionID> updateOverflow{
+            ADC, ADD, CMN, CMP, MOV,
+            RSB, RSC, SBC, SUB};
 
-        static const std::set<arm::ARMInstructionID> updateCarry{
-            arm::ADC, arm::ADD, arm::CMN, arm::CMP, arm::RSB,
-            arm::RSC, arm::SBC, arm::SUB};
+        static const std::set<InstructionID> updateCarry{
+            ADC, ADD, CMN, CMP, RSB,
+            RSC, SBC, SUB};
 
-        static const std::set<arm::ARMInstructionID> updateCarryFromShiftOp{
-            arm::AND, arm::EOR, arm::MOV, arm::MVN, arm::ORR,
-            arm::BIC, arm::TEQ, arm::TST};
+        static const std::set<InstructionID> updateCarryFromShiftOp{
+            AND, EOR, MOV, MVN, ORR,
+            BIC, TEQ, TST};
 
-        static const std::set<arm::ARMInstructionID> dontUpdateRD{
-            arm::CMP, arm::CMN, arm::TST, arm::TEQ};
+        static const std::set<InstructionID> dontUpdateRD{
+            CMP, CMN, TST, TEQ};
 
-        static const std::set<arm::ARMInstructionID> invertCarry{
-            arm::CMP, arm::SUB, arm::SBC, arm::RSB, arm::RSC};
+        static const std::set<InstructionID> invertCarry{
+            CMP, SUB, SBC, RSB, RSC};
 
-        static const std::set<arm::ARMInstructionID> movSPSR{
-            arm::SUB, arm::MVN, arm::ADC, arm::ADD, arm::AND,
-            arm::BIC, arm::EOR, arm::MOV, arm::ORR, arm::RSB,
-            arm::RSC, arm::SBC};
+        static const std::set<InstructionID> movSPSR{
+            SUB, MVN, ADC, ADD, AND,
+            BIC, EOR, MOV, ORR, RSB,
+            RSC, SBC};
 
         /* execute functions */
         switch (inst.id) {
-            case arm::ADC:
+            case ADC:
                 //TODO not sure how carry might affect the overflow flag!
                 resultValue = rnValue + shifterOperand + (carry ? 1 : 0);
                 break;
-            case arm::ADD:
+            case ADD:
                 resultValue = rnValue + shifterOperand;
                 break;
-            case arm::AND:
+            case AND:
                 resultValue = rnValue & shifterOperand;
                 break;
-            case arm::BIC:
+            case BIC:
                 resultValue = rnValue & (~shifterOperand);
                 break;
-            case arm::CMN:
+            case CMN:
                 resultValue = rnValue + shifterOperand;
                 break;
-            case arm::CMP:
+            case CMP:
                 resultValue = static_cast<int64_t>(rnValue) - static_cast<int64_t>(shifterOperand);
                 // resultValue = (rnValue | (static_cast<uint64_t>(1) << 32)) + shifterOperand;
                 shifterOperand = (-shifterOperand) & 0x0FFFFFFFF;
                 break;
-            case arm::EOR:
+            case EOR:
                 resultValue = rnValue ^ shifterOperand;
                 break;
-            case arm::MOV:
+            case MOV:
                 resultValue = shifterOperand;
                 break;
-            case arm::MRS:
+            case MRS:
                 if (inst.params.data_proc_psr_transf.r)
                     resultValue = state.accessReg(regs::SPSR_OFFSET);
                 else
                     resultValue = state.accessReg(regs::CPSR_OFFSET);
                 break;
-            case arm::MSR: {
+            case MSR: {
                 // true iff write to flag field is allowed 31-24
                 bool f = inst.params.data_proc_psr_transf.rn & 0x08;
                 // true iff write to status field is allowed 23-16
@@ -382,37 +382,37 @@ namespace gbaemu
 
                 break;
             }
-            case arm::MVN:
+            case MVN:
                 resultValue = ~shifterOperand;
                 break;
-            case arm::ORR:
+            case ORR:
                 resultValue = rnValue | shifterOperand;
                 break;
                 /* TODO: subtraction is oh no */
-            case arm::RSB:
+            case RSB:
                 resultValue = static_cast<int64_t>(shifterOperand) - static_cast<int64_t>(rnValue);
                 // resultValue = (shifterOperand | (static_cast<uint64_t>(1) << 32)) + rnValue;
                 rnValue = (-rnValue) & 0x0FFFFFFFF;
                 break;
-            case arm::RSC:
+            case RSC:
                 resultValue = static_cast<int64_t>(shifterOperand) - static_cast<int64_t>(rnValue) - (carry ? 0 : 1);
                 // resultValue = (shifterOperand | (static_cast<uint64_t>(1) << 32)) + rnValue - (carry ? 0 : 1);
                 rnValue = (-rnValue) & 0x0FFFFFFFF;
                 break;
-            case arm::SBC:
+            case SBC:
                 resultValue = static_cast<int64_t>(rnValue) - static_cast<int64_t>(shifterOperand) - (carry ? 0 : 1);
                 // resultValue = (rnValue | (static_cast<uint64_t>(1) << 32)) + shifterOperand - (carry ? 0 : 1);
                 shifterOperand = (-shifterOperand) & 0x0FFFFFFFF;
                 break;
-            case arm::SUB:
+            case SUB:
                 resultValue = static_cast<int64_t>(rnValue) - static_cast<int64_t>(shifterOperand);
                 shifterOperand = (-shifterOperand) & 0x0FFFFFFFF;
                 // resultValue = (rnValue | (static_cast<uint64_t>(1) << 32)) + shifterOperand;
                 break;
-            case arm::TEQ:
+            case TEQ:
                 resultValue = rnValue ^ shifterOperand;
                 break;
-            case arm::TST:
+            case TST:
                 resultValue = rnValue & shifterOperand;
                 break;
             default:
@@ -438,7 +438,7 @@ namespace gbaemu
                 invertCarry.find(inst.id) != invertCarry.end());
 
             if (updateCarryFromShiftOp.find(inst.id) != updateCarryFromShiftOp.end() &&
-                (shiftType != arm::ShiftType::LSL || shiftAmount != 0)) {
+                (shiftType != shifts::ShiftType::LSL || shiftAmount != 0)) {
                 state.setFlag(cpsr_flags::C_FLAG, shifterOperandCarry);
             }
         }
@@ -690,10 +690,10 @@ namespace gbaemu
             offset = inst.params.ls_reg_ubyte.addrMode;
         } else {
             uint8_t shiftAmount = (inst.params.ls_reg_ubyte.addrMode >> 7) & 0x1F;
-            auto shiftType = static_cast<arm::ShiftType>((inst.params.ls_reg_ubyte.addrMode >> 5) & 0b11);
+            auto shiftType = static_cast<shifts::ShiftType>((inst.params.ls_reg_ubyte.addrMode >> 5) & 0b11);
             uint32_t rm = inst.params.ls_reg_ubyte.addrMode & 0xF;
 
-            offset = arm::shift(*currentRegs[rm], shiftType, shiftAmount, state.getFlag(cpsr_flags::C_FLAG), true) & 0xFFFFFFFF;
+            offset = shifts::shift(*currentRegs[rm], shiftType, shiftAmount, state.getFlag(cpsr_flags::C_FLAG), true) & 0xFFFFFFFF;
         }
 
         uint32_t rnValue = *currentRegs[rn];
@@ -734,7 +734,7 @@ namespace gbaemu
                 */
 
                 uint32_t alignedWord = state.memory.read32(memoryAddress & 0xFFFFFFFC, &info);
-                alignedWord = arm::shift(alignedWord, arm::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
+                alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
                 *currentRegs[rd] = alignedWord;
             }
         } else {
@@ -838,7 +838,7 @@ namespace gbaemu
                         // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
                         // LDRH with ROR (see LDR with non word aligned)
                         readData = static_cast<uint32_t>(state.memory.read16(memoryAddress & 0xFFFFFFFE, &info));
-                        readData = arm::shift(readData, arm::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
+                        readData = shifts::shift(readData, shifts::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
                     } else {
                         // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]         ;sign-expand BYTE value
                         readData = state.memory.read8(memoryAddress, &info);

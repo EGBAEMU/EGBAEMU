@@ -46,8 +46,6 @@ namespace gbaemu
         |_Cond__|1_1_1_1|_____________Ignored_by_Processor______________| SWI
      */
 
-        const char *instructionIDToString(ARMInstructionID id);
-
         // ARM INSTRUCTION SET
         /*  NOTE: comparison order is important!
 

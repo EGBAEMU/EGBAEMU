@@ -56,11 +56,11 @@ namespace gbaemu
         InstructionExecutionInfo handleThumbLoadStore(const thumb::ThumbInstruction &inst);
         InstructionExecutionInfo handleThumbLoadStoreSignHalfword(const thumb::ThumbInstruction &inst);
 
-        InstructionExecutionInfo handleThumbAddSubtract(thumb::ThumbInstructionID insID, uint8_t rd, uint8_t rs, uint8_t rn_offset);
-        InstructionExecutionInfo handleThumbMovCmpAddSubImm(thumb::ThumbInstructionID ins, uint8_t rd, uint8_t offset);
-        InstructionExecutionInfo handleThumbMoveShiftedReg(thumb::ThumbInstructionID ins, uint8_t rs, uint8_t rd, uint8_t offset);
-        InstructionExecutionInfo handleThumbBranchXCHG(thumb::ThumbInstructionID id, uint8_t rd, uint8_t rs);
-        InstructionExecutionInfo handleThumbALUops(thumb::ThumbInstructionID instID, uint8_t rs, uint8_t rd);
+        InstructionExecutionInfo handleThumbAddSubtract(InstructionID insID, uint8_t rd, uint8_t rs, uint8_t rn_offset);
+        InstructionExecutionInfo handleThumbMovCmpAddSubImm(InstructionID ins, uint8_t rd, uint8_t offset);
+        InstructionExecutionInfo handleThumbMoveShiftedReg(InstructionID ins, uint8_t rs, uint8_t rd, uint8_t offset);
+        InstructionExecutionInfo handleThumbBranchXCHG(InstructionID id, uint8_t rd, uint8_t rs);
+        InstructionExecutionInfo handleThumbALUops(InstructionID instID, uint8_t rs, uint8_t rd);
     };
 
 } // namespace gbaemu
