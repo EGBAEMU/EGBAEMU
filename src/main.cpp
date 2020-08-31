@@ -90,11 +90,14 @@ int main(int argc, char **argv)
     gbaemu::debugger::JumpTrap jumpTrap;
     
     bool stepMode = false;
-    //gbaemu::debugger::AddressTrap bp1(0x0800079c, &stepMode);
-    gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x0800079c, &stepMode);
+    //THUMB memory mirroring ROM?
+    // gbaemu::debugger::AddressTrap bp1(0x08000536, &stepMode);
+    gbaemu::debugger::AddressTrap bp1(0x0800089c, &stepMode);
+    //gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x08000338, &stepMode);
+    gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R7_OFFSET, 0x080005c2, &stepMode);
 
     charlie.registerTrap(jumpTrap);
-    //charlie.registerTrap(bp1);
+    // charlie.registerTrap(bp1);
     charlie.registerTrap(r12trap);
 
     for (uint32_t i = 0; i < 0xFFFFFFFF;) {

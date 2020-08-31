@@ -599,7 +599,7 @@ namespace gbaemu
         return info;
     }
 
-    InstructionExecutionInfo CPU::execDataBlockTransfer(arm::ARMInstruction &inst)
+    InstructionExecutionInfo CPU::execDataBlockTransfer(arm::ARMInstruction &inst, bool thumb)
     {
         auto currentRegs = state.getCurrentRegs();
 
@@ -709,7 +709,7 @@ namespace gbaemu
                     }
 
                     // Edge case of storing PC -> PC + 12 will be stored
-                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? 12 : 0), nonSeqAccDone ? nullptr : &info);
+                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb? 6 : 12) : 0), nonSeqAccDone ? nullptr : &info);
                 }
 
                 if (nonSeqAccDone) {

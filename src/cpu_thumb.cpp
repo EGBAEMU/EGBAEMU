@@ -72,7 +72,7 @@ namespace gbaemu
         wrapper.params.block_data_transf.s = false;
         wrapper.params.block_data_transf.rn = rb;
 
-        return execDataBlockTransfer(wrapper);
+        return execDataBlockTransfer(wrapper, true);
     }
 
     InstructionExecutionInfo CPU::handleThumbPushPopRegister(bool load, bool r, uint8_t rlist)
@@ -110,7 +110,7 @@ namespace gbaemu
 
         wrapper.params.block_data_transf.rn = regs::SP_OFFSET;
 
-        return execDataBlockTransfer(wrapper);
+        return execDataBlockTransfer(wrapper, true);
     }
 
     InstructionExecutionInfo CPU::handleThumbAddOffsetToStackPtr(bool s, uint8_t offset)
@@ -156,7 +156,10 @@ namespace gbaemu
 
         if (l) {
             // 1: LDR  Rd,[SP,#nn]  ;load  32bit data   Rd = WORD[SP+nn]
-            state.accessReg(rd) = state.memory.read32(memoryAddress, &info);
+            // LDR with non word aligned handling
+            uint32_t readData = static_cast<uint32_t>(state.memory.read32(memoryAddress & 0xFFFFFFFC, &info));
+            state.accessReg(rd) = arm::shift(readData, arm::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
+
             info.cycleCount += 1;
         } else {
             // 0: STR  Rd,[SP,#nn]  ;store 32bit data   WORD[SP+nn] = Rd
@@ -180,7 +183,9 @@ namespace gbaemu
         if (l) {
 
             // 1: LDRH Rd,[Rb,#nn]  ;load  16bit data   Rd = HALFWORD[Rb+nn]
-            state.accessReg(rd) = state.memory.read16(memoryAddress, &info);
+            // LDRH misalignment handling
+            uint32_t readData = static_cast<uint32_t>(state.memory.read16(memoryAddress & 0xFFFFFFFE, &info));
+            state.accessReg(rd) = arm::shift(readData, arm::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
 
             info.cycleCount += 1;
         } else {
@@ -222,9 +227,11 @@ namespace gbaemu
             // offset is in words
             address += (static_cast<uint32_t>(offset) << 2);
             if (l) {
-                *currentRegs[rd] = state.memory.read32(address, &info);
+                // LDR with non word aligned handling
+                uint32_t readData = static_cast<uint32_t>(state.memory.read32(address & 0xFFFFFFFC, &info));
+                *currentRegs[rd] = arm::shift(readData, arm::ShiftType::ROR, (address & 0x03) * 8, false, false) & 0xFFFFFFFF;
             } else {
-                state.memory.write16(address, *currentRegs[rd], &info);
+                state.memory.write32(address, *currentRegs[rd], &info);
             }
         }
 
@@ -253,18 +260,26 @@ namespace gbaemu
                 uint8_t shiftAmount;
 
                 if (h) {
-                    data = state.memory.read16(memoryAddress, &info);
-                    shiftAmount = 16;
+                    // Handle misaligned address
+                    if (memoryAddress & 1) {
+                        // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]         ;sign-expand BYTE value
+                        data = state.memory.read8(memoryAddress, &info);
+                        shiftAmount = 32 - 8;
+                    } else {
+                        data = state.memory.read16(memoryAddress, &info);
+                        shiftAmount = 32 - 16;
+                    }
                 } else {
                     data = state.memory.read8(memoryAddress, &info);
-                    shiftAmount = 8;
+                    shiftAmount = 32 - 8;
                 }
 
                 // Magic sign extension
-                *currentRegs[rd] = static_cast<int32_t>(static_cast<uint32_t>(data) << shiftAmount) / (static_cast<uint32_t>(1) << shiftAmount);
+                *currentRegs[rd] = static_cast<int32_t>(static_cast<uint32_t>(data) << shiftAmount) / (static_cast<int32_t>(1) << shiftAmount);
             } else {
                 // LDRH zero extended
-                *currentRegs[rd] = state.memory.read16(memoryAddress, &info);
+                uint32_t readData = static_cast<uint32_t>(state.memory.read16(memoryAddress & 0xFFFFFFFE, &info));
+                *currentRegs[rd] = arm::shift(readData, arm::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
             }
         }
 
@@ -278,13 +293,18 @@ namespace gbaemu
         uint32_t memoryAddress = state.accessReg(rb) + state.accessReg(ro);
 
         if (l) {
+            uint32_t readData;
             if (b) {
                 // 3: LDRB Rd,[Rb,Ro]   ;load   8bit data  Rd = BYTE[Rb+Ro]
-                state.accessReg(rd) = state.memory.read8(memoryAddress, &info);
+                readData = state.memory.read8(memoryAddress, &info);
             } else {
                 // 2: LDR  Rd,[Rb,Ro]   ;load  32bit data  Rd = WORD[Rb+Ro]
-                state.accessReg(rd) = state.memory.read32(memoryAddress, &info);
+                // LDR with ROR (see LDR with non word aligned)
+                readData = static_cast<uint32_t>(state.memory.read32(memoryAddress & 0xFFFFFFFC, &info));
+                readData = arm::shift(readData, arm::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
             }
+
+            state.accessReg(rd) = readData;
 
             info.cycleCount += 1;
         } else {
@@ -293,7 +313,7 @@ namespace gbaemu
                 state.memory.write8(memoryAddress, state.accessReg(rd) & 0x0FF, &info);
             } else {
                 // 0: STR  Rd,[Rb,Ro]   ;store 32bit data  WORD[Rb+Ro] = Rd
-                state.memory.write32(memoryAddress, state.accessReg(rd), &info);
+                state.memory.write32(memoryAddress & 0xFFFFFFFC, state.accessReg(rd), &info);
             }
 
             info.noDefaultSCycle = true;
@@ -424,9 +444,9 @@ namespace gbaemu
             rdValue,
             false,
             false,
-            true,                              // n Flag
-            true,                              // z Flag
-            false,                             // v Flag
+            true,                             // n Flag
+            true,                             // z Flag
+            false,                            // v Flag
             ins != thumb::LSL || offset != 0, // c flag
             false);
 
