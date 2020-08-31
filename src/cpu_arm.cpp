@@ -882,7 +882,7 @@ namespace gbaemu
             }
         }
 
-        if (writeback || !pre) {
+        if ((!pre || writeback) && (!load || rn != rd)) {
             if (!pre) {
                 memoryAddress += (up ? offset : -offset);
             }
