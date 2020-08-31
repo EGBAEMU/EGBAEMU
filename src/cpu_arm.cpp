@@ -613,7 +613,6 @@ namespace gbaemu
 
         if (forceUserRegisters && (!load || (inst.params.block_data_transf.rList & (1 << regs::PC_OFFSET)) == 0)) {
             currentRegs = state.getModeRegs(CPUState::UserMode);
-            std::cout << "WARNING: force user registers!" << std::endl;
         }
 
         uint32_t rn = inst.params.block_data_transf.rn;
@@ -636,13 +635,6 @@ namespace gbaemu
         // because the memory class always adds non sequential accesses we need to handle this case explicitly
         bool nonSeqAccDone = false;
 
-        bool edgeCaseEmptyRlist = false;
-        // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
-        if (inst.params.block_data_transf.rList == 0) {
-            inst.params.block_data_transf.rList = (1 << regs::PC_OFFSET);
-            edgeCaseEmptyRlist = true;
-        }
-
         //TODO is it fine to just walk in different direction?
         /*
             Transfer Order
@@ -651,7 +643,35 @@ namespace gbaemu
             (ie. for DECREASING addressing modes, the CPU does first calculate the lowest address,
             and does then process rlist with increasing addresses; this detail can be important when accessing memory mapped I/O ports).
             */
-        uint32_t addrInc = up ? 4 : static_cast<uint32_t>(static_cast<int32_t>(-4));
+        uint32_t addrInc = up ? 4 : -static_cast<uint32_t>(4);
+
+        bool edgeCaseEmptyRlist = false;
+        uint32_t edgeCaseEmptyRlistAddrInc = 0;
+        // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
+        // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
+        /*
+        empty rlist edge cases:
+        STMIA: str -> r0
+            r0 = r0 + 0x40
+        STMIB: str->r0 +4
+            r0 = r0 + 0x40
+        STMDB: str ->r0 - 0x40
+            r0 = r0 - 0x40
+        STMDA: str -> r0 -0x3C
+            r0 = r0 - 0x40
+        */
+        if (inst.params.block_data_transf.rList == 0) {
+            edgeCaseEmptyRlist = true;
+            inst.params.block_data_transf.rList = (1 << regs::PC_OFFSET);
+            writeback = true;
+            if (up) {
+                edgeCaseEmptyRlistAddrInc = static_cast<uint32_t>(0x3C);
+            } else {
+                addrInc = -(pre ? static_cast<uint32_t>(0x40) : static_cast<uint32_t>(0x3C));
+                edgeCaseEmptyRlistAddrInc = pre ? 0 : -static_cast<uint32_t>(4);
+                pre = true;
+            }
+        }
 
         uint32_t patchMemAddr;
 
@@ -659,8 +679,9 @@ namespace gbaemu
             uint8_t currentIdx = (up ? i : 15 - i);
             if (inst.params.block_data_transf.rList & (1 << currentIdx)) {
 
-                if (pre)
+                if (pre) {
                     address += addrInc;
+                }
 
                 if (load) {
                     if (currentIdx == regs::PC_OFFSET) {
@@ -696,15 +717,16 @@ namespace gbaemu
                 }
                 nonSeqAccDone = true;
 
-                if (!pre)
+                if (!pre) {
                     address += addrInc;
+                }
             }
         }
 
-        // Handle edge case: Empty Rlist: Rb=Rb+40h (ARMv4-v5)
-        if (edgeCaseEmptyRlist) {
-            *currentRegs[rn] = *currentRegs[rn] + 0x40;
-        } else if ((inst.params.block_data_transf.rList & (1 << rn)) && writeback) {
+        // Final edge case address patch
+        address += edgeCaseEmptyRlistAddrInc;
+
+        if (!edgeCaseEmptyRlist && (inst.params.block_data_transf.rList & (1 << rn)) && writeback) {
             // Edge case: writeback enabled & rn is inside rlist
             // If load then it was overwritten anyway & we should not do another writeback as writeback comes before read!
             // else on STM it depends if this register was the first written to memory
