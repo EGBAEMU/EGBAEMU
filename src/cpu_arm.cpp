@@ -162,12 +162,15 @@ namespace gbaemu
         if (b) {
             uint8_t memVal = state.memory.read8(memAddr, &info);
             state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF), &info);
-            //TODO overwrite upper 24 bits?
             *currentRegs[rd] = static_cast<uint32_t>(memVal);
         } else {
-            uint32_t memVal = state.memory.read32(memAddr, &info);
-            state.memory.write32(memAddr, newMemVal, &info);
-            *currentRegs[rd] = memVal;
+            // LDR part
+            uint32_t alignedWord = state.memory.read32(memAddr & 0xFFFFFFFC, &info);
+            alignedWord = arm::shift(alignedWord, arm::ShiftType::ROR, (memAddr & 0x03) * 8, false, false) & 0xFFFFFFFF;
+            *currentRegs[rd] = alignedWord;
+
+            // STR part
+            state.memory.write32(memAddr & 0xFFFFFFFC, newMemVal, &info);
         }
 
         return info;
@@ -848,19 +851,31 @@ namespace gbaemu
         if (load) {
             uint32_t readData;
             if (transferSize == 16) {
-                // Handle misaligned address with ROR (see LDR with non word aligned)
-                readData = static_cast<uint32_t>(state.memory.read16(memoryAddress & 0xFFFFFFFE, &info));
-                readData = arm::shift(readData, arm::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
+                // Handle misaligned address
+                if (memoryAddress & 1) {
+                    if (!sign) {
+                        // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
+                        // LDRH with ROR (see LDR with non word aligned)
+                        readData = static_cast<uint32_t>(state.memory.read16(memoryAddress & 0xFFFFFFFE, &info));
+                        readData = arm::shift(readData, arm::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
+                    } else {
+                        // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]         ;sign-expand BYTE value
+                        readData = state.memory.read8(memoryAddress, &info);
+                        transferSize = 8;
+                    }
+                } else {
+                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &info));
+                }
             } else {
                 readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &info));
             }
 
             if (sign) {
                 // Do the sign extension by moving MSB to bit 31 and then reinterpret as signed and divide by power of 2 for a sign extended shift back
-                state.accessReg(rd) = static_cast<uint32_t>(static_cast<int32_t>(readData << (32 - transferSize)) / (static_cast<int32_t>(1) << (32 - transferSize)));
-            } else {
-                state.accessReg(rd) = readData;
+                readData = static_cast<uint32_t>(static_cast<int32_t>(readData << (32 - transferSize)) / (static_cast<int32_t>(1) << (32 - transferSize)));
             }
+
+            state.accessReg(rd) = readData;
         } else {
             if (transferSize == 16) {
                 // Enforce halfword alignment
@@ -870,7 +885,7 @@ namespace gbaemu
             }
         }
 
-        if (writeback || !pre) {
+        if ((!pre || writeback) && (!load || rn != rd)) {
             if (!pre) {
                 memoryAddress += (up ? offset : -offset);
             }
