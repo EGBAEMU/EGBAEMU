@@ -13,6 +13,18 @@ namespace gbaemu
         return ((bytes & 0xFF00) >> 8) | ((bytes & 0xFF) << 8);
     }
 
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+    template <class T>
+    T le(T val) {
+        return flipBytes(val);
+    }
+#else
+    template <class T>
+    T le(T val) {
+        return val;
+    }
+#endif
+
     template <class T>
     T flipBytes(const T &obj)
     {
@@ -37,3 +49,4 @@ namespace gbaemu
 
 template uint16_t gbaemu::bitSet<uint16_t>(uint16_t, uint16_t, uint16_t, uint16_t);
 template uint16_t gbaemu::bmap<uint16_t>(bool);
+template uint16_t gbaemu::le<uint16_t>(uint16_t);

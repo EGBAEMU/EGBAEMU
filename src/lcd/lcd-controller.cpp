@@ -57,20 +57,20 @@ namespace gbaemu::lcd {
     void Background::loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs *regs, Memory& memory) {
         id = bgIndex;
 
-        uint16_t size = (flip16(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
+        uint16_t size = (le(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
         uint32_t height = (size <= 1) ? 256 : 512;
         uint32_t width = (size % 2 == 0) ? 256 : 512;
-        mosaicEnabled = flip16(regs->BGCNT[bgIndex]) & BGCNT::MOSAIC_MASK;
+        mosaicEnabled = le(regs->BGCNT[bgIndex]) & BGCNT::MOSAIC_MASK;
         /* if true tiles have 8 bit color depth, 4 bit otherwise */
-        colorPalette256 = flip16(regs->BGCNT[bgIndex]) & BGCNT::COLORS_PALETTES_MASK;
-        priority = flip16(regs->BGCNT[bgIndex]) & BGCNT::BG_PRIORITY_MASK;
+        colorPalette256 = le(regs->BGCNT[bgIndex]) & BGCNT::COLORS_PALETTES_MASK;
+        priority = le(regs->BGCNT[bgIndex]) & BGCNT::BG_PRIORITY_MASK;
         /* offsets */
-        uint32_t charBaseBlock = (flip16(regs->BGCNT[bgIndex]) & BGCNT::CHARACTER_BASE_BLOCK_MASK) >> 2;
-        uint32_t screenBaseBlock = (flip16(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_BASE_BLOCK_MASK) >> 8;
+        uint32_t charBaseBlock = (le(regs->BGCNT[bgIndex]) & BGCNT::CHARACTER_BASE_BLOCK_MASK) >> 2;
+        uint32_t screenBaseBlock = (le(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_BASE_BLOCK_MASK) >> 8;
 
         /* scrolling, TODO: check sign */
-        xOff = flip16(regs->BGOFS[bgIndex].h & 0x1F);
-        yOff = flip16(regs->BGOFS[bgIndex].v & 0x1F);
+        xOff = le(regs->BGOFS[bgIndex].h) & 0x1F;
+        yOff = le(regs->BGOFS[bgIndex].v) & 0x1F;
 
         /* 32x32 tiles, arrangement depends on resolution */
         /* TODO: not sure about this one */
@@ -235,6 +235,8 @@ namespace gbaemu::lcd {
         auto canvPixels = canvas.pixels();
         auto canvStride = canvas.getWidth();
 
+        display.canvas.beginDraw();
+
         for (auto y = yFrom; y < yTo; ++y) {
             for (auto x = xFrom; x < xTo; ++x) {
                 auto cx = x + xOff;
@@ -243,6 +245,8 @@ namespace gbaemu::lcd {
                 dispPixels[y * dispStride + x] = color;
             }
         }
+
+        display.canvas.endDraw();
     }
 
     void LCDController::blendBackgrounds() {
@@ -385,18 +389,19 @@ namespace gbaemu::lcd {
 
         /* rendering once per h-blank */
         if (counters.hBlanking && counters.cycle % 1232 == 0) {
+            
             render();
             result = true;
         }
 
         /* update stat */
-        uint16_t stat = flip16(regs->DISPSTAT);
+        uint16_t stat = le(regs->DISPSTAT);
 
         stat = bitSet(stat, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t>(counters.vBlanking));
         stat = bitSet(stat, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t>(counters.hBlanking));
         stat = bitSet(stat, DISPSTAT::VCOUNT_SETTING_MASK, DISPSTAT::VCOUNT_SETTING_OFFSET, counters.vCount);
 
-        regs->DISPSTAT = flip16(stat);
+        regs->DISPSTAT = le(stat);
 
         ++counters.cycle;
 

@@ -158,13 +158,11 @@ int main(int argc, char **argv)
         }
 
         if (!run_window) {
-            std::ofstream jumpFile("jumps.txt", std::ios::out);
-            jumpFile << jumpTrap.toString();
-            jumpFile.close();
-
             break;
         }
     }
+
+    std::cout << "done" << std::endl;
 
     return 0;
 }
