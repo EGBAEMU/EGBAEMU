@@ -142,7 +142,7 @@ namespace gbaemu::lcd {
         auto pixels = canvas.pixels();
         auto stride = canvas.getWidth();
 
-        for (uint32_t scIndex = 0; scIndex < 2; ++scIndex) {
+        for (uint32_t scIndex = 0; scIndex < scCount; ++scIndex) {
             uint16_t *bgMap = reinterpret_cast<uint16_t *>(bgMapBase + scIndex * 0x800);
 
             for (uint32_t mapIndex = 0; mapIndex < 32 * 32; ++mapIndex) {
