@@ -29,7 +29,7 @@ namespace gbaemu
     uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo) const
     {
         if (addr & 0x03) {
-            std::cout << "WARNING: word read on non word aligned address!" << std::endl;
+            std::cout << "WARNING: word read on non word aligned address: 0x" << std::hex << addr << '!' << std::endl;
         }
 
         if (execInfo != nullptr) {
@@ -70,7 +70,7 @@ namespace gbaemu
     void Memory::write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo)
     {
         if (addr & 0x03) {
-            std::cout << "WARNING: word write on non word aligned address!" << std::endl;
+            std::cout << "WARNING: word write on non word aligned address: 0x" << std::hex << addr << '!' << std::endl;
         }
 
         if (execInfo != nullptr) {

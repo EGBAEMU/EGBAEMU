@@ -10,6 +10,9 @@
 #include "lcd/lcd-controller.hpp"
 #include "lcd/window.hpp"
 
+#include "input/keyboard_control.hpp"
+#include "keypad.hpp"
+
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5
 #define DEBUG_STACK_PRINT_RANGE 5
@@ -100,6 +103,9 @@ int main(int argc, char **argv)
     // charlie.registerTrap(bp1);
     //charlie.registerTrap(r12trap);
 
+    gbaemu::Keypad keypad(cpu.state.memory);
+    gbaemu::keyboard::KeyboardController gameController(keypad);
+
     for (uint32_t i = 0; i < 0xFFFFFFFF;) {
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
         auto inst = cpu.state.pipeline.decode.instruction;
@@ -141,6 +147,8 @@ int main(int argc, char **argv)
             if (SDL_PollEvent(&event)) {
                 if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE)
                     break;
+
+                gameController.processSDLEvent(event);
             }
 
             controller.plotMemory();
