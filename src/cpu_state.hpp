@@ -34,7 +34,7 @@ namespace gbaemu
             AbortMode,
             UndefinedMode,
             SystemMode
-        } mode = UserMode;
+        } mode = SystemMode;
 
       private:
         //TODO are there conventions about inital reg values?
