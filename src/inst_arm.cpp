@@ -81,37 +81,37 @@ namespace gbaemu
                 case ARMInstructionCategory::MUL_ACC: {
                     if (params.mul_acc.s)
                         ss << "{S}";
-                    ss << " r" << params.mul_acc.rd << " r" << params.mul_acc.rm << " r" << params.mul_acc.rs;
+                    ss << " r" << static_cast<uint32_t>(params.mul_acc.rd) << " r" << static_cast<uint32_t>(params.mul_acc.rm) << " r" << static_cast<uint32_t>(params.mul_acc.rs);
                     if (params.mul_acc.a)
-                        ss << " +r" << params.mul_acc.rn;
+                        ss << " +r" << static_cast<uint32_t>(params.mul_acc.rn);
                     break;
                 }
                 case ARMInstructionCategory::MUL_ACC_LONG: {
                     if (params.mul_acc_long.s)
                         ss << "{S}";
-                    ss << " r" << params.mul_acc_long.rd_msw << ":r" << params.mul_acc_long.rd_lsw << " r" << params.mul_acc_long.rs << " r" << params.mul_acc_long.rm;
+                    ss << " r" << static_cast<uint32_t>(params.mul_acc_long.rd_msw) << ":r" << static_cast<uint32_t>(params.mul_acc_long.rd_lsw) << " r" << static_cast<uint32_t>(params.mul_acc_long.rs) << " r" << static_cast<uint32_t>(params.mul_acc_long.rm);
                     break;
                 }
                 case ARMInstructionCategory::HW_TRANSF_REG_OFF: {
                     /* No immediate in this category! */
-                    ss << " r" << params.hw_transf_reg_off.rd;
+                    ss << " r" << static_cast<uint32_t>(params.hw_transf_reg_off.rd);
 
                     /* TODO: does p mean pre? */
                     if (params.hw_transf_reg_off.p) {
-                        ss << " [r" << params.hw_transf_reg_off.rn << "+r" << params.hw_transf_reg_off.rm << ']';
+                        ss << " [r" << static_cast<uint32_t>(params.hw_transf_reg_off.rn) << "+r" << static_cast<uint32_t>(params.hw_transf_reg_off.rm) << ']';
                     } else {
-                        ss << " [r" << params.hw_transf_reg_off.rn << "]+r" << params.hw_transf_reg_off.rm;
+                        ss << " [r" << static_cast<uint32_t>(params.hw_transf_reg_off.rn) << "]+r" << static_cast<uint32_t>(params.hw_transf_reg_off.rm);
                     }
                     break;
                 }
                 case ARMInstructionCategory::HW_TRANSF_IMM_OFF: {
                     /* Immediate in this category! */
-                    ss << " r" << params.hw_transf_imm_off.rd;
+                    ss << " r" << static_cast<uint32_t>(params.hw_transf_imm_off.rd);
 
                     if (params.hw_transf_reg_off.p) {
-                        ss << " [r" << params.hw_transf_imm_off.rn << "+0x" << std::hex << params.hw_transf_imm_off.offset << ']';
+                        ss << " [r" << static_cast<uint32_t>(params.hw_transf_imm_off.rn) << "+0x" << std::hex << params.hw_transf_imm_off.offset << ']';
                     } else {
-                        ss << " [[r" << params.hw_transf_imm_off.rn << "]+0x" << std::hex << params.hw_transf_imm_off.offset << ']';
+                        ss << " [[r" << static_cast<uint32_t>(params.hw_transf_imm_off.rn) << "]+0x" << std::hex << params.hw_transf_imm_off.offset << ']';
                     }
                     break;
                 }
@@ -120,9 +120,9 @@ namespace gbaemu
                     ss << " r" << params.sign_transf.rd;
 
                     if (params.hw_transf_reg_off.p) {
-                        ss << " [r" << params.sign_transf.rn;
+                        ss << " [r" << static_cast<uint32_t>(params.sign_transf.rn);
                     } else {
-                        ss << " [[r" << params.sign_transf.rn << "]";
+                        ss << " [[r" << static_cast<uint32_t>(params.sign_transf.rn) << "]";
                     }
                     if (params.sign_transf.b) {
                         ss << "+0x" << std::hex << params.sign_transf.addrMode << ']';
@@ -135,15 +135,15 @@ namespace gbaemu
                     bool pre = params.ls_reg_ubyte.p;
                     char upDown = params.ls_reg_ubyte.u ? '+' : '-';
 
-                    ss << " r" << params.ls_reg_ubyte.rd;
+                    ss << " r" << static_cast<uint32_t>(params.ls_reg_ubyte.rd);
 
                     if (!params.ls_reg_ubyte.i) {
                         uint32_t immOff = params.ls_reg_ubyte.addrMode & 0xFFF;
 
                         if (pre)
-                            ss << " [r" << params.ls_reg_ubyte.rn;
+                            ss << " [r" << static_cast<uint32_t>(params.ls_reg_ubyte.rn);
                         else
-                            ss << " [[r" << params.ls_reg_ubyte.rn << ']';
+                            ss << " [[r" << static_cast<uint32_t>(params.ls_reg_ubyte.rn) << ']';
 
                         ss << upDown << "0x" << std::hex << immOff << ']';
                     } else {
@@ -151,16 +151,16 @@ namespace gbaemu
                         uint32_t rm = params.ls_reg_ubyte.addrMode & 0xF;
 
                         if (pre)
-                            ss << " [r" << params.ls_reg_ubyte.rn;
+                            ss << " [r" << static_cast<uint32_t>(params.ls_reg_ubyte.rn);
                         else
-                            ss << " [[r" << params.ls_reg_ubyte.rn << ']';
+                            ss << " [[r" << static_cast<uint32_t>(params.ls_reg_ubyte.rn) << ']';
 
                         ss << upDown << "(r" << rm << "<<" << shiftAmount << ")]";
                     }
                     break;
                 }
                 case ARMInstructionCategory::BLOCK_DATA_TRANSF: {
-                    ss << " r" << params.block_data_transf.rn << " { ";
+                    ss << " r" << static_cast<uint32_t>(params.block_data_transf.rn) << " { ";
 
                     for (uint32_t i = 0; i < 16; ++i)
                         if (params.block_data_transf.rList & (1 << i))
@@ -182,7 +182,7 @@ namespace gbaemu
                     break;
                 }
                 case ARMInstructionCategory::BRANCH_XCHG: {
-                    ss << " r" << params.branch_xchg.rn;
+                    ss << " r" << static_cast<uint32_t>(params.branch_xchg.rn);
                     break;
                 }
 
