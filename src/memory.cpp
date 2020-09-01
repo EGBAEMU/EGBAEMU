@@ -1,5 +1,8 @@
 #include "memory.hpp"
 
+#include "lcd/lcd-controller.hpp"
+#include "util.hpp"
+#include <cstring>
 #include <iostream>
 
 namespace gbaemu
@@ -49,10 +52,49 @@ namespace gbaemu
         if (execInfo != nullptr) {
             execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
         }
+        MemoryRegion memReg;
+        auto dst = resolveAddr(addr, execInfo, &memReg);
 
-        auto dst = resolveAddr(addr, execInfo);
+        //TODO is this legide?
+        bool bitMapMode = (vram[0] & lcd::DISPCTL::BG_MODE_MASK) >= 4;
 
-        dst[0] = value;
+        switch (memReg) {
+            case OAM: {
+                // Always ignored, only 16 bit & 32 bit allowed
+                return;
+            }
+
+            case VRAM: {
+                // Consists of BG & PBJ
+                // In bitmap mode:
+                // 0x06014000-0x06017FFF ignored
+                // 0x06000000-0x0613FFFF as BG_OBJ_RAM
+
+                // Not in bitmap mode:
+                // 0x06010000-0x06017FFF ignored
+                // 0x06000000-0x0600FFFF as BG_OBJ_RAM
+                uint32_t normalizedAddr = normalizeAddress(addr, nullptr);
+                if (normalizedAddr <= (bitMapMode ? 0x0613FFFF : 0x0600FFFF)) {
+                    // Reuse BG_OBJ_RAM code
+                } else {
+                    // Else ignored
+                    return;
+                }
+            }
+            // Writes to BG (6000000h-600FFFFh) (or 6000000h-6013FFFh in Bitmap mode)
+            // and to Palette (5000000h-50003FFh) are writing
+            //the new 8bit value to BOTH upper and lower 8bits of the addressed halfword,
+            // ie. "[addr AND NOT 1]=data*101h".
+            case BG_OBJ_RAM: { // Palette
+                // Written as halfword, same byte twice
+                write16(addr & ~1, (static_cast<uint16_t>(value) << 8) | value, nullptr);
+                break;
+            }
+
+            default:
+                dst[0] = value;
+                break;
+        }
     }
 
     void Memory::write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo)
@@ -157,8 +199,7 @@ namespace gbaemu
                 // First handle 64K mirroring! & ensure we start with EXT_SRAM offset
                 addr = (addr & ((static_cast<uint32_t>(64) << 10) - 1)) | EXT_SRAM_OFFSET;
 
-                //TODO how do we know that we have has a 32K chip???
-                if (false) {
+                if (backupType == SRAM_V) {
                     // Handle 32K SRAM chips mirroring: (subtract 32K if >= 32K (last 32K block))
                     addr -= (addr >= (EXT_SRAM_OFFSET | (static_cast<uint32_t>(32) << 10)) ? (static_cast<uint32_t>(32) << 10) : 0);
                 }
@@ -196,12 +237,17 @@ namespace gbaemu
     case lim:                                   \
         return (storage + ((addr & lim##_LIMIT) - off##_OFFSET))
 
-    const uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo) const
+    static const uint8_t noBackupMedia[] = {0xFF, 0xFF, 0xFF, 0xFF};
+
+    const uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion *memReg) const
     {
         static const uint8_t zeroMem[4] = {0};
 
         MemoryRegion memoryRegion;
         addr = normalizeAddress(addr, &memoryRegion);
+
+        if (memReg != nullptr)
+            *memReg = memoryRegion;
 
         switch (memoryRegion) {
             PATCH_MEM_REG(addr, BIOS, bios);
@@ -211,8 +257,13 @@ namespace gbaemu
             PATCH_MEM_REG(addr, BG_OBJ_RAM, bg_obj_ram);
             PATCH_MEM_REG(addr, VRAM, vram);
             PATCH_MEM_REG(addr, OAM, oam);
+            case EXT_SRAM:
             case EXT_SRAM_:
-                PATCH_MEM_REG(addr, EXT_SRAM, ext_sram);
+                if (backupType != NO_BACKUP) {
+                    return (ext_sram + ((addr & EXT_SRAM_LIMIT) - EXT_SRAM_OFFSET));
+                } else {
+                    return noBackupMedia;
+                }
             case EXT_ROM1_:
             case EXT_ROM1:
             case EXT_ROM2_:
@@ -231,12 +282,15 @@ namespace gbaemu
         return zeroMem;
     }
 
-    uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo)
+    uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion *memReg)
     {
         static uint8_t wasteMem[4];
 
         MemoryRegion memoryRegion;
         addr = normalizeAddress(addr, &memoryRegion);
+
+        if (memReg != nullptr)
+            *memReg = memoryRegion;
 
         switch (memoryRegion) {
             PATCH_MEM_REG(addr, BIOS, bios);
@@ -246,8 +300,13 @@ namespace gbaemu
             PATCH_MEM_REG(addr, BG_OBJ_RAM, bg_obj_ram);
             PATCH_MEM_REG(addr, VRAM, vram);
             PATCH_MEM_REG(addr, OAM, oam);
+            case EXT_SRAM:
             case EXT_SRAM_:
-                PATCH_MEM_REG(addr, EXT_SRAM, ext_sram);
+                if (backupType != NO_BACKUP) {
+                    return (ext_sram + ((addr & EXT_SRAM_LIMIT) - EXT_SRAM_OFFSET));
+                } else {
+                    return wasteMem;
+                }
             case EXT_ROM1_:
             case EXT_ROM1:
             case EXT_ROM2_:
@@ -396,6 +455,68 @@ namespace gbaemu
         }
 
         return 0;
+    }
+
+    void Memory::scanROMForBackupID()
+    {
+        // reset backup type
+        backupType = NO_BACKUP;
+
+        if (ext_sram)
+            delete[] ext_sram;
+        ext_sram = nullptr;
+
+        /*
+        ID Strings
+        The ID string must be located at a word-aligned memory location, the string length should be a multiple of 4 bytes (padded with zero's).
+          EEPROM_Vnnn    EEPROM 512 bytes or 8 Kbytes (4Kbit or 64Kbit)
+          SRAM_Vnnn      SRAM 32 Kbytes (256Kbit)
+          FLASH_Vnnn     FLASH 64 Kbytes (512Kbit) (ID used in older files)
+          FLASH512_Vnnn  FLASH 64 Kbytes (512Kbit) (ID used in newer files)
+          FLASH1M_Vnnn   FLASH 128 Kbytes (1Mbit)
+        For Nintendo's tools, "nnn" is a 3-digit library version number. When using other tools, best keep it set to "nnn" rather than inserting numeric digits.
+        */
+
+        static const char *const parsingStrs[] = {
+            STRINGIFY(EEPROM_V),
+            STRINGIFY(SRAM_V),
+            STRINGIFY(FLASH_V),
+            STRINGIFY(FLASH512_V),
+            STRINGIFY(FLASH1M_V)};
+
+        // Array with pointer to char to compare with next on match increment, else reset!
+        const char *currentParsingState[sizeof(parsingStrs) / sizeof(parsingStrs[0])];
+        std::memcpy(currentParsingState, parsingStrs, sizeof(parsingStrs));
+
+        for (uint8_t *romIt = rom; romIt + 4 < rom + romSize;) {
+            for (uint32_t i = 0; i < 4; ++i) {
+                const char token = *romIt;
+                ++romIt;
+
+                for (uint32_t k = 0; k < sizeof(parsingStrs) / sizeof(parsingStrs[0]); ++k) {
+                    if (token == *currentParsingState[k]) {
+                        // token match increment compare string
+                        ++(currentParsingState[k]);
+
+                        // Is there a token to compare to left? if not we got a match!
+                        if (*currentParsingState[k] == '\0') {
+                            std::cout << "INFO: Found backup id: " << parsingStrs[k] << std::endl;
+                            backupType = static_cast<BackupID>(k);
+
+                            // Allocate needed memory
+                            ext_sram = new uint8_t[backupSizes[k]];
+                            std::fill_n(ext_sram, backupSizes[k], 0);
+                            return;
+                        }
+                    } else {
+                        // reset
+                        currentParsingState[k] = parsingStrs[k];
+                    }
+                }
+            }
+        }
+
+        std::cout << "INFO: No backup id was found!" << std::endl;
     }
 
 } // namespace gbaemu

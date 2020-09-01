@@ -49,9 +49,8 @@ namespace gbaemu
         uint8_t *vram;
         uint8_t *oam;
 
-        //TODO is external sram needed?
-        uint8_t *ext_sram;
-        uint8_t *rom;
+        uint8_t *ext_sram = nullptr;
+        uint8_t *rom = nullptr;
         size_t romSize = 0;
 
       public:
@@ -98,6 +97,28 @@ namespace gbaemu
             EXT_SRAM_LIMIT = 0x0E00FFFF
         };
 
+        enum BackupID : uint8_t {
+            EEPROM_V = 0, // 512 bytes or 8 KiB
+            SRAM_V,       // 32 KiB
+            FLASH_V,      // 64 KiB
+            FLASH512_V,   // 64 KiB
+            FLASH1M_V,    // 128 KiB
+            NO_BACKUP     // Not sure if this is allowed?
+        };
+
+      private:
+        static constexpr uint32_t backupSizes[5]{
+            //TODO were do we know the exact size from???
+            /*EEPROM_V_SIZE = */ 8 << 10,    // 512 bytes or 8 KiB
+            /*SRAM_V_SIZE = */ 32 << 10,     // 32 KiB
+            /*FLASH_V_SIZE = */ 64 << 10,    // 64 KiB
+            /*FLASH512_V_SIZE = */ 64 << 10, // 64 KiB
+                                             //TODO this exceeds the normal expected memory area???
+            /*FLASH1M_V_SIZE =*/128 << 10    // 128 KiB
+        };
+
+        BackupID backupType;
+
       public:
         //TODO are there conventions about inital memory values?
         Memory()
@@ -116,8 +137,6 @@ namespace gbaemu
             GBA_MEM_CLEAR(vram, VRAM);
             oam = GBA_ALLOC_MEM_REG(OAM);
             GBA_MEM_CLEAR(oam, OAM);
-            ext_sram = GBA_ALLOC_MEM_REG(EXT_SRAM);
-            GBA_MEM_CLEAR(ext_sram, EXT_SRAM);
             rom = nullptr;
             romSize = 0;
         }
@@ -131,7 +150,8 @@ namespace gbaemu
             delete[] bg_obj_ram;
             delete[] vram;
             delete[] oam;
-            delete[] ext_sram;
+            if (ext_sram)
+                delete[] ext_sram;
             if (romSize)
                 delete[] rom;
 
@@ -147,7 +167,7 @@ namespace gbaemu
         }
 
         Memory(const Memory &) = delete;
-        Memory& operator=(const Memory &) = delete;
+        Memory &operator=(const Memory &) = delete;
 
         //TODO this would be too simple to work :D
         void loadROM(uint8_t *rom, size_t romSize)
@@ -158,9 +178,13 @@ namespace gbaemu
             this->romSize = romSize;
             this->rom = new uint8_t[romSize];
             std::copy_n(rom, romSize, this->rom);
+
+            // TODO reset stats
+            scanROMForBackupID();
         }
 
-        size_t getRomSize() const {
+        size_t getRomSize() const
+        {
             return romSize;
         }
 
@@ -172,12 +196,15 @@ namespace gbaemu
         void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo);
 
         // This is needed to handle memory mirroring
-        const uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo) const;
-        uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo);
-        uint32_t normalizeAddress(uint32_t addr, MemoryRegion* memReg = nullptr) const;
+        const uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion *memReg = nullptr) const;
+        uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion *memReg = nullptr);
+        uint32_t normalizeAddress(uint32_t addr, MemoryRegion *memReg = nullptr) const;
 
         uint8_t nonSeqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
         uint8_t seqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
+
+      private:
+        void scanROMForBackupID();
     };
 } // namespace gbaemu
 
