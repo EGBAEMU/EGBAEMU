@@ -122,10 +122,12 @@ int main(int argc, char **argv)
         if (prevPC != postPC) {
             charlie.check(prevPC, postPC, inst, cpu.state);
 
+            /*
             if (postPC == CHECKPOINT_PC) {
                 ++checkPointReached;
                 std::cout << "CHECKPOINT REACHED: " << checkPointReached << std::endl;
             }
+             */
 
             if (stepMode) {
                 std::cout << "press enter to continue\n";
@@ -141,7 +143,7 @@ int main(int argc, char **argv)
         }
 
         //if (cpu.state.pipeline.decode.lastInstruction.isArmInstruction()) {
-        if (checkPointReached >= TARGET_CHECKPOINT_CNT) {
+        if (false && checkPointReached >= TARGET_CHECKPOINT_CNT) {
             SDL_Event event;
 
             if (SDL_PollEvent(&event)) {

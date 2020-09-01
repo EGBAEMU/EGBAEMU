@@ -383,19 +383,17 @@ namespace gbaemu::lcd {
             counters.vCount = 0;
         }
 
-        if (counters.hBlanking) {
+        /* rendering once per h-blank */
+        if (counters.hBlanking && counters.cycle % 1232 == 0) {
             render();
             result = true;
         }
 
-        //std::cout << std::dec << counters.cycle << " " << counters.hBlanking << " " << counters.vBlanking << "\n";
-
         /* update stat */
         uint16_t stat = flip16(regs->DISPSTAT);
-        stat = stat & (DISPSTAT::VBANK_FLAG_MASK << DISPSTAT::VBANK_FLAG_OFFSET);
 
-        stat = bitSet(stat, DISPSTAT::VBANK_FLAG_MASK, DISPSTAT::VBANK_FLAG_OFFSET, bmap<uint16_t>(counters.vBlanking));
-        stat = bitSet(stat, DISPSTAT::HBANK_FLAG_MASK, DISPSTAT::HBANK_FLAG_OFFSET, bmap<uint16_t>(counters.hBlanking));
+        stat = bitSet(stat, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t>(counters.vBlanking));
+        stat = bitSet(stat, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t>(counters.hBlanking));
         stat = bitSet(stat, DISPSTAT::VCOUNT_SETTING_MASK, DISPSTAT::VCOUNT_SETTING_OFFSET, counters.vCount);
 
         regs->DISPSTAT = flip16(stat);

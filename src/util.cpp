@@ -5,6 +5,11 @@
 namespace gbaemu
 {
     uint16_t flip16(uint16_t bytes) {
+        return bytes;
+        //return ((bytes & 0xFF00) >> 8) | ((bytes & 0xFF) << 8);
+    }
+
+    uint16_t fflip16(uint16_t bytes) {
         return ((bytes & 0xFF00) >> 8) | ((bytes & 0xFF) << 8);
     }
 
@@ -21,7 +26,7 @@ namespace gbaemu
 
     template <class T>
     T bitSet(T val, T mask, T off, T insVal) {
-        return (val & ~(mask << off)) | (insVal << off);
+        return (val & ~(mask << off)) | ((insVal & mask) << off);
     }
 
     template <class T>

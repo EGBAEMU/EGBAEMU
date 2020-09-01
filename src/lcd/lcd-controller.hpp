@@ -38,16 +38,16 @@ namespace gbaemu::lcd {
     }
 
     namespace DISPSTAT {
-        static const uint16_t VBANK_FLAG_OFFSET = 0,
-                              HBANK_FLAG_OFFSET = 1,
+        static const uint16_t VBLANK_FLAG_OFFSET = 0,
+                              HBLANK_FLAG_OFFSET = 1,
                               VCOUNTER_FLAG_OFFSET = 2,
                               VBLANK_IRQ_ENABLE_OFFSET = 3,
                               HBLANK_IRQ_ENABLE_OFFSET = 4,
                               VCOUNTER_IRQ_ENABLE_OFFSET = 5,
                               VCOUNT_SETTING_OFFSET = 8;
 
-        static const uint16_t VBANK_FLAG_MASK = 1,
-                              HBANK_FLAG_MASK = 1,
+        static const uint16_t VBLANK_FLAG_MASK = 1,
+                              HBLANK_FLAG_MASK = 1,
                               VCOUNTER_FLAG_MASK = 1,
                               VBLANK_IRQ_ENABLE_MASK = 1,
                               HBLANK_IRQ_ENABLE_MASK = 1,
