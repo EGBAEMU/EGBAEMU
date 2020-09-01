@@ -35,6 +35,10 @@ namespace gbaemu::lcd {
                               WINDOW_0_DISPLAY_FLAG_MASK = 1 << 13,
                               WINDOW_1_DISPLAY_FLAG_MASK = 1 << 14,
                               OBJ_WINDOW_DISPLAY_FLAG_MASK = 1 << 15;
+        
+        static uint32_t SCREEN_DISPLAY_BGN_MASK(uint32_t n) {
+            return 1 << (8 + n);
+        }
     }
 
     namespace DISPSTAT {
@@ -252,6 +256,7 @@ namespace gbaemu::lcd {
         int32_t id;
         MemoryCanvas<uint32_t> canvas;
         /* settings */
+        bool enabled;
         bool mosaicEnabled;
         bool colorPalette256;
         uint32_t priority;

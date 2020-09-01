@@ -86,7 +86,12 @@ namespace gbaemu::lcd {
             scInUse[3] = false;
         }
 
-        scCount = (size <= 2) ? 2 : 4;
+        switch (size) {
+            case 0: scCount = 1; break;
+            case 1: scCount = 2; break;
+            case 2: scCount = 2; break;
+            case 3: scCount = 4; break;
+        }
         /* tile addresses in steps of 0x4000 */
         /* 8x8, also called characters */
         tiles = vramBase + charBaseBlock * 0x4000;
@@ -131,17 +136,20 @@ namespace gbaemu::lcd {
     }
 
     void Background::renderBG0(LCDColorPalette& palette) {
+        if (!enabled)
+            return;
+
         auto pixels = canvas.pixels();
         auto stride = canvas.getWidth();
 
-        for (uint32_t scIndex = 0; scIndex < scCount; ++scIndex) {
+        for (uint32_t scIndex = 0; scIndex < 2; ++scIndex) {
             uint16_t *bgMap = reinterpret_cast<uint16_t *>(bgMapBase + scIndex * 0x800);
 
             for (uint32_t mapIndex = 0; mapIndex < 32 * 32; ++mapIndex) {
                 uint16_t entry = bgMap[mapIndex];
 
                 /* tile info */
-                uint32_t tileNumber = entry & 0x3F;
+                uint32_t tileNumber = entry & 0x3FF;
 
                 int32_t tileX = scXOffset[scIndex] + (mapIndex % 32) * 8;
                 int32_t tileY = scYOffset[scIndex] + (mapIndex / 32) * 8;
@@ -168,7 +176,9 @@ namespace gbaemu::lcd {
 
                         for (uint32_t tx = 0; tx < 8; ++tx) {
                             /* TODO: order correct? */
-                            uint32_t color = palette.getBgColor(paletteNumber, (row & (0b1111 << (tx * 4))) >> (tx * 4));
+                            auto paletteIndex = (row & (0b1111 << (tx * 4))) >> (tx * 4);
+                            uint32_t color = palette.getBgColor(paletteNumber, paletteIndex);
+
                             pixels[(tileY + ty) * stride + (tileX + tx)] = color;
                         }
                     }
@@ -278,8 +288,12 @@ namespace gbaemu::lcd {
             */
             /* TODO: I guess text mode? */
             for (uint32_t i = 0; i < 4; ++i) {
-                backgrounds[i].loadSettings(0, i, regs, memory);
-                backgrounds[i].renderBG0(palette);
+                backgrounds[i].enabled = regs->DISPCNT & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
+
+                if (backgrounds[i].enabled) {
+                    backgrounds[i].loadSettings(0, i, regs, memory);
+                    backgrounds[i].renderBG0(palette);
+                }
             }
 
             /* TODO: render top alpha last */
@@ -389,7 +403,6 @@ namespace gbaemu::lcd {
 
         /* rendering once per h-blank */
         if (counters.hBlanking && counters.cycle % 1232 == 0) {
-            
             render();
             result = true;
         }
