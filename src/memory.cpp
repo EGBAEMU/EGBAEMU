@@ -115,6 +115,80 @@ namespace gbaemu
     https://mgba.io/2014/12/28/classic-nes/
     */
 
+#define PATCH_MEM_ADDR(addr, x) \
+    case x:                     \
+        return (addr & x##_LIMIT)
+
+    uint32_t Memory::normalizeAddress(uint32_t addr, MemoryRegion *memReg) const
+    {
+        MemoryRegion memoryRegion = static_cast<MemoryRegion>((addr >> 24) & 0x0F);
+
+        addr = addr & 0x0FFFFFFF;
+
+        if (memReg != nullptr) {
+            *memReg = memoryRegion;
+        }
+
+        //TODO handle memory mirroring!!!
+        switch (memoryRegion) {
+            PATCH_MEM_ADDR(addr, BIOS);
+            PATCH_MEM_ADDR(addr, WRAM);
+            PATCH_MEM_ADDR(addr, IWRAM);
+            PATCH_MEM_ADDR(addr, IO_REGS);
+            PATCH_MEM_ADDR(addr, BG_OBJ_RAM);
+            PATCH_MEM_ADDR(addr, OAM);
+            case VRAM: {
+                // Even though VRAM is sized 96K (64K+32K),
+                //it is repeated in steps of 128K
+                //(64K+32K+32K, the two 32K blocks itself being mirrors of each other)
+
+                // First handle 128K mirroring!
+                addr &= VRAM_OFFSET | ((static_cast<uint32_t>(128) << 10) - 1);
+
+                // Now lets handle upper 32K mirroring! (subtract 32K if >= 96K (last 32K block))
+                addr -= (addr >= (VRAM_OFFSET | (static_cast<uint32_t>(96) << 10)) ? (static_cast<uint32_t>(32) << 10) : 0);
+                break;
+            }
+            case EXT_SRAM_:
+            case EXT_SRAM: {
+                // The 64K SRAM area is mirrored across the whole 32MB area at E000000h-FFFFFFFh,
+                //also, inside of the 64K SRAM field, 32K SRAM chips are repeated twice
+
+                // First handle 64K mirroring! & ensure we start with EXT_SRAM offset
+                addr = (addr & ((static_cast<uint32_t>(64) << 10) - 1)) | EXT_SRAM_OFFSET;
+
+                //TODO how do we know that we have has a 32K chip???
+                if (false) {
+                    // Handle 32K SRAM chips mirroring: (subtract 32K if >= 32K (last 32K block))
+                    addr -= (addr >= (EXT_SRAM_OFFSET | (static_cast<uint32_t>(32) << 10)) ? (static_cast<uint32_t>(32) << 10) : 0);
+                }
+                break;
+            }
+
+            case EXT_ROM1_:
+            case EXT_ROM1:
+            case EXT_ROM2_:
+            case EXT_ROM2:
+            case EXT_ROM3:
+            case EXT_ROM3_: {
+                //TODO proper ROM mirroring... cause this is shady AF
+                //TODO we need something similar in the memory class...
+                uint32_t romSizeLog2 = getRomSize();
+                // Uff: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+                romSizeLog2--;
+                romSizeLog2 |= romSizeLog2 >> 1;
+                romSizeLog2 |= romSizeLog2 >> 2;
+                romSizeLog2 |= romSizeLog2 >> 4;
+                romSizeLog2 |= romSizeLog2 >> 8;
+                romSizeLog2 |= romSizeLog2 >> 16;
+                romSizeLog2++;
+                return ((addr - EXT_ROM_OFFSET) & (romSizeLog2 - 1)) + EXT_ROM_OFFSET;
+            }
+        }
+
+        return addr;
+    }
+
 #define PATCH_MEM_REG(addr, x, storage) \
     case x:                             \
         return (storage + ((addr & x##_LIMIT) - x##_OFFSET))
@@ -126,7 +200,8 @@ namespace gbaemu
     {
         static const uint8_t zeroMem[4] = {0};
 
-        MemoryRegion memoryRegion = static_cast<MemoryRegion>((addr >> 24) & 0x0F);
+        MemoryRegion memoryRegion;
+        addr = normalizeAddress(addr, &memoryRegion);
 
         switch (memoryRegion) {
             PATCH_MEM_REG(addr, BIOS, bios);
@@ -136,7 +211,8 @@ namespace gbaemu
             PATCH_MEM_REG(addr, BG_OBJ_RAM, bg_obj_ram);
             PATCH_MEM_REG(addr, VRAM, vram);
             PATCH_MEM_REG(addr, OAM, oam);
-            PATCH_MEM_REG(addr, EXT_SRAM, ext_sram);
+            case EXT_SRAM_:
+                PATCH_MEM_REG(addr, EXT_SRAM, ext_sram);
             case EXT_ROM1_:
             case EXT_ROM1:
             case EXT_ROM2_:
@@ -159,7 +235,8 @@ namespace gbaemu
     {
         static uint8_t wasteMem[4];
 
-        MemoryRegion memoryRegion = static_cast<MemoryRegion>((addr >> 24) & 0x0F);
+        MemoryRegion memoryRegion;
+        addr = normalizeAddress(addr, &memoryRegion);
 
         switch (memoryRegion) {
             PATCH_MEM_REG(addr, BIOS, bios);
@@ -169,7 +246,8 @@ namespace gbaemu
             PATCH_MEM_REG(addr, BG_OBJ_RAM, bg_obj_ram);
             PATCH_MEM_REG(addr, VRAM, vram);
             PATCH_MEM_REG(addr, OAM, oam);
-            PATCH_MEM_REG(addr, EXT_SRAM, ext_sram);
+            case EXT_SRAM_:
+                PATCH_MEM_REG(addr, EXT_SRAM, ext_sram);
             case EXT_ROM1_:
             case EXT_ROM1:
             case EXT_ROM2_:
@@ -190,7 +268,8 @@ namespace gbaemu
 
     uint8_t Memory::nonSeqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const
     {
-        MemoryRegion memoryRegion = static_cast<MemoryRegion>((address >> 24) & 0x0F);
+        MemoryRegion memoryRegion;
+        normalizeAddress(address, &memoryRegion);
 
         switch (memoryRegion) {
             case WRAM: {
@@ -244,6 +323,7 @@ namespace gbaemu
                 uint8_t accessTimes = (bytesToRead + 1) / 2;
                 return accessTimes * 4 + accessTimes - 1;
             }
+            case EXT_SRAM_:
             case EXT_SRAM:
                 // Only 8 bit bus -> accesTimes = bytesToRead
                 return bytesToRead * 2 + bytesToRead - 1;
@@ -254,7 +334,8 @@ namespace gbaemu
 
     uint8_t Memory::seqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const
     {
-        MemoryRegion memoryRegion = static_cast<MemoryRegion>((address >> 24) & 0x0F);
+        MemoryRegion memoryRegion;
+        normalizeAddress(address, &memoryRegion);
 
         switch (memoryRegion) {
             case WRAM: {
@@ -308,6 +389,7 @@ namespace gbaemu
                 uint8_t accessTimes = (bytesToRead + 1) / 2;
                 return accessTimes * 2 + accessTimes - 1;
             }
+            case EXT_SRAM_:
             case EXT_SRAM:
                 // Only 8 bit bus -> accesTimes = bytesToRead
                 return bytesToRead * 2 + bytesToRead - 1;

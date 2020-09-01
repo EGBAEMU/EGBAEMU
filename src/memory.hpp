@@ -69,7 +69,8 @@ namespace gbaemu
             EXT_ROM2_ = 0x0B,
             EXT_ROM3 = 0x0C,
             EXT_ROM3_ = 0x0D,
-            EXT_SRAM = 0x0E
+            EXT_SRAM = 0x0E,
+            EXT_SRAM_ = 0x0F
         };
 
         enum MemoryRegionOffset : uint32_t {
@@ -173,6 +174,7 @@ namespace gbaemu
         // This is needed to handle memory mirroring
         const uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo) const;
         uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo);
+        uint32_t normalizeAddress(uint32_t addr, MemoryRegion* memReg = nullptr) const;
 
         uint8_t nonSeqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
         uint8_t seqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
