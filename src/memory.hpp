@@ -85,7 +85,8 @@ namespace gbaemu
             IWRAM_LIMIT = 0x03007FFF,
             IO_REGS_LIMIT = 0x040003FE,
             BG_OBJ_RAM_LIMIT = 0x050003FF,
-            VRAM_LIMIT = 0x06017FFF,
+            VRAM_LIMIT = 0x06017FFF, // unsafe to use as mask!
+            VRAM_LIMIT_MASK = 0x0601FFFF,
             OAM_LIMIT = 0x070003FF,
             EXT_ROM1_LIMIT = 0x09FFFFFF,
             EXT_ROM2_LIMIT = 0x0BFFFFFF,

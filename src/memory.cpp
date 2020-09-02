@@ -223,7 +223,6 @@ namespace gbaemu
             //PATCH_MEM_ADDR(addr, BIOS);
             PATCH_MEM_ADDR(addr, WRAM);
             PATCH_MEM_ADDR(addr, IWRAM);
-            PATCH_MEM_ADDR(addr, IO_REGS);
             PATCH_MEM_ADDR(addr, BG_OBJ_RAM);
             PATCH_MEM_ADDR(addr, OAM);
             case VRAM: {
@@ -279,6 +278,8 @@ namespace gbaemu
                 return romOffset + EXT_ROM_OFFSET;
             }
 
+            // IO is not mirrored
+            case IO_REGS:
             default:
                 break;
         }
@@ -286,12 +287,12 @@ namespace gbaemu
         return addr;
     }
 
-#define PATCH_MEM_REG(addr, x, storage) \
+#define COMBINE_MEM_ADDR(addr, x, storage) \
     case x:                             \
-        return (storage + ((addr & x##_LIMIT) - x##_OFFSET))
-#define PATCH_MEM_REG_(addr, lim, off, storage) \
-    case lim:                                   \
-        return (storage + ((addr & lim##_LIMIT) - off##_OFFSET))
+        return (storage + ((addr) - x##_OFFSET))
+#define COMBINE_MEM_ADDR_(addr, lim, off, storage) \
+    case lim:                                      \
+        return (storage + ((addr) - off##_OFFSET))
 
     static const uint8_t noBackupMedia[] = {0xFF, 0xFF, 0xFF, 0xFF};
 
@@ -302,13 +303,13 @@ namespace gbaemu
         addr = normalizeAddress(addr, memReg);
 
         switch (memReg) {
-            //PATCH_MEM_REG(addr, BIOS, bios);
-            PATCH_MEM_REG(addr, WRAM, wram);
-            PATCH_MEM_REG(addr, IWRAM, iwram);
-            PATCH_MEM_REG(addr, IO_REGS, io_regs);
-            PATCH_MEM_REG(addr, BG_OBJ_RAM, bg_obj_ram);
-            PATCH_MEM_REG(addr, VRAM, vram);
-            PATCH_MEM_REG(addr, OAM, oam);
+            //COMBINE_MEM_ADDR(addr, BIOS, bios);
+            COMBINE_MEM_ADDR(addr, WRAM, wram);
+            COMBINE_MEM_ADDR(addr, IWRAM, iwram);
+            COMBINE_MEM_ADDR(addr, IO_REGS, io_regs);
+            COMBINE_MEM_ADDR(addr, BG_OBJ_RAM, bg_obj_ram);
+            COMBINE_MEM_ADDR(addr, VRAM, vram);
+            COMBINE_MEM_ADDR(addr, OAM, oam);
             case EXT_SRAM:
             case EXT_SRAM_:
                 if (backupType != NO_BACKUP) {
@@ -322,7 +323,7 @@ namespace gbaemu
             case EXT_ROM2_:
             case EXT_ROM2:
             case EXT_ROM3_:
-                PATCH_MEM_REG_(addr, EXT_ROM3, EXT_ROM, rom);
+                COMBINE_MEM_ADDR_(addr, EXT_ROM3, EXT_ROM, rom);
             case BIOS:
                 return BIOS_READ[biosReadState];
         }
@@ -344,13 +345,13 @@ namespace gbaemu
         addr = normalizeAddress(addr, memReg);
 
         switch (memReg) {
-            //PATCH_MEM_REG(addr, BIOS, bios);
-            PATCH_MEM_REG(addr, WRAM, wram);
-            PATCH_MEM_REG(addr, IWRAM, iwram);
-            PATCH_MEM_REG(addr, IO_REGS, io_regs);
-            PATCH_MEM_REG(addr, BG_OBJ_RAM, bg_obj_ram);
-            PATCH_MEM_REG(addr, VRAM, vram);
-            PATCH_MEM_REG(addr, OAM, oam);
+            //COMBINE_MEM_ADDR(addr, BIOS, bios);
+            COMBINE_MEM_ADDR(addr, WRAM, wram);
+            COMBINE_MEM_ADDR(addr, IWRAM, iwram);
+            COMBINE_MEM_ADDR(addr, IO_REGS, io_regs);
+            COMBINE_MEM_ADDR(addr, BG_OBJ_RAM, bg_obj_ram);
+            COMBINE_MEM_ADDR(addr, VRAM, vram);
+            COMBINE_MEM_ADDR(addr, OAM, oam);
             case EXT_SRAM:
             case EXT_SRAM_:
                 if (backupType != NO_BACKUP) {
@@ -364,7 +365,7 @@ namespace gbaemu
             case EXT_ROM2_:
             case EXT_ROM2:
             case EXT_ROM3_:
-                PATCH_MEM_REG_(addr, EXT_ROM3, EXT_ROM, rom);
+                COMBINE_MEM_ADDR_(addr, EXT_ROM3, EXT_ROM, rom);
             case BIOS:
                 // Read only!
                 return wasteMem;
