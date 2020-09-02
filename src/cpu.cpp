@@ -144,7 +144,7 @@ namespace gbaemu
 
         if (state.pipeline.decode.lastInstruction.isArmInstruction()) {
             if (state.pipeline.decode.lastInstruction.arm.id == InstructionID::INVALID) {
-                std::cout << "ERROR: trying to execute invalid ARM instruction! PC: " << std::hex << state.getCurrentPC() << std::endl;
+                std::cout << "ERROR: trying to execute invalid ARM instruction! PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
             } else {
                 arm::ARMInstruction &armInst = state.pipeline.decode.lastInstruction.arm;
 
@@ -255,7 +255,7 @@ namespace gbaemu
             }
         } else {
             if (state.pipeline.decode.lastInstruction.thumb.id == InstructionID::INVALID) {
-                std::cout << "ERROR: trying to execute invalid THUMB instruction! PC: " << std::hex << state.getCurrentPC() << std::endl;
+                std::cout << "ERROR: trying to execute invalid THUMB instruction! PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
             } else {
                 thumb::ThumbInstruction &thumbInst = state.pipeline.decode.lastInstruction.thumb;
 
@@ -368,7 +368,7 @@ namespace gbaemu
             //TODO can we assume that on change the pc counter will always be modified as well?
         }
         // We have a branch, return or something that changed our PC
-        if (prevPc != postPc) {
+        if (info.forceBranch || prevPc != postPc) {
             initPipeline();
         } else {
             //TODO this is probably unwanted if we changed the mode?

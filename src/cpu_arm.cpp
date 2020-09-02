@@ -198,6 +198,9 @@ namespace gbaemu
         info.additionalProgCyclesN = 1;
         info.additionalProgCyclesS = 1;
 
+        // This is a branch instruction so we need to consider self branches!
+        info.forceBranch = true;
+
         return info;
     }
 
@@ -222,6 +225,9 @@ namespace gbaemu
         InstructionExecutionInfo info{0};
         info.additionalProgCyclesN = 1;
         info.additionalProgCyclesS = 1;
+
+        // This is a branch instruction so we need to consider self branches!
+        info.forceBranch = true;
 
         return info;
     }

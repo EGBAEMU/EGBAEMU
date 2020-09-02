@@ -55,6 +55,8 @@ namespace gbaemu
         // Do not add 1S cycle (only relevant for STR AFAIK)
         bool noDefaultSCycle;
 
+        // Needed for infinite loops caused by branching to current PC value -> no PC change would otherwise be interpreted as normal instruction and execution continues at PC + 4
+        bool forceBranch;
         bool hasCausedException;
         InstructionExecutionException exception;
     };

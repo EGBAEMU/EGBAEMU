@@ -89,6 +89,8 @@ int main(int argc, char **argv)
 // exit of helper for copy from ROM to RAM
 #define CHECKPOINT_PC 0x080001b0
 
+    std::cout << "Max ledide ROM address: 0x" << std::hex << (gbaemu::Memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize() - 1) << std::endl;
+
     gbaemu::debugger::Watchdog charlie;
     gbaemu::debugger::JumpTrap jumpTrap;
     

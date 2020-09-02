@@ -16,6 +16,9 @@ namespace gbaemu
             uint32_t pcVal = *currentRegs[regs::PC_OFFSET];
             *currentRegs[regs::PC_OFFSET] = *currentRegs[regs::LR_OFFSET] + extendedAddr;
             *currentRegs[regs::LR_OFFSET] = (pcVal + 2) | 1;
+
+            // This is a branch instruction so we need to consider self branches!
+            info.forceBranch = true;
         } else {
             // First instruction
             extendedAddr <<= 12;
@@ -38,6 +41,9 @@ namespace gbaemu
         info.additionalProgCyclesN = 1;
         info.additionalProgCyclesS = 1;
 
+        // This is a branch instruction so we need to consider self branches!
+        info.forceBranch = true;
+
         return info;
     }
 
@@ -53,6 +59,9 @@ namespace gbaemu
             // If branch executed: 2S+1N
             info.additionalProgCyclesN = 1;
             info.additionalProgCyclesS = 1;
+
+            // This is a branch instruction so we need to consider self branches!
+            info.forceBranch = true;
         }
 
         return info;
@@ -412,6 +421,9 @@ namespace gbaemu
                 state.accessReg(regs::PC_OFFSET) = rsValue & ~1;
                 info.additionalProgCyclesN = 1;
                 info.additionalProgCyclesS = 1;
+
+                // This is a branch instruction so we need to consider self branches!
+                info.forceBranch = true;
 
                 break;
             }
