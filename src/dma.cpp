@@ -20,14 +20,36 @@ namespace gbaemu
                 }
                 break;
 
+            case REPEAT: {
+                if (checkForUserAbort()) {
+                    break;
+                }
+
+                //TODO reload only after condition is satisfied???
+                //TODO is the src address kept?
+
+                if (dstCnt == INCREMENT_RELOAD) {
+                    destAddr = le(regs->destAddr);
+                }
+
+                fetchCount();
+
+                state = WAITING_PAUSED;
+                break;
+            }
+
             case WAITING_PAUSED: {
-                //TODO check for abort
+                if (checkForUserAbort()) {
+                    break;
+                }
                 state = conditionSatisfied() ? STARTED : WAITING_PAUSED;
                 break;
             }
 
             case STARTED: {
-                //TODO check for abort!
+                if (checkForUserAbort()) {
+                    break;
+                }
                 state = SEQ_COPY;
 
                 if (width32Bit) {
@@ -47,7 +69,9 @@ namespace gbaemu
             }
 
             case SEQ_COPY: {
-                //TODO check for abort!
+                if (checkForUserAbort()) {
+                    break;
+                }
 
                 if (count == 0) {
                     state = DONE;
@@ -70,8 +94,7 @@ namespace gbaemu
 
             case DONE: {
                 if (repeat) {
-                    //TODO check for abort by user, but how does he signal an abort??? Can we just go back to IDLE and parse everything again? (and dont clear the enable bit)
-                    state = STARTED;
+                    state = REPEAT;
                 } else {
                     // return to idle state
                     state = IDLE;
@@ -92,9 +115,19 @@ namespace gbaemu
         return info;
     }
 
+    bool DMA::checkForUserAbort()
+    { // Still enabled? else go back to IDLE
+        if ((le(regs->cntReg) & DMA_CNT_REG_EN_MASK) == 0) {
+            state = IDLE;
+            return true;
+        }
+        return false;
+    }
+
     void DMA::updateAddr(uint32_t &addr, AddrCntType updateKind) const
     {
         switch (updateKind) {
+            case INCREMENT_RELOAD:
             case INCREMENT:
                 addr += width32Bit ? 4 : 2;
                 break;
@@ -103,10 +136,6 @@ namespace gbaemu
                 break;
             case FIXED:
                 // Nothing to do here
-                break;
-            case INCREMENT_RELOAD:
-                //TODO what are you???
-                std::cout << "ERROR: DMA increment_reload: not yet supported" << std::endl;
                 break;
         }
     }
@@ -129,34 +158,41 @@ namespace gbaemu
             // Mask out ignored bits
             srcAddr = le(regs->srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);
             destAddr = le(regs->destAddr) & (channel == DMA3 ? 0xFFFFFFF : 0x07FFFFFF);
-            count = le(regs->count) & (channel == DMA3 ? 0x0FFFF : 0x3FFF);
-            // 0 is used for the max value possible
-            count = count == 0 ? (channel == DMA3 ? 0x10000 : 0x4000) : count;
+            fetchCount();
         }
 
         return enable;
     }
 
+    void DMA::fetchCount()
+    {
+        count = le(regs->count) & (channel == DMA3 ? 0x0FFFF : 0x3FFF);
+        // 0 is used for the max value possible
+        count = count == 0 ? (channel == DMA3 ? 0x10000 : 0x4000) : count;
+    }
+
     bool DMA::conditionSatisfied() const
     {
+        uint16_t dispstat = memory.read16(0x04000004, nullptr);
+        bool vBlank = dispstat & 1;
+        bool hBlank = dispstat & 2;
+
         switch (condition) {
             case NO_COND:
                 // Nothing to do here
                 break;
             case WAIT_VBLANK:
-                //TODO find out what to do
-                std::cout << "ERROR: DMA timing: vblank not yet supported" << std::endl;
-                break;
+                // Wait for VBLANK
+                return vBlank;
             case WAIT_HBLANK:
-                //TODO find out what to do
-                std::cout << "ERROR: DMA timing: hblank not yet supported" << std::endl;
-                break;
+                return hBlank;
             case SPECIAL:
                 //TODO find out what to do
                 // The 'Special' setting (Start Timing=3) depends on the DMA channel: DMA0=Prohibited, DMA1/DMA2=Sound FIFO, DMA3=Video Capture
                 std::cout << "ERROR: DMA timing: special not yet supported" << std::endl;
                 break;
         }
+
         return true;
     }
 

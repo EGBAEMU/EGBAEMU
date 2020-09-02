@@ -43,6 +43,7 @@ namespace gbaemu
         enum DMAState {
             IDLE,
             STARTED,
+            REPEAT,
             WAITING_PAUSED,
             SEQ_COPY,
             DONE
@@ -108,6 +109,8 @@ namespace gbaemu
         bool extractRegValues();
         void updateAddr(uint32_t &addr, AddrCntType updateKind) const;
         bool conditionSatisfied() const;
+        void fetchCount();
+        bool checkForUserAbort();
     };
 
 } // namespace gbaemu
