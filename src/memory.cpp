@@ -165,10 +165,6 @@ namespace gbaemu
             address_range.realMin = std::min(address_range.realMin, (void *)dst);
             address_range.realMax = std::max(address_range.realMax, (void *)dst);
 
-            //std::cout << std::hex << "writing to " << addr << " ~ " << (void *)dst << "\n";
-
-            std::cout << std::hex << address_range.virtMax << " " << address_range.virtMin << "\n";
-
             std::cout << std::hex << "virtual range: " << address_range.virtMax - address_range.virtMin <<
                 "    real range: " << (uint64_t)address_range.realMax - (uint64_t)address_range.realMin << "\n";
         }
