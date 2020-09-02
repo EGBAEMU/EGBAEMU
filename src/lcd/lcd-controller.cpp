@@ -194,26 +194,12 @@ namespace gbaemu::lcd {
         Memory::MemoryRegion memReg;
         const uint16_t *srcPixels = reinterpret_cast<const uint16_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET, nullptr, memReg));
 
-        uint32_t pixelsNotBlack = 0;
-        uint32_t pixelsTotal = 0;
-
         for (int32_t y = 0; y < 160; ++y) {
             for (int32_t x = 0; x < 240; ++x) {
                 uint16_t color = srcPixels[y * 240 + x];
-
-                ++pixelsTotal;
-                if (color)
-                    ++pixelsNotBlack;
-
-                uint8_t r = color & 0x1F;
-                uint8_t g = (color >> 5) & 0x1F;
-                uint8_t b = (color >> 10) & 0x1F;
-
                 pixels[y * stride + x] = LCDColorPalette::toR8G8B8(color);
             }
         }
-
-        std::cout << std::dec << pixelsNotBlack << '/' << pixelsTotal << " pixels not black\n";
     }
 
     void Background::renderBG4(LCDColorPalette& palette, Memory& memory) {

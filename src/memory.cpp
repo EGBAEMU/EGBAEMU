@@ -152,22 +152,6 @@ namespace gbaemu
             dst[0] = value & 0x0FF;
             dst[1] = (value >> 8) & 0x0FF;
         }
-
-        static struct {
-            uint32_t virtMin = 0xFFFFFFFF, virtMax = 0;
-            void *realMin = (void *)0xFFFFFFFFFFFFFFFF, *realMax = 0;
-        } address_range;
-
-        if (memReg == VRAM) {
-            address_range.virtMin = std::min(address_range.virtMin, addr);
-            address_range.virtMax = std::max(address_range.virtMax, addr);
-
-            address_range.realMin = std::min(address_range.realMin, (void *)dst);
-            address_range.realMax = std::max(address_range.realMax, (void *)dst);
-
-            std::cout << std::hex << "virtual range: " << address_range.virtMax - address_range.virtMin <<
-                "    real range: " << (uint64_t)address_range.realMax - (uint64_t)address_range.realMin << "\n";
-        }
     }
 
     void Memory::write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo)
