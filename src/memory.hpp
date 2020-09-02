@@ -36,25 +36,19 @@ namespace gbaemu
       10000000-FFFFFFFF   Not used (upper 4bits of address bus unused)
     */
 #define GBA_ALLOC_MEM_REG(x) new uint8_t[x##_LIMIT - x##_OFFSET + 1]
-#define GBA_MEM_CLEAR(arr, x) std::fill_n(arr, x##_LIMIT - x##_OFFSET, 0)
+#define GBA_MEM_CLEAR(arr, x) std::fill_n(arr, x##_LIMIT - x##_OFFSET + 1, 0)
 
     class Memory
     {
-      private:
-        uint8_t *bios;
-        uint8_t *wram;
-        uint8_t *iwram;
-        uint8_t *io_regs;
-        uint8_t *bg_obj_ram;
-        uint8_t *vram;
-        uint8_t *oam;
-
-        uint8_t *ext_sram = nullptr;
-        uint8_t *rom = nullptr;
-        size_t origRomSize = 0;
-        size_t romSize = 0;
 
       public:
+        enum BiosReadState : uint8_t {
+            BIOS_AFTER_STARTUP = 0,
+            BIOS_AFTER_SWI,
+            BIOS_DURING_IRQ,
+            BIOS_AFTER_IRQ
+        };
+
         enum MemoryRegion : uint8_t {
             BIOS = 0x00,
             WRAM = 0x02,
@@ -85,13 +79,15 @@ namespace gbaemu
             EXT_ROM_OFFSET = 0x08000000,
             EXT_SRAM_OFFSET = 0x0E000000
         };
+
         enum MemoryRegionLimit : uint32_t {
             BIOS_LIMIT = 0x00003FFF,
             WRAM_LIMIT = 0x0203FFFF,
             IWRAM_LIMIT = 0x03007FFF,
             IO_REGS_LIMIT = 0x040003FE,
             BG_OBJ_RAM_LIMIT = 0x050003FF,
-            VRAM_LIMIT = 0x06017FFF,
+            VRAM_LIMIT = 0x06017FFF, // unsafe to use as mask!
+            VRAM_LIMIT_MASK = 0x0601FFFF,
             OAM_LIMIT = 0x070003FF,
             EXT_ROM1_LIMIT = 0x09FFFFFF,
             EXT_ROM2_LIMIT = 0x0BFFFFFF,
@@ -112,7 +108,31 @@ namespace gbaemu
       static const uint32_t BIOS_IRQ_HANDLER_OFFSET = 0;
 
       private:
-        static constexpr uint32_t backupSizes[5]{
+        //uint8_t *bios;
+        uint8_t *wram;
+        uint8_t *iwram;
+        uint8_t *io_regs;
+        uint8_t *bg_obj_ram;
+        uint8_t *vram;
+        uint8_t *oam;
+
+        uint8_t *ext_sram = nullptr;
+        uint8_t *rom = nullptr;
+        size_t origRomSize = 0;
+        size_t romSize = 0;
+
+        static const constexpr uint8_t BIOS_READ_AFTER_STARTUP[] = {0x00, 0xF0, 0x29, 0xE1};
+        static const constexpr uint8_t BIOS_READ_AFTER_SWI[] = {0x04, 0x20, 0xA0, 0xE3};
+        static const constexpr uint8_t BIOS_READ_DURING_IRQ[] = {0x04, 0xF0, 0x5E, 0xE2};
+        static const constexpr uint8_t BIOS_READ_AFTER_IRQ[] = {0x02, 0xC0, 0x5E, 0xE5};
+
+        static const constexpr uint8_t *const BIOS_READ[] = {
+            BIOS_READ_AFTER_STARTUP,
+            BIOS_READ_AFTER_SWI,
+            BIOS_READ_DURING_IRQ,
+            BIOS_READ_AFTER_IRQ};
+
+        static const constexpr uint32_t backupSizes[] = {
             //TODO were do we know the exact size from???
             /*EEPROM_V_SIZE = */ 8 << 10,    // 512 bytes or 8 KiB
             /*SRAM_V_SIZE = */ 32 << 10,     // 32 KiB
@@ -129,13 +149,14 @@ namespace gbaemu
         };
 
         BackupID backupType;
+        BiosReadState biosReadState;
 
       public:
         //TODO are there conventions about inital memory values?
         Memory()
         {
-            bios = GBA_ALLOC_MEM_REG(BIOS);
-            GBA_MEM_CLEAR(bios, BIOS);
+            //bios = GBA_ALLOC_MEM_REG(BIOS);
+            //GBA_MEM_CLEAR(bios, BIOS);
             wram = GBA_ALLOC_MEM_REG(WRAM);
             GBA_MEM_CLEAR(wram, WRAM);
             iwram = GBA_ALLOC_MEM_REG(IWRAM);
@@ -154,7 +175,7 @@ namespace gbaemu
 
         ~Memory()
         {
-            delete[] bios;
+            //delete[] bios;
             delete[] wram;
             delete[] iwram;
             delete[] io_regs;
@@ -166,7 +187,7 @@ namespace gbaemu
             if (romSize)
                 delete[] rom;
 
-            bios = nullptr;
+            //bios = nullptr;
             wram = nullptr;
             iwram = nullptr;
             io_regs = nullptr;
@@ -180,13 +201,13 @@ namespace gbaemu
         Memory(const Memory &) = delete;
         Memory &operator=(const Memory &) = delete;
 
-        //TODO this would be too simple to work :D
         void loadROM(const uint8_t *rom, size_t romSize)
         {
             appendBiosCodeToROM(rom, romSize);
 
             // TODO reset stats
             scanROMForBackupID();
+            biosReadState = BIOS_AFTER_STARTUP;
         }
 
         size_t getRomSize() const
@@ -194,12 +215,12 @@ namespace gbaemu
             return romSize;
         }
 
-        uint8_t read8(uint32_t addr, InstructionExecutionInfo *execInfo) const;
-        uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo) const;
-        uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo) const;
-        void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo);
-        void write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo);
-        void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo);
+        uint8_t read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false) const;
+        uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false) const;
+        uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false) const;
+        void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq = false);
+        void write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo, bool seq = false);
+        void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo, bool seq = false);
 
         // This is needed to handle memory mirroring
         const uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const;
@@ -212,6 +233,10 @@ namespace gbaemu
         uint32_t getBiosBaseAddr() const
         {
             return EXT_ROM_OFFSET + origRomSize;
+        }
+        void setBiosReadState(BiosReadState readState)
+        {
+            biosReadState = readState;
         }
 
       private:
