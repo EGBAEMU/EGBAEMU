@@ -19,10 +19,10 @@ namespace gbaemu
         return ((addr >> 1) & 0xFFFF) | ((((addr + 2) >> 1) & 0xFFFF) << 16);
     }
 
-    uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo *execInfo) const
+    uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq) const
     {
         if (execInfo != nullptr) {
-            execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint8_t));
+            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(uint8_t)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint8_t));
         }
 
         MemoryRegion memReg;
@@ -35,10 +35,10 @@ namespace gbaemu
         }
     }
 
-    uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo *execInfo) const
+    uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq) const
     {
         if (execInfo != nullptr) {
-            execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint16_t));
+            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(uint16_t)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint16_t));
         }
 
         MemoryRegion memReg;
@@ -52,14 +52,14 @@ namespace gbaemu
         }
     }
 
-    uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo) const
+    uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq) const
     {
         if (addr & 0x03) {
             std::cout << "WARNING: word read on non word aligned address: 0x" << std::hex << addr << '!' << std::endl;
         }
 
         if (execInfo != nullptr) {
-            execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint32_t));
+            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(uint32_t)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint32_t));
         }
 
         MemoryRegion memReg;
@@ -75,10 +75,10 @@ namespace gbaemu
         }
     }
 
-    void Memory::write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo)
+    void Memory::write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq)
     {
         if (execInfo != nullptr) {
-            execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
+            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(value)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
         }
 
         MemoryRegion memReg;
@@ -134,10 +134,10 @@ namespace gbaemu
         }
     }
 
-    void Memory::write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo)
+    void Memory::write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo, bool seq)
     {
         if (execInfo != nullptr) {
-            execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
+            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(value)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
         }
 
         MemoryRegion memReg;
@@ -174,14 +174,14 @@ namespace gbaemu
         }
     }
 
-    void Memory::write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo)
+    void Memory::write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo, bool seq)
     {
         if (addr & 0x03) {
             std::cout << "WARNING: word write on non word aligned address: 0x" << std::hex << addr << '!' << std::endl;
         }
 
         if (execInfo != nullptr) {
-            execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
+            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(value)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
         }
 
         MemoryRegion memReg;

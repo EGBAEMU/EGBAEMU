@@ -36,7 +36,7 @@ namespace gbaemu
       10000000-FFFFFFFF   Not used (upper 4bits of address bus unused)
     */
 #define GBA_ALLOC_MEM_REG(x) new uint8_t[x##_LIMIT - x##_OFFSET + 1]
-#define GBA_MEM_CLEAR(arr, x) std::fill_n(arr, x##_LIMIT - x##_OFFSET, 0)
+#define GBA_MEM_CLEAR(arr, x) std::fill_n(arr, x##_LIMIT - x##_OFFSET + 1, 0)
 
     class Memory
     {
@@ -79,6 +79,7 @@ namespace gbaemu
             EXT_ROM_OFFSET = 0x08000000,
             EXT_SRAM_OFFSET = 0x0E000000
         };
+
         enum MemoryRegionLimit : uint32_t {
             BIOS_LIMIT = 0x00003FFF,
             WRAM_LIMIT = 0x0203FFFF,
@@ -209,12 +210,12 @@ namespace gbaemu
             return romSize;
         }
 
-        uint8_t read8(uint32_t addr, InstructionExecutionInfo *execInfo) const;
-        uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo) const;
-        uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo) const;
-        void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo);
-        void write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo);
-        void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo);
+        uint8_t read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false) const;
+        uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false) const;
+        uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false) const;
+        void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq = false);
+        void write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo, bool seq = false);
+        void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo, bool seq = false);
 
         // This is needed to handle memory mirroring
         const uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const;
@@ -224,7 +225,8 @@ namespace gbaemu
         uint8_t nonSeqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
         uint8_t seqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
 
-        void setBiosReadState(BiosReadState readState) {
+        void setBiosReadState(BiosReadState readState)
+        {
             biosReadState = readState;
         }
 
