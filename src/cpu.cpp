@@ -239,10 +239,10 @@ namespace gbaemu
                                 */
                             uint8_t index = armInst.params.software_interrupt.comment >> 16;
                             if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
-                                std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << std::endl;
+                                std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
                                 info = swi::biosCallHandler[index](&state);
                             } else {
-                                std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << std::endl;
+                                std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
                             }
                             break;
                         }
@@ -321,10 +321,10 @@ namespace gbaemu
                                 */
                         uint8_t index = thumbInst.params.software_interrupt.comment;
                         if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
-                            std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << std::endl;
+                            std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
                             info = swi::biosCallHandler[index](&state);
                         } else {
-                            std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << std::endl;
+                            std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
                         }
                         break;
                     }

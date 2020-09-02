@@ -24,6 +24,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: softReset not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -31,6 +32,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: registerRamReset not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -38,6 +40,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: halt not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -45,6 +48,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: stop not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -52,6 +56,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: intrWait not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -59,6 +64,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: vBankIntrWait not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -93,6 +99,7 @@ namespace gbaemu
         }
         InstructionExecutionInfo div(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             auto currentRegs = state->getCurrentRegs();
 
             int32_t numerator = static_cast<int32_t>(*currentRegs[regs::R0_OFFSET]);
@@ -102,6 +109,7 @@ namespace gbaemu
 
         InstructionExecutionInfo divArm(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             auto currentRegs = state->getCurrentRegs();
 
             int32_t numerator = static_cast<int32_t>(*currentRegs[regs::R1_OFFSET]);
@@ -111,6 +119,7 @@ namespace gbaemu
 
         InstructionExecutionInfo sqrt(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             uint32_t &r0 = state->accessReg(regs::R0_OFFSET);
             r0 = static_cast<int32_t>(std::sqrt(r0));
 
@@ -138,6 +147,7 @@ namespace gbaemu
         */
         InstructionExecutionInfo arcTan(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             uint32_t &r0 = state->accessReg(regs::R0_OFFSET);
             double convertedFP = convertFromQ1_14ToFP(static_cast<uint16_t>(r0 & 0x0000FFFF));
             convertedFP = std::atan(convertedFP);
@@ -175,6 +185,7 @@ namespace gbaemu
         */
         InstructionExecutionInfo arcTan2(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             uint32_t &r0 = state->accessReg(regs::R0_OFFSET);
             double x = convertFromQ1_14ToFP(static_cast<uint16_t>(r0 & 0x0000FFFF));
             double y = convertFromQ1_14ToFP(static_cast<uint16_t>(state->accessReg(regs::R1_OFFSET) & 0x0000FFFF));
@@ -206,6 +217,7 @@ namespace gbaemu
         */
         InstructionExecutionInfo cpuFastSet(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
 
@@ -259,6 +271,7 @@ namespace gbaemu
         */
         InstructionExecutionInfo cpuSet(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = state->getCurrentRegs();
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
@@ -310,6 +323,7 @@ namespace gbaemu
         */
         InstructionExecutionInfo biosChecksum(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             state->accessReg(regs::R0_OFFSET) = 0x0BAAE18F;
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
@@ -342,6 +356,7 @@ namespace gbaemu
         */
         InstructionExecutionInfo bgAffineSet(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             //TODO do those read & writes count as non sequential?
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
@@ -408,6 +423,7 @@ namespace gbaemu
         */
         InstructionExecutionInfo objAffineSet(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = state->getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
@@ -457,6 +473,7 @@ namespace gbaemu
         */
         InstructionExecutionInfo bitUnPack(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = state->getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
@@ -545,6 +562,7 @@ namespace gbaemu
         //TODO is the difference between writing in units of 8 bit vs 16 bit relevant?
         static InstructionExecutionInfo _LZ77UnComp(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = state->getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
@@ -639,6 +657,7 @@ namespace gbaemu
         */
         InstructionExecutionInfo huffUnComp(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = state->getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
@@ -757,6 +776,7 @@ namespace gbaemu
         //TODO is the difference between writing in units of 8 bit vs 16 bit relevant?
         static InstructionExecutionInfo _rlUnComp(CPUState *state)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = state->getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
@@ -833,6 +853,7 @@ namespace gbaemu
         */
         static InstructionExecutionInfo _diffUnFilter(CPUState *state, bool bits8)
         {
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = state->getCurrentRegs();
             uint32_t srcAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
@@ -880,6 +901,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: soundBiasChange not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -887,6 +909,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: soundDriverInit not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -894,6 +917,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: soundDriverMode not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -901,6 +925,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: soundDirverMain not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -908,6 +933,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: soundDirverVSync not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -915,6 +941,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: soundChannelClear not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -922,6 +949,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: MIDIKey2Freq not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -929,6 +957,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: musicPlayerOpen not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -936,6 +965,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: musicPlayerStart not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -943,6 +973,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: musicPlayerStop not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -950,6 +981,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: musicPlayerContinue not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -957,6 +989,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: musicPlayerFadeOut not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -964,6 +997,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: multiBoot not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -971,6 +1005,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: hardReset not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -978,6 +1013,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: customHalt not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -985,6 +1021,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: sourdDriverVSyncOff not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -992,6 +1029,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: soundDriverVSyncOn not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
@@ -999,6 +1037,7 @@ namespace gbaemu
         {
             //TODO implement
             std::cout << "WARNING: getJumpList not yet implemented!" << std::endl;
+            state->memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
         }
