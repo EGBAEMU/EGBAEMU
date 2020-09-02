@@ -7,6 +7,19 @@
 
 namespace gbaemu
 {
+    void Memory::appendBiosCodeToROM(const uint8_t *rom, size_t romSize)
+    {
+        if (this->romSize) {
+            delete[] this->rom;
+        }
+        uint32_t biosCodeSize = sizeof(customBiosCode) / sizeof(customBiosCode[0]);
+        this->origRomSize = romSize;
+        this->romSize = romSize + biosCodeSize;
+        this->rom = new uint8_t[this->romSize];
+        std::copy_n(rom, origRomSize, this->rom);
+        std::copy_n(customBiosCode, biosCodeSize, this->rom + origRomSize);
+    }
+
     uint32_t Memory::readOutOfROM(uint32_t addr) const
     {
         /*
