@@ -240,15 +240,36 @@ namespace gbaemu::lcd {
 
     class LCDisplay {
     public:
-        uint32_t targetX, targetY;
-    public:
-        Canvas<uint32_t>& canvas;
+        MemoryCanvas<uint32_t> canvas;
+        int32_t targetX, targetY;
+        Canvas<uint32_t>& target;
 
-        LCDisplay(uint32_t x, uint32_t y, Canvas<uint32_t>& canv):
-            targetX(x), targetY(y), canvas(canv) { }
+        LCDisplay(uint32_t x, uint32_t y, Canvas<uint32_t>& targ):
+            canvas(DIMENSIONS::WIDTH, DIMENSIONS::HEIGHT), targetX(x), targetY(y), target(targ) { }
 
         int32_t stride() const {
             return canvas.getWidth();
+        }
+
+        void drawToTarget(int32_t scale = 1) {
+            target.beginDraw();
+
+            auto stride = target.getWidth();
+            auto dest = target.pixels();
+
+            auto src = canvas.pixels();
+            auto srcStride = canvas.getWidth();
+
+            for (int32_t y = 0; y < canvas.getHeight(); ++y)
+                for (int32_t x = 0; x < canvas.getWidth(); ++x) {
+                    auto color = src[y * srcStride + x];
+
+                    for (int32_t iy = 0; iy < scale; ++iy)
+                        for (int32_t ix = 0; ix < scale; ++ix)
+                            dest[(y * scale + iy + targetY) * stride + (x * scale + ix + targetX)] = color;
+                }
+
+            target.endDraw();
         }
     };
 
@@ -277,6 +298,7 @@ namespace gbaemu::lcd {
         void renderBG0(LCDColorPalette& palette);
         void renderBG3(Memory& memory);
         void renderBG4(LCDColorPalette& palette, Memory& memory);
+        void renderBG5(LCDColorPalette& palette, Memory& memory);
         void drawToDisplay(LCDisplay& display);
     };
 

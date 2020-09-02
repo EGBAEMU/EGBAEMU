@@ -231,6 +231,27 @@ namespace gbaemu::lcd {
         }
     }
 
+    void Background::renderBG5(LCDColorPalette& palette, Memory& memory) {
+        auto pixels = canvas.pixels();
+        auto stride = canvas.getWidth();
+        Memory::MemoryRegion memReg;
+        uint32_t fbOff;
+
+        if (useOtherFrameBuffer)
+            fbOff = 0xA000;
+        else
+            fbOff = 0;
+        
+        const uint16_t *srcPixels = reinterpret_cast<const uint16_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET + fbOff, nullptr, memReg));
+
+        for (int32_t y = 0; y < 128; ++y) {
+            for (int32_t x = 0; x < 160; ++x) {
+                uint16_t color = srcPixels[y * 160 + x];
+                pixels[y * stride + x] = color;
+            }
+        }
+    }
+
     void Background::drawToDisplay(LCDisplay& display) {
         auto xFrom = std::max(0, xOff);
         auto xTo = std::min(DIMENSIONS::WIDTH, xOff + canvas.getWidth());
@@ -320,11 +341,17 @@ namespace gbaemu::lcd {
             backgrounds[2].loadSettings(4, 2, regs, memory);
             backgrounds[2].renderBG4(palette, memory);
             backgrounds[2].drawToDisplay(display);
+        } else if (bgMode == 5) {
+            backgrounds[2].loadSettings(5, 2, regs, memory);
+            backgrounds[2].renderBG5(palette, memory);
+            backgrounds[2].drawToDisplay(display);
         } else {
             std::cout << "unsupported bg mode " << bgMode << "\n";
         }
 
         display.canvas.endDraw();
+        display.drawToTarget(2);
+
         blendBackgrounds();
     }
 

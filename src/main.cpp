@@ -40,7 +40,7 @@ int main(int argc, char **argv)
     gbaemu::lcd::Window window(1280, 720);
     auto canv = window.getCanvas();
     canv.beginDraw();
-    canv.clear(0xFFFF0000);
+    canv.clear(0xFF365e7a);
     canv.endDraw();
 
     /* read gba file */
