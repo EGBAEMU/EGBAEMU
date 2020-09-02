@@ -91,7 +91,7 @@ namespace gbaemu
             }
         } else {
 
-            //TODO is this legide?
+            //TODO is this legit?
             bool bitMapMode = (vram[0] & lcd::DISPCTL::BG_MODE_MASK) >= 4;
 
             switch (memReg) {
@@ -237,7 +237,7 @@ namespace gbaemu
 
         //TODO handle memory mirroring!!!
         switch (memReg) {
-            PATCH_MEM_ADDR(addr, BIOS);
+            //PATCH_MEM_ADDR(addr, BIOS);
             PATCH_MEM_ADDR(addr, WRAM);
             PATCH_MEM_ADDR(addr, IWRAM);
             PATCH_MEM_ADDR(addr, IO_REGS);
@@ -295,6 +295,9 @@ namespace gbaemu
                 }
                 return romOffset + EXT_ROM_OFFSET;
             }
+
+            default:
+                break;
         }
 
         return addr;
@@ -316,7 +319,7 @@ namespace gbaemu
         addr = normalizeAddress(addr, memReg);
 
         switch (memReg) {
-            PATCH_MEM_REG(addr, BIOS, bios);
+            //PATCH_MEM_REG(addr, BIOS, bios);
             PATCH_MEM_REG(addr, WRAM, wram);
             PATCH_MEM_REG(addr, IWRAM, iwram);
             PATCH_MEM_REG(addr, IO_REGS, io_regs);
@@ -337,6 +340,8 @@ namespace gbaemu
             case EXT_ROM2:
             case EXT_ROM3_:
                 PATCH_MEM_REG_(addr, EXT_ROM3, EXT_ROM, rom);
+            case BIOS:
+                return BIOS_READ[biosReadState];
         }
 
         // invalid address!
@@ -356,7 +361,7 @@ namespace gbaemu
         addr = normalizeAddress(addr, memReg);
 
         switch (memReg) {
-            PATCH_MEM_REG(addr, BIOS, bios);
+            //PATCH_MEM_REG(addr, BIOS, bios);
             PATCH_MEM_REG(addr, WRAM, wram);
             PATCH_MEM_REG(addr, IWRAM, iwram);
             PATCH_MEM_REG(addr, IO_REGS, io_regs);
@@ -377,6 +382,9 @@ namespace gbaemu
             case EXT_ROM2:
             case EXT_ROM3_:
                 PATCH_MEM_REG_(addr, EXT_ROM3, EXT_ROM, rom);
+            case BIOS:
+                // Read only!
+                return wasteMem;
         }
 
         // invalid address!

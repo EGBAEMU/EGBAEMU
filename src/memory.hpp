@@ -40,20 +40,15 @@ namespace gbaemu
 
     class Memory
     {
-      private:
-        uint8_t *bios;
-        uint8_t *wram;
-        uint8_t *iwram;
-        uint8_t *io_regs;
-        uint8_t *bg_obj_ram;
-        uint8_t *vram;
-        uint8_t *oam;
-
-        uint8_t *ext_sram = nullptr;
-        uint8_t *rom = nullptr;
-        size_t romSize = 0;
 
       public:
+        enum BiosReadState : uint8_t {
+            BIOS_AFTER_STARTUP = 0,
+            BIOS_AFTER_SWI,
+            BIOS_DURING_IRQ,
+            BIOS_AFTER_IRQ
+        };
+
         enum MemoryRegion : uint8_t {
             BIOS = 0x00,
             WRAM = 0x02,
@@ -108,7 +103,30 @@ namespace gbaemu
         };
 
       private:
-        static constexpr uint32_t backupSizes[5]{
+        //uint8_t *bios;
+        uint8_t *wram;
+        uint8_t *iwram;
+        uint8_t *io_regs;
+        uint8_t *bg_obj_ram;
+        uint8_t *vram;
+        uint8_t *oam;
+
+        uint8_t *ext_sram = nullptr;
+        uint8_t *rom = nullptr;
+        size_t romSize = 0;
+
+        static const constexpr uint8_t BIOS_READ_AFTER_STARTUP[] = {0x00, 0xF0, 0x29, 0xE1};
+        static const constexpr uint8_t BIOS_READ_AFTER_SWI[] = {0x04, 0x20, 0xA0, 0xE3};
+        static const constexpr uint8_t BIOS_READ_DURING_IRQ[] = {0x04, 0xF0, 0x5E, 0xE2};
+        static const constexpr uint8_t BIOS_READ_AFTER_IRQ[] = {0x02, 0xC0, 0x5E, 0xE5};
+
+        static const constexpr uint8_t *const BIOS_READ[] = {
+            BIOS_READ_AFTER_STARTUP,
+            BIOS_READ_AFTER_SWI,
+            BIOS_READ_DURING_IRQ,
+            BIOS_READ_AFTER_IRQ};
+
+        static const constexpr uint32_t backupSizes[] = {
             //TODO were do we know the exact size from???
             /*EEPROM_V_SIZE = */ 8 << 10,    // 512 bytes or 8 KiB
             /*SRAM_V_SIZE = */ 32 << 10,     // 32 KiB
@@ -119,13 +137,14 @@ namespace gbaemu
         };
 
         BackupID backupType;
+        BiosReadState biosReadState;
 
       public:
         //TODO are there conventions about inital memory values?
         Memory()
         {
-            bios = GBA_ALLOC_MEM_REG(BIOS);
-            GBA_MEM_CLEAR(bios, BIOS);
+            //bios = GBA_ALLOC_MEM_REG(BIOS);
+            //GBA_MEM_CLEAR(bios, BIOS);
             wram = GBA_ALLOC_MEM_REG(WRAM);
             GBA_MEM_CLEAR(wram, WRAM);
             iwram = GBA_ALLOC_MEM_REG(IWRAM);
@@ -144,7 +163,7 @@ namespace gbaemu
 
         ~Memory()
         {
-            delete[] bios;
+            //delete[] bios;
             delete[] wram;
             delete[] iwram;
             delete[] io_regs;
@@ -156,7 +175,7 @@ namespace gbaemu
             if (romSize)
                 delete[] rom;
 
-            bios = nullptr;
+            //bios = nullptr;
             wram = nullptr;
             iwram = nullptr;
             io_regs = nullptr;
@@ -170,7 +189,6 @@ namespace gbaemu
         Memory(const Memory &) = delete;
         Memory &operator=(const Memory &) = delete;
 
-        //TODO this would be too simple to work :D
         void loadROM(uint8_t *rom, size_t romSize)
         {
             if (this->romSize) {
@@ -182,6 +200,7 @@ namespace gbaemu
 
             // TODO reset stats
             scanROMForBackupID();
+            biosReadState = BIOS_AFTER_STARTUP;
         }
 
         size_t getRomSize() const
@@ -203,6 +222,10 @@ namespace gbaemu
 
         uint8_t nonSeqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
         uint8_t seqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
+
+        void setBiosReadState(BiosReadState readState) {
+            biosReadState = readState;
+        }
 
       private:
         void scanROMForBackupID();
