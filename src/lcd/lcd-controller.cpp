@@ -194,21 +194,26 @@ namespace gbaemu::lcd {
         Memory::MemoryRegion memReg;
         const uint16_t *srcPixels = reinterpret_cast<const uint16_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET, nullptr, memReg));
 
+        uint32_t pixelsNotBlack = 0;
+        uint32_t pixelsTotal = 0;
+
         for (int32_t y = 0; y < 160; ++y) {
             for (int32_t x = 0; x < 240; ++x) {
                 uint16_t color = srcPixels[y * 240 + x];
-                /* TODO: endianess? */
-                color = ((color & 0xFF) << 16) | ((color & 0xFF00) >> 16);
 
-                /* convert to R8G8B8 */
-                uint32_t r = static_cast<uint32_t>(color & 0x1F) << 3;
-                uint32_t g = static_cast<uint32_t>((color >> 5) & 0x1F) << 3;
-                uint32_t b = static_cast<uint32_t>((color >> 10) & 0x1F) << 3;
-                uint32_t a8r8g8b8 = 0xFF000000 | (r << 16) | (g << 8) | b;
+                ++pixelsTotal;
+                if (color)
+                    ++pixelsNotBlack;
 
-                pixels[y * stride + x] = a8r8g8b8;
+                uint8_t r = color & 0x1F;
+                uint8_t g = (color >> 5) & 0x1F;
+                uint8_t b = (color >> 10) & 0x1F;
+
+                pixels[y * stride + x] = LCDColorPalette::toR8G8B8(color);
             }
         }
+
+        std::cout << std::dec << pixelsNotBlack << '/' << pixelsTotal << " pixels not black\n";
     }
 
     void Background::renderBG4(LCDColorPalette& palette, Memory& memory) {
@@ -409,7 +414,7 @@ namespace gbaemu::lcd {
         }
 
         /* rendering once per h-blank */
-        if (counters.hBlanking && counters.cycle % 1232 == 0) {
+        if (counters.vBlanking && counters.cycle % 1232 == 0) {
             render();
             result = true;
         }

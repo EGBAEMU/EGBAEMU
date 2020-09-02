@@ -142,6 +142,7 @@ namespace gbaemu
 
         MemoryRegion memReg;
         auto dst = resolveAddr(addr, execInfo, memReg);
+
         if (memReg == OUT_OF_ROM) {
             std::cout << "CRITICAL ERROR: trying to write16 ROM + outside of its bounds!" << std::endl;
             if (execInfo != nullptr) {
@@ -150,6 +151,26 @@ namespace gbaemu
         } else {
             dst[0] = value & 0x0FF;
             dst[1] = (value >> 8) & 0x0FF;
+        }
+
+        static struct {
+            uint32_t virtMin = 0xFFFFFFFF, virtMax = 0;
+            void *realMin = (void *)0xFFFFFFFFFFFFFFFF, *realMax = 0;
+        } address_range;
+
+        if (memReg == VRAM) {
+            address_range.virtMin = std::min(address_range.virtMin, addr);
+            address_range.virtMax = std::max(address_range.virtMax, addr);
+
+            address_range.realMin = std::min(address_range.realMin, (void *)dst);
+            address_range.realMax = std::max(address_range.realMax, (void *)dst);
+
+            //std::cout << std::hex << "writing to " << addr << " ~ " << (void *)dst << "\n";
+
+            std::cout << std::hex << address_range.virtMax << " " << address_range.virtMin << "\n";
+
+            std::cout << std::hex << "virtual range: " << address_range.virtMax - address_range.virtMin <<
+                "    real range: " << (uint64_t)address_range.realMax - (uint64_t)address_range.realMin << "\n";
         }
     }
 

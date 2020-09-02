@@ -95,14 +95,15 @@ int main(int argc, char **argv)
     gbaemu::debugger::JumpTrap jumpTrap;
     
     bool stepMode = false;
+    bool doRender = false;
     //THUMB memory mirroring ROM?
     // gbaemu::debugger::AddressTrap bp1(0x08000536, &stepMode);
-    gbaemu::debugger::AddressTrap bp1(0x0800089c, &stepMode);
+    gbaemu::debugger::AddressTrap bp1(0x080002c4, &doRender);
     //gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x08000338, &stepMode);
     gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R7_OFFSET, 0x080005c2, &stepMode);
 
-    charlie.registerTrap(jumpTrap);
-    // charlie.registerTrap(bp1);
+    //charlie.registerTrap(jumpTrap);
+    charlie.registerTrap(bp1);
     //charlie.registerTrap(r12trap);
 
     gbaemu::Keypad keypad(cpu.state.memory);
@@ -116,8 +117,9 @@ int main(int argc, char **argv)
             break;
         }
 
-        if (controller.tick())
+        if (controller.tick()) {
             window.present();
+        }
 
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
@@ -148,12 +150,14 @@ int main(int argc, char **argv)
         //if (false && checkPointReached >= TARGET_CHECKPOINT_CNT) {
             SDL_Event event;
 
+            /*
             if (SDL_PollEvent(&event)) {
                 if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE)
                     break;
 
                gameController.processSDLEvent(event);
             }
+             */
 
             //controller.plotMemory();
             //window.present();
