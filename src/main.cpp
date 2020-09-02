@@ -88,12 +88,12 @@ int main(int argc, char **argv)
     bool doRender = false;
     //THUMB memory mirroring ROM?
     // gbaemu::debugger::AddressTrap bp1(0x08000536, &stepMode);
-    gbaemu::debugger::AddressTrap bp1(0x080002c4, &doRender);
+    gbaemu::debugger::AddressTrap bp1(0x08000264, &stepMode);
     //gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x08000338, &stepMode);
     gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R7_OFFSET, 0x080005c2, &stepMode);
 
     //charlie.registerTrap(jumpTrap);
-    charlie.registerTrap(bp1);
+    //charlie.registerTrap(bp1);
     //charlie.registerTrap(r12trap);
 
     gbaemu::Keypad keypad(cpu.state.memory);

@@ -60,7 +60,8 @@ namespace gbaemu::lcd {
     }
 
     namespace VCOUNT {
-        static const uint32_t CURRENT_SCANLINE_MASK = 0xFF;
+        static const uint16_t CURRENT_SCANLINE_OFFSET = 0;
+        static const uint16_t CURRENT_SCANLINE_MASK = 0xFF;
     }
 
     namespace BGCNT {
@@ -257,6 +258,7 @@ namespace gbaemu::lcd {
         MemoryCanvas<uint32_t> canvas;
         /* settings */
         bool enabled;
+        bool useOtherFrameBuffer;
         bool mosaicEnabled;
         bool colorPalette256;
         uint32_t priority;
@@ -320,6 +322,7 @@ namespace gbaemu::lcd {
         /* renders the current screen to canvas */
         void render();
         void plotMemory();
+        void plotPalette();
         bool tick();
     };
 }
