@@ -75,6 +75,13 @@ namespace gbaemu
     {
         static InstructionExecutionInfo info{0};
 
+        //TODO consider DMA priority
+        //TODO most DMA requests cause the cpu to be paused!
+        dma0.step(true);
+        dma1.step(true);
+        dma2.step(true);
+        dma3.step(true);
+
         // Execute pipeline only after stall is over
         if (info.cycleCount == 0) {
             // TODO: Check for interrupt here
