@@ -144,7 +144,7 @@ namespace gbaemu
 
         if (state.pipeline.decode.lastInstruction.isArmInstruction()) {
             if (state.pipeline.decode.lastInstruction.arm.id == InstructionID::INVALID) {
-                std::cout << "ERROR: trying to execute invalid ARM instruction!" << std::endl;
+                std::cout << "ERROR: trying to execute invalid ARM instruction! PC: " << std::hex << state.getCurrentPC() << std::endl;
             } else {
                 arm::ARMInstruction &armInst = state.pipeline.decode.lastInstruction.arm;
 
@@ -239,6 +239,7 @@ namespace gbaemu
                                 */
                             uint8_t index = armInst.params.software_interrupt.comment >> 16;
                             if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
+                                std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << std::endl;
                                 info = swi::biosCallHandler[index](&state);
                             } else {
                                 std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << std::endl;
@@ -254,7 +255,7 @@ namespace gbaemu
             }
         } else {
             if (state.pipeline.decode.lastInstruction.thumb.id == InstructionID::INVALID) {
-                std::cout << "ERROR: trying to execute invalid THUMB instruction!" << std::endl;
+                std::cout << "ERROR: trying to execute invalid THUMB instruction! PC: " << std::hex << state.getCurrentPC() << std::endl;
             } else {
                 thumb::ThumbInstruction &thumbInst = state.pipeline.decode.lastInstruction.thumb;
 
@@ -320,6 +321,7 @@ namespace gbaemu
                                 */
                         uint8_t index = thumbInst.params.software_interrupt.comment;
                         if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
+                            std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << std::endl;
                             info = swi::biosCallHandler[index](&state);
                         } else {
                             std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << std::endl;
