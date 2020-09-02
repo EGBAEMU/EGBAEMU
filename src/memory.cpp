@@ -91,7 +91,7 @@ namespace gbaemu
             }
         } else {
 
-            //TODO is this legide?
+            //TODO is this legit?
             bool bitMapMode = (vram[0] & lcd::DISPCTL::BG_MODE_MASK) >= 4;
 
             switch (memReg) {

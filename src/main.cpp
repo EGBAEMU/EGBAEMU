@@ -79,7 +79,7 @@ int main(int argc, char **argv)
     cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
     cpu.initPipeline();
 
-    std::cout << "Max legide ROM address: 0x" << std::hex << (gbaemu::Memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize() - 1) << std::endl;
+    std::cout << "Max legit ROM address: 0x" << std::hex << (gbaemu::Memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize() - 1) << std::endl;
 
     gbaemu::debugger::Watchdog charlie;
     gbaemu::debugger::JumpTrap jumpTrap;
