@@ -211,8 +211,11 @@ namespace gbaemu
 
             const auto currentRegs = state->getCurrentRegs();
             //TODO we need to rewrite this code for memory access calculations or calculate it manually!
-            uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET], &info);
-            uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET], &info);
+            Memory::MemoryRegion memReg;
+            //TODO maybe sanity checks for memReg?
+            //TODO what about mirroring?
+            uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET], &info, memReg);
+            uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET], &info, memReg);
             uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
 
             // as we do more than 4 byte accesses this is no more safe and we need to exit now!
@@ -261,8 +264,11 @@ namespace gbaemu
             InstructionExecutionInfo info{0};
 
             //TODO we need to rewrite this code for memory access calculations or calculate it manually!
-            uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET], &info);
-            uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET], &info);
+            Memory::MemoryRegion memReg;
+            //TODO maybe sanity checks for memReg?
+            //TODO what about mirroring?
+            uint8_t *sourceAddr = state->memory.resolveAddr(*currentRegs[regs::R0_OFFSET], &info, memReg);
+            uint8_t *destAddr = state->memory.resolveAddr(*currentRegs[regs::R1_OFFSET], &info, memReg);
             uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
 
             // as we do more than 4 byte accesses this is no more safe and we need to exit now!

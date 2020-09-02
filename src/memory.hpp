@@ -69,7 +69,8 @@ namespace gbaemu
             EXT_ROM3 = 0x0C,
             EXT_ROM3_ = 0x0D,
             EXT_SRAM = 0x0E,
-            EXT_SRAM_ = 0x0F
+            EXT_SRAM_ = 0x0F,
+            OUT_OF_ROM = 0x42 // Virtual memory region to indicate access outside of the ROM!
         };
 
         enum MemoryRegionOffset : uint32_t {
@@ -196,15 +197,16 @@ namespace gbaemu
         void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo);
 
         // This is needed to handle memory mirroring
-        const uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion *memReg = nullptr) const;
-        uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion *memReg = nullptr);
-        uint32_t normalizeAddress(uint32_t addr, MemoryRegion *memReg = nullptr) const;
+        const uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const;
+        uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg);
+        uint32_t normalizeAddress(uint32_t addr, MemoryRegion &memReg) const;
 
         uint8_t nonSeqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
         uint8_t seqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
 
       private:
         void scanROMForBackupID();
+        uint32_t readOutOfROM(uint32_t addr) const;
     };
 } // namespace gbaemu
 

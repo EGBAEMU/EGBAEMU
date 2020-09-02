@@ -7,14 +7,32 @@
 
 namespace gbaemu
 {
+    uint32_t Memory::readOutOfROM(uint32_t addr) const
+    {
+        /*
+        Reading from GamePak ROM when no Cartridge is inserted
+        Because Gamepak uses the same signal-lines for both 16bit data 
+        and for lower 16bit halfword address, the entire gamepak 
+        ROM area is effectively filled by incrementing 16bit values (Address/2 AND FFFFh).
+        */
+        addr = addr & ~3;
+        return ((addr >> 1) & 0xFFFF) | ((((addr + 2) >> 1) & 0xFFFF) << 16);
+    }
+
     uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo *execInfo) const
     {
         if (execInfo != nullptr) {
             execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint8_t));
         }
 
-        const auto src = resolveAddr(addr, execInfo);
-        return src[0];
+        MemoryRegion memReg;
+        const auto src = resolveAddr(addr, execInfo, memReg);
+
+        if (memReg == OUT_OF_ROM) {
+            return readOutOfROM(addr);
+        } else {
+            return src[0];
+        }
     }
 
     uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo *execInfo) const
@@ -23,10 +41,15 @@ namespace gbaemu
             execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint16_t));
         }
 
-        const auto src = resolveAddr(addr, execInfo);
+        MemoryRegion memReg;
 
-        return (static_cast<uint16_t>(src[0]) << 0) |
-               (static_cast<uint16_t>(src[1]) << 8);
+        const auto src = resolveAddr(addr, execInfo, memReg);
+        if (memReg == OUT_OF_ROM) {
+            return readOutOfROM(addr);
+        } else {
+            return (static_cast<uint16_t>(src[0]) << 0) |
+                   (static_cast<uint16_t>(src[1]) << 8);
+        }
     }
 
     uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo) const
@@ -39,12 +62,17 @@ namespace gbaemu
             execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint32_t));
         }
 
-        const auto src = resolveAddr(addr, execInfo);
+        MemoryRegion memReg;
+        const auto src = resolveAddr(addr, execInfo, memReg);
 
-        return (static_cast<uint32_t>(src[0]) << 0) |
-               (static_cast<uint32_t>(src[1]) << 8) |
-               (static_cast<uint32_t>(src[2]) << 16) |
-               (static_cast<uint32_t>(src[3]) << 24);
+        if (memReg == OUT_OF_ROM) {
+            return readOutOfROM(addr);
+        } else {
+            return (static_cast<uint32_t>(src[0]) << 0) |
+                   (static_cast<uint32_t>(src[1]) << 8) |
+                   (static_cast<uint32_t>(src[2]) << 16) |
+                   (static_cast<uint32_t>(src[3]) << 24);
+        }
     }
 
     void Memory::write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo)
@@ -52,48 +80,57 @@ namespace gbaemu
         if (execInfo != nullptr) {
             execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
         }
+
         MemoryRegion memReg;
-        auto dst = resolveAddr(addr, execInfo, &memReg);
+        auto dst = resolveAddr(addr, execInfo, memReg);
 
-        //TODO is this legide?
-        bool bitMapMode = (vram[0] & lcd::DISPCTL::BG_MODE_MASK) >= 4;
-
-        switch (memReg) {
-            case OAM: {
-                // Always ignored, only 16 bit & 32 bit allowed
-                return;
+        if (memReg == OUT_OF_ROM) {
+            std::cout << "CRITICAL ERROR: trying to write8 ROM + outside of its bounds!" << std::endl;
+            if (execInfo != nullptr) {
+                execInfo->hasCausedException = true;
             }
+        } else {
 
-            case VRAM: {
-                // Consists of BG & PBJ
-                // In bitmap mode:
-                // 0x06014000-0x06017FFF ignored
-                // 0x06000000-0x0613FFFF as BG_OBJ_RAM
+            //TODO is this legide?
+            bool bitMapMode = (vram[0] & lcd::DISPCTL::BG_MODE_MASK) >= 4;
 
-                // Not in bitmap mode:
-                // 0x06010000-0x06017FFF ignored
-                // 0x06000000-0x0600FFFF as BG_OBJ_RAM
-                uint32_t normalizedAddr = normalizeAddress(addr, nullptr);
-                if (normalizedAddr <= (bitMapMode ? 0x0613FFFF : 0x0600FFFF)) {
-                    // Reuse BG_OBJ_RAM code
-                } else {
-                    // Else ignored
+            switch (memReg) {
+                case OAM: {
+                    // Always ignored, only 16 bit & 32 bit allowed
                     return;
                 }
-            }
-            // Writes to BG (6000000h-600FFFFh) (or 6000000h-6013FFFh in Bitmap mode)
-            // and to Palette (5000000h-50003FFh) are writing
-            //the new 8bit value to BOTH upper and lower 8bits of the addressed halfword,
-            // ie. "[addr AND NOT 1]=data*101h".
-            case BG_OBJ_RAM: { // Palette
-                // Written as halfword, same byte twice
-                write16(addr & ~1, (static_cast<uint16_t>(value) << 8) | value, nullptr);
-                break;
-            }
 
-            default:
-                dst[0] = value;
-                break;
+                case VRAM: {
+                    // Consists of BG & PBJ
+                    // In bitmap mode:
+                    // 0x06014000-0x06017FFF ignored
+                    // 0x06000000-0x0613FFFF as BG_OBJ_RAM
+
+                    // Not in bitmap mode:
+                    // 0x06010000-0x06017FFF ignored
+                    // 0x06000000-0x0600FFFF as BG_OBJ_RAM
+                    uint32_t normalizedAddr = normalizeAddress(addr, memReg);
+                    if (normalizedAddr <= (bitMapMode ? 0x0613FFFF : 0x0600FFFF)) {
+                        // Reuse BG_OBJ_RAM code
+                    } else {
+                        // Else ignored
+                        return;
+                    }
+                }
+                // Writes to BG (6000000h-600FFFFh) (or 6000000h-6013FFFh in Bitmap mode)
+                // and to Palette (5000000h-50003FFh) are writing
+                //the new 8bit value to BOTH upper and lower 8bits of the addressed halfword,
+                // ie. "[addr AND NOT 1]=data*101h".
+                case BG_OBJ_RAM: { // Palette
+                    // Written as halfword, same byte twice
+                    write16(addr & ~1, (static_cast<uint16_t>(value) << 8) | value, nullptr);
+                    break;
+                }
+
+                default:
+                    dst[0] = value;
+                    break;
+            }
         }
     }
 
@@ -103,10 +140,17 @@ namespace gbaemu
             execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
         }
 
-        auto dst = resolveAddr(addr, execInfo);
-
-        dst[0] = value & 0x0FF;
-        dst[1] = (value >> 8) & 0x0FF;
+        MemoryRegion memReg;
+        auto dst = resolveAddr(addr, execInfo, memReg);
+        if (memReg == OUT_OF_ROM) {
+            std::cout << "CRITICAL ERROR: trying to write16 ROM + outside of its bounds!" << std::endl;
+            if (execInfo != nullptr) {
+                execInfo->hasCausedException = true;
+            }
+        } else {
+            dst[0] = value & 0x0FF;
+            dst[1] = (value >> 8) & 0x0FF;
+        }
     }
 
     void Memory::write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo)
@@ -119,12 +163,19 @@ namespace gbaemu
             execInfo->cycleCount += nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
         }
 
-        auto dst = resolveAddr(addr, execInfo);
-
-        dst[0] = value & 0x0FF;
-        dst[1] = (value >> 8) & 0x0FF;
-        dst[2] = (value >> 16) & 0x0FF;
-        dst[3] = (value >> 24) & 0x0FF;
+        MemoryRegion memReg;
+        auto dst = resolveAddr(addr, execInfo, memReg);
+        if (memReg == OUT_OF_ROM) {
+            std::cout << "CRITICAL ERROR: trying to write32 ROM + outside of its bounds!" << std::endl;
+            if (execInfo != nullptr) {
+                execInfo->hasCausedException = true;
+            }
+        } else {
+            dst[0] = value & 0x0FF;
+            dst[1] = (value >> 8) & 0x0FF;
+            dst[2] = (value >> 16) & 0x0FF;
+            dst[3] = (value >> 24) & 0x0FF;
+        }
     }
 
     /*
@@ -161,18 +212,14 @@ namespace gbaemu
     case x:                     \
         return (addr & x##_LIMIT)
 
-    uint32_t Memory::normalizeAddress(uint32_t addr, MemoryRegion *memReg) const
+    uint32_t Memory::normalizeAddress(uint32_t addr, MemoryRegion &memReg) const
     {
-        MemoryRegion memoryRegion = static_cast<MemoryRegion>((addr >> 24) & 0x0F);
+        memReg = static_cast<MemoryRegion>((addr >> 24) & 0x0F);
 
         addr = addr & 0x0FFFFFFF;
 
-        if (memReg != nullptr) {
-            *memReg = memoryRegion;
-        }
-
         //TODO handle memory mirroring!!!
-        switch (memoryRegion) {
+        switch (memReg) {
             PATCH_MEM_ADDR(addr, BIOS);
             PATCH_MEM_ADDR(addr, WRAM);
             PATCH_MEM_ADDR(addr, IWRAM);
@@ -223,7 +270,13 @@ namespace gbaemu
                 romSizeLog2 |= romSizeLog2 >> 8;
                 romSizeLog2 |= romSizeLog2 >> 16;
                 romSizeLog2++;
-                return ((addr - EXT_ROM_OFFSET) & (romSizeLog2 - 1)) + EXT_ROM_OFFSET;
+                uint32_t romOffset = ((addr - EXT_ROM_OFFSET) & (romSizeLog2 - 1));
+                if (romOffset >= getRomSize()) {
+                    std::cout << "ERROR: trying to access rom out of bounds! Addr: 0x" << std::hex << addr << std::endl;
+                    // Indicate out of ROM!!!
+                    memReg = OUT_OF_ROM;
+                }
+                return romOffset + EXT_ROM_OFFSET;
             }
         }
 
@@ -239,17 +292,13 @@ namespace gbaemu
 
     static const uint8_t noBackupMedia[] = {0xFF, 0xFF, 0xFF, 0xFF};
 
-    const uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion *memReg) const
+    const uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const
     {
         static const uint8_t zeroMem[4] = {0};
 
-        MemoryRegion memoryRegion;
-        addr = normalizeAddress(addr, &memoryRegion);
+        addr = normalizeAddress(addr, memReg);
 
-        if (memReg != nullptr)
-            *memReg = memoryRegion;
-
-        switch (memoryRegion) {
+        switch (memReg) {
             PATCH_MEM_REG(addr, BIOS, bios);
             PATCH_MEM_REG(addr, WRAM, wram);
             PATCH_MEM_REG(addr, IWRAM, iwram);
@@ -264,6 +313,7 @@ namespace gbaemu
                 } else {
                     return noBackupMedia;
                 }
+            case OUT_OF_ROM:
             case EXT_ROM1_:
             case EXT_ROM1:
             case EXT_ROM2_:
@@ -282,17 +332,13 @@ namespace gbaemu
         return zeroMem;
     }
 
-    uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion *memReg)
+    uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg)
     {
         static uint8_t wasteMem[4];
 
-        MemoryRegion memoryRegion;
-        addr = normalizeAddress(addr, &memoryRegion);
+        addr = normalizeAddress(addr, memReg);
 
-        if (memReg != nullptr)
-            *memReg = memoryRegion;
-
-        switch (memoryRegion) {
+        switch (memReg) {
             PATCH_MEM_REG(addr, BIOS, bios);
             PATCH_MEM_REG(addr, WRAM, wram);
             PATCH_MEM_REG(addr, IWRAM, iwram);
@@ -307,6 +353,7 @@ namespace gbaemu
                 } else {
                     return wasteMem;
                 }
+            case OUT_OF_ROM:
             case EXT_ROM1_:
             case EXT_ROM1:
             case EXT_ROM2_:
@@ -328,7 +375,7 @@ namespace gbaemu
     uint8_t Memory::nonSeqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const
     {
         MemoryRegion memoryRegion;
-        normalizeAddress(address, &memoryRegion);
+        normalizeAddress(address, memoryRegion);
 
         switch (memoryRegion) {
             case WRAM: {
@@ -371,7 +418,7 @@ namespace gbaemu
                 The bus is only 8 bits wide, and wait states are configurable to be either 2, 3, 4, or 8 cycles.
                 There are no special S cycles on this bus.
             */
-
+            case OUT_OF_ROM:
             case EXT_ROM1_:
             case EXT_ROM2:
             case EXT_ROM2_:
@@ -394,7 +441,7 @@ namespace gbaemu
     uint8_t Memory::seqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const
     {
         MemoryRegion memoryRegion;
-        normalizeAddress(address, &memoryRegion);
+        normalizeAddress(address, memoryRegion);
 
         switch (memoryRegion) {
             case WRAM: {
@@ -437,7 +484,7 @@ namespace gbaemu
                 The bus is only 8 bits wide, and wait states are configurable to be either 2, 3, 4, or 8 cycles.
                 There are no special S cycles on this bus.
             */
-
+            case OUT_OF_ROM:
             case EXT_ROM1_:
             case EXT_ROM2:
             case EXT_ROM2_:

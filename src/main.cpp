@@ -145,19 +145,19 @@ int main(int argc, char **argv)
         }
 
         //if (cpu.state.pipeline.decode.lastInstruction.isArmInstruction()) {
-        if (false && checkPointReached >= TARGET_CHECKPOINT_CNT) {
+        //if (false && checkPointReached >= TARGET_CHECKPOINT_CNT) {
             SDL_Event event;
 
             if (SDL_PollEvent(&event)) {
                 if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE)
                     break;
 
-                gameController.processSDLEvent(event);
+               gameController.processSDLEvent(event);
             }
 
-            controller.plotMemory();
-            window.present();
-        }
+            //controller.plotMemory();
+            //window.present();
+        //}
 
         if (!run_window) {
             break;

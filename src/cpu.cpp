@@ -345,7 +345,14 @@ namespace gbaemu
         const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
         // Ensure that pc is word / halfword aligned & apply normalization to handle mirroring
         //TODO apply normalization or leaf it as is(and fix memory accesses): value might be needed?
-        const uint32_t postPc = state.accessReg(regs::PC_OFFSET) = state.memory.normalizeAddress(state.accessReg(regs::PC_OFFSET) & (postThumbMode ? 0xFFFFFFFE : 0xFFFFFFFC));
+        Memory::MemoryRegion memReg;
+        const uint32_t postPc = state.accessReg(regs::PC_OFFSET) = state.memory.normalizeAddress(state.accessReg(regs::PC_OFFSET) & (postThumbMode ? 0xFFFFFFFE : 0xFFFFFFFC), memReg);
+
+        if (memReg == Memory::OUT_OF_ROM) {
+            std::cout << "CRITIAL ERROR: PC points out to address out of its ROM bounds! Aborting!" << std::endl;
+            info.hasCausedException = true;
+            return info;
+        }
 
         // Add 1S cycle needed to fetch a instruction if not other requested
         if (!info.noDefaultSCycle) {
