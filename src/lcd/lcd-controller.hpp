@@ -321,7 +321,7 @@ namespace gbaemu::lcd
         LCDisplay &display;
         Memory &memory;
         LCDColorPalette palette;
-        LCDIORegs regs;
+        LCDIORegs regs = {0};
         std::array<Background, 4> backgrounds;
 
         struct {
@@ -343,11 +343,13 @@ namespace gbaemu::lcd
 
         void blendBackgrounds();
 
-        uint8_t read8FromReg(uint32_t addr) {
+        uint8_t read8FromReg(uint32_t addr)
+        {
             //TODO endianess???
-            return *((addr - gbaemu::Memory::IO_REGS_OFFSET) + reinterpret_cast<uint8_t*>(&regs));
+            return *((addr - gbaemu::Memory::IO_REGS_OFFSET) + reinterpret_cast<uint8_t *>(&regs));
         }
-        void write8ToReg(uint32_t addr, uint8_t value) {
+        void write8ToReg(uint32_t addr, uint8_t value)
+        {
             //TODO endianess???
             *((addr - gbaemu::Memory::IO_REGS_OFFSET) + reinterpret_cast<uint8_t *>(&regs)) = value;
         }
