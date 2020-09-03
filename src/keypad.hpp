@@ -36,7 +36,7 @@ namespace gbaemu
         void setKeyInputState(bool released, KeyInput key)
         {
             uint16_t currentValue = memory.read16(KEY_STATUS_REG, nullptr);
-            currentValue = (currentValue & ~(static_cast<uint16_t>(1) << key)) | (state ? (static_cast<uint16_t>(1) << key) : 0);
+            currentValue = (currentValue & ~(static_cast<uint16_t>(1) << key)) | (released ? (static_cast<uint16_t>(1) << key) : 0);
             memory.write16(KEY_STATUS_REG, currentValue, nullptr);
             checkIRQConditions(currentValue);
         }
