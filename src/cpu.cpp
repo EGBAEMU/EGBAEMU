@@ -76,6 +76,9 @@ namespace gbaemu
         static InstructionExecutionInfo info{0};
         static InstructionExecutionInfo dmaInfo{0};
 
+        //TODO is it important if it gets executed first or last?
+        timerGroup.step();
+
         if (dmaInfo.cycleCount == 0 && info.cycleCount == 0) {
             dmaInfo = dma0.step();
             if (!dmaInfo.dmaExecutes) {

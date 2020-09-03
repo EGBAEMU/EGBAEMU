@@ -2,9 +2,10 @@
 #define CPU_HPP
 
 #include "cpu_state.hpp"
-#include "io/dma.hpp"
 #include "inst_arm.hpp"
 #include "inst_thumb.hpp"
+#include "io/dma.hpp"
+#include "io/timer.hpp"
 #include "regs.hpp"
 #include <cstdint>
 
@@ -13,17 +14,18 @@ namespace gbaemu
 
     class CPU
     {
-       
+
       public:
         CPUState state;
         arm::ARMInstructionDecoder armDecoder;
         thumb::ThumbInstructionDecoder thumbDecoder;
 
-
         DMA dma0{DMA::DMA0, state.memory};
         DMA dma1{DMA::DMA1, state.memory};
         DMA dma2{DMA::DMA2, state.memory};
         DMA dma3{DMA::DMA3, state.memory};
+
+        TimerGroup timerGroup{state.memory};
 
         CPU();
 
