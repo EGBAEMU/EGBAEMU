@@ -4,7 +4,7 @@
 #include <SDL2/SDL.h>
 #include <map>
 
-#include "keypad.hpp"
+#include "io/keypad.hpp"
 
 namespace gbaemu::keyboard
 {

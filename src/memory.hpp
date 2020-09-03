@@ -2,7 +2,7 @@
 #define MEMORY_HPP
 
 #include "inst.hpp"
-#include "io_regs.hpp"
+#include "io/io_regs.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>

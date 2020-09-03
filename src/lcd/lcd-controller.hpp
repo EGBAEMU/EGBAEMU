@@ -2,7 +2,7 @@
 #define LCD_CONTROLLER_HPP
 
 #include "canvas.hpp"
-#include "io_regs.hpp"
+#include "io/io_regs.hpp"
 #include <array>
 #include <memory.hpp>
 
@@ -343,15 +343,15 @@ namespace gbaemu::lcd
 
         void blendBackgrounds();
 
-        uint8_t read8FromReg(uint32_t addr)
+        uint8_t read8FromReg(uint32_t offset)
         {
             //TODO endianess???
-            return *((addr - gbaemu::Memory::IO_REGS_OFFSET) + reinterpret_cast<uint8_t *>(&regs));
+            return *(offset + reinterpret_cast<uint8_t *>(&regs));
         }
-        void write8ToReg(uint32_t addr, uint8_t value)
+        void write8ToReg(uint32_t offset, uint8_t value)
         {
             //TODO endianess???
-            *((addr - gbaemu::Memory::IO_REGS_OFFSET) + reinterpret_cast<uint8_t *>(&regs)) = value;
+            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
         }
 
       public:

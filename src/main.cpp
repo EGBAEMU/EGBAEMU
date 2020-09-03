@@ -11,7 +11,7 @@
 #include "lcd/window.hpp"
 
 #include "input/keyboard_control.hpp"
-#include "keypad.hpp"
+#include "io/keypad.hpp"
 
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5

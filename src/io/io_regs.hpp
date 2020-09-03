@@ -43,7 +43,7 @@ namespace gbaemu
         {
             const auto devIt = mappedDevices.find(addr);
             if (devIt != mappedDevices.end()) {
-                return devIt->externalRead8(addr);
+                return devIt->externalRead8(addr - devIt->lowerBound);
             } else {
                 //TODO how to handle not found?
                 return 0x0000;
@@ -62,7 +62,7 @@ namespace gbaemu
         {
             auto devIt = mappedDevices.find(addr);
             if (devIt != mappedDevices.end()) {
-                devIt->externalWrite8(addr, value);
+                devIt->externalWrite8(addr - devIt->lowerBound, value);
             } else {
                 //TODO how to handle not found? probably just ignore...
             }
@@ -84,7 +84,7 @@ namespace gbaemu
         {
             const auto devIt = mappedDevices.find(addr);
             if (devIt != mappedDevices.end()) {
-                return devIt->internalRead8(addr);
+                return devIt->internalRead8(addr - devIt->lowerBound);
             } else {
                 //TODO how to handle not found?
                 return 0x0000;
@@ -103,7 +103,7 @@ namespace gbaemu
         {
             auto devIt = mappedDevices.find(addr);
             if (devIt != mappedDevices.end()) {
-                devIt->internalWrite8(addr, value);
+                devIt->internalWrite8(addr - devIt->lowerBound, value);
             } else {
                 //TODO how to handle not found? probably just ignore...
             }

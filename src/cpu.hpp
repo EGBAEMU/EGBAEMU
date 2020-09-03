@@ -2,7 +2,7 @@
 #define CPU_HPP
 
 #include "cpu_state.hpp"
-#include "dma.hpp"
+#include "io/dma.hpp"
 #include "inst_arm.hpp"
 #include "inst_thumb.hpp"
 #include "regs.hpp"

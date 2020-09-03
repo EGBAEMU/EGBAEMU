@@ -96,15 +96,15 @@ namespace gbaemu
         AddrCntType dstCnt;
         StartCondition condition;
 
-        uint8_t read8FromReg(uint32_t addr)
+        uint8_t read8FromReg(uint32_t offset)
         {
             //TODO endianess???
-            return *((addr - DMA_BASE_ADDRESSES[channel]) + reinterpret_cast<uint8_t *>(&regs));
+            return *(offset + reinterpret_cast<uint8_t *>(&regs));
         }
-        void write8ToReg(uint32_t addr, uint8_t value)
+        void write8ToReg(uint32_t offset, uint8_t value)
         {
             //TODO endianess???
-            *((addr - DMA_BASE_ADDRESSES[channel]) + reinterpret_cast<uint8_t *>(&regs)) = value;
+            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
         }
 
       public:
