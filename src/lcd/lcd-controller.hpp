@@ -292,6 +292,11 @@ namespace gbaemu::lcd {
         uint8_t *bgMapBase;
         uint8_t *tiles;
 
+        /* only for bg2, bg3 */
+        struct {
+            
+        } scale_rotate;
+
         Background(): id(-1), canvas(512, 512) { }
 
         void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs *regs, Memory& memory);

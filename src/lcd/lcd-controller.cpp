@@ -68,15 +68,25 @@ namespace gbaemu::lcd {
         uint32_t charBaseBlock = (le(regs->BGCNT[bgIndex]) & BGCNT::CHARACTER_BASE_BLOCK_MASK) >> 2;
         uint32_t screenBaseBlock = (le(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_BASE_BLOCK_MASK) >> 8;
 
-        /* scrolling, TODO: check sign */
-        xOff = le(regs->BGOFS[bgIndex].h) & 0x1F;
-        yOff = le(regs->BGOFS[bgIndex].v) & 0x1F;
+        if (bgMode <= 2) {
+            /* scrolling, TODO: check sign */
+            xOff = le(regs->BGOFS[bgIndex].h) & 0x1F;
+            yOff = le(regs->BGOFS[bgIndex].v) & 0x1F;
+        } else {
+            xOff = 0;
+            yOff = 0;
+        }
 
         /* select which frame buffer to use */
         if (bgMode == 4 || bgMode == 5)
             useOtherFrameBuffer = le(regs->DISPCNT) & DISPCTL::DISPLAY_FRAME_SELECT_MASK;
         else
             useOtherFrameBuffer = false;
+
+        /* scaling, rotation, only for bg2, bg3 */
+        if (bgIndex == 2 || bgIndex == 3) {
+
+        }
 
         /* 32x32 tiles, arrangement depends on resolution */
         /* TODO: not sure about this one */
