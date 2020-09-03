@@ -315,7 +315,7 @@ namespace gbaemu::lcd
 
     uint32_t LCDController::getBackgroundMode() const
     {
-        return regs.DISPCNT & DISPCTL::BG_MODE_MASK;
+        return le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
     }
 
     void LCDController::render()
@@ -335,7 +335,7 @@ namespace gbaemu::lcd
             */
             /* TODO: I guess text mode? */
             for (uint32_t i = 0; i < 4; ++i) {
-                backgrounds[i].enabled = regs.DISPCNT & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
+                backgrounds[i].enabled = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
 
                 if (backgrounds[i].enabled) {
                     backgrounds[i].loadSettings(0, i, regs, memory);

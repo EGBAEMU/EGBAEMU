@@ -76,18 +76,17 @@ namespace gbaemu
             DMA3
         };
 
+      private:
+        const DMAChannel channel;
+        DMAState state;
+        Memory &memory;
+
         struct DMARegs {
             uint32_t srcAddr;
             uint32_t destAddr;
             uint32_t count;
             uint16_t cntReg;
-        } __attribute__((packed));
-
-      private:
-        const DMAChannel channel;
-        DMAState state;
-        Memory &memory;
-        DMARegs regs = {0};
+        } __attribute__((packed)) regs = {0};
 
         enum AddrCntType : uint8_t {
             INCREMENT = 0,
@@ -118,12 +117,10 @@ namespace gbaemu
 
         uint8_t read8FromReg(uint32_t offset)
         {
-            //TODO endianess???
             return *(offset + reinterpret_cast<uint8_t *>(&regs));
         }
         void write8ToReg(uint32_t offset, uint8_t value)
         {
-            //TODO endianess???
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
         }
 

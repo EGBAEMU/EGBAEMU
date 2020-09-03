@@ -345,12 +345,10 @@ namespace gbaemu::lcd
 
         uint8_t read8FromReg(uint32_t offset)
         {
-            //TODO endianess???
             return *(offset + reinterpret_cast<uint8_t *>(&regs));
         }
         void write8ToReg(uint32_t offset, uint8_t value)
         {
-            //TODO endianess???
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
         }
 

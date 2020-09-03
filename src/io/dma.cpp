@@ -103,7 +103,7 @@ namespace gbaemu
                     state = IDLE;
 
                     // Clear enable bit to indicate that we are done!
-                    regs.cntReg &= ~DMA_CNT_REG_EN_MASK;
+                    regs.cntReg &= le(~DMA_CNT_REG_EN_MASK);
 
                     if (irqOnEnd) {
                         //TODO trigger interrupt!!!

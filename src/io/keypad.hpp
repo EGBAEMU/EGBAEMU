@@ -2,6 +2,7 @@
 #define INPUT_HPP
 
 #include "memory.hpp"
+#include "util.hpp"
 #include <cstdint>
 
 namespace gbaemu
@@ -25,12 +26,10 @@ namespace gbaemu
 
         uint8_t read8FromReg(uint32_t offset)
         {
-            //TODO endianess???
             return *(offset + reinterpret_cast<uint8_t *>(&regs));
         }
         void write8ToReg(uint32_t offset, uint8_t value)
         {
-            //TODO endianess???
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
         }
 
@@ -65,16 +64,16 @@ namespace gbaemu
 
         void setKeyInputState(bool released, KeyInput key)
         {
-            uint16_t currentValue = regs.keyStatus;
+            uint16_t currentValue = le(regs.keyStatus);
             currentValue = (currentValue & ~(static_cast<uint16_t>(1) << key)) | (released ? (static_cast<uint16_t>(1) << key) : 0);
-            regs.keyStatus = currentValue;
+            regs.keyStatus = le(currentValue);
             checkIRQConditions(currentValue);
         }
 
       private:
         void checkIRQConditions(uint16_t keyinputReg)
         {
-            uint16_t conditions = regs.keyIRQCnt;
+            uint16_t conditions = le(regs.keyIRQCnt);
             // Are interrupt enabled?
             if (conditions & (static_cast<uint16_t>(1) << KEY_IRQ_EN_OFFSET)) {
                 bool andCond = conditions & (static_cast<uint16_t>(1) << KEY_IRQ_COND_OFFSET);
