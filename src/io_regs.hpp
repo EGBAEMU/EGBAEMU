@@ -34,7 +34,7 @@ namespace gbaemu
         std::set<IO_Mapped, std::less<>> mappedDevices;
 
       public:
-        void registerIOMappedDevice(IO_Mapped &device)
+        void registerIOMappedDevice(IO_Mapped &&device)
         {
             mappedDevices.insert(device);
         }
