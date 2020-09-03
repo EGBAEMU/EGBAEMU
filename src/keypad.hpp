@@ -33,11 +33,43 @@ namespace gbaemu
         static const uint8_t KEY_IRQ_EN_OFFSET = 14;
         static const uint8_t KEY_IRQ_COND_OFFSET = 15;
 
-        void setKeyInputState(bool state, KeyInput key)
+        void setKeyInputState(bool released, KeyInput key)
         {
             uint16_t currentValue = memory.read16(KEY_STATUS_REG, nullptr);
-            currentValue = (currentValue & ~(1 << key)) | (state ? (1 << key) : 0);
+            currentValue = (currentValue & ~(static_cast<uint16_t>(1) << key)) | (state ? (static_cast<uint16_t>(1) << key) : 0);
             memory.write16(KEY_STATUS_REG, currentValue, nullptr);
+            checkIRQConditions(currentValue);
+        }
+
+      private:
+        void checkIRQConditions(uint16_t keyinputReg)
+        {
+            uint16_t conditions = memory.read16(KEY_STATUS_REG, nullptr);
+            // Are interrupt enabled?
+            if (conditions & (static_cast<uint16_t>(1) << KEY_IRQ_EN_OFFSET)) {
+                bool andCond = conditions & (static_cast<uint16_t>(1) << KEY_IRQ_COND_OFFSET);
+
+                // mask out not used bits
+                keyinputReg &= 0x03FF;
+                // mask out irrelevant select bits
+                conditions &= 0x03FF;
+
+                bool triggerIRQ;
+
+                //  key input bits are 0 if pressed! therefore we invert its values to have a 1 if pressed
+                keyinputReg = ~keyinputReg;
+                if (andCond) {
+                    // true iff all selected inputs are pressed
+                    triggerIRQ = (conditions & keyinputReg) == conditions;
+                } else {
+                    // true iff any selected input is pressed
+                    triggerIRQ = conditions & keyinputReg;
+                }
+
+                if (triggerIRQ) {
+                  //TODO trigger a IRQ!!!
+                }
+            }
         }
     };
 } // namespace gbaemu
