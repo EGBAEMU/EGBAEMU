@@ -197,6 +197,7 @@ namespace gbaemu::keyboard
         {SDLK_SPACE, Keypad::BUTTON_A},
         {SDLK_j, Keypad::BUTTON_A},
         {SDLK_k, Keypad::BUTTON_B},
+        {SDLK_LSHIFT, Keypad::BUTTON_B},
         {SDLK_ESCAPE, Keypad::SELECT},
         {SDLK_MENU, Keypad::SELECT},
         {SDLK_RETURN, Keypad::START},

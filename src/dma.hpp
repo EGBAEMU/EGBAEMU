@@ -103,7 +103,7 @@ namespace gbaemu
             regs = reinterpret_cast<DMARegs *>(memory.resolveAddr(DMA_BASE_ADDRESSES[channel], nullptr, memReg));
         }
 
-        InstructionExecutionInfo step(bool execute);
+        InstructionExecutionInfo step();
 
       private:
         bool extractRegValues();

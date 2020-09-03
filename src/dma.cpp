@@ -4,7 +4,7 @@
 namespace gbaemu
 {
 
-    InstructionExecutionInfo DMA::step(bool execute)
+    InstructionExecutionInfo DMA::step()
     {
         InstructionExecutionInfo info{0};
 
@@ -50,6 +50,8 @@ namespace gbaemu
                 if (checkForUserAbort()) {
                     break;
                 }
+                info.dmaExecutes = true;
+
                 state = SEQ_COPY;
 
                 if (width32Bit) {
@@ -72,6 +74,7 @@ namespace gbaemu
                 if (checkForUserAbort()) {
                     break;
                 }
+                info.dmaExecutes = true;
 
                 if (count == 0) {
                     state = DONE;

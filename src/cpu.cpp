@@ -74,37 +74,49 @@ namespace gbaemu
     bool CPU::step()
     {
         static InstructionExecutionInfo info{0};
+        static InstructionExecutionInfo dmaInfo{0};
 
-        //TODO consider DMA priority
-        //TODO most DMA requests cause the cpu to be paused!
-        dma0.step(true);
-        dma1.step(true);
-        dma2.step(true);
-        dma3.step(true);
-
-        // Execute pipeline only after stall is over
-        if (info.cycleCount == 0) {
-            // TODO: Check for interrupt here
-            // TODO: stall for certain instructions like wait for interrupt...
-            // TODO: Fetch can be executed always. Decode and Execute stages might have been flushed after branch
-            fetch();
-            decode();
-            uint32_t prevPC = state.getCurrentPC();
-            info = execute();
-            // Current cycle must be removed
-            --info.cycleCount;
-
-            if (info.hasCausedException) {
-                std::cout << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception" << std::endl;
-                //TODO print cause
-                //TODO set cause in memory class
-
-                //TODO maybe return reason? as this might be needed to exit a game?
-                // Abort
-                return true;
+        if (dmaInfo.cycleCount == 0 && info.cycleCount == 0) {
+            dmaInfo = dma0.step();
+            if (!dmaInfo.dmaExecutes) {
+                dmaInfo = dma1.step();
+                if (!dmaInfo.dmaExecutes) {
+                    dmaInfo = dma2.step();
+                    if (!dmaInfo.dmaExecutes) {
+                        dmaInfo = dma3.step();
+                    }
+                }
             }
-        } else {
-            --info.cycleCount;
+        }
+        if (dmaInfo.cycleCount) {
+            --dmaInfo.cycleCount;
+        }
+
+        if (!dmaInfo.dmaExecutes) {
+            // Execute pipeline only after stall is over
+            if (info.cycleCount == 0) {
+                // TODO: Check for interrupt here
+                // TODO: stall for certain instructions like wait for interrupt...
+                // TODO: Fetch can be executed always. Decode and Execute stages might have been flushed after branch
+                fetch();
+                decode();
+                uint32_t prevPC = state.getCurrentPC();
+                info = execute();
+                // Current cycle must be removed
+                --info.cycleCount;
+
+                if (info.hasCausedException) {
+                    std::cout << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception" << std::endl;
+                    //TODO print cause
+                    //TODO set cause in memory class
+
+                    //TODO maybe return reason? as this might be needed to exit a game?
+                    // Abort
+                    return true;
+                }
+            } else {
+                --info.cycleCount;
+            }
         }
 
         return false;
