@@ -13,6 +13,11 @@ namespace gbaemu
 
         Memory &memory;
 
+        /*
+        Keypad Input
+          4000130h  2    R    KEYINPUT  Key Status
+          4000132h  2    R/W  KEYCNT    Key Interrupt Control
+        */
         struct KeypadRegister {
             uint16_t keyStatus;
             uint16_t keyIRQCnt;
@@ -92,7 +97,7 @@ namespace gbaemu
                 }
 
                 if (triggerIRQ) {
-                  //TODO trigger a IRQ!!!
+                    //TODO trigger a IRQ!!!
                 }
             }
         }

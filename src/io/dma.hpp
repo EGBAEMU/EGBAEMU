@@ -49,6 +49,26 @@ namespace gbaemu
             DONE
         };
 
+        /*
+        DMA Transfer Channels
+          40000B0h  4    W    DMA0SAD   DMA 0 Source Address
+          40000B4h  4    W    DMA0DAD   DMA 0 Destination Address
+          40000B8h  2    W    DMA0CNT_L DMA 0 Word Count
+          40000BAh  2    R/W  DMA0CNT_H DMA 0 Control
+          40000BCh  4    W    DMA1SAD   DMA 1 Source Address
+          40000C0h  4    W    DMA1DAD   DMA 1 Destination Address
+          40000C4h  2    W    DMA1CNT_L DMA 1 Word Count
+          40000C6h  2    R/W  DMA1CNT_H DMA 1 Control
+          40000C8h  4    W    DMA2SAD   DMA 2 Source Address
+          40000CCh  4    W    DMA2DAD   DMA 2 Destination Address
+          40000D0h  2    W    DMA2CNT_L DMA 2 Word Count
+          40000D2h  2    R/W  DMA2CNT_H DMA 2 Control
+          40000D4h  4    W    DMA3SAD   DMA 3 Source Address
+          40000D8h  4    W    DMA3DAD   DMA 3 Destination Address
+          40000DCh  2    W    DMA3CNT_L DMA 3 Word Count
+          40000DEh  2    R/W  DMA3CNT_H DMA 3 Control
+          40000E0h       -    -         Not used
+        */
         enum DMAChannel : uint8_t {
             DMA0 = 0,
             DMA1,
