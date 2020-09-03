@@ -2,6 +2,7 @@
 #define MEMORY_HPP
 
 #include "inst.hpp"
+#include "io_regs.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -142,6 +143,8 @@ namespace gbaemu
         BiosReadState biosReadState;
 
       public:
+        IO_Handler ioHandler;
+
         //TODO are there conventions about inital memory values?
         Memory()
         {

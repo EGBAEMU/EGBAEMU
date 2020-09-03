@@ -30,6 +30,8 @@ namespace gbaemu
 
         if (memReg == OUT_OF_ROM) {
             return readOutOfROM(addr);
+        } else if (memReg == IO_REGS) {
+            return ioHandler.externalRead8(addr);
         } else {
             return src[0];
         }
@@ -46,6 +48,8 @@ namespace gbaemu
         const auto src = resolveAddr(addr, execInfo, memReg);
         if (memReg == OUT_OF_ROM) {
             return readOutOfROM(addr);
+        } else if (memReg == IO_REGS) {
+            return ioHandler.externalRead16(addr);
         } else {
             return (static_cast<uint16_t>(src[0]) << 0) |
                    (static_cast<uint16_t>(src[1]) << 8);
@@ -67,6 +71,8 @@ namespace gbaemu
 
         if (memReg == OUT_OF_ROM) {
             return readOutOfROM(addr);
+        } else if (memReg == IO_REGS) {
+            return ioHandler.externalRead32(addr);
         } else {
             return (static_cast<uint32_t>(src[0]) << 0) |
                    (static_cast<uint32_t>(src[1]) << 8) |
@@ -89,6 +95,8 @@ namespace gbaemu
             if (execInfo != nullptr) {
                 execInfo->hasCausedException = true;
             }
+        } else if (memReg == IO_REGS) {
+            ioHandler.externalWrite8(addr, value);
         } else {
 
             //TODO is this legit?
@@ -148,6 +156,8 @@ namespace gbaemu
             if (execInfo != nullptr) {
                 execInfo->hasCausedException = true;
             }
+        } else if (memReg == IO_REGS) {
+            ioHandler.externalWrite16(addr, value);
         } else {
             dst[0] = value & 0x0FF;
             dst[1] = (value >> 8) & 0x0FF;
@@ -171,6 +181,8 @@ namespace gbaemu
             if (execInfo != nullptr) {
                 execInfo->hasCausedException = true;
             }
+        } else if (memReg == IO_REGS) {
+            ioHandler.externalWrite32(addr, value);
         } else {
             dst[0] = value & 0x0FF;
             dst[1] = (value >> 8) & 0x0FF;
