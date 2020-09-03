@@ -178,7 +178,7 @@ namespace gbaemu::keyboard
             bool released = true;
             switch (event.type) {
                 case SDL_KEYDOWN:
-                    //state = false;
+                    released = false;
                 case SDL_KEYUP: {
                     auto it = keyMapping.find(event.key.keysym.sym);
                     if (it != keyMapping.end())
