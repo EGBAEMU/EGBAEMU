@@ -2,13 +2,16 @@
 
 #include <util.hpp>
 
-
-namespace gbaemu::lcd {
-    void LCDBgObj::setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t mode) {
+namespace gbaemu::lcd
+{
+    void LCDBgObj::setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t mode)
+    {
         bgMode = mode;
 
         switch (bgMode) {
-            case 0: case 1: case 2:
+            case 0:
+            case 1:
+            case 2:
                 bg.bgMode012 = vramBaseAddress;
                 objTiles = vramBaseAddress + 0x10000;
                 break;
@@ -26,11 +29,13 @@ namespace gbaemu::lcd {
         attributes = oamBaseAddress;
     }
 
-    LCDBgObj::ObjAttribute *LCDBgObj::accessAttribute(uint32_t index) {
+    LCDBgObj::ObjAttribute *LCDBgObj::accessAttribute(uint32_t index)
+    {
         return reinterpret_cast<ObjAttribute *>(attributes + (index * 0x8));
     }
 
-    uint32_t LCDColorPalette::toR8G8B8(uint16_t color) {
+    uint32_t LCDColorPalette::toR8G8B8(uint16_t color)
+    {
         uint32_t r = static_cast<uint32_t>(color & 0x1F) << 3;
         uint32_t g = static_cast<uint32_t>((color >> 5) & 0x1F) << 3;
         uint32_t b = static_cast<uint32_t>((color >> 10) & 0x1F) << 3;
@@ -38,43 +43,48 @@ namespace gbaemu::lcd {
         return (r << 16) | (g << 8) | b;
     }
 
-    uint32_t LCDColorPalette::getBgColor(uint32_t index) const {
+    uint32_t LCDColorPalette::getBgColor(uint32_t index) const
+    {
         return toR8G8B8(bgPalette[index]);
     }
 
-    uint32_t LCDColorPalette::getBgColor(uint32_t i1, uint32_t i2) const {
+    uint32_t LCDColorPalette::getBgColor(uint32_t i1, uint32_t i2) const
+    {
         return getBgColor(i1 * 16 + i2);
     }
 
-    uint32_t LCDColorPalette::getObjColor(uint32_t index) const {
+    uint32_t LCDColorPalette::getObjColor(uint32_t index) const
+    {
         return toR8G8B8(objPalette[index]);
     }
 
-    uint32_t LCDColorPalette::getObjColor(uint32_t i1 ,uint32_t i2) const {
+    uint32_t LCDColorPalette::getObjColor(uint32_t i1, uint32_t i2) const
+    {
         return getObjColor(i1 * 16 + i2);
     }
 
-    void Background::loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs *regs, Memory& memory) {
+    void Background::loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory)
+    {
         id = bgIndex;
 
-        uint16_t size = (le(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
+        uint16_t size = (le(regs.BGCNT[bgIndex]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
         uint32_t height = (size <= 1) ? 256 : 512;
         uint32_t width = (size % 2 == 0) ? 256 : 512;
-        mosaicEnabled = le(regs->BGCNT[bgIndex]) & BGCNT::MOSAIC_MASK;
+        mosaicEnabled = le(regs.BGCNT[bgIndex]) & BGCNT::MOSAIC_MASK;
         /* if true tiles have 8 bit color depth, 4 bit otherwise */
-        colorPalette256 = le(regs->BGCNT[bgIndex]) & BGCNT::COLORS_PALETTES_MASK;
-        priority = le(regs->BGCNT[bgIndex]) & BGCNT::BG_PRIORITY_MASK;
+        colorPalette256 = le(regs.BGCNT[bgIndex]) & BGCNT::COLORS_PALETTES_MASK;
+        priority = le(regs.BGCNT[bgIndex]) & BGCNT::BG_PRIORITY_MASK;
         /* offsets */
-        uint32_t charBaseBlock = (le(regs->BGCNT[bgIndex]) & BGCNT::CHARACTER_BASE_BLOCK_MASK) >> 2;
-        uint32_t screenBaseBlock = (le(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_BASE_BLOCK_MASK) >> 8;
+        uint32_t charBaseBlock = (le(regs.BGCNT[bgIndex]) & BGCNT::CHARACTER_BASE_BLOCK_MASK) >> 2;
+        uint32_t screenBaseBlock = (le(regs.BGCNT[bgIndex]) & BGCNT::SCREEN_BASE_BLOCK_MASK) >> 8;
 
         /* scrolling, TODO: check sign */
-        xOff = le(regs->BGOFS[bgIndex].h) & 0x1F;
-        yOff = le(regs->BGOFS[bgIndex].v) & 0x1F;
+        xOff = le(regs.BGOFS[bgIndex].h) & 0x1F;
+        yOff = le(regs.BGOFS[bgIndex].v) & 0x1F;
 
         /* select which frame buffer to use */
         if (bgMode == 4 || bgMode == 5)
-            useOtherFrameBuffer = le(regs->DISPCNT) & DISPCTL::DISPLAY_FRAME_SELECT_MASK;
+            useOtherFrameBuffer = le(regs.DISPCNT) & DISPCTL::DISPLAY_FRAME_SELECT_MASK;
         else
             useOtherFrameBuffer = false;
 
@@ -83,7 +93,7 @@ namespace gbaemu::lcd {
         Memory::MemoryRegion memReg;
         uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, memReg);
         bgMapBase = vramBase + screenBaseBlock * 0x800;
-        
+
         if (bgMode == 0) {
             std::fill_n(scInUse, 4, true);
         } else if (bgMode == 3) {
@@ -94,10 +104,18 @@ namespace gbaemu::lcd {
         }
 
         switch (size) {
-            case 0: scCount = 1; break;
-            case 1: scCount = 2; break;
-            case 2: scCount = 2; break;
-            case 3: scCount = 4; break;
+            case 0:
+                scCount = 1;
+                break;
+            case 1:
+                scCount = 2;
+                break;
+            case 2:
+                scCount = 2;
+                break;
+            case 3:
+                scCount = 4;
+                break;
         }
         /* tile addresses in steps of 0x4000 */
         /* 8x8, also called characters */
@@ -142,7 +160,8 @@ namespace gbaemu::lcd {
         scYOffset[3] = 256;
     }
 
-    void Background::renderBG0(LCDColorPalette& palette) {
+    void Background::renderBG0(LCDColorPalette &palette)
+    {
         if (!enabled)
             return;
 
@@ -194,7 +213,8 @@ namespace gbaemu::lcd {
         }
     }
 
-    void Background::renderBG3(Memory& memory) {
+    void Background::renderBG3(Memory &memory)
+    {
         auto pixels = canvas.pixels();
         auto stride = canvas.getWidth();
         Memory::MemoryRegion memReg;
@@ -208,7 +228,8 @@ namespace gbaemu::lcd {
         }
     }
 
-    void Background::renderBG4(LCDColorPalette& palette, Memory& memory) {
+    void Background::renderBG4(LCDColorPalette &palette, Memory &memory)
+    {
         auto pixels = canvas.pixels();
         auto stride = canvas.getWidth();
         Memory::MemoryRegion memReg;
@@ -218,7 +239,7 @@ namespace gbaemu::lcd {
             fbOff = 0xA000;
         else
             fbOff = 0;
-        
+
         const uint8_t *srcPixels = reinterpret_cast<const uint8_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET + fbOff, nullptr, memReg));
 
         //std::cout << std::hex << (void *)srcPixels << "\n";
@@ -231,7 +252,8 @@ namespace gbaemu::lcd {
         }
     }
 
-    void Background::renderBG5(LCDColorPalette& palette, Memory& memory) {
+    void Background::renderBG5(LCDColorPalette &palette, Memory &memory)
+    {
         auto pixels = canvas.pixels();
         auto stride = canvas.getWidth();
         Memory::MemoryRegion memReg;
@@ -241,7 +263,7 @@ namespace gbaemu::lcd {
             fbOff = 0xA000;
         else
             fbOff = 0;
-        
+
         const uint16_t *srcPixels = reinterpret_cast<const uint16_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET + fbOff, nullptr, memReg));
 
         for (int32_t y = 0; y < 128; ++y) {
@@ -252,7 +274,8 @@ namespace gbaemu::lcd {
         }
     }
 
-    void Background::drawToDisplay(LCDisplay& display) {
+    void Background::drawToDisplay(LCDisplay &display)
+    {
         auto xFrom = std::max(0, xOff);
         auto xTo = std::min(DIMENSIONS::WIDTH, xOff + canvas.getWidth());
 
@@ -279,8 +302,8 @@ namespace gbaemu::lcd {
         display.canvas.endDraw();
     }
 
-    void LCDController::blendBackgrounds() {
-
+    void LCDController::blendBackgrounds()
+    {
     }
 
     void LCDController::updateReferences()
@@ -288,14 +311,15 @@ namespace gbaemu::lcd {
         Memory::MemoryRegion memReg;
         palette.bgPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET, nullptr, memReg));
         palette.objPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET + 0x200, nullptr, memReg));
-        regs = reinterpret_cast<LCDIORegs *>(memory.resolveAddr(gbaemu::Memory::IO_REGS_OFFSET, nullptr, memReg));
     }
 
-    uint32_t LCDController::getBackgroundMode() const {
-        return regs->DISPCNT & DISPCTL::BG_MODE_MASK;
+    uint32_t LCDController::getBackgroundMode() const
+    {
+        return regs.DISPCNT & DISPCTL::BG_MODE_MASK;
     }
 
-    void LCDController::render() {
+    void LCDController::render()
+    {
         updateReferences();
         uint32_t bgMode = getBackgroundMode();
         display.canvas.beginDraw();
@@ -311,7 +335,7 @@ namespace gbaemu::lcd {
             */
             /* TODO: I guess text mode? */
             for (uint32_t i = 0; i < 4; ++i) {
-                backgrounds[i].enabled = regs->DISPCNT & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
+                backgrounds[i].enabled = regs.DISPCNT & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
 
                 if (backgrounds[i].enabled) {
                     backgrounds[i].loadSettings(0, i, regs, memory);
@@ -321,8 +345,7 @@ namespace gbaemu::lcd {
 
             /* TODO: render top alpha last */
             std::vector<int32_t> backgroundIds = {backgrounds[0].id, backgrounds[1].id, backgrounds[2].id, backgrounds[3].id};
-            std::stable_sort(backgroundIds.begin(), backgroundIds.end(), [&](int32_t id1, int32_t id2) {
-                return backgrounds[id1].priority - backgrounds[id2].priority; });
+            std::stable_sort(backgroundIds.begin(), backgroundIds.end(), [&](int32_t id1, int32_t id2) { return backgrounds[id1].priority - backgrounds[id2].priority; });
 
             /* TODO: alpha blending */
             for (uint32_t i = 0; i < 4; ++i) {
@@ -355,7 +378,8 @@ namespace gbaemu::lcd {
         blendBackgrounds();
     }
 
-    void LCDController::plotMemory() {
+    void LCDController::plotMemory()
+    {
         display.canvas.beginDraw();
         /*
         for (uint32_t y = 0; y < DIMENSIONS::HEIGHT * 2; y++)
@@ -374,8 +398,7 @@ namespace gbaemu::lcd {
             Memory::VRAM_OFFSET,
             //Memory::OAM_OFFSET,
             Memory::EXT_ROM_OFFSET,
-            Memory::EXT_SRAM_OFFSET
-        };
+            Memory::EXT_SRAM_OFFSET};
 
         static const Memory::MemoryRegionLimit limits[] = {
             //Memory::BIOS_LIMIT,
@@ -386,13 +409,12 @@ namespace gbaemu::lcd {
             Memory::VRAM_LIMIT,
             //Memory::OAM_LIMIT,
             Memory::EXT_ROM1_LIMIT,
-            Memory::EXT_SRAM_LIMIT
-        };
+            Memory::EXT_SRAM_LIMIT};
 
         static const uint32_t WIDTH = 240;
         Memory::MemoryRegion memReg;
 
-        for (uint32_t i = 0; i < sizeof(offs)/sizeof(offs[0]); ++i) {
+        for (uint32_t i = 0; i < sizeof(offs) / sizeof(offs[0]); ++i) {
             uint32_t *ram = reinterpret_cast<uint32_t *>(memory.resolveAddr(offs[i], nullptr, memReg));
             uint32_t size = limits[i] - offs[i];
 
@@ -417,12 +439,14 @@ namespace gbaemu::lcd {
         display.canvas.endDraw();
     }
 
-    void LCDController::plotPalette() {
+    void LCDController::plotPalette()
+    {
         for (uint32_t i = 0; i < 256; ++i)
             display.canvas.pixels()[i] = palette.getBgColor(i);
     }
 
-    bool LCDController::tick() {
+    bool LCDController::tick()
+    {
         updateReferences();
 
         bool result = false;
@@ -445,20 +469,19 @@ namespace gbaemu::lcd {
         }
 
         /* update stat */
-        uint16_t stat = le(regs->DISPSTAT);
+        uint16_t stat = le(regs.DISPSTAT);
         stat = bitSet(stat, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t>(counters.vBlanking));
         stat = bitSet(stat, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t>(counters.hBlanking));
         //stat = bitSet(stat, DISPSTAT::VCOUNT_SETTING_MASK, DISPSTAT::VCOUNT_SETTING_OFFSET, counters.vCount);
-        regs->DISPSTAT = le(stat);
+        regs.DISPSTAT = le(stat);
 
         /* update vcount */
-        uint16_t vcount = le(regs->VCOUNT);
+        uint16_t vcount = le(regs.VCOUNT);
         vcount = bitSet(vcount, VCOUNT::CURRENT_SCANLINE_MASK, VCOUNT::CURRENT_SCANLINE_OFFSET, counters.vCount);
-        regs->VCOUNT = le(vcount);
+        regs.VCOUNT = le(vcount);
 
         ++counters.cycle;
 
         return result;
     }
-}
-
+} // namespace gbaemu::lcd

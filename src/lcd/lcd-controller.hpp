@@ -1,12 +1,13 @@
 #ifndef LCD_CONTROLLER_HPP
 #define LCD_CONTROLLER_HPP
 
+#include "canvas.hpp"
+#include "io_regs.hpp"
 #include <array>
 #include <memory.hpp>
-#include "canvas.hpp"
 
-
-namespace gbaemu::lcd {
+namespace gbaemu::lcd
+{
     /*
         The table summarizes the facilities of the separate BG modes (video modes).
 
@@ -20,7 +21,8 @@ namespace gbaemu::lcd {
 
         Features: S)crolling, F)lip, M)osaic, A)lphaBlending, B)rightness, P)riority.
      */
-    namespace DISPCTL {
+    namespace DISPCTL
+    {
         static const uint32_t BG_MODE_MASK = 0b111,
                               CBG_MODE_MASK = 1 << 3,
                               DISPLAY_FRAME_SELECT_MASK = 1 << 4,
@@ -35,13 +37,15 @@ namespace gbaemu::lcd {
                               WINDOW_0_DISPLAY_FLAG_MASK = 1 << 13,
                               WINDOW_1_DISPLAY_FLAG_MASK = 1 << 14,
                               OBJ_WINDOW_DISPLAY_FLAG_MASK = 1 << 15;
-        
-        static uint32_t SCREEN_DISPLAY_BGN_MASK(uint32_t n) {
+
+        static uint32_t SCREEN_DISPLAY_BGN_MASK(uint32_t n)
+        {
             return 1 << (8 + n);
         }
-    }
+    } // namespace DISPCTL
 
-    namespace DISPSTAT {
+    namespace DISPSTAT
+    {
         static const uint16_t VBLANK_FLAG_OFFSET = 0,
                               HBLANK_FLAG_OFFSET = 1,
                               VCOUNTER_FLAG_OFFSET = 2,
@@ -57,14 +61,16 @@ namespace gbaemu::lcd {
                               HBLANK_IRQ_ENABLE_MASK = 1,
                               VCOUNTER_IRQ_ENABLE_MASK = 1,
                               VCOUNT_SETTING_MASK = 0xFF;
-    }
+    } // namespace DISPSTAT
 
-    namespace VCOUNT {
+    namespace VCOUNT
+    {
         static const uint16_t CURRENT_SCANLINE_OFFSET = 0;
         static const uint16_t CURRENT_SCANLINE_MASK = 0xFF;
-    }
+    } // namespace VCOUNT
 
-    namespace BGCNT {
+    namespace BGCNT
+    {
         static const uint32_t BG_PRIORITY_MASK = 0b11,
                               CHARACTER_BASE_BLOCK_MASK = 0b11 << 2,
                               MOSAIC_MASK = 1 << 6,
@@ -80,10 +86,11 @@ namespace gbaemu::lcd {
                                 2      256x512 (4K)   512x512   (4K)
                                 3      512x512 (8K)   1024x1024 (16K)
                                */
-                              SCREEN_SIZE_MASK = 0b11 << 14;
+            SCREEN_SIZE_MASK = 0b11 << 14;
     }
 
-    namespace BLDCNT {
+    namespace BLDCNT
+    {
         static const uint32_t BG0_TARGET_PIXEL1_MASK = 1,
                               BG1_TARGET_PIXEL1_MASK = 1 << 1,
                               BG2_TARGET_PIXEL1_MASK = 1 << 2,
@@ -104,18 +111,21 @@ namespace gbaemu::lcd {
             BrightnessIncrease,
             BrightnessDecrease
         };
-    }
+    } // namespace BLDCNT
 
-    namespace BLDALPHA {
+    namespace BLDALPHA
+    {
         static const uint32_t EVA_COEFF_MASK = 0x1F,
                               EVB_COEFF_MASK = 0x1F << 8;
     }
 
-    namespace BLDY {
+    namespace BLDY
+    {
         static const uint32_t EVY_COEFF_MASK = 0x1F;
     }
 
-    namespace MOSAIC {
+    namespace MOSAIC
+    {
         static const uint32_t BG_MOSAIC_HSIZE_OFFSET = 0,
                               BG_MOSAIC_VSIZE_OFFSET = 4,
                               OBJ_MOSAIC_HSIZE_OFFSET = 8,
@@ -125,25 +135,26 @@ namespace gbaemu::lcd {
                               BG_MOSAIC_VSIZE_MASK = 0xF << BG_MOSAIC_VSIZE_OFFSET,
                               OBJ_MOSAIC_HSIZE_MASK = 0xF << OBJ_MOSAIC_HSIZE_OFFSET,
                               OBJ_MOSAIC_VSIZE_MASK = 0xF << OBJ_MOSAIC_VSIZE_OFFSET;
-    }
+    } // namespace MOSAIC
 
-    namespace DIMENSIONS {
+    namespace DIMENSIONS
+    {
         static const int32_t WIDTH = 240,
                              HEIGHT = 160;
     }
 
     struct LCDIORegs {
-        uint16_t DISPCNT;                       // LCD Control
-        uint16_t undocumented0;                 // Undocumented - Green Swap
-        uint16_t DISPSTAT;                      // General LCD Status (STAT,LYC)
-        uint16_t VCOUNT;                        // Vertical Counter (LY)
-        uint16_t BGCNT[4];                      // BG0 Control
-        
+        uint16_t DISPCNT;       // LCD Control
+        uint16_t undocumented0; // Undocumented - Green Swap
+        uint16_t DISPSTAT;      // General LCD Status (STAT,LYC)
+        uint16_t VCOUNT;        // Vertical Counter (LY)
+        uint16_t BGCNT[4];      // BG0 Control
+
         struct _BGOFS {
             uint16_t h;
             uint16_t v;
         } __attribute__((packed)) BGOFS[4];
-        
+
         //uint16_t BG0HOFS;                       // BG0 X-Offset
         //uint16_t BG0VOFS;                       // BG0 Y-Offset
         //uint16_t BG1HOFS;                       // BG1 X-Offset
@@ -152,23 +163,23 @@ namespace gbaemu::lcd {
         //uint16_t BG2VOFS;                       // BG2 Y-Offset
         //uint16_t BG3HOFS;                       // BG3 X-Offset
         //uint16_t BG3VOFS;                       // BG3 Y-Offset
-        uint16_t BG2P[4];                       // BG2 Rotation/Scaling Parameter A (dx)
-        uint32_t BG2X;                          // BG2 Reference Point X-Coordinate
-        uint32_t BG2Y;                          // BG2 Reference Point Y-Coordinate
-        uint16_t BG3P[4];                       // BG3 Rotation/Scaling Parameter A (dx)
-        uint32_t BG3X;                          // BG3 Reference Point X-Coordinate
-        uint32_t BG3Y;                          // BG3 Reference Point Y-Coordinate
-        uint16_t WIN0H;                         // Window 0 Horizontal Dimensions
-        uint16_t WIN1H;                         // Window 1 Horizontal Dimensions
-        uint16_t WIN0V;                         // Window 0 Vertical Dimensions
-        uint16_t WIN1V;                         // Window 1 Vertical Dimensions
-        uint16_t WININ;                         // Inside of Window 0 and 1
-        uint16_t WINOUT;                        // Inside of OBJ Window & Outside of Windows
-        uint16_t MOSAIC;                        // Mosaic Size
+        uint16_t BG2P[4]; // BG2 Rotation/Scaling Parameter A (dx)
+        uint32_t BG2X;    // BG2 Reference Point X-Coordinate
+        uint32_t BG2Y;    // BG2 Reference Point Y-Coordinate
+        uint16_t BG3P[4]; // BG3 Rotation/Scaling Parameter A (dx)
+        uint32_t BG3X;    // BG3 Reference Point X-Coordinate
+        uint32_t BG3Y;    // BG3 Reference Point Y-Coordinate
+        uint16_t WIN0H;   // Window 0 Horizontal Dimensions
+        uint16_t WIN1H;   // Window 1 Horizontal Dimensions
+        uint16_t WIN0V;   // Window 0 Vertical Dimensions
+        uint16_t WIN1V;   // Window 1 Vertical Dimensions
+        uint16_t WININ;   // Inside of Window 0 and 1
+        uint16_t WINOUT;  // Inside of OBJ Window & Outside of Windows
+        uint16_t MOSAIC;  // Mosaic Size
         uint16_t unused0;
-        uint16_t BLDCNT;                        // Color Special Effects Selection
-        uint16_t BLDALPHA;                      // Alpha Blending Coefficients
-        uint16_t BLDY;                          // Brightness (Fade-In/Out) Coefficient
+        uint16_t BLDCNT;   // Color Special Effects Selection
+        uint16_t BLDALPHA; // Alpha Blending Coefficients
+        uint16_t BLDY;     // Brightness (Fade-In/Out) Coefficient
     } __attribute__((packed));
 
     struct LCDBgObj {
@@ -238,20 +249,22 @@ namespace gbaemu::lcd {
         uint32_t getObjColor(uint32_t i1, uint32_t i2) const;
     };
 
-    class LCDisplay {
-    public:
+    class LCDisplay
+    {
+      public:
         MemoryCanvas<uint32_t> canvas;
         int32_t targetX, targetY;
-        Canvas<uint32_t>& target;
+        Canvas<uint32_t> &target;
 
-        LCDisplay(uint32_t x, uint32_t y, Canvas<uint32_t>& targ):
-            canvas(DIMENSIONS::WIDTH, DIMENSIONS::HEIGHT), targetX(x), targetY(y), target(targ) { }
+        LCDisplay(uint32_t x, uint32_t y, Canvas<uint32_t> &targ) : canvas(DIMENSIONS::WIDTH, DIMENSIONS::HEIGHT), targetX(x), targetY(y), target(targ) {}
 
-        int32_t stride() const {
+        int32_t stride() const
+        {
             return canvas.getWidth();
         }
 
-        void drawToTarget(int32_t scale = 1) {
+        void drawToTarget(int32_t scale = 1)
+        {
             target.beginDraw();
 
             auto stride = target.getWidth();
@@ -292,22 +305,23 @@ namespace gbaemu::lcd {
         uint8_t *bgMapBase;
         uint8_t *tiles;
 
-        Background(): id(-1), canvas(512, 512) { }
+        Background() : id(-1), canvas(512, 512) {}
 
-        void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs *regs, Memory& memory);
-        void renderBG0(LCDColorPalette& palette);
-        void renderBG3(Memory& memory);
-        void renderBG4(LCDColorPalette& palette, Memory& memory);
-        void renderBG5(LCDColorPalette& palette, Memory& memory);
-        void drawToDisplay(LCDisplay& display);
+        void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory);
+        void renderBG0(LCDColorPalette &palette);
+        void renderBG3(Memory &memory);
+        void renderBG4(LCDColorPalette &palette, Memory &memory);
+        void renderBG5(LCDColorPalette &palette, Memory &memory);
+        void drawToDisplay(LCDisplay &display);
     };
 
-    class LCDController {
-    private:
-        LCDisplay& display;
-        Memory& memory;
+    class LCDController
+    {
+      private:
+        LCDisplay &display;
+        Memory &memory;
         LCDColorPalette palette;
-        LCDIORegs *regs;
+        LCDIORegs regs;
         std::array<Background, 4> backgrounds;
 
         struct {
@@ -328,13 +342,31 @@ namespace gbaemu::lcd {
         } counters;
 
         void blendBackgrounds();
-    public:
-        LCDController(LCDisplay& disp, Memory& mem):
-            display(disp), memory(mem) {
+
+        uint8_t read8FromReg(uint32_t addr) {
+            //TODO endianess???
+            return *((addr - gbaemu::Memory::IO_REGS_OFFSET) + reinterpret_cast<uint8_t*>(&regs));
+        }
+        void write8ToReg(uint32_t addr, uint8_t value) {
+            //TODO endianess???
+            *((addr - gbaemu::Memory::IO_REGS_OFFSET) + reinterpret_cast<uint8_t *>(&regs)) = value;
+        }
+
+      public:
+        LCDController(LCDisplay &disp, Memory &mem) : display(disp), memory(mem)
+        {
             counters.cycle = 0;
             counters.vCount = 0;
             counters.hBlanking = false;
             counters.vBlanking = false;
+            mem.ioHandler.registerIOMappedDevice(
+                IO_Mapped(
+                    static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET),
+                    static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET) + sizeof(regs),
+                    std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),
+                    std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
+                    std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),
+                    std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
         }
 
         /* updates all raw pointers into the sections of memory (in case they might change) */
@@ -347,7 +379,6 @@ namespace gbaemu::lcd {
         void plotPalette();
         bool tick();
     };
-}
-
+} // namespace gbaemu::lcd
 
 #endif /* LCD_CONTROLLER_HPP */
