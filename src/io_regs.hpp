@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <set>
 
 namespace gbaemu
@@ -10,30 +11,22 @@ namespace gbaemu
     class IO_Mapped
     {
       public:
-        virtual uint8_t externalRead8(uint32_t addr) const = 0;
-        virtual void externalWrite8(uint32_t addr, uint8_t value) = 0;
+        const uint32_t lowerBound;
+        const uint32_t upperBound;
+        const std::function<uint8_t(uint32_t)> externalRead8;
+        const std::function<void(uint32_t, uint8_t)> externalWrite8;
 
-        virtual uint8_t internalRead8(uint32_t addr) const = 0;
-        virtual void internalWrite8(uint32_t addr, uint8_t value) = 0;
+        const std::function<uint8_t(uint32_t)> internalRead8;
+        const std::function<void(uint32_t, uint8_t)> internalWrite8;
 
-        virtual uint32_t getLowerAddrBound() const = 0;
-        virtual uint32_t getUpperAddrBound() const = 0;
+        IO_Mapped(uint32_t lowerBound, uint32_t upperBound, std::function<uint8_t(uint32_t)> externalRead8,
+                  std::function<void(uint32_t, uint8_t)> externalWrite8, std::function<uint8_t(uint32_t)> internalRead8,
+                  std::function<void(uint32_t, uint8_t)> internalWrite8) : lowerBound(lowerBound), upperBound(upperBound), externalRead8(externalRead8), externalWrite8(externalWrite8), internalRead8(internalRead8), internalWrite8(internalWrite8) {}
     };
 
-    bool operator<(const IO_Mapped &a, const IO_Mapped &b)
-    {
-        return a.getUpperAddrBound() < b.getLowerAddrBound();
-    }
-
-    bool operator<(const IO_Mapped &a, const uint32_t b)
-    {
-        return a.getUpperAddrBound() < b;
-    }
-
-    bool operator<(const uint32_t a, const IO_Mapped &b)
-    {
-        return a < b.getLowerAddrBound();
-    }
+    bool operator<(const IO_Mapped &a, const IO_Mapped &b);
+    bool operator<(const IO_Mapped &a, const uint32_t b);
+    bool operator<(const uint32_t a, const IO_Mapped &b);
 
     class IO_Handler
     {
@@ -69,7 +62,7 @@ namespace gbaemu
         {
             auto devIt = mappedDevices.find(addr);
             if (devIt != mappedDevices.end()) {
-                devIt->externalWrite8(addr);
+                devIt->externalWrite8(addr, value);
             } else {
                 //TODO how to handle not found? probably just ignore...
             }
@@ -110,7 +103,7 @@ namespace gbaemu
         {
             auto devIt = mappedDevices.find(addr);
             if (devIt != mappedDevices.end()) {
-                devIt->internalWrite8(addr);
+                devIt->internalWrite8(addr, value);
             } else {
                 //TODO how to handle not found? probably just ignore...
             }
