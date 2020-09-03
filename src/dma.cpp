@@ -29,7 +29,7 @@ namespace gbaemu
                 //TODO is the src address kept?
 
                 if (dstCnt == INCREMENT_RELOAD) {
-                    destAddr = le(regs->destAddr);
+                    destAddr = le(regs.destAddr);
                 }
 
                 fetchCount();
@@ -103,7 +103,7 @@ namespace gbaemu
                     state = IDLE;
 
                     // Clear enable bit to indicate that we are done!
-                    regs->cntReg &= ~DMA_CNT_REG_EN_MASK;
+                    regs.cntReg &= ~DMA_CNT_REG_EN_MASK;
 
                     if (irqOnEnd) {
                         //TODO trigger interrupt!!!
@@ -120,7 +120,7 @@ namespace gbaemu
 
     bool DMA::checkForUserAbort()
     { // Still enabled? else go back to IDLE
-        if ((le(regs->cntReg) & DMA_CNT_REG_EN_MASK) == 0) {
+        if ((le(regs.cntReg) & DMA_CNT_REG_EN_MASK) == 0) {
             state = IDLE;
             return true;
         }
@@ -145,7 +145,7 @@ namespace gbaemu
 
     bool DMA::extractRegValues()
     {
-        const uint16_t controlReg = le(regs->cntReg);
+        const uint16_t controlReg = le(regs.cntReg);
         bool enable = controlReg & DMA_CNT_REG_EN_MASK;
 
         if (enable) {
@@ -159,8 +159,8 @@ namespace gbaemu
             condition = static_cast<StartCondition>((controlReg & DMA_CNT_REG_TIMING_MASK >> DMA_CNT_REG_TIMING_OFF));
 
             // Mask out ignored bits
-            srcAddr = le(regs->srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);
-            destAddr = le(regs->destAddr) & (channel == DMA3 ? 0xFFFFFFF : 0x07FFFFFF);
+            srcAddr = le(regs.srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);
+            destAddr = le(regs.destAddr) & (channel == DMA3 ? 0xFFFFFFF : 0x07FFFFFF);
             fetchCount();
         }
 
@@ -169,7 +169,7 @@ namespace gbaemu
 
     void DMA::fetchCount()
     {
-        count = le(regs->count) & (channel == DMA3 ? 0x0FFFF : 0x3FFF);
+        count = le(regs.count) & (channel == DMA3 ? 0x0FFFF : 0x3FFF);
         // 0 is used for the max value possible
         count = count == 0 ? (channel == DMA3 ? 0x10000 : 0x4000) : count;
     }

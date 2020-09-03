@@ -67,7 +67,7 @@ namespace gbaemu
         const DMAChannel channel;
         DMAState state;
         Memory &memory;
-        DMARegs *regs;
+        DMARegs regs = {0};
 
         enum AddrCntType : uint8_t {
             INCREMENT = 0,
@@ -80,7 +80,7 @@ namespace gbaemu
             NO_COND = 0,
             WAIT_VBLANK = 1,
             WAIT_HBLANK = 2, // When accessing OAM (7000000h) or OBJ VRAM (6010000h) by HBlank Timing, then the "H-Blank Interval Free" bit in DISPCNT register must be set
-            SPECIAL = 3 // The 'Special' setting (Start Timing=3) depends on the DMA channel: DMA0=Prohibited, DMA1/DMA2=Sound FIFO, DMA3=Video Capture
+            SPECIAL = 3      // The 'Special' setting (Start Timing=3) depends on the DMA channel: DMA0=Prohibited, DMA1/DMA2=Sound FIFO, DMA3=Video Capture
         };
 
         // Extracted control reg values:
@@ -96,11 +96,28 @@ namespace gbaemu
         AddrCntType dstCnt;
         StartCondition condition;
 
-      public:
-        DMA(DMAChannel channel, Memory &memory) : channel(channel) , state(IDLE), memory(memory)
+        uint8_t read8FromReg(uint32_t addr)
         {
-            Memory::MemoryRegion memReg;
-            regs = reinterpret_cast<DMARegs *>(memory.resolveAddr(DMA_BASE_ADDRESSES[channel], nullptr, memReg));
+            //TODO endianess???
+            return *((addr - DMA_BASE_ADDRESSES[channel]) + reinterpret_cast<uint8_t *>(&regs));
+        }
+        void write8ToReg(uint32_t addr, uint8_t value)
+        {
+            //TODO endianess???
+            *((addr - DMA_BASE_ADDRESSES[channel]) + reinterpret_cast<uint8_t *>(&regs)) = value;
+        }
+
+      public:
+        DMA(DMAChannel channel, Memory &memory) : channel(channel), state(IDLE), memory(memory)
+        {
+            memory.ioHandler.registerIOMappedDevice(
+                IO_Mapped(
+                    DMA_BASE_ADDRESSES[channel],
+                    DMA_BASE_ADDRESSES[channel] + sizeof(regs),
+                    std::bind(&DMA::read8FromReg, this, std::placeholders::_1),
+                    std::bind(&DMA::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
+                    std::bind(&DMA::read8FromReg, this, std::placeholders::_1),
+                    std::bind(&DMA::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
         }
 
         InstructionExecutionInfo step();
