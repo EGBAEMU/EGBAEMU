@@ -175,14 +175,14 @@ namespace gbaemu::keyboard
 
         void processSDLEvent(const SDL_Event &event)
         {
-            bool state = true;
+            bool released = true;
             switch (event.type) {
-                case SDL_KEYUP:
+                case SDL_KEYDOWN:
                     state = false;
-                case SDL_KEYDOWN: {
+                case SDL_KEYUP: {
                     auto it = keyMapping.find(event.key.keysym.sym);
                     if (it != keyMapping.end())
-                        keypad.setKeyInputState(state, it->second);
+                        keypad.setKeyInputState(released, it->second);
 
                     break;
                 }
