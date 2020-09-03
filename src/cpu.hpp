@@ -13,12 +13,12 @@ namespace gbaemu
 
     class CPU
     {
-      private:
+       
+      public:
+        CPUState state;
         arm::ARMInstructionDecoder armDecoder;
         thumb::ThumbInstructionDecoder thumbDecoder;
 
-      public:
-        CPUState state;
 
         DMA dma0{DMA::DMA0, state.memory};
         DMA dma1{DMA::DMA1, state.memory};
