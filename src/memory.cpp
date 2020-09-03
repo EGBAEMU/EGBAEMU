@@ -320,7 +320,6 @@ namespace gbaemu
             //COMBINE_MEM_ADDR(addr, BIOS, bios);
             COMBINE_MEM_ADDR(addr, WRAM, wram);
             COMBINE_MEM_ADDR(addr, IWRAM, iwram);
-            COMBINE_MEM_ADDR(addr, IO_REGS, io_regs);
             COMBINE_MEM_ADDR(addr, BG_OBJ_RAM, bg_obj_ram);
             COMBINE_MEM_ADDR(addr, VRAM, vram);
             COMBINE_MEM_ADDR(addr, OAM, oam);
@@ -340,6 +339,13 @@ namespace gbaemu
                 COMBINE_MEM_ADDR_(addr, EXT_ROM3, EXT_ROM, rom);
             case BIOS:
                 return BIOS_READ[biosReadState];
+            case IO_REGS:
+                if (addr >= IO_REGS_LIMIT) {
+                    std::cout << "ERROR: read invalid io reg address: 0x" << std::hex << addr << std::endl;
+                    return zeroMem;
+                } else {
+                    return (io_regs + ((addr)-IO_REGS_OFFSET));
+                }
         }
 
         // invalid address!
@@ -362,7 +368,6 @@ namespace gbaemu
             //COMBINE_MEM_ADDR(addr, BIOS, bios);
             COMBINE_MEM_ADDR(addr, WRAM, wram);
             COMBINE_MEM_ADDR(addr, IWRAM, iwram);
-            COMBINE_MEM_ADDR(addr, IO_REGS, io_regs);
             COMBINE_MEM_ADDR(addr, BG_OBJ_RAM, bg_obj_ram);
             COMBINE_MEM_ADDR(addr, VRAM, vram);
             COMBINE_MEM_ADDR(addr, OAM, oam);
@@ -381,8 +386,16 @@ namespace gbaemu
             case EXT_ROM3_:
                 COMBINE_MEM_ADDR_(addr, EXT_ROM3, EXT_ROM, rom);
             case BIOS:
+                std::cout << "ERROR: trying to write bios mem: 0x" << std::hex << addr << std::endl;
                 // Read only!
                 return wasteMem;
+            case IO_REGS:
+                if (addr >= IO_REGS_LIMIT) {
+                    std::cout << "ERROR: write invalid io reg address: 0x" << std::hex << addr << std::endl;
+                    return wasteMem;
+                } else {
+                    return (io_regs + ((addr)-IO_REGS_OFFSET));
+                }
         }
 
         // invalid address!
