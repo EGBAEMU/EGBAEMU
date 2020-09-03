@@ -59,6 +59,9 @@ namespace gbaemu
         bool forceBranch;
         bool hasCausedException;
         InstructionExecutionException exception;
+
+        // DMA specific stuff
+        bool dmaExecutes;
     };
 
     enum ConditionOPCode : uint8_t {

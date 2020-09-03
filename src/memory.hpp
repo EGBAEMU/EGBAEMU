@@ -105,6 +105,9 @@ namespace gbaemu
             NO_BACKUP     // Not sure if this is allowed?
         };
 
+      // the offset within bios code
+      static const uint32_t BIOS_IRQ_HANDLER_OFFSET = 0;
+
       private:
         //uint8_t *bios;
         uint8_t *wram;
@@ -116,6 +119,7 @@ namespace gbaemu
 
         uint8_t *ext_sram = nullptr;
         uint8_t *rom = nullptr;
+        size_t origRomSize = 0;
         size_t romSize = 0;
 
         static const constexpr uint8_t BIOS_READ_AFTER_STARTUP[] = {0x00, 0xF0, 0x29, 0xE1};
@@ -137,6 +141,12 @@ namespace gbaemu
             /*FLASH512_V_SIZE = */ 64 << 10, // 64 KiB
                                              //TODO this exceeds the normal expected memory area???
             /*FLASH1M_V_SIZE =*/128 << 10    // 128 KiB
+        };
+
+        static const constexpr uint8_t customBiosCode[] = {
+            //TODO arm assembler code for interrupt handler!
+            0x00, 0x00, 0x00, 0x00
+            //TODO maybe SWI implementations?
         };
 
         BackupID backupType;
@@ -194,14 +204,9 @@ namespace gbaemu
         Memory(const Memory &) = delete;
         Memory &operator=(const Memory &) = delete;
 
-        void loadROM(uint8_t *rom, size_t romSize)
+        void loadROM(const uint8_t *rom, size_t romSize)
         {
-            if (this->romSize) {
-                delete[] this->rom;
-            }
-            this->romSize = romSize;
-            this->rom = new uint8_t[romSize];
-            std::copy_n(rom, romSize, this->rom);
+            appendBiosCodeToROM(rom, romSize);
 
             // TODO reset stats
             scanROMForBackupID();
@@ -228,6 +233,10 @@ namespace gbaemu
         uint8_t nonSeqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
         uint8_t seqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
 
+        uint32_t getBiosBaseAddr() const
+        {
+            return EXT_ROM_OFFSET + origRomSize;
+        }
         void setBiosReadState(BiosReadState readState)
         {
             biosReadState = readState;
@@ -236,6 +245,7 @@ namespace gbaemu
       private:
         void scanROMForBackupID();
         uint32_t readOutOfROM(uint32_t addr) const;
+        void appendBiosCodeToROM(const uint8_t *rom, size_t romSize);
     };
 } // namespace gbaemu
 

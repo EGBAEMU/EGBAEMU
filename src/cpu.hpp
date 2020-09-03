@@ -2,6 +2,7 @@
 #define CPU_HPP
 
 #include "cpu_state.hpp"
+#include "dma.hpp"
 #include "inst_arm.hpp"
 #include "inst_thumb.hpp"
 #include "regs.hpp"
@@ -12,12 +13,17 @@ namespace gbaemu
 
     class CPU
     {
-      private:
+       
+      public:
+        CPUState state;
         arm::ARMInstructionDecoder armDecoder;
         thumb::ThumbInstructionDecoder thumbDecoder;
 
-      public:
-        CPUState state;
+
+        DMA dma0{DMA::DMA0, state.memory};
+        DMA dma1{DMA::DMA1, state.memory};
+        DMA dma2{DMA::DMA2, state.memory};
+        DMA dma3{DMA::DMA3, state.memory};
 
         CPU();
 
