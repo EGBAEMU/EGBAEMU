@@ -85,15 +85,6 @@ namespace gbaemu::lcd {
         uint32_t charBaseBlock = (le(regs->BGCNT[bgIndex]) & BGCNT::CHARACTER_BASE_BLOCK_MASK) >> 2;
         uint32_t screenBaseBlock = (le(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_BASE_BLOCK_MASK) >> 8;
 
-        if (bgMode <= 2) {
-            /* scrolling, TODO: check sign */
-            xOff = le(regs->BGOFS[bgIndex].h) & 0x1F;
-            yOff = le(regs->BGOFS[bgIndex].v) & 0x1F;
-        } else {
-            xOff = 0;
-            yOff = 0;
-        }
-
         /* select which frame buffer to use */
         if (bgMode == 4 || bgMode == 5)
             useOtherFrameBuffer = le(regs->DISPCNT) & DISPCTL::DISPLAY_FRAME_SELECT_MASK;
@@ -101,22 +92,42 @@ namespace gbaemu::lcd {
             useOtherFrameBuffer = false;
 
         /* scaling, rotation, only for bg2, bg3 */
-        if (bgIndex == 2) {
-            scale_rotate.origin[0] = fpToFloat<uint32_t, 8, 19>(le(regs->BG2X));
-            scale_rotate.origin[1] = fpToFloat<uint32_t, 8, 19>(le(regs->BG2Y));
+        if (bgIndex == 2 || bgIndex == 3) {
+            float origin[2];
+            float d[2];
+            float dm[2];
 
-            scale_rotate.d[0] = fpToFloat<uint16_t, 8, 7>(le(regs->BG2P[0]));
-            scale_rotate.dm[0] = fpToFloat<uint16_t, 8, 7>(le(regs->BG2P[1]));
-            scale_rotate.d[1] = fpToFloat<uint16_t, 8, 7>(le(regs->BG2P[2]));
-            scale_rotate.dm[1] = fpToFloat<uint16_t, 8, 7>(le(regs->BG2P[3]));
-        } else if (bgIndex == 3) {
-            scale_rotate.origin[0] = fpToFloat<uint32_t, 8, 19>(le(regs->BG3X));
-            scale_rotate.origin[1] = fpToFloat<uint32_t, 8, 19>(le(regs->BG3Y));
+            if (bgIndex == 2) {
+                origin[0] = fpToFloat<uint32_t, 8, 19>(le(regs->BG2X));
+                origin[1] = fpToFloat<uint32_t, 8, 19>(le(regs->BG2Y));
 
-            scale_rotate.d[0] = fpToFloat<uint16_t, 8, 7>(le(regs->BG3P[0]));
-            scale_rotate.dm[0] = fpToFloat<uint16_t, 8, 7>(le(regs->BG3P[1]));
-            scale_rotate.d[1] = fpToFloat<uint16_t, 8, 7>(le(regs->BG3P[2]));
-            scale_rotate.dm[1] = fpToFloat<uint16_t, 8, 7>(le(regs->BG3P[3]));
+                d[0] = fpToFloat<uint16_t, 8, 7>(le(regs->BG2P[0]));
+                dm[0] = fpToFloat<uint16_t, 8, 7>(le(regs->BG2P[1]));
+                d[1] = fpToFloat<uint16_t, 8, 7>(le(regs->BG2P[2]));
+                dm[1] = fpToFloat<uint16_t, 8, 7>(le(regs->BG2P[3]));
+            } else {
+                origin[0] = fpToFloat<uint32_t, 8, 19>(le(regs->BG3X));
+                origin[1] = fpToFloat<uint32_t, 8, 19>(le(regs->BG3Y));
+
+                d[0] = fpToFloat<uint16_t, 8, 7>(le(regs->BG3P[0]));
+                dm[0] = fpToFloat<uint16_t, 8, 7>(le(regs->BG3P[1]));
+                d[1] = fpToFloat<uint16_t, 8, 7>(le(regs->BG3P[2]));
+                dm[1] = fpToFloat<uint16_t, 8, 7>(le(regs->BG3P[3]));
+            }
+
+            /* TODO: build trans and invTrans */
+            trans = common::math::mat<3, 3>::id();
+            invTrans = common::math::mat<3, 3>::id();
+        } else {
+            /* use scrolling parameters */
+            trans = common::math::mat<3, 3>::id();
+            invTrans = common::math::mat<3, 3>::id();
+
+            trans[0][2] = le(regs->BGOFS[bgIndex].h) & 0x1F;
+            trans[1][2] = le(regs->BGOFS[bgIndex].v) & 0x1F;
+
+            invTrans[0][2] = -trans[0][2];
+            invTrans[1][2] = -trans[1][2];
         }
 
         /* 32x32 tiles, arrangement depends on resolution */
@@ -300,29 +311,8 @@ namespace gbaemu::lcd {
     }
 
     void Background::drawToDisplay(LCDisplay& display) {
-        auto xFrom = std::max(0, xOff);
-        auto xTo = std::min(DIMENSIONS::WIDTH, xOff + canvas.getWidth());
-
-        auto yFrom = std::max(0, yOff);
-        auto yTo = std::min(DIMENSIONS::HEIGHT, yOff + canvas.getHeight());
-
-        auto dispPixels = display.canvas.pixels();
-        auto dispStride = display.stride();
-
-        auto canvPixels = canvas.pixels();
-        auto canvStride = canvas.getWidth();
-
         display.canvas.beginDraw();
-
-        for (auto y = yFrom; y < yTo; ++y) {
-            for (auto x = xFrom; x < xTo; ++x) {
-                auto cx = x + xOff;
-                auto cy = y + yOff;
-                auto color = canvPixels[cy * canvStride + cx];
-                dispPixels[y * dispStride + x] = color;
-            }
-        }
-
+        display.canvas.drawSprite(canvas.pixels(), canvas.getWidth(), canvas.getHeight(), canvas.getWidth(), trans, invTrans);
         display.canvas.endDraw();
     }
 

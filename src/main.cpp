@@ -41,72 +41,10 @@ int main(int argc, char **argv)
 
     gbaemu::lcd::Window window(1280, 720);
     auto canv = window.getCanvas();
-
-    std::vector<uint32_t> sprite(64 * 64);
-    for (int32_t y = 0; y < 64; ++y)
-        for (int32_t x = 0; x < 64; ++x)
-            sprite[y * 64 + x] = ((x % 2) == (y % 2)) ? 0xFFFFFFFF : 0xFF000000;
-
-    common::math::real_t xScale = 5,
-        yScale = 5,
-        xOff = 100,
-        yOff = 100,
-        alpha = 0.1,
-        t = 0;
-
-    typedef common::math::real_t real_t;
-
-    auto scaleMatrix = [](real_t x, real_t y) {
-        auto result = common::math::mat<3, 3>::id();
-        result[0][0] = x;
-        result[1][1] = y;
-        return result;
-    };
-
-    auto transMatrix = [](real_t x, real_t y) {
-        auto result = common::math::mat<3, 3>::id();
-        result[0][2] = x;
-        result[1][2] = y;
-        return result;
-    };
-
-    auto rotMatrix = [](real_t a) {
-        auto result = common::math::mat<3, 3>::id();
-        result[0][0] = std::cos(a);
-        result[0][1] = -std::sin(a);
-        result[1][0] = std::sin(a);
-        result[1][1] = std::cos(a);
-        return result;
-    };
-
-    while (run_window) {
-        canv.beginDraw();
-        canv.clear(0xFF365e7a);
-
-        xScale = 2 + std::sin(t);
-        yScale = 4 + std::cos(t);
-        xOff = 50 + std::cos(t) * 70;
-        alpha = t;
-        t += 0.01;
-
-        common::math::mat<3, 3> trans =
-            transMatrix(xOff, yOff) *
-            rotMatrix(alpha) *
-            scaleMatrix(xScale, yScale);
-
-        common::math::mat<3, 3> invTrans =
-            scaleMatrix(1 / xScale, 1 / yScale) *
-            rotMatrix(-alpha) *
-            transMatrix(-xOff, -yOff);
-
-        canv.drawSprite(sprite.data(), 64, 64, 64, trans, invTrans);
-        
-        canv.endDraw();
-
-        window.present();
-    }
-
-    return 0;
+    canv.beginDraw();
+    canv.clear(0xFF365e7a);
+    canv.endDraw();
+    window.present();
 
     /* read gba file */
     std::ifstream file(argv[1], std::ios::binary);

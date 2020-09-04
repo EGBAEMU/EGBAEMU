@@ -4,6 +4,7 @@
 #include <array>
 #include <memory.hpp>
 #include "canvas.hpp"
+#include "mat.hpp"
 
 
 namespace gbaemu::lcd {
@@ -284,7 +285,6 @@ namespace gbaemu::lcd {
         bool colorPalette256;
         uint32_t priority;
         uint32_t charBaseBlock;
-        int32_t xOff, yOff;
         bool scInUse[4];
         uint32_t scCount;
         uint32_t scXOffset[4];
@@ -315,6 +315,10 @@ namespace gbaemu::lcd {
                 y2 = dy(x1-x0) + dmy(y1-y0) + y0
              */
         } scale_rotate;
+
+        /* general transformation of background in target display space */
+        common::math::mat<3, 3> trans;
+        common::math::mat<3, 3> invTrans;
 
         Background(): id(-1), canvas(512, 512) { }
 
