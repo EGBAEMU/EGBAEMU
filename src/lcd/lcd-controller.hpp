@@ -294,7 +294,12 @@ namespace gbaemu::lcd {
 
         /* only for bg2, bg3 */
         struct {
-            
+            /* xy coordinate of the upper left corner */
+            double origin[2];
+            /* dx, dy */
+            double d[2];
+            /* dmx, dmy */
+            double dm[2];
         } scale_rotate;
 
         Background(): id(-1), canvas(512, 512) { }

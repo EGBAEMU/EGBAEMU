@@ -84,8 +84,22 @@ namespace gbaemu::lcd {
             useOtherFrameBuffer = false;
 
         /* scaling, rotation, only for bg2, bg3 */
-        if (bgIndex == 2 || bgIndex == 3) {
+        if (bgIndex == 2) {
+            scale_rotate.origin[0] = fpToFloat<uint32_t, 8, 19>(le(regs->BG2X));
+            scale_rotate.origin[1] = fpToFloat<uint32_t, 8, 19>(le(regs->BG2Y));
 
+            scale_rotate.d[0] = fpToFloat<uint16_t, 8, 7>(le(regs->BG2P[0]));
+            scale_rotate.dm[0] = fpToFloat<uint16_t, 8, 7>(le(regs->BG2P[1]));
+            scale_rotate.d[1] = fpToFloat<uint16_t, 8, 7>(le(regs->BG2P[2]));
+            scale_rotate.dm[1] = fpToFloat<uint16_t, 8, 7>(le(regs->BG2P[3]));
+        } else if (bgIndex == 3) {
+            scale_rotate.origin[0] = fpToFloat<uint32_t, 8, 19>(le(regs->BG3X));
+            scale_rotate.origin[1] = fpToFloat<uint32_t, 8, 19>(le(regs->BG3Y));
+
+            scale_rotate.d[0] = fpToFloat<uint16_t, 8, 7>(le(regs->BG3P[0]));
+            scale_rotate.dm[0] = fpToFloat<uint16_t, 8, 7>(le(regs->BG3P[1]));
+            scale_rotate.d[1] = fpToFloat<uint16_t, 8, 7>(le(regs->BG3P[2]));
+            scale_rotate.dm[1] = fpToFloat<uint16_t, 8, 7>(le(regs->BG3P[3]));
         }
 
         /* 32x32 tiles, arrangement depends on resolution */
