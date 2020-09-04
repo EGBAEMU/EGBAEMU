@@ -87,7 +87,7 @@ namespace gbaemu
                     } else {
                         // Was previously disabled
                         if (writeToControl && writeToReload)
-                            counter = ls(regs.reload);
+                            counter = le(regs.reload);
 
                         preCounter = prescale = prescales[(controlReg & TIMER_PRESCALE_MASK)];
                         countUpTiming = hasPrev && (controlReg & TIMER_TIMING_MASK);

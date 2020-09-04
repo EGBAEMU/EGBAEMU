@@ -80,8 +80,8 @@ namespace gbaemu::lcd
 
         if (bgMode <= 2) {
             /* scrolling, TODO: check sign */
-            xOff = le(regs->BGOFS[bgIndex].h) & 0x1F;
-            yOff = le(regs->BGOFS[bgIndex].v) & 0x1F;
+            xOff = le(regs.BGOFS[bgIndex].h) & 0x1F;
+            yOff = le(regs.BGOFS[bgIndex].v) & 0x1F;
         } else {
             xOff = 0;
             yOff = 0;
