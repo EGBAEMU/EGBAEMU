@@ -1,7 +1,7 @@
-#include "regs.hpp"
 #include "cpu.hpp"
+#include "regs.hpp"
 
-namespace gbaemu 
+namespace gbaemu
 {
 
     /*
@@ -22,7 +22,7 @@ namespace gbaemu
         13    Game Pak (external IRQ source) (etc.)
         14-15 Not used
     */
-    enum InterruptType: uint8_t {
+    enum InterruptType : uint8_t {
         LCD_V_BLANK,
         LCD_H_BLANK,
         LCD_V_COUNTER_MATCH,
@@ -65,51 +65,53 @@ namespace gbaemu
         uint16_t irqMasterEnable;
     } __attribute__((packed));
 
-    class InterruptHandler 
+    class InterruptHandler
     {
-        private:
-          CPU *cpu;
-          InterruptControlRegs regs = {0};
+      private:
+        CPU *cpu;
+        InterruptControlRegs regs = {0};
+        bool needsOneIdleCycle = false;
 
-          static const constexpr uint32_t INTERRUPT_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x200;
+        static const constexpr uint32_t INTERRUPT_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x200;
 
-          uint8_t read8FromReg(uint32_t offset)
-          {
-              //TODO endianess???
-              return *(offset + reinterpret_cast<uint8_t *>(&regs));
-          }
-          void internalWrite8ToReg(uint32_t offset, uint8_t value)
-          {
-              //TODO endianess???
-              *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
-          }
-          void externalWrite8ToReg(uint32_t offset, uint8_t value)
-          {
-              //TODO endianess???
-              //TODO implement special behaviour, of clearing where it applies etc.!
-          }
+        uint8_t read8FromReg(uint32_t offset)
+        {
+            return *(offset + reinterpret_cast<uint8_t *>(&regs));
+        }
 
-        public:
-            InterruptHandler(CPU* cpu) : cpu(cpu) {
-                cpu->state.memory.ioHandler.registerIOMappedDevice(
-                    IO_Mapped(
-                        INTERRUPT_CONTROL_REG_ADDR,
-                        INTERRUPT_CONTROL_REG_ADDR + sizeof(regs),
-                        std::bind(&InterruptHandler::read8FromReg, this, std::placeholders::_1),
-                        std::bind(&InterruptHandler::externalWrite8ToReg, this, std::placeholders::_1, std::placeholders::_2),
-                        std::bind(&InterruptHandler::read8FromReg, this, std::placeholders::_1),
-                        std::bind(&InterruptHandler::internalWrite8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
-            }
+        void internalWrite8ToReg(uint32_t offset, uint8_t value)
+        {
+            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+        }
 
-            bool isInterruptMasterSet() const;
+        void externalWrite8ToReg(uint32_t offset, uint8_t value)
+        {
+            if (offset == 2 || offset == 3)
+                *(offset + reinterpret_cast<uint8_t *>(&regs)) &= ~value;
+            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+        }
 
-            bool isCPSRInterruptSet() const;
-            bool isCPSRFastInterruptSet() const;
+      public:
+        InterruptHandler(CPU *cpu) : cpu(cpu)
+        {
+            cpu->state.memory.ioHandler.registerIOMappedDevice(
+                IO_Mapped(
+                    INTERRUPT_CONTROL_REG_ADDR,
+                    INTERRUPT_CONTROL_REG_ADDR + sizeof(regs),
+                    std::bind(&InterruptHandler::read8FromReg, this, std::placeholders::_1),
+                    std::bind(&InterruptHandler::externalWrite8ToReg, this, std::placeholders::_1, std::placeholders::_2),
+                    std::bind(&InterruptHandler::read8FromReg, this, std::placeholders::_1),
+                    std::bind(&InterruptHandler::internalWrite8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
+        }
 
-            bool isInterruptEnabled(InterruptType type) const;
-            bool wasInterruptAcknowledged(InterruptType type) const;
-    
-            void checkForInterrupt() const;
+        bool isInterruptMasterSet() const;
+
+        bool isCPSRInterruptSet() const;
+        bool isCPSRFastInterruptSet() const;
+
+        bool isInterruptEnabled(InterruptType type) const;
+
+        void checkForInterrupt();
     };
 
-}
+} // namespace gbaemu
