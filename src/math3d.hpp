@@ -5,17 +5,17 @@
 
 namespace common::math
 {
-    real_t near_from_angle(real_t alpha)
+    inline real_t near_from_angle(real_t alpha)
     {
         return 1 / std::atan(alpha);
     }
 
-    real_t fovv_corrected(real_t screen_width, real_t screen_height, real_t near)
+    inline real_t fovv_corrected(real_t screen_width, real_t screen_height, real_t near)
     {
         return 2 * std::atan(screen_height / (screen_width * near));
     }
 
-    mat<4, 4> projection_matrix(real_t alpha, real_t beta, real_t near, real_t far)
+    inline mat<4, 4> projection_matrix(real_t alpha, real_t beta, real_t near, real_t far)
     {
         mat<4, 4> result = mat<4, 4>::zero();
 
@@ -40,7 +40,7 @@ namespace common::math
         return result;
     }
 
-    mat<3, 4> screen_matrix(real_t width, real_t height, real_t near, real_t far)
+    inline mat<3, 4> screen_matrix(real_t width, real_t height, real_t near, real_t far)
     {
         auto result = mat<3, 4>::zero();
 
@@ -77,7 +77,7 @@ namespace common::math
         return result;
     }
 
-    mat<4, 4> rotation_matrix(real_t alpha, const vec<3> &dir)
+    inline mat<4, 4> rotation_matrix(real_t alpha, const vec<3> &dir)
     {
         auto result = mat<4, 4>::zero();
         auto ndir = dir.normal();
@@ -105,7 +105,7 @@ namespace common::math
         return result;
     }
 
-    mat<4, 4> translation_matrix(real_t x, real_t y, real_t z)
+    inline mat<4, 4> translation_matrix(real_t x, real_t y, real_t z)
     {
         auto result = mat<4, 4>::id();
 
@@ -116,12 +116,12 @@ namespace common::math
         return result;
     }
 
-    mat<4, 4> translation_matrix(const vec<3> &v)
+    inline mat<4, 4> translation_matrix(const vec<3> &v)
     {
         return translation_matrix(v[0], v[1], v[2]);
     }
 
-    mat<4, 4> scale_matrix(real_t x, real_t y, real_t z)
+    inline mat<4, 4> scale_matrix(real_t x, real_t y, real_t z)
     {
         auto result = mat<4, 4>::id();
         result[0][0] = x;
@@ -130,12 +130,12 @@ namespace common::math
         return result;
     }
 
-    mat<4, 4> scale_matrix(const vec<3> &v)
+    inline mat<4, 4> scale_matrix(const vec<3> &v)
     {
         return scale_matrix(v[0], v[1], v[2]);
     }
 
-    mat<4, 4> view_to_clip_matrix(real_t alpha, real_t beta, real_t near, real_t far)
+    inline mat<4, 4> view_to_clip_matrix(real_t alpha, real_t beta, real_t near, real_t far)
     {
         auto result = mat<4, 4>::zero();
 
@@ -148,7 +148,7 @@ namespace common::math
         return result;
     }
 
-    mat<4, 4> rotation_around_matrix(real_t angle, const math::vec<3> &axis, const math::vec<3> &center)
+    inline mat<4, 4> rotation_around_matrix(real_t angle, const math::vec<3> &axis, const math::vec<3> &center)
     {
         return translation_matrix(center[0], center[1], center[2]) *
                rotation_matrix(angle, axis) *

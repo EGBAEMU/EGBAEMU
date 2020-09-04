@@ -3,6 +3,23 @@
 #include <util.hpp>
 
 
+/*
+    There are 4 background layers.
+
+    BG0     ----------------------------------
+    BG1     ----------------------------------
+    BG2     ----------------------------------
+    BG3     ----------------------------------
+    OBJ     ----------------------------------
+
+    The drawing order and which layers should be drawn can be configured. Top layers can be alpha-blended with layers below.
+    Brightness of the top layer can also be configured. The OBJ layer contains all the sprites (called OBJs).
+
+
+
+
+ */
+
 namespace gbaemu::lcd {
     void LCDBgObj::setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t mode) {
         bgMode = mode;
@@ -193,8 +210,11 @@ namespace gbaemu::lcd {
                     uint8_t *tile = tiles + (tileNumber * 64);
 
                     for (uint32_t ty = 0; ty < 8; ++ty) {
+                        uint32_t srcTy = vFlip ? (7 - ty) : ty;
+
                         for (uint32_t tx = 0; tx < 8; ++tx) {
-                            uint32_t color = palette.getBgColor(tile[ty * 8 + tx]);
+                            uint32_t srcTx = hFlip ? (7 - tx) : tx;
+                            uint32_t color = palette.getBgColor(tile[srcTy * 8 + srcTx]);
                             pixels[(tileY + ty) * stride + (tileX + tx)] = color;
                         }
                     }
@@ -203,11 +223,14 @@ namespace gbaemu::lcd {
                     uint32_t paletteNumber = (entry >> 12) & 0xF;
 
                     for (uint32_t ty = 0; ty < 8; ++ty) {
-                        uint32_t row = tile[ty];
+                        uint32_t srcTy = vFlip ? (7 - ty) : ty;
+                        uint32_t row = tile[srcTy];
 
                         for (uint32_t tx = 0; tx < 8; ++tx) {
+                            uint32_t srcTx = hFlip ? (7 - tx) : tx;
+
                             /* TODO: order correct? */
-                            auto paletteIndex = (row & (0b1111 << (tx * 4))) >> (tx * 4);
+                            auto paletteIndex = (row & (0b1111 << (srcTx * 4))) >> (srcTx * 4);
                             uint32_t color = palette.getBgColor(paletteNumber, paletteIndex);
 
                             pixels[(tileY + ty) * stride + (tileX + tx)] = color;
@@ -377,68 +400,6 @@ namespace gbaemu::lcd {
         display.drawToTarget(2);
 
         blendBackgrounds();
-    }
-
-    void LCDController::plotMemory() {
-        display.canvas.beginDraw();
-        /*
-        for (uint32_t y = 0; y < DIMENSIONS::HEIGHT * 2; y++)
-            for (uint32_t x = 0; x < DIMENSIONS::WIDTH; ++x)
-                display.canvas.pixels()[y * display.canvas.getWidth() + x] = reinterpret_cast<uint32_t *>(vram)[y * 240 + x];
-
-        return;
-         */
-
-        static const Memory::MemoryRegionOffset offs[] = {
-            //Memory::BIOS_OFFSET,
-            Memory::WRAM_OFFSET,
-            Memory::IWRAM_OFFSET,
-            //Memory::IO_REGS_OFFSET,
-            //Memory::BG_OBJ_RAM_OFFSET,
-            Memory::VRAM_OFFSET,
-            //Memory::OAM_OFFSET,
-            Memory::EXT_ROM_OFFSET,
-            Memory::EXT_SRAM_OFFSET
-        };
-
-        static const Memory::MemoryRegionLimit limits[] = {
-            //Memory::BIOS_LIMIT,
-            Memory::WRAM_LIMIT,
-            Memory::IWRAM_LIMIT,
-            //Memory::IO_REGS_LIMIT,
-            //Memory::BG_OBJ_RAM_LIMIT,
-            Memory::VRAM_LIMIT,
-            //Memory::OAM_LIMIT,
-            Memory::EXT_ROM1_LIMIT,
-            Memory::EXT_SRAM_LIMIT
-        };
-
-        static const uint32_t WIDTH = 240;
-        Memory::MemoryRegion memReg;
-
-        for (uint32_t i = 0; i < sizeof(offs)/sizeof(offs[0]); ++i) {
-            uint32_t *ram = reinterpret_cast<uint32_t *>(memory.resolveAddr(offs[i], nullptr, memReg));
-            uint32_t size = limits[i] - offs[i];
-
-            if (offs[i] == Memory::EXT_ROM_OFFSET) {
-                size = memory.getRomSize();
-            }
-
-            for (uint32_t j = 0; j < size / 4; ++j) {
-                auto x = j % WIDTH + (WIDTH + 16) * i;
-                auto y = j / WIDTH;
-
-                auto w = display.canvas.getWidth();
-                auto h = display.canvas.getHeight();
-
-                if (x >= w || y >= h)
-                    break;
-
-                display.canvas.pixels()[y * w + x] = ram[j];
-            }
-        }
-
-        display.canvas.endDraw();
     }
 
     void LCDController::plotPalette() {
