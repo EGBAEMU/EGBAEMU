@@ -24,6 +24,9 @@ namespace gbaemu
     template <class T>
     T bmap(bool b);
 
+    template <class T, T FRAC, T INT, class RESULT=double>
+    RESULT fpToFloat(T fp);
+
 #define STRINGIFY(x) (#x)
 
 #define STRINGIFY_CASE_ID(x) \
