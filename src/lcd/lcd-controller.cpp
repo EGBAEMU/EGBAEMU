@@ -116,8 +116,55 @@ namespace gbaemu::lcd {
             }
 
             /* TODO: build trans and invTrans */
-            trans = common::math::mat<3, 3>::id();
-            invTrans = common::math::mat<3, 3>::id();
+
+            /*
+                x2 = A(x1-x0) + B(y1-y0) + x0 = Ax1 - Ax0 + By1 - By0 + x0 = Ax1 + By1 + (-Ax0 - By0 + x0)
+                y2 = C(x1-x0) + D(y1-y0) + y0 = Cx1 - Cx0 + Dy1 - Dy0 + y0 = Cx1 + Dy1 + (-Cx0 - Dy0 + y0)
+
+                TODO: invert
+                x2 = Ax1 + By1 + (-Ax0 - By0 + x0)
+                x2 - (-Ax0 - By0 + x0) = Ax1 + By1
+                (x2 - (-Ax0 - By0 + x0) - By1) / A = x1
+             */
+
+            /*
+            common::math::mat<3, 3> shear{
+                {d[0], dm[0], 0},
+                {d[1], dm[1], 0},
+                {0, 0, 1}
+            };
+             */
+
+            /* TODO: not sure what to do when parameters are 0 */
+            common::math::mat<3, 3> shear = common::math::mat<3, 3>::id();
+
+            /*
+                (a b)^-1    =    1/det * (d -b)
+                (c d)                    (-c a)
+             */
+
+            auto adet = 1 / ((shear[0][0] * shear[1][1]) - (shear[0][1] * shear[0][1]));
+
+            common::math::mat<3, 3> invShear{
+                {shear[2][2]  * adet, -shear[0][1] * adet, 0},
+                {-shear[0][1] * adet, shear[0][0]  * adet, 0},
+                {0, 0, 1}
+            };
+
+            common::math::mat<3, 3> translation{
+                {1, 0, -d[0] * origin[0] - dm[0] * origin[1] + origin[0]},
+                {0, 1, -d[1] * origin[0] - dm[1] * origin[1] + origin[1]},
+                {0, 0, 1}
+            };
+
+            common::math::mat<3, 3> invTranslation{
+                {1, 0, -translation[0][2]},
+                {0, 1, -translation[1][2]},
+                {0, 0, 1},
+            };
+
+            trans = translation * shear;
+            invTrans = invShear * invTranslation;
         } else {
             /* use scrolling parameters */
             trans = common::math::mat<3, 3>::id();

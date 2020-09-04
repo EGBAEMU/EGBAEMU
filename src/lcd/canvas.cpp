@@ -52,7 +52,6 @@ namespace gbaemu::lcd
         typedef common::math::real_t real_t;
 
         /* I hoped to never have to implement this crap. Well here we go... */
-        /* The screen and the sprite are small, sequential pixel access is therefore not that important. Cache should be big enough. */
 
         /*
             +------------------------------->
