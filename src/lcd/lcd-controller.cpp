@@ -455,7 +455,7 @@ namespace gbaemu::lcd
         Memory::MemoryRegion memReg;
         uint8_t *vram = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, memReg);
 
-        if (bgMode == 0 && false) {
+        if (bgMode == 0) {
             /*
                 Mode  Rot/Scal Layers Size               Tiles Colors       Features
                 0     No       0123   256x256..512x515   1024  16/16..256/1 SFMABP
@@ -480,8 +480,12 @@ namespace gbaemu::lcd
                 auto bgId = backgroundIds[i];
             }
 
-            for (uint32_t i = 0; i < 4; ++i)
+            for (uint32_t i = 0; i < 4; ++i) {
+                if (!backgrounds[i].enabled)
+                    continue;
+                
                 backgrounds[i].drawToDisplay(display);
+            }
         } else if (bgMode == 1) {
             backgrounds[0].loadSettings(0, 0, regs, memory);
             backgrounds[1].loadSettings(0, 1, regs, memory);
