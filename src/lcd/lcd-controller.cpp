@@ -75,8 +75,22 @@ namespace gbaemu::lcd {
         id = bgIndex;
 
         uint16_t size = (le(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
-        uint32_t height = (size <= 1) ? 256 : 512;
-        uint32_t width = (size % 2 == 0) ? 256 : 512;
+
+        /* TODO: not entirely correct */
+        if (bgMode <= 2) {
+            height = (size <= 1) ? 256 : 512;
+            width = (size % 2 == 0) ? 256 : 512;
+        } else if (bgMode == 3) {
+            width = 240;
+            height = 160;
+        } else if (bgMode == 4) {
+            width = 240;
+            height = 160;
+        } else if (bgMode == 5) {
+            width = 160;
+            height = 128;
+        }
+        
         mosaicEnabled = le(regs->BGCNT[bgIndex]) & BGCNT::MOSAIC_MASK;
         /* if true tiles have 8 bit color depth, 4 bit otherwise */
         colorPalette256 = le(regs->BGCNT[bgIndex]) & BGCNT::COLORS_PALETTES_MASK;
@@ -90,6 +104,13 @@ namespace gbaemu::lcd {
             useOtherFrameBuffer = le(regs->DISPCNT) & DISPCTL::DISPLAY_FRAME_SELECT_MASK;
         else
             useOtherFrameBuffer = false;
+
+        /* wrapping */
+        if (bgIndex == 2 || bgIndex == 3) {
+            wrap = le(regs->BGCNT[bgIndex]) & BGCNT::DISPLAY_AREA_OVERFLOW_MASK;
+        } else {
+            wrap = false;
+        }
 
         /* scaling, rotation, only for bg2, bg3 */
         if (bgIndex == 2 || bgIndex == 3) {
@@ -152,7 +173,7 @@ namespace gbaemu::lcd {
             };
 
             common::math::mat<3, 3> translation{
-                {1, 0, -d[0] * origin[0] - dm[0] * origin[1] + origin[0]},
+                {1, 0, 20 + -d[0] * origin[0] - dm[0] * origin[1] + origin[0]},
                 {0, 1, -d[1] * origin[0] - dm[1] * origin[1] + origin[1]},
                 {0, 0, 1}
             };
@@ -182,7 +203,7 @@ namespace gbaemu::lcd {
         Memory::MemoryRegion memReg;
         uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, memReg);
         bgMapBase = vramBase + screenBaseBlock * 0x800;
-        
+
         if (bgMode == 0) {
             std::fill_n(scInUse, 4, true);
         } else if (bgMode == 3) {
@@ -359,7 +380,7 @@ namespace gbaemu::lcd {
 
     void Background::drawToDisplay(LCDisplay& display) {
         display.canvas.beginDraw();
-        display.canvas.drawSprite(canvas.pixels(), canvas.getWidth(), canvas.getHeight(), canvas.getWidth(), trans, invTrans);
+        display.canvas.drawSprite(canvas.pixels(), width, height, canvas.getWidth(), trans, invTrans, wrap);
         display.canvas.endDraw();
     }
 
@@ -387,7 +408,7 @@ namespace gbaemu::lcd {
         Memory::MemoryRegion memReg;
         uint8_t *vram = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, memReg);
 
-        if (bgMode == 0) {
+        if (bgMode == 0 && false) {
             /*
                 Mode  Rot/Scal Layers Size               Tiles Colors       Features
                 0     No       0123   256x256..512x515   1024  16/16..256/1 SFMABP
@@ -415,6 +436,16 @@ namespace gbaemu::lcd {
 
             for (uint32_t i = 0; i < 4; ++i)
                 backgrounds[i].drawToDisplay(display);
+        } else if (bgMode == 1) {
+            backgrounds[0].loadSettings(0, 0, regs, memory);
+            backgrounds[1].loadSettings(0, 1, regs, memory);
+            backgrounds[2].loadSettings(2, 2, regs, memory);
+
+            backgrounds[0].renderBG0(palette);
+            backgrounds[1].renderBG0(palette);
+            //backgrounds[2].renderBG2(palette);
+        } else if (bgMode == 2) {
+
         } else if (bgMode == 3) {
             /* TODO: This should easily be extendable to support BG4, BG5 */
             /* BG Mode 3 - 240x160 pixels, 32768 colors */
@@ -430,7 +461,7 @@ namespace gbaemu::lcd {
             backgrounds[2].renderBG5(palette, memory);
             backgrounds[2].drawToDisplay(display);
         } else {
-            std::cout << "unsupported bg mode " << bgMode << "\n";
+            std::cout << "WARNING: unsupported bg mode " << bgMode << "\n";
         }
 
         display.canvas.endDraw();

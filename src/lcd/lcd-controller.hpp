@@ -283,6 +283,10 @@ namespace gbaemu::lcd {
         bool useOtherFrameBuffer;
         bool mosaicEnabled;
         bool colorPalette256;
+        /* actual pixel count */
+        uint32_t width;
+        uint32_t height;
+        bool wrap;
         uint32_t priority;
         uint32_t charBaseBlock;
         bool scInUse[4];

@@ -28,7 +28,7 @@ namespace gbaemu::lcd {
         void fillRect(int32_t x, int32_t y, int32_t w, int32_t h, PixelType color);
         /* We trust the user that he provides the correct inverse. */
         void drawSprite(const PixelType *src, int32_t srcWidth, int32_t srcHeight, int32_t srcStride,
-            const common::math::mat<3, 3>& trans, const common::math::mat<3, 3>& invTrans);
+            const common::math::mat<3, 3>& trans, const common::math::mat<3, 3>& invTrans, bool wrap = false);
     };
 
     template <class PixelType>

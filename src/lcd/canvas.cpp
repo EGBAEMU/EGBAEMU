@@ -1,5 +1,8 @@
 #include "canvas.hpp"
 
+#include <cassert>
+
+
 namespace gbaemu::lcd
 {
     template <class PixelType>
@@ -45,7 +48,7 @@ namespace gbaemu::lcd
 
     template <class PixelType>
     void Canvas<PixelType>::drawSprite(const PixelType *src, int32_t srcWidth, int32_t srcHeight, int32_t srcStride,
-            const common::math::mat<3, 3>& trans, const common::math::mat<3, 3>& invTrans) {
+            const common::math::mat<3, 3>& trans, const common::math::mat<3, 3>& invTrans, bool wrap) {
         typedef common::math::vec<2> vec2;
         typedef common::math::vec<3> vec3;
         typedef common::math::mat<3, 3> mat;
@@ -54,24 +57,25 @@ namespace gbaemu::lcd
         /* I hoped to never have to implement this crap. Well here we go... */
 
         /*
+            target canvas
             +------------------------------->
-            |
+            |          bounds
             |          ......................                        
             |          .          ---->
             |          .      ----
             |          .  ----
-            |          . +
+            |          . +  sprite
             |          .  |
             |          .   |
             |          .    |
             |          .     |
             |          .     \/
             \/
-        
-        
+
+            trans: sprite space -> canvas space
+            invTrans: canvas space -> sprite space
          */
 
-        
         /* Calculate the bounds of the transformed sprite on the canvas. */
         vec3 corners[] = {
             trans * vec3{0, 0, 1},
@@ -88,12 +92,12 @@ namespace gbaemu::lcd
             return std::max(a, std::max(b, std::max(c, d)));
         };
 
-        /* clip to canvas bounds */
-        int32_t fromX = std::max(0,             static_cast<int32_t>(min4(corners[0][0], corners[1][0], corners[2][0], corners[3][0])));
-        int32_t fromY = std::max(0,             static_cast<int32_t>(min4(corners[0][1], corners[1][1], corners[2][1], corners[3][1])));
-        int32_t toX = std::min(getWidth() - 1,  static_cast<int32_t>(max4(corners[0][0], corners[1][0], corners[2][0], corners[3][0])));
-        int32_t toY = std::min(getHeight() - 1, static_cast<int32_t>(max4(corners[0][1], corners[1][1], corners[2][1], corners[3][1])));
+        int32_t fromX = static_cast<int32_t>(min4(corners[0][0], corners[1][0], corners[2][0], corners[3][0]));
+        int32_t fromY = static_cast<int32_t>(min4(corners[0][1], corners[1][1], corners[2][1], corners[3][1]));
+        int32_t toX =   static_cast<int32_t>(max4(corners[0][0], corners[1][0], corners[2][0], corners[3][0]));
+        int32_t toY =   static_cast<int32_t>(max4(corners[0][1], corners[1][1], corners[2][1], corners[3][1]));
 
+        /*
         auto getLineIntersection = [](const vec3& a, const vec3& b, real_t f, uint32_t coord, real_t& lambda) -> bool {
             auto abDelta = b[coord] - a[coord];
             auto afDelta = f - a[coord];
@@ -109,11 +113,22 @@ namespace gbaemu::lcd
         auto lerp = [](const vec3& a, const vec3& b, real_t lambda) {
             return a * (1 - lambda) + b * lambda;
         };
+         */
 
         auto width = getWidth();
         auto destPixels = pixels();
 
-        for (int32_t y = fromY; y <= toY; ++y) {
+        for (int32_t y = fromY, canvY = fromY; y <= toY; ++y, ++canvY) {
+            if (!wrap) {
+                if (y < 0)
+                    continue;
+                else if (y >= getHeight())
+                    break;
+            } else {
+                if (canvY < 0 || canvY >= getHeight())
+                    canvY = canvY % getHeight();
+            }
+
             /*
                 The line segment (fromX, y) ---- (toX, y) in canvas space must intersect with sprite in
                 sprite space.
@@ -122,7 +137,7 @@ namespace gbaemu::lcd
             const auto a = invTrans * vec3{fromX, y, 1};
             const auto b = invTrans * vec3{toX, y, 1};
 
-            real_t lambda;
+            //real_t lambda;
             vec3 spriteFrom = a, spriteTo = b;
 
             /* TODO: implement proper clipping */
@@ -146,13 +161,29 @@ namespace gbaemu::lcd
             vec3 spriteCoord = spriteFrom;
 
             /* draw scanline */
-            for (int32_t x = fromX; x <= toX; ++x) {
+            for (int32_t x = fromX, canvX = fromX; x <= toX; ++x, ++canvX) {
+                if (!wrap) {
+                    if (x < 0)
+                        continue;
+                    else if (x >= getWidth())
+                        break;
+                } else {
+                    if (canvX < 0 || canvX >= getWidth())
+                        canvX = canvX % getWidth();
+                }
+
                 if (0 <= spriteCoord[0] && spriteCoord[0] <= srcWidth - 1 &&
                     0 <= spriteCoord[1] && spriteCoord[1] <= srcHeight - 1) {
                     int32_t sx = static_cast<int32_t>(spriteCoord[0]);
                     int32_t sy = static_cast<int32_t>(spriteCoord[1]);
 
-                    destPixels[y * width + x] = src[sy * srcStride + sx];
+                    assert(0 <= canvX && canvX < width);
+                    assert(0 <= canvY && canvY < height);
+                    assert(0 <= spriteCoord[0] && spriteCoord[0] <= srcWidth - 1);
+                    assert(0 <= spriteCoord[1] && spriteCoord[1] <= srcHeight - 1);
+
+                    //std::cout << std::dec << canvX << " " << x % width << "\n";
+                    destPixels[canvY * width + canvX] = src[sy * srcStride + sx];
                 }
 
                 spriteCoord += spriteStep;
