@@ -24,6 +24,7 @@ namespace gbaemu::lcd
 
         In mode 0 all layers are in text mode.
         In mode 1 layers 0 and 1 are in text mode.
+        All other layers are in map mode.
      */
     namespace DISPCTL
     {
@@ -344,6 +345,7 @@ namespace gbaemu::lcd
 
         void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory);
         void renderBG0(LCDColorPalette &palette);
+        void renderBG2(LCDColorPalette &palette);
         void renderBG3(Memory &memory);
         void renderBG4(LCDColorPalette &palette, Memory &memory);
         void renderBG5(LCDColorPalette &palette, Memory &memory);
