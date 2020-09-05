@@ -345,6 +345,30 @@ namespace gbaemu::lcd {
         }
     }
 
+    void Background::renderBG2(LCDColorPalette& palette) {
+        uint8_t *bgMap = reinterpret_cast<uint8_t *>(bgMapBase + 0x800);
+        auto pixels = canvas.pixels();
+        auto stride = canvas.getWidth();
+
+        for (uint32_t mapIndex = 0; mapIndex < (width / 8) * (height / 8); ++mapIndex) {
+            uint8_t tileNumber = bgMap[mapIndex];
+
+            int32_t tileX = mapIndex % (width / 8);
+            int32_t tileY = mapIndex / (height / 8);
+
+            uint8_t *tile = tiles + (tileNumber * 64);
+
+            for (uint32_t ty = 0; ty < 8; ++ty) {
+                for (uint32_t tx = 0; tx < 8; ++tx) {
+                    uint32_t j = ty * 8 + tx;
+                    uint32_t k = tile[j];
+                    uint32_t color = palette.getBgColor(k);
+                    pixels[(tileY + ty) * stride + (tileX + tx)] = color;
+                }
+            }
+        }
+    }
+
     void Background::renderBG3(Memory& memory) {
         auto pixels = canvas.pixels();
         auto stride = canvas.getWidth();
@@ -433,6 +457,9 @@ namespace gbaemu::lcd {
         Memory::MemoryRegion memReg;
         uint8_t *vram = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, memReg);
 
+        for (uint32_t i = 0; i < 4; ++i)
+            backgrounds[i].enabled = regs->DISPCNT & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
+
         if (bgMode == 0) {
             /*
                 Mode  Rot/Scal Layers Size               Tiles Colors       Features
@@ -470,8 +497,20 @@ namespace gbaemu::lcd {
             backgrounds[1].loadSettings(0, 1, regs, memory);
             backgrounds[2].loadSettings(2, 2, regs, memory);
 
-            backgrounds[0].renderBG0(palette);
-            backgrounds[1].renderBG0(palette);
+            if (backgrounds[0].enabled) {
+                backgrounds[0].renderBG0(palette);
+                backgrounds[0].drawToDisplay(display);
+            }
+            
+            if (backgrounds[1].enabled) {
+                backgrounds[1].renderBG0(palette);
+                backgrounds[1].drawToDisplay(display);
+            }
+
+            if (backgrounds[2].enabled) {
+                backgrounds[2].renderBG2(palette);
+                backgrounds[2].drawToDisplay(display);
+            }
             //backgrounds[2].renderBG2(palette);
         } else if (bgMode == 2) {
 
@@ -479,16 +518,25 @@ namespace gbaemu::lcd {
             /* TODO: This should easily be extendable to support BG4, BG5 */
             /* BG Mode 3 - 240x160 pixels, 32768 colors */
             backgrounds[2].loadSettings(3, 2, regs, memory);
-            backgrounds[2].renderBG3(memory);
-            backgrounds[2].drawToDisplay(display);
+
+            if (backgrounds[2].enabled) {
+                backgrounds[2].renderBG3(memory);
+                backgrounds[2].drawToDisplay(display);
+            }
         } else if (bgMode == 4) {
             backgrounds[2].loadSettings(4, 2, regs, memory);
-            backgrounds[2].renderBG4(palette, memory);
-            backgrounds[2].drawToDisplay(display);
+
+            if (backgrounds[2].enabled) {
+                backgrounds[2].renderBG4(palette, memory);
+                backgrounds[2].drawToDisplay(display);
+            }
         } else if (bgMode == 5) {
             backgrounds[2].loadSettings(5, 2, regs, memory);
-            backgrounds[2].renderBG5(palette, memory);
-            backgrounds[2].drawToDisplay(display);
+
+            if (backgrounds[2].enabled) {
+                backgrounds[2].renderBG5(palette, memory);
+                backgrounds[2].drawToDisplay(display);
+            }
         } else {
             std::cout << "WARNING: unsupported bg mode " << bgMode << "\n";
         }
