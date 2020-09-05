@@ -2,6 +2,23 @@
 
 #include <util.hpp>
 
+/*
+    There are 4 background layers.
+
+    BG0     ----------------------------------
+    BG1     ----------------------------------
+    BG2     ----------------------------------
+    BG3     ----------------------------------
+    OBJ     ----------------------------------
+
+    The drawing order and which layers should be drawn can be configured. Top layers can be alpha-blended with layers below.
+    Brightness of the top layer can also be configured. The OBJ layer contains all the sprites (called OBJs).
+
+
+
+
+ */
+
 namespace gbaemu::lcd
 {
     void LCDBgObj::setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t mode)
@@ -68,8 +85,47 @@ namespace gbaemu::lcd
         id = bgIndex;
 
         uint16_t size = (le(regs.BGCNT[bgIndex]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
-        uint32_t height = (size <= 1) ? 256 : 512;
-        uint32_t width = (size % 2 == 0) ? 256 : 512;
+
+        /* TODO: not entirely correct */
+        if (bgMode == 0 || (bgMode == 1 && bgIndex <= 1)) {
+            /* text mode */
+            height = (size <= 1) ? 256 : 512;
+            width = (size % 2 == 0) ? 256 : 512;
+        } else if (bgMode == 2 || (bgMode == 1 && bgIndex == 2)) {
+            switch (size) {
+                case 0:
+                    width = 128;
+                    height = 128;
+                    break;
+                case 1:
+                    width = 256;
+                    height = 256;
+                    break;
+                case 2:
+                    width = 512;
+                    height = 512;
+                    break;
+                case 3:
+                    width = 1024;
+                    height = 1024;
+                    break;
+                default:
+                    width = 0;
+                    height = 0;
+                    std::cout << "WARNING: Invalid screen size!\n";
+                    break;
+            }
+        } else if (bgMode == 3) {
+            width = 240;
+            height = 160;
+        } else if (bgMode == 4) {
+            width = 240;
+            height = 160;
+        } else if (bgMode == 5) {
+            width = 160;
+            height = 128;
+        }
+
         mosaicEnabled = le(regs.BGCNT[bgIndex]) & BGCNT::MOSAIC_MASK;
         /* if true tiles have 8 bit color depth, 4 bit otherwise */
         colorPalette256 = le(regs.BGCNT[bgIndex]) & BGCNT::COLORS_PALETTES_MASK;
@@ -78,38 +134,101 @@ namespace gbaemu::lcd
         uint32_t charBaseBlock = (le(regs.BGCNT[bgIndex]) & BGCNT::CHARACTER_BASE_BLOCK_MASK) >> 2;
         uint32_t screenBaseBlock = (le(regs.BGCNT[bgIndex]) & BGCNT::SCREEN_BASE_BLOCK_MASK) >> 8;
 
-        if (bgMode <= 2) {
-            /* scrolling, TODO: check sign */
-            xOff = le(regs.BGOFS[bgIndex].h) & 0x1F;
-            yOff = le(regs.BGOFS[bgIndex].v) & 0x1F;
-        } else {
-            xOff = 0;
-            yOff = 0;
-        }
-
         /* select which frame buffer to use */
         if (bgMode == 4 || bgMode == 5)
             useOtherFrameBuffer = le(regs.DISPCNT) & DISPCTL::DISPLAY_FRAME_SELECT_MASK;
         else
             useOtherFrameBuffer = false;
 
+        /* wrapping */
+        if (bgIndex == 2 || bgIndex == 3) {
+            wrap = le(regs.BGCNT[bgIndex]) & BGCNT::DISPLAY_AREA_OVERFLOW_MASK;
+        } else {
+            wrap = false;
+        }
+
         /* scaling, rotation, only for bg2, bg3 */
-        if (bgIndex == 2) {
-            scale_rotate.origin[0] = fpToFloat<uint32_t, 8, 19>(le(regs.BG2X));
-            scale_rotate.origin[1] = fpToFloat<uint32_t, 8, 19>(le(regs.BG2Y));
+        if (bgIndex == 2 || bgIndex == 3) {
+            float origin[2];
+            float d[2];
+            float dm[2];
 
-            scale_rotate.d[0] = fpToFloat<uint16_t, 8, 7>(le(regs.BG2P[0]));
-            scale_rotate.dm[0] = fpToFloat<uint16_t, 8, 7>(le(regs.BG2P[1]));
-            scale_rotate.d[1] = fpToFloat<uint16_t, 8, 7>(le(regs.BG2P[2]));
-            scale_rotate.dm[1] = fpToFloat<uint16_t, 8, 7>(le(regs.BG2P[3]));
-        } else if (bgIndex == 3) {
-            scale_rotate.origin[0] = fpToFloat<uint32_t, 8, 19>(le(regs.BG3X));
-            scale_rotate.origin[1] = fpToFloat<uint32_t, 8, 19>(le(regs.BG3Y));
+            if (bgIndex == 2) {
+                origin[0] = fpToFloat<uint32_t, 8, 19>(le(regs.BG2X));
+                origin[1] = fpToFloat<uint32_t, 8, 19>(le(regs.BG2Y));
 
-            scale_rotate.d[0] = fpToFloat<uint16_t, 8, 7>(le(regs.BG3P[0]));
-            scale_rotate.dm[0] = fpToFloat<uint16_t, 8, 7>(le(regs.BG3P[1]));
-            scale_rotate.d[1] = fpToFloat<uint16_t, 8, 7>(le(regs.BG3P[2]));
-            scale_rotate.dm[1] = fpToFloat<uint16_t, 8, 7>(le(regs.BG3P[3]));
+                d[0] = fpToFloat<uint16_t, 8, 7>(le(regs.BG2P[0]));
+                dm[0] = fpToFloat<uint16_t, 8, 7>(le(regs.BG2P[1]));
+                d[1] = fpToFloat<uint16_t, 8, 7>(le(regs.BG2P[2]));
+                dm[1] = fpToFloat<uint16_t, 8, 7>(le(regs.BG2P[3]));
+            } else {
+                origin[0] = fpToFloat<uint32_t, 8, 19>(le(regs.BG3X));
+                origin[1] = fpToFloat<uint32_t, 8, 19>(le(regs.BG3Y));
+
+                d[0] = fpToFloat<uint16_t, 8, 7>(le(regs.BG3P[0]));
+                dm[0] = fpToFloat<uint16_t, 8, 7>(le(regs.BG3P[1]));
+                d[1] = fpToFloat<uint16_t, 8, 7>(le(regs.BG3P[2]));
+                dm[1] = fpToFloat<uint16_t, 8, 7>(le(regs.BG3P[3]));
+            }
+
+            /* TODO: build trans and invTrans */
+
+            /*
+                x2 = A(x1-x0) + B(y1-y0) + x0 = Ax1 - Ax0 + By1 - By0 + x0 = Ax1 + By1 + (-Ax0 - By0 + x0)
+                y2 = C(x1-x0) + D(y1-y0) + y0 = Cx1 - Cx0 + Dy1 - Dy0 + y0 = Cx1 + Dy1 + (-Cx0 - Dy0 + y0)
+
+                TODO: invert
+                x2 = Ax1 + By1 + (-Ax0 - By0 + x0)
+                x2 - (-Ax0 - By0 + x0) = Ax1 + By1
+                (x2 - (-Ax0 - By0 + x0) - By1) / A = x1
+             */
+
+            /*
+            common::math::mat<3, 3> shear{
+                {d[0], dm[0], 0},
+                {d[1], dm[1], 0},
+                {0, 0, 1}
+            };
+             */
+
+            /* TODO: not sure what to do when parameters are 0 */
+            common::math::mat<3, 3> shear = common::math::mat<3, 3>::id();
+
+            /*
+                (a b)^-1    =    1/det * (d -b)
+                (c d)                    (-c a)
+             */
+
+            auto adet = 1 / ((shear[0][0] * shear[1][1]) - (shear[0][1] * shear[0][1]));
+
+            common::math::mat<3, 3> invShear{
+                {shear[2][2] * adet, -shear[0][1] * adet, 0},
+                {-shear[0][1] * adet, shear[0][0] * adet, 0},
+                {0, 0, 1}};
+
+            common::math::mat<3, 3> translation{
+                {1, 0, -d[0] * origin[0] - dm[0] * origin[1] + origin[0]},
+                {0, 1, -d[1] * origin[0] - dm[1] * origin[1] + origin[1]},
+                {0, 0, 1}};
+
+            common::math::mat<3, 3> invTranslation{
+                {1, 0, -translation[0][2]},
+                {0, 1, -translation[1][2]},
+                {0, 0, 1},
+            };
+
+            trans = translation * shear;
+            invTrans = invShear * invTranslation;
+        } else {
+            /* use scrolling parameters */
+            trans = common::math::mat<3, 3>::id();
+            invTrans = common::math::mat<3, 3>::id();
+
+            trans[0][2] = le(regs.BGOFS[bgIndex].h) & 0x1F;
+            trans[1][2] = le(regs.BGOFS[bgIndex].v) & 0x1F;
+
+            invTrans[0][2] = -trans[0][2];
+            invTrans[1][2] = -trans[1][2];
         }
 
         /* 32x32 tiles, arrangement depends on resolution */
@@ -212,8 +331,11 @@ namespace gbaemu::lcd
                     uint8_t *tile = tiles + (tileNumber * 64);
 
                     for (uint32_t ty = 0; ty < 8; ++ty) {
+                        uint32_t srcTy = vFlip ? (7 - ty) : ty;
+
                         for (uint32_t tx = 0; tx < 8; ++tx) {
-                            uint32_t color = palette.getBgColor(tile[ty * 8 + tx]);
+                            uint32_t srcTx = hFlip ? (7 - tx) : tx;
+                            uint32_t color = palette.getBgColor(tile[srcTy * 8 + srcTx]);
                             pixels[(tileY + ty) * stride + (tileX + tx)] = color;
                         }
                     }
@@ -222,11 +344,14 @@ namespace gbaemu::lcd
                     uint32_t paletteNumber = (entry >> 12) & 0xF;
 
                     for (uint32_t ty = 0; ty < 8; ++ty) {
-                        uint32_t row = tile[ty];
+                        uint32_t srcTy = vFlip ? (7 - ty) : ty;
+                        uint32_t row = tile[srcTy];
 
                         for (uint32_t tx = 0; tx < 8; ++tx) {
+                            uint32_t srcTx = hFlip ? (7 - tx) : tx;
+
                             /* TODO: order correct? */
-                            auto paletteIndex = (row & (0b1111 << (tx * 4))) >> (tx * 4);
+                            auto paletteIndex = (row & (0b1111 << (srcTx * 4))) >> (srcTx * 4);
                             uint32_t color = palette.getBgColor(paletteNumber, paletteIndex);
 
                             pixels[(tileY + ty) * stride + (tileX + tx)] = color;
@@ -300,29 +425,8 @@ namespace gbaemu::lcd
 
     void Background::drawToDisplay(LCDisplay &display)
     {
-        auto xFrom = std::max(0, xOff);
-        auto xTo = std::min(DIMENSIONS::WIDTH, xOff + canvas.getWidth());
-
-        auto yFrom = std::max(0, yOff);
-        auto yTo = std::min(DIMENSIONS::HEIGHT, yOff + canvas.getHeight());
-
-        auto dispPixels = display.canvas.pixels();
-        auto dispStride = display.stride();
-
-        auto canvPixels = canvas.pixels();
-        auto canvStride = canvas.getWidth();
-
         display.canvas.beginDraw();
-
-        for (auto y = yFrom; y < yTo; ++y) {
-            for (auto x = xFrom; x < xTo; ++x) {
-                auto cx = x + xOff;
-                auto cy = y + yOff;
-                auto color = canvPixels[cy * canvStride + cx];
-                dispPixels[y * dispStride + x] = color;
-            }
-        }
-
+        display.canvas.drawSprite(canvas.pixels(), width, height, canvas.getWidth(), trans, invTrans, wrap);
         display.canvas.endDraw();
     }
 
@@ -351,7 +455,7 @@ namespace gbaemu::lcd
         Memory::MemoryRegion memReg;
         uint8_t *vram = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, memReg);
 
-        if (bgMode == 0) {
+        if (bgMode == 0 && false) {
             /*
                 Mode  Rot/Scal Layers Size               Tiles Colors       Features
                 0     No       0123   256x256..512x515   1024  16/16..256/1 SFMABP
@@ -378,6 +482,16 @@ namespace gbaemu::lcd
 
             for (uint32_t i = 0; i < 4; ++i)
                 backgrounds[i].drawToDisplay(display);
+        } else if (bgMode == 1) {
+            backgrounds[0].loadSettings(0, 0, regs, memory);
+            backgrounds[1].loadSettings(0, 1, regs, memory);
+            backgrounds[2].loadSettings(2, 2, regs, memory);
+
+            backgrounds[0].renderBG0(palette);
+            backgrounds[1].renderBG0(palette);
+            //backgrounds[2].renderBG2(palette);
+        } else if (bgMode == 2) {
+
         } else if (bgMode == 3) {
             /* TODO: This should easily be extendable to support BG4, BG5 */
             /* BG Mode 3 - 240x160 pixels, 32768 colors */
@@ -393,74 +507,13 @@ namespace gbaemu::lcd
             backgrounds[2].renderBG5(palette, memory);
             backgrounds[2].drawToDisplay(display);
         } else {
-            std::cout << "unsupported bg mode " << bgMode << "\n";
+            std::cout << "WARNING: unsupported bg mode " << bgMode << "\n";
         }
 
         display.canvas.endDraw();
         display.drawToTarget(2);
 
         blendBackgrounds();
-    }
-
-    void LCDController::plotMemory()
-    {
-        display.canvas.beginDraw();
-        /*
-        for (uint32_t y = 0; y < DIMENSIONS::HEIGHT * 2; y++)
-            for (uint32_t x = 0; x < DIMENSIONS::WIDTH; ++x)
-                display.canvas.pixels()[y * display.canvas.getWidth() + x] = reinterpret_cast<uint32_t *>(vram)[y * 240 + x];
-
-        return;
-         */
-
-        static const Memory::MemoryRegionOffset offs[] = {
-            //Memory::BIOS_OFFSET,
-            Memory::WRAM_OFFSET,
-            Memory::IWRAM_OFFSET,
-            //Memory::IO_REGS_OFFSET,
-            //Memory::BG_OBJ_RAM_OFFSET,
-            Memory::VRAM_OFFSET,
-            //Memory::OAM_OFFSET,
-            Memory::EXT_ROM_OFFSET,
-            Memory::EXT_SRAM_OFFSET};
-
-        static const Memory::MemoryRegionLimit limits[] = {
-            //Memory::BIOS_LIMIT,
-            Memory::WRAM_LIMIT,
-            Memory::IWRAM_LIMIT,
-            //Memory::IO_REGS_LIMIT,
-            //Memory::BG_OBJ_RAM_LIMIT,
-            Memory::VRAM_LIMIT,
-            //Memory::OAM_LIMIT,
-            Memory::EXT_ROM1_LIMIT,
-            Memory::EXT_SRAM_LIMIT};
-
-        static const uint32_t WIDTH = 240;
-        Memory::MemoryRegion memReg;
-
-        for (uint32_t i = 0; i < sizeof(offs) / sizeof(offs[0]); ++i) {
-            uint32_t *ram = reinterpret_cast<uint32_t *>(memory.resolveAddr(offs[i], nullptr, memReg));
-            uint32_t size = limits[i] - offs[i];
-
-            if (offs[i] == Memory::EXT_ROM_OFFSET) {
-                size = memory.getRomSize();
-            }
-
-            for (uint32_t j = 0; j < size / 4; ++j) {
-                auto x = j % WIDTH + (WIDTH + 16) * i;
-                auto y = j / WIDTH;
-
-                auto w = display.canvas.getWidth();
-                auto h = display.canvas.getHeight();
-
-                if (x >= w || y >= h)
-                    break;
-
-                display.canvas.pixels()[y * w + x] = ram[j];
-            }
-        }
-
-        display.canvas.endDraw();
     }
 
     void LCDController::plotPalette()

@@ -3,6 +3,7 @@
 
 #include "canvas.hpp"
 #include "io/io_regs.hpp"
+#include "mat.hpp"
 #include <array>
 #include <memory.hpp>
 
@@ -20,6 +21,9 @@ namespace gbaemu::lcd
         5     Yes      --2-   160x128            2     32768        --MABP
 
         Features: S)crolling, F)lip, M)osaic, A)lphaBlending, B)rightness, P)riority.
+
+        In mode 0 all layers are in text mode.
+        In mode 1 layers 0 and 1 are in text mode.
      */
     namespace DISPCTL
     {
@@ -295,9 +299,12 @@ namespace gbaemu::lcd
         bool useOtherFrameBuffer;
         bool mosaicEnabled;
         bool colorPalette256;
+        /* actual pixel count */
+        uint32_t width;
+        uint32_t height;
+        bool wrap;
         uint32_t priority;
         uint32_t charBaseBlock;
-        int32_t xOff, yOff;
         bool scInUse[4];
         uint32_t scCount;
         uint32_t scXOffset[4];
@@ -305,7 +312,7 @@ namespace gbaemu::lcd
         uint8_t *bgMapBase;
         uint8_t *tiles;
 
-        /* only for bg2, bg3 */
+        /* only for bg2, bg3, updated on each vblank */
         struct {
             /* xy coordinate of the upper left corner */
             double origin[2];
@@ -313,9 +320,27 @@ namespace gbaemu::lcd
             double d[2];
             /* dmx, dmy */
             double dm[2];
+
+            /*
+                x0, y0      rotation center
+                x1, y1      old pixel position
+                x2, y2      new pixel position
+
+                dx = cos(alpha) / xMag
+                dmx = sin(alpha) / xMag
+                dy = Sin (alpha) / yMag
+                dmy = Cos (alpha) / yMag
+
+                x2 = dx(x1-x0) + dmx(y1-y0) + x0
+                y2 = dy(x1-x0) + dmy(y1-y0) + y0
+             */
         } scale_rotate;
 
-        Background() : id(-1), canvas(512, 512) {}
+        /* general transformation of background in target display space */
+        common::math::mat<3, 3> trans;
+        common::math::mat<3, 3> invTrans;
+
+        Background() : id(-1), canvas(1024, 1024) {}
 
         void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory);
         void renderBG0(LCDColorPalette &palette);
@@ -385,7 +410,6 @@ namespace gbaemu::lcd
         uint32_t getBackgroundMode() const;
         /* renders the current screen to canvas */
         void render();
-        void plotMemory();
         void plotPalette();
         bool tick();
     };

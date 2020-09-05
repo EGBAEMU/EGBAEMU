@@ -13,6 +13,8 @@
 #include "input/keyboard_control.hpp"
 #include "io/keypad.hpp"
 
+#include "math3d.hpp"
+
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5
 #define DEBUG_STACK_PRINT_RANGE 5
@@ -42,6 +44,7 @@ int main(int argc, char **argv)
     canv.beginDraw();
     canv.clear(0xFF365e7a);
     canv.endDraw();
+    window.present();
 
     /* read gba file */
     std::ifstream file(argv[1], std::ios::binary);
