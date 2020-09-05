@@ -10,6 +10,23 @@ namespace gbaemu
 {
     const uint32_t InterruptHandler::INTERRUPT_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x200;
 
+    uint8_t InterruptHandler::read8FromReg(uint32_t offset)
+    {
+        return *(offset + reinterpret_cast<uint8_t *>(&regs));
+    }
+
+    void InterruptHandler::internalWrite8ToReg(uint32_t offset, uint8_t value)
+    {
+        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+    }
+
+    void InterruptHandler::externalWrite8ToReg(uint32_t offset, uint8_t value)
+    {
+        if (offset == 2 || offset == 3)
+            *(offset + reinterpret_cast<uint8_t *>(&regs)) &= ~value;
+        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+    }
+
     InterruptHandler::InterruptHandler(CPU *cpu) : cpu(cpu)
     {
         cpu->state.memory.ioHandler.registerIOMappedDevice(
@@ -57,7 +74,7 @@ namespace gbaemu
 
     void InterruptHandler::setInterrupt(InterruptType type)
     {
-        regs.irqEnable |= le(0x1 << type);
+        regs.irqEnable |= le(static_cast<uint16_t>(static_cast<uint16_t>(1) << type));
     }
 
     void InterruptHandler::checkForInterrupt()

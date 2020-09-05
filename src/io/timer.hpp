@@ -66,33 +66,10 @@ namespace gbaemu
             Timer(Memory &memory, InterruptHandler &irqHandler, uint8_t id, Timer *nextTimer);
 
           private:
-            uint8_t read8FromReg(uint32_t offset)
-            {
-                if (offset >= 2)
-                    return *(offset + reinterpret_cast<uint8_t *>(&regs));
-                else {
-                    return (counter >> (offset ? 8 : 0)) & 0x0FF;
-                }
-            }
-            void write8ToReg(uint32_t offset, uint8_t value)
-            {
-                *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+            uint8_t read8FromReg(uint32_t offset);
+            void write8ToReg(uint32_t offset, uint8_t value);
 
-                // This works regardless of the endianess because the offset is specified for little endian!
-                writeToControl |= offset == 2;
-                writeToReload |= offset < 2;
-            }
-
-            void receiveOverflowOfPrevTimer()
-            {
-                // check if still active
-                bool nextActive = le(regs.control) & TIMER_START_MASK;
-
-                if (nextActive && active && countUpTiming) {
-                    ++counter;
-                    checkForOverflow();
-                }
-            }
+            void receiveOverflowOfPrevTimer();
 
             void checkForOverflow();
         };

@@ -27,14 +27,8 @@ namespace gbaemu
             uint16_t keyIRQCnt;
         } __attribute__((packed)) regs = {0};
 
-        uint8_t read8FromReg(uint32_t offset)
-        {
-            return *(offset + reinterpret_cast<uint8_t *>(&regs));
-        }
-        void write8ToReg(uint32_t offset, uint8_t value)
-        {
-            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
-        }
+        uint8_t read8FromReg(uint32_t offset);
+        void write8ToReg(uint32_t offset, uint8_t value);
 
       public:
         Keypad(CPU *cpu);

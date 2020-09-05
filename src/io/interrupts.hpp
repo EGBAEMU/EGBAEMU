@@ -77,22 +77,11 @@ namespace gbaemu
 
         static const uint32_t INTERRUPT_CONTROL_REG_ADDR;
 
-        uint8_t read8FromReg(uint32_t offset)
-        {
-            return *(offset + reinterpret_cast<uint8_t *>(&regs));
-        }
+        uint8_t read8FromReg(uint32_t offset);
 
-        void internalWrite8ToReg(uint32_t offset, uint8_t value)
-        {
-            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
-        }
+        void internalWrite8ToReg(uint32_t offset, uint8_t value);
 
-        void externalWrite8ToReg(uint32_t offset, uint8_t value)
-        {
-            if (offset == 2 || offset == 3)
-                *(offset + reinterpret_cast<uint8_t *>(&regs)) &= ~value;
-            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
-        }
+        void externalWrite8ToReg(uint32_t offset, uint8_t value);
 
       public:
         InterruptHandler(CPU *cpu);

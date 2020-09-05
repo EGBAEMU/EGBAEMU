@@ -34,92 +34,23 @@ namespace gbaemu
         std::set<IO_Mapped, std::less<>> mappedDevices;
 
       public:
-        void registerIOMappedDevice(IO_Mapped &&device)
-        {
-            mappedDevices.insert(device);
-        }
+        void registerIOMappedDevice(IO_Mapped &&device);
 
-        uint8_t externalRead8(uint32_t addr) const
-        {
-            const auto devIt = mappedDevices.find(addr);
-            if (devIt != mappedDevices.end()) {
-                return devIt->externalRead8(addr - devIt->lowerBound);
-            } else {
-                //TODO how to handle not found?
-                return 0x0000;
-            }
-        }
-        uint16_t externalRead16(uint32_t addr) const
-        {
-            return externalRead8(addr) | (static_cast<uint16_t>(externalRead8(addr + 1)) << 8);
-        }
-        uint32_t externalRead32(uint32_t addr) const
-        {
-            return externalRead8(addr) | (static_cast<uint32_t>(externalRead8(addr + 1)) << 8) | (static_cast<uint32_t>(externalRead8(addr + 2)) << 16) | (static_cast<uint32_t>(externalRead8(addr + 3)) << 24);
-        }
+        uint8_t externalRead8(uint32_t addr) const;
+        uint16_t externalRead16(uint32_t addr) const;
+        uint32_t externalRead32(uint32_t addr) const;
 
-        void externalWrite8(uint32_t addr, uint8_t value)
-        {
-            auto devIt = mappedDevices.find(addr);
-            if (devIt != mappedDevices.end()) {
-                devIt->externalWrite8(addr - devIt->lowerBound, value);
-            } else {
-                //TODO how to handle not found? probably just ignore...
-            }
-        }
-        void externalWrite16(uint32_t addr, uint16_t value)
-        {
-            externalWrite8(addr, value & 0xFF);
-            externalWrite8(addr + 1, (value >> 8) & 0xFF);
-        }
-        void externalWrite32(uint32_t addr, uint32_t value)
-        {
-            externalWrite8(addr, value & 0xFF);
-            externalWrite8(addr + 1, (value >> 8) & 0xFF);
-            externalWrite8(addr + 2, (value >> 16) & 0xFF);
-            externalWrite8(addr + 3, (value >> 24) & 0xFF);
-        }
+        void externalWrite8(uint32_t addr, uint8_t value);
+        void externalWrite16(uint32_t addr, uint16_t value);
+        void externalWrite32(uint32_t addr, uint32_t value);
 
-        uint8_t internalRead8(uint32_t addr) const
-        {
-            const auto devIt = mappedDevices.find(addr);
-            if (devIt != mappedDevices.end()) {
-                return devIt->internalRead8(addr - devIt->lowerBound);
-            } else {
-                //TODO how to handle not found?
-                return 0x0000;
-            }
-        }
-        uint16_t internalRead16(uint32_t addr) const
-        {
-            return internalRead8(addr) | (static_cast<uint16_t>(internalRead8(addr + 1)) << 8);
-        }
-        uint32_t internalRead32(uint32_t addr) const
-        {
-            return internalRead8(addr) | (static_cast<uint32_t>(internalRead8(addr + 1)) << 8) | (static_cast<uint32_t>(internalRead8(addr + 2)) << 16) | (static_cast<uint32_t>(internalRead8(addr + 3)) << 24);
-        }
+        uint8_t internalRead8(uint32_t addr) const;
+        uint16_t internalRead16(uint32_t addr) const;
+        uint32_t internalRead32(uint32_t addr) const;
 
-        void internalWrite8(uint32_t addr, uint8_t value)
-        {
-            auto devIt = mappedDevices.find(addr);
-            if (devIt != mappedDevices.end()) {
-                devIt->internalWrite8(addr - devIt->lowerBound, value);
-            } else {
-                //TODO how to handle not found? probably just ignore...
-            }
-        }
-        void internalWrite16(uint32_t addr, uint16_t value)
-        {
-            internalWrite8(addr, value & 0xFF);
-            internalWrite8(addr + 1, (value >> 8) & 0xFF);
-        }
-        void internalWrite32(uint32_t addr, uint32_t value)
-        {
-            internalWrite8(addr, value & 0xFF);
-            internalWrite8(addr + 1, (value >> 8) & 0xFF);
-            internalWrite8(addr + 2, (value >> 16) & 0xFF);
-            internalWrite8(addr + 3, (value >> 24) & 0xFF);
-        }
+        void internalWrite8(uint32_t addr, uint8_t value);
+        void internalWrite16(uint32_t addr, uint16_t value);
+        void internalWrite32(uint32_t addr, uint32_t value);
 
       private:
     };

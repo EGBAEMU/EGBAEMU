@@ -7,6 +7,9 @@
 
 #include "cpu.hpp"
 #include "debugger.hpp"
+#include "io/dma.hpp"
+#include "io/interrupts.hpp"
+#include "io/timer.hpp"
 #include "lcd/lcd-controller.hpp"
 #include "lcd/window.hpp"
 

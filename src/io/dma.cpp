@@ -10,6 +10,16 @@
 namespace gbaemu
 {
 
+    uint8_t DMA::read8FromReg(uint32_t offset)
+    {
+        return *(offset + reinterpret_cast<uint8_t *>(&regs));
+    }
+
+    void DMA::write8ToReg(uint32_t offset, uint8_t value)
+    {
+        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+    }
+
     DMA::DMA(DMAChannel channel, CPU *cpu) : channel(channel), state(IDLE), memory(cpu->state.memory), irqHandler(cpu->irqHandler)
     {
         memory.ioHandler.registerIOMappedDevice(

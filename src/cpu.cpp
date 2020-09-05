@@ -1,7 +1,3 @@
-#include "io/dma.hpp"
-#include "io/interrupts.hpp"
-#include "io/timer.hpp"
-
 #include "cpu.hpp"
 
 #include "swi.hpp"
