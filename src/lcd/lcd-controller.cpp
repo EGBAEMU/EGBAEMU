@@ -77,9 +77,34 @@ namespace gbaemu::lcd {
         uint16_t size = (le(regs->BGCNT[bgIndex]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
 
         /* TODO: not entirely correct */
-        if (bgMode <= 2) {
+        if (bgMode == 0 || (bgMode == 1 && bgIndex <= 1)) {
+            /* text mode */
             height = (size <= 1) ? 256 : 512;
             width = (size % 2 == 0) ? 256 : 512;
+        } else if (bgMode == 2 || (bgMode == 1 && bgIndex == 2)) {
+            switch (size) {
+                case 0:
+                    width = 128;
+                    height = 128;
+                    break;
+                case 1:
+                    width = 256;
+                    height = 256;
+                    break;
+                case 2:
+                    width = 512;
+                    height = 512;
+                    break;
+                case 3:
+                    width = 1024;
+                    height = 1024;
+                    break;
+                default:
+                    width = 0;
+                    height = 0;
+                    std::cout << "WARNING: Invalid screen size!\n";
+                    break;
+            }
         } else if (bgMode == 3) {
             width = 240;
             height = 160;
@@ -90,7 +115,7 @@ namespace gbaemu::lcd {
             width = 160;
             height = 128;
         }
-        
+
         mosaicEnabled = le(regs->BGCNT[bgIndex]) & BGCNT::MOSAIC_MASK;
         /* if true tiles have 8 bit color depth, 4 bit otherwise */
         colorPalette256 = le(regs->BGCNT[bgIndex]) & BGCNT::COLORS_PALETTES_MASK;
@@ -173,7 +198,7 @@ namespace gbaemu::lcd {
             };
 
             common::math::mat<3, 3> translation{
-                {1, 0, 20 + -d[0] * origin[0] - dm[0] * origin[1] + origin[0]},
+                {1, 0, -d[0] * origin[0] - dm[0] * origin[1] + origin[0]},
                 {0, 1, -d[1] * origin[0] - dm[1] * origin[1] + origin[1]},
                 {0, 0, 1}
             };

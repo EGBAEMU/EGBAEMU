@@ -20,6 +20,9 @@ namespace gbaemu::lcd {
         5     Yes      --2-   160x128            2     32768        --MABP
 
         Features: S)crolling, F)lip, M)osaic, A)lphaBlending, B)rightness, P)riority.
+
+        In mode 0 all layers are in text mode.
+        In mode 1 layers 0 and 1 are in text mode.
      */
     namespace DISPCTL {
         static const uint32_t BG_MODE_MASK = 0b111,
@@ -324,7 +327,7 @@ namespace gbaemu::lcd {
         common::math::mat<3, 3> trans;
         common::math::mat<3, 3> invTrans;
 
-        Background(): id(-1), canvas(512, 512) { }
+        Background(): id(-1), canvas(1024, 1024) { }
 
         void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs *regs, Memory& memory);
         void renderBG0(LCDColorPalette& palette);
