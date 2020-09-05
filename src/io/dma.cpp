@@ -1,8 +1,26 @@
-#include "dma.hpp"
+
+#include "cpu.hpp"
+#include "interrupts.hpp"
+#include "memory.hpp"
+#include "timer.hpp"
 #include "util.hpp"
+
+#include "dma.hpp"
 
 namespace gbaemu
 {
+
+    DMA::DMA(DMAChannel channel, CPU *cpu) : channel(channel), state(IDLE), memory(cpu->state.memory), irqHandler(cpu->irqHandler)
+    {
+        memory.ioHandler.registerIOMappedDevice(
+            IO_Mapped(
+                DMA_BASE_ADDRESSES[channel],
+                DMA_BASE_ADDRESSES[channel] + sizeof(regs),
+                std::bind(&DMA::read8FromReg, this, std::placeholders::_1),
+                std::bind(&DMA::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
+                std::bind(&DMA::read8FromReg, this, std::placeholders::_1),
+                std::bind(&DMA::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
+    }
 
     InstructionExecutionInfo DMA::step()
     {
@@ -106,8 +124,7 @@ namespace gbaemu
                     regs.cntReg &= le(~DMA_CNT_REG_EN_MASK);
 
                     if (irqOnEnd) {
-                        //TODO trigger interrupt!!!
-                        std::cout << "ERROR: DMA trigger interrupt not yet supported" << std::endl;
+                        irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::DMA_0 + channel));
                     }
                 }
 

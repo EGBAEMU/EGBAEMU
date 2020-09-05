@@ -4,13 +4,16 @@
 #include "cpu_state.hpp"
 #include "inst_arm.hpp"
 #include "inst_thumb.hpp"
-#include "io/dma.hpp"
-#include "io/timer.hpp"
 #include "regs.hpp"
 #include <cstdint>
 
 namespace gbaemu
 {
+
+    class DMA;
+    class TimerGroup;
+    class InterruptHandler;
+
 
     class CPU
     {
@@ -20,12 +23,14 @@ namespace gbaemu
         arm::ARMInstructionDecoder armDecoder;
         thumb::ThumbInstructionDecoder thumbDecoder;
 
-        DMA dma0{DMA::DMA0, state.memory};
-        DMA dma1{DMA::DMA1, state.memory};
-        DMA dma2{DMA::DMA2, state.memory};
-        DMA dma3{DMA::DMA3, state.memory};
+        DMA dma0;
+        DMA dma1;
+        DMA dma2;
+        DMA dma3;
 
-        TimerGroup timerGroup{state.memory};
+        TimerGroup timerGroup;
+
+        InterruptHandler irqHandler;
 
         CPU();
 

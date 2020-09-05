@@ -7,6 +7,9 @@
 namespace gbaemu
 {
 
+    class CPU;
+    class InterruptHandler;
+
     class DMA
     {
       private:
@@ -80,6 +83,7 @@ namespace gbaemu
         const DMAChannel channel;
         DMAState state;
         Memory &memory;
+        InterruptHandler &irqHandler;
 
         struct DMARegs {
             uint32_t srcAddr;
@@ -125,17 +129,7 @@ namespace gbaemu
         }
 
       public:
-        DMA(DMAChannel channel, Memory &memory) : channel(channel), state(IDLE), memory(memory)
-        {
-            memory.ioHandler.registerIOMappedDevice(
-                IO_Mapped(
-                    DMA_BASE_ADDRESSES[channel],
-                    DMA_BASE_ADDRESSES[channel] + sizeof(regs),
-                    std::bind(&DMA::read8FromReg, this, std::placeholders::_1),
-                    std::bind(&DMA::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
-                    std::bind(&DMA::read8FromReg, this, std::placeholders::_1),
-                    std::bind(&DMA::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
-        }
+        DMA(DMAChannel channel, CPU *cpu);
 
         InstructionExecutionInfo step();
 

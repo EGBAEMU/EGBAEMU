@@ -99,7 +99,7 @@ int main(int argc, char **argv)
     //charlie.registerTrap(bp1);
     //charlie.registerTrap(r12trap);
 
-    gbaemu::Keypad keypad(cpu.state.memory);
+    gbaemu::Keypad keypad(&cpu);
     gbaemu::keyboard::KeyboardController gameController(keypad);
 
 #define SDL_EVENT_POLL_INTERVALL 16384

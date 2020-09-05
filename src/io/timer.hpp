@@ -8,6 +8,9 @@
 namespace gbaemu
 {
 
+    class CPU;
+    class InterruptHandler;
+
     class TimerGroup
     {
 
@@ -42,9 +45,9 @@ namespace gbaemu
             } __attribute__((packed)) regs = {0};
 
             Memory &memory;
-
+            InterruptHandler &irqHandler;
             Timer *const nextTimer;
-            const bool hasPrev;
+            const uint8_t id;
 
             //TODO the reload register is only loaded if active & reload was set at the same time!
             bool writeToControl = false;
@@ -58,60 +61,9 @@ namespace gbaemu
             bool irq;
 
           public:
-            void step()
-            {
-                uint16_t controlReg = le(regs.control);
+            void step();
 
-                // Update active flag
-                bool nextActive = controlReg & TIMER_START_MASK;
-
-                if (nextActive) {
-                    if (active) {
-                        // was previously active
-                        // if countUpTiming is true we only increment on overflow of the previous timer!
-                        if (!countUpTiming) {
-                            --preCounter;
-
-                            // Counter to apply the selected prescale
-                            if (preCounter == 0) {
-                                //TODO are prescale changes allowed during operation???
-                                // reset pre counter
-                                preCounter = prescale;
-
-                                // Increment the real timer counter and check for overflows
-                                ++counter;
-
-                                checkForOverflow();
-                            }
-                        }
-                    } else {
-                        // Was previously disabled
-                        if (writeToControl && writeToReload)
-                            counter = le(regs.reload);
-
-                        preCounter = prescale = prescales[(controlReg & TIMER_PRESCALE_MASK)];
-                        countUpTiming = hasPrev && (controlReg & TIMER_TIMING_MASK);
-                        irq = controlReg & TIMER_IRQ_EN_MASK;
-                    }
-                }
-
-                active = nextActive;
-
-                writeToControl = false;
-                writeToReload = false;
-            }
-
-            Timer(Memory &memory, uint8_t id, Timer *nextTimer) : memory(memory), nextTimer(nextTimer), hasPrev(id != 0)
-            {
-                memory.ioHandler.registerIOMappedDevice(
-                    IO_Mapped(
-                        TIMER_REGS_BASE_OFFSET + sizeof(regs) * id,
-                        TIMER_REGS_BASE_OFFSET + sizeof(regs) * id + sizeof(regs),
-                        std::bind(&Timer::read8FromReg, this, std::placeholders::_1),
-                        std::bind(&Timer::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
-                        std::bind(&Timer::read8FromReg, this, std::placeholders::_1),
-                        std::bind(&Timer::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
-            }
+            Timer(Memory &memory, InterruptHandler &irqHandler, uint8_t id, Timer *nextTimer);
 
           private:
             uint8_t read8FromReg(uint32_t offset)
@@ -142,17 +94,7 @@ namespace gbaemu
                 }
             }
 
-            void checkForOverflow()
-            {
-                if (counter == 0 && irq) {
-                    //TODO trigger overflow interrupt
-
-                    // Also inform next timer about overflow
-                    if (nextTimer != nullptr) {
-                        nextTimer->receiveOverflowOfPrevTimer();
-                    }
-                }
-            }
+            void checkForOverflow();
         };
 
         Timer tim0;
@@ -169,9 +111,7 @@ namespace gbaemu
             tim3.step();
         }
 
-        TimerGroup(Memory &memory) : tim0(memory, 0, &tim1), tim1(memory, 1, &tim2), tim2(memory, 2, &tim3), tim3(memory, 3, nullptr)
-        {
-        }
+        TimerGroup(CPU *cpu);
     };
 
 } // namespace gbaemu

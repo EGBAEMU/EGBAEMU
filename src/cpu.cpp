@@ -1,10 +1,15 @@
+#include "io/dma.hpp"
+#include "io/interrupts.hpp"
+#include "io/timer.hpp"
+
 #include "cpu.hpp"
+
 #include "swi.hpp"
 #include <limits>
 
 namespace gbaemu
 {
-    CPU::CPU()
+    CPU::CPU() : dma0(DMA::DMA0, this), dma1(DMA::DMA1, this), dma2(DMA::DMA2, this), dma3(DMA::DMA3, this), timerGroup(this), irqHandler(this)
     {
         state.decoder = &armDecoder;
 
@@ -98,6 +103,7 @@ namespace gbaemu
         if (!dmaInfo.dmaExecutes) {
             // Execute pipeline only after stall is over
             if (info.cycleCount == 0) {
+                irqHandler.checkForInterrupt();
                 // TODO: Check for interrupt here
                 // TODO: stall for certain instructions like wait for interrupt...
                 // TODO: Fetch can be executed always. Decode and Execute stages might have been flushed after branch
