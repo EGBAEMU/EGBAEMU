@@ -70,7 +70,7 @@ int main(int argc, char **argv)
     cpu.state.memory.loadROM(reinterpret_cast<uint8_t *>(buf.data()), buf.size());
 
     gbaemu::lcd::LCDisplay display(0, 0, canv);
-    gbaemu::lcd::LCDController controller(display, cpu.state.memory);
+    gbaemu::lcd::LCDController controller(display, &cpu);
 
     std::cout << "Game Title: ";
     for (size_t i = 0; i < 12; ++i) {
