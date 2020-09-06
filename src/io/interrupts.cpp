@@ -74,7 +74,7 @@ namespace gbaemu
 
     void InterruptHandler::setInterrupt(InterruptType type)
     {
-        regs.irqEnable |= le(static_cast<uint16_t>(static_cast<uint16_t>(1) << type));
+        regs.irqRequest |= le(static_cast<uint16_t>(static_cast<uint16_t>(1) << type));
     }
 
     void InterruptHandler::checkForInterrupt()
@@ -116,7 +116,8 @@ namespace gbaemu
             cpu->state.decoder = &cpu->armDecoder;
             // Ensure that the CPSR represents that we are in ARM mode again
             // Clear all flags & enforce irq mode
-            cpu->state.accessReg(regs::CPSR_OFFSET) = 0b010010;
+            // Also disable interrupts
+            cpu->state.accessReg(regs::CPSR_OFFSET) = 0b010010 | (1 << 7);
 
             // Change the register mode to irq
             cpu->state.mode = CPUState::IRQ;
