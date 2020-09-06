@@ -289,6 +289,11 @@ namespace gbaemu::lcd
 
             target.endDraw();
         }
+
+        void clear()
+        {
+            canvas.clear(0xFF000000);
+        }
     };
 
     struct Background {

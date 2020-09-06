@@ -24,8 +24,8 @@ namespace gbaemu
     template <class T>
     T bmap(bool b);
 
-    template <class T, T FRAC, T INT, class RESULT=double>
-    RESULT fpToFloat(T fp);
+    template <class T, T FRAC, T INT, class ResultType=double>
+    ResultType fpToFloat(T fp);
 
 #define STRINGIFY(x) (#x)
 

@@ -171,8 +171,6 @@ namespace gbaemu::lcd
                 dm[1] = fpToFloat<uint16_t, 8, 7>(le(regs.BG3P[3]));
             }
 
-            /* TODO: build trans and invTrans */
-
             /*
                 x2 = A(x1-x0) + B(y1-y0) + x0 = Ax1 - Ax0 + By1 - By0 + x0 = Ax1 + By1 + (-Ax0 - By0 + x0)
                 y2 = C(x1-x0) + D(y1-y0) + y0 = Cx1 - Cx0 + Dy1 - Dy0 + y0 = Cx1 + Dy1 + (-Cx0 - Dy0 + y0)
@@ -475,6 +473,7 @@ namespace gbaemu::lcd
         updateReferences();
         uint32_t bgMode = getBackgroundMode();
         display.canvas.beginDraw();
+        display.canvas.clear(0xFF000000);
 
         Memory::MemoryRegion memReg;
         uint8_t *vram = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, memReg);

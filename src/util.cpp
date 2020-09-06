@@ -46,18 +46,18 @@ namespace gbaemu
         return static_cast<T>(b ? 1 : 0);
     }
 
-    template <class T, T FRAC, T INT, class RESULT=double>
-    RESULT fpToFloat(T fp) {
+    template <class T, T FRAC, T INT, class ResultType=double>
+    ResultType fpToFloat(T fp) {
         /* [1 bit sign][INT bits integer][FRAC bits fractional] */
         const T FRAC_MASK = (static_cast<T>(1) << FRAC) - 1;
-        const T INT_OFF =  FRAC + 1;
+        const T INT_OFF =  FRAC;
         const T INT_MASK = (static_cast<T>(1) << INT) - 1;
         const T SIGN_OFF = FRAC + INT;
 
         auto sign = (fp >> SIGN_OFF) & 1;
 
-        RESULT value = static_cast<RESULT>(fp & ((INT_MASK << INT_OFF) | FRAC_MASK)) * (sign ? -1.f : 1.f);
-        return value / static_cast<RESULT>(1 << FRAC);
+        ResultType value = static_cast<ResultType>(fp & ((INT_MASK << INT_OFF) | FRAC_MASK)) * (sign ? -1.f : 1.f);
+        return value / static_cast<ResultType>(1 << FRAC);
     }
 } // namespace gbaemu
 

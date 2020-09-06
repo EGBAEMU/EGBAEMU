@@ -34,6 +34,12 @@ static void handleSignal(int signum)
 
 int main(int argc, char **argv)
 {
+    /*
+    for (uint16_t i = 0; i < 16 * 64; i += 16)
+        std::cout << gbaemu::fpToFloat<uint16_t, 8, 7>(i) << '\n';
+    return 0;
+     */
+
     if (argc <= 1) {
         std::cout << "please provide a ROM file\n";
         return 0;
