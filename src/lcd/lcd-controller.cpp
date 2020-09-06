@@ -336,7 +336,7 @@ namespace gbaemu::lcd
                         for (uint32_t tx = 0; tx < 8; ++tx) {
                             uint32_t srcTx = hFlip ? (7 - tx) : tx;
                             uint32_t color = palette.getBgColor(tile[srcTy * 8 + srcTx]);
-                            pixels[(tileY + ty) * stride + (tileX + tx)] = color;
+                            pixels[(tileY * 8 + ty) * stride + (tileX * 8 + tx)] = color;
                         }
                     }
                 } else {
@@ -354,7 +354,7 @@ namespace gbaemu::lcd
                             auto paletteIndex = (row & (0b1111 << (srcTx * 4))) >> (srcTx * 4);
                             uint32_t color = palette.getBgColor(paletteNumber, paletteIndex);
 
-                            pixels[(tileY + ty) * stride + (tileX + tx)] = color;
+                            pixels[(tileY * 8 + ty) * stride + (tileX * 8 + tx)] = color;
                         }
                     }
                 }
@@ -381,7 +381,7 @@ namespace gbaemu::lcd
                     uint32_t j = ty * 8 + tx;
                     uint32_t k = tile[j];
                     uint32_t color = palette.getBgColor(k);
-                    pixels[(tileY + ty) * stride + (tileX + tx)] = color;
+                    pixels[(tileY * 8 + ty) * stride + (tileX * 8 + tx)] = color;
                 }
             }
         }
