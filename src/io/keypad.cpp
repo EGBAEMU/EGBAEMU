@@ -25,6 +25,7 @@ namespace gbaemu
 
     Keypad::Keypad(CPU *cpu) : irqHandler(cpu->irqHandler)
     {
+        regs.keyStatus = 0xFFFF;
         cpu->state.memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
                 KEYPAD_REG_BASE_ADDR,

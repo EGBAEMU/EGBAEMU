@@ -86,6 +86,7 @@ int main(int argc, char **argv)
     cpu.initPipeline();
 
     std::cout << "Max legit ROM address: 0x" << std::hex << (gbaemu::Memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize() - 1) << std::endl;
+    std::cout << "Max legit original ROM address: 0x" << std::hex << (cpu.state.memory.getBiosBaseAddr() - 1) << std::endl;
 
     gbaemu::debugger::Watchdog charlie;
     gbaemu::debugger::JumpTrap jumpTrap;
