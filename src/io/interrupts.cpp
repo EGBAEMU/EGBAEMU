@@ -22,9 +22,11 @@ namespace gbaemu
 
     void InterruptHandler::externalWrite8ToReg(uint32_t offset, uint8_t value)
     {
-        if (offset == 2 || offset == 3)
+        if (offset == 2 || offset == 3) {
             *(offset + reinterpret_cast<uint8_t *>(&regs)) &= ~value;
-        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+        } else {
+            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+        }
     }
 
     InterruptHandler::InterruptHandler(CPU *cpu) : cpu(cpu)
