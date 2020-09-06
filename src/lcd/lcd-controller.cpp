@@ -183,16 +183,15 @@ namespace gbaemu::lcd
                 (x2 - (-Ax0 - By0 + x0) - By1) / A = x1
              */
 
-            /*
+            
             common::math::mat<3, 3> shear{
                 {d[0], dm[0], 0},
                 {d[1], dm[1], 0},
                 {0, 0, 1}
             };
-             */
 
             /* TODO: not sure what to do when parameters are 0 */
-            common::math::mat<3, 3> shear = common::math::mat<3, 3>::id();
+            //common::math::mat<3, 3> shear = common::math::mat<3, 3>::id();
 
             /*
                 (a b)^-1    =    1/det * (d -b)
