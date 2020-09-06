@@ -587,6 +587,9 @@ namespace gbaemu::lcd
 
     bool LCDController::tick()
     {
+        static bool irqTriggeredV = false;
+        static bool irqTriggeredH = false;
+
         updateReferences();
 
         bool result = false;
@@ -598,8 +601,21 @@ namespace gbaemu::lcd
             uint32_t hState = counters.cycle % 1232;
             counters.hBlanking = hState >= 960;
             counters.vCount = counters.cycle / 1232;
+            irqTriggeredV = false;
+            if (!counters.hBlanking) {
+                irqTriggeredH = false;
+            }
         } else {
             counters.vCount = 0;
+        }
+
+        if (!irqTriggeredV && counters.vBlanking) {
+            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_BLANK);
+            irqTriggeredV = true;
+        }
+        if (!irqTriggeredH && counters.hBlanking) {
+            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_H_BLANK);
+            irqTriggeredH = true;
         }
 
         /* rendering once per h-blank */
