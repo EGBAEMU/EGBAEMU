@@ -364,7 +364,7 @@ namespace gbaemu::lcd
 
     void Background::renderBG2(LCDColorPalette &palette)
     {
-        uint8_t *bgMap = reinterpret_cast<uint8_t *>(bgMapBase + 0x800);
+        uint8_t *bgMap = reinterpret_cast<uint8_t *>(bgMapBase);
         auto pixels = canvas.pixels();
         auto stride = canvas.getWidth();
 
@@ -535,7 +535,18 @@ namespace gbaemu::lcd
             }
             //backgrounds[2].renderBG2(palette);
         } else if (bgMode == 2) {
+            backgrounds[2].loadSettings(2, 2, regs, memory);
+            backgrounds[3].loadSettings(2, 3, regs, memory);
 
+            if (backgrounds[2].enabled) {
+                backgrounds[2].renderBG2(palette);
+                backgrounds[2].drawToDisplay(display);
+            }
+
+            if (backgrounds[3].enabled) {
+                backgrounds[3].renderBG2(palette);
+                backgrounds[3].drawToDisplay(display);
+            }
         } else if (bgMode == 3) {
             /* TODO: This should easily be extendable to support BG4, BG5 */
             /* BG Mode 3 - 240x160 pixels, 32768 colors */

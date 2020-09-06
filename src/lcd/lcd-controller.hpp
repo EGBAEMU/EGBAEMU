@@ -305,7 +305,6 @@ namespace gbaemu::lcd
         uint32_t height;
         bool wrap;
         uint32_t priority;
-        uint32_t charBaseBlock;
         bool scInUse[4];
         uint32_t scCount;
         uint32_t scXOffset[4];
