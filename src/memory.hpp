@@ -144,15 +144,24 @@ namespace gbaemu
         };
 
         static const constexpr uint8_t customBiosCode[] = {
-            //TODO arm assembler code for interrupt handler!
-            0x00, 0x00, 0x00, 0x00,
 
-            0x0F, 0x50, 0x2D, 0xE9,  // stmfd  r13!,r0-r3,r12,r14  ;save registers to SP_irq
-            0x01, 0x03, 0xA0, 0xE3,  // mov    r0,4000000h         ;ptr+4 to 03FFFFFC (mirror of 03007FFC)
-            0x00, 0xE0, 0x8F, 0xE2,  // add    r14,r15,0h          ;retadr for USER handler $+8=138h
-            0x04, 0xF0, 0x10, 0xE5,  // ldr    r15,[r0,-4h]        ;jump to [03FFFFFC] USER handler
-            0x0F, 0x50, 0xBD, 0xE8,  // ldmfd  r13!,r0-r3,r12,r14  ;restore registers from SP_irq
+            // Protection such that execution does not run into the interrupt handler by accident
+            0xFD, 0xFF, 0xFF, 0xEA, // b      -4h
+
+            // Interrupt handler entry code
+            0x0F, 0x50, 0x2D, 0xE9, // stmfd  r13!,r0-r3,r12,r14  ;save registers to SP_irq
+            0x02, 0x00, 0xA0, 0xE3, // mov    r0, BIOS_DURING_IRQ (= 2)
+            0x2B, 0x00, 0x00, 0xEF, // svc    0x2B
+            0x01, 0x03, 0xA0, 0xE3, // mov    r0,4000000h         ;ptr+4 to 03FFFFFC (mirror of 03007FFC)
+            0x00, 0xE0, 0x8F, 0xE2, // add    r14,r15,0h          ;retadr for USER handler $+8=138h
+            0x04, 0xF0, 0x10, 0xE5, // ldr    r15,[r0,-4h]        ;jump to [03FFFFFC] USER handler
+
+            // Interrupt handler exit code
+            0x03, 0x00, 0xA0, 0xE3, // mov    r0, BIOS_AFTER_IRQ (= 3)
+            0x2B, 0x00, 0x00, 0xEF, // svc    0x2B
+            0x0F, 0x50, 0xBD, 0xE8, // ldmfd  r13!,r0-r3,r12,r14  ;restore registers from SP_irq
             0x04, 0xF0, 0x5E, 0xE2, // subs   r15,r14,4h          ;return from IRQ (PC=LR-4, CPSR=SPSR)
+
             //TODO maybe SWI implementations?
         };
 

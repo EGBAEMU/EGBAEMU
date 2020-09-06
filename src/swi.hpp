@@ -56,6 +56,9 @@ namespace gbaemu
         SWIHandler soundDriverVSyncOn;
         SWIHandler getJumpList;
 
+        //Custom SWI handler
+        SWIHandler changeBIOSState;
+
         const SWIHandler *const biosCallHandler[] = {
             softReset,
             registerRamReset,
@@ -99,7 +102,9 @@ namespace gbaemu
             customHalt,
             soundDriverVSyncOff,
             soundDriverVSyncOn,
-            getJumpList};
+            getJumpList,
+            //Custom SWI handler
+            changeBIOSState};
 
         const char *const biosCallHandlerStr[] = {
             STRINGIFY(softReset),
@@ -144,7 +149,9 @@ namespace gbaemu
             STRINGIFY(customHalt),
             STRINGIFY(soundDriverVSyncOff),
             STRINGIFY(soundDriverVSyncOn),
-            STRINGIFY(getJumpList)};
+            STRINGIFY(getJumpList),
+            //Custom SWI handler: starts at 0x2B
+            STRINGIFY(changeBIOSState)};
 
         const char *swiToString(uint8_t index);
     } // namespace swi

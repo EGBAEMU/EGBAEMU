@@ -69,6 +69,13 @@ namespace gbaemu
             return info;
         }
 
+        InstructionExecutionInfo changeBIOSState(CPUState *state)
+        {
+            state->memory.setBiosReadState(static_cast<Memory::BiosReadState>(state->accessReg(regs::R0_OFFSET)));
+            InstructionExecutionInfo info{0};
+            return info;
+        }
+
         /*
         Output:
             r0: numerator / denominator
