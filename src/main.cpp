@@ -4,6 +4,10 @@
 #include <iostream>
 #include <iterator>
 #include <vector>
+#include <chrono>
+#include <unistd.h>
+#include <mutex>
+#include <thread>
 
 #include "cpu.hpp"
 #include "debugger.hpp"
@@ -21,25 +25,100 @@
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5
 #define DEBUG_STACK_PRINT_RANGE 5
+#define SDL_EVENT_POLL_INTERVALL 16384
 
-static bool run_window = true;
+static bool doRun = true;
 
 static void handleSignal(int signum)
 {
     if (signum == SIGINT) {
         std::cout << "exiting..." << std::endl;
-        run_window = false;
+        doRun = false;
+    }
+}
+
+static bool runCPU = true;
+std::mutex runCPUMutex;
+
+static void cpuLoop(gbaemu::CPU& cpu, gbaemu::lcd::LCDController& lcdController)
+{
+    gbaemu::debugger::Watchdog charlie;
+    gbaemu::debugger::JumpTrap jumpTrap;
+
+    bool stepMode = false;
+    bool doRender = false;
+    //THUMB memory mirroring ROM?
+    // gbaemu::debugger::AddressTrap bp1(0x08000536, &stepMode);
+    gbaemu::debugger::AddressTrap bp1(0x08000264, &stepMode);
+    //gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x08000338, &stepMode);
+    gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R7_OFFSET, 0x080005c2, &stepMode);
+
+    std::chrono::high_resolution_clock::time_point t;
+
+    lcdController.updateReferences();
+
+    for (uint32_t i = 0, j = 0;; ++i, ++j) {
+        if (j == 1)
+            t = std::chrono::high_resolution_clock::now();
+
+        uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
+        auto inst = cpu.state.pipeline.decode.instruction;
+        if (cpu.step()) {
+            std::cout << "Abort execution!" << std::endl;
+            break;
+        }
+
+        lcdController.tick();
+
+        uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
+
+        /*
+        if (prevPC != postPC) {
+            charlie.check(prevPC, postPC, inst, cpu.state);
+
+            if (stepMode) {
+                std::cout << "press enter to continue\n";
+                std::cin.get();
+
+                std::cout << "========================================================================\n";
+                std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
+                std::cout << cpu.state.toString() << '\n';
+                std::cout << cpu.state.printStack(DEBUG_STACK_PRINT_RANGE) << '\n';
+            }
+        }
+         */
+
+        if (i % 1000 == 0 && runCPUMutex.try_lock()) {
+            if (!runCPU) {
+                runCPUMutex.unlock();
+                break;
+            }
+
+            runCPUMutex.unlock();
+        }
+
+        if (j >= 1001) {
+            double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
+            /*
+                dt = us * 1000
+                us for a single instruction = dt / 1000
+
+            */
+
+            double mhz = (1000000 / (dt / 1000)) / 1000000;
+
+            /*
+            if (mhz < 16)
+                std::cout << std::dec << dt << "us for 1000 cycles => ~" << mhz << "MHz" << std::endl;
+             */
+
+            j = 0;
+        }
     }
 }
 
 int main(int argc, char **argv)
 {
-    /*
-    for (uint16_t i = 0; i < 16 * 64; i += 16)
-        std::cout << gbaemu::fpToFloat<uint16_t, 8, 7>(i) << '\n';
-    return 0;
-     */
-
     if (argc <= 1) {
         std::cout << "please provide a ROM file\n";
         return 0;
@@ -66,11 +145,15 @@ int main(int argc, char **argv)
     std::vector<char> buf(std::istreambuf_iterator<char>(file), {});
     file.close();
 
+    /* intialize CPU and print game info */
     gbaemu::CPU cpu;
     cpu.state.memory.loadROM(reinterpret_cast<uint8_t *>(buf.data()), buf.size());
 
+    /* initialize SDL and LCD */
     gbaemu::lcd::LCDisplay display(0, 0, canv);
-    gbaemu::lcd::LCDController controller(display, &cpu);
+    std::mutex canDrawToScreenMutex;
+    bool canDrawToScreen = false;
+    gbaemu::lcd::LCDController controller(display, &cpu, &canDrawToScreenMutex, &canDrawToScreen);
 
     std::cout << "Game Title: ";
     for (size_t i = 0; i < 12; ++i) {
@@ -94,74 +177,37 @@ int main(int argc, char **argv)
     std::cout << "Max legit ROM address: 0x" << std::hex << (gbaemu::Memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize() - 1) << std::endl;
     std::cout << "Max legit original ROM address: 0x" << std::hex << (cpu.state.memory.getBiosBaseAddr() - 1) << std::endl;
 
-    gbaemu::debugger::Watchdog charlie;
-    gbaemu::debugger::JumpTrap jumpTrap;
-
-    bool stepMode = false;
-    bool doRender = false;
-    //THUMB memory mirroring ROM?
-    // gbaemu::debugger::AddressTrap bp1(0x08000536, &stepMode);
-    gbaemu::debugger::AddressTrap bp1(0x08000264, &stepMode);
-    //gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x08000338, &stepMode);
-    gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R7_OFFSET, 0x080005c2, &stepMode);
-
-    //charlie.registerTrap(jumpTrap);
-    //charlie.registerTrap(bp1);
-    //charlie.registerTrap(r12trap);
-
     gbaemu::Keypad keypad(&cpu);
     gbaemu::keyboard::KeyboardController gameController(keypad);
 
-#define SDL_EVENT_POLL_INTERVALL 16384
+    std::cout << "INFO: Launching CPU thread" << std::endl;
+    std::thread cpuThread(cpuLoop, std::ref(cpu), std::ref(controller));
+    cpuThread.detach();
 
-    for (uint32_t i = 0;; ++i) {
-        uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
-        auto inst = cpu.state.pipeline.decode.instruction;
-        if (cpu.step()) {
-            std::cout << "Abort execution!" << std::endl;
-            break;
+    while (doRun) {
+        SDL_Event event;
+
+        if (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE)
+                break;
+
+            gameController.processSDLEvent(event);
         }
 
-        if (controller.tick()) {
-            window.present();
-        }
-
-        uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
-
-        if (prevPC != postPC) {
-            charlie.check(prevPC, postPC, inst, cpu.state);
-
-            if (stepMode) {
-                std::cout << "press enter to continue\n";
-                std::cin.get();
-
-                std::cout << "========================================================================\n";
-                std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
-                std::cout << cpu.state.toString() << '\n';
-                std::cout << cpu.state.printStack(DEBUG_STACK_PRINT_RANGE) << '\n';
-            }
-        }
-
-        if ((i % SDL_EVENT_POLL_INTERVALL) == 0) {
-            SDL_Event event;
-
-            if (SDL_PollEvent(&event)) {
-                if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE)
-                    break;
-
-                gameController.processSDLEvent(event);
+        if (canDrawToScreenMutex.try_lock()) {
+            if (canDrawToScreen) {
+                window.present();
             }
 
-            //controller.plotMemory();
-            //window.present();
-        }
-
-        if (!run_window) {
-            break;
+            canDrawToScreen = false;
+            canDrawToScreenMutex.unlock();
         }
     }
 
-    std::cout << "done" << std::endl;
+    /* TODO: timeout */
+    runCPUMutex.lock();
+    runCPU = false;
+    runCPUMutex.unlock();
 
     return 0;
 }

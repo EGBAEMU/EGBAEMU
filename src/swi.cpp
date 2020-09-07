@@ -412,17 +412,12 @@ namespace gbaemu
                 auto r = scale * rotation * translation;
 
                 uint32_t dstOff = i * 16;
-                m.write16(dstOff + destAddr,      r[0][0] * 256, &info, i != 0);
-                m.write16(dstOff + destAddr + 2,  r[0][1] * 256, &info, true);
-                m.write16(dstOff + destAddr + 4,  r[1][0] * 256, &info, true);
-                m.write16(dstOff + destAddr + 6,  r[1][1] * 256, &info, true);
-                m.write32(dstOff + destAddr + 8,  r[0][2] * 256, &info, true);
-                m.write32(dstOff + destAddr + 12, r[1][2] * 256, &info, true);
-
-                //std::cout << std::dec << i << '\n' <<
-                //    "    " << cx << ' ' << cy << ' '  << ox << ' ' << oy << '\n';
-
-                std::cout << r[0][2] * 256 << '\n';
+                m.write16(dstOff + destAddr,      gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[0][0]), &info, i != 0);
+                m.write16(dstOff + destAddr + 2,  gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[0][1]), &info, true);
+                m.write16(dstOff + destAddr + 4,  gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[1][0]), &info, true);
+                m.write16(dstOff + destAddr + 6,  gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[1][1]), &info, true);
+                m.write32(dstOff + destAddr + 8,  gbaemu::floatToFixedPoint<uint32_t, 8, 19, common::math::real_t>(r[0][2]), &info, true);
+                m.write32(dstOff + destAddr + 12, gbaemu::floatToFixedPoint<uint32_t, 8, 19, common::math::real_t>(r[1][2]), &info, true);
             }
 
             return info;

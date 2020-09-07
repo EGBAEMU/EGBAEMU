@@ -6,8 +6,15 @@
 #include "io/interrupts.hpp"
 #include "io/io_regs.hpp"
 #include "mat.hpp"
+
 #include <array>
 #include <memory.hpp>
+#include <thread>
+#include <functional>
+#include <mutex>
+#include <memory>
+#include <future>
+#include <condition_variable>
 
 namespace gbaemu::lcd
 {
@@ -311,7 +318,7 @@ namespace gbaemu::lcd
         uint32_t width;
         uint32_t height;
         bool wrap;
-        uint32_t priority;
+        int32_t priority;
         bool scInUse[4];
         uint32_t scCount;
         uint32_t scXOffset[4];
@@ -347,7 +354,11 @@ namespace gbaemu::lcd
         common::math::mat<3, 3> trans;
         common::math::mat<3, 3> invTrans;
 
-        Background() : id(-1), canvas(1024, 1024) {}
+        Background(int32_t i) : id(i), canvas(1024, 1024), enabled(false) {}
+
+        ~Background() {
+            std::cout << "background destructor" << std::endl;
+        }
 
         void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory);
         void renderBG0(LCDColorPalette &palette);
@@ -360,13 +371,35 @@ namespace gbaemu::lcd
 
     class LCDController
     {
+      public:
+        enum RenderControl
+        {
+            WAIT,
+            RUN,
+            EXIT
+        };
+
+        enum RenderState
+        {
+            READY,
+            IN_PROGRESS
+        };
       private:
         LCDisplay &display;
         Memory &memory;
         InterruptHandler &irqHandler;
         LCDColorPalette palette;
         LCDIORegs regs = {0};
-        std::array<Background, 4> backgrounds;
+        std::array<std::unique_ptr<Background>, 4> backgrounds;
+        /* rendering is done in a separate thread */
+        RenderControl renderControl;
+        std::mutex renderControlMutex;
+        
+        std::mutex *canDrawToScreenMutex;
+        bool *canDrawToScreen;
+
+        std::unique_ptr<std::thread> renderThread;
+        std::condition_variable cv;
 
         struct {
             /*
@@ -396,8 +429,14 @@ namespace gbaemu::lcd
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
         }
 
+        void onHBlank();
+        void onVBlank();
+        void render();
+        void renderLoop();
+
       public:
-        LCDController(LCDisplay &disp, CPU *cpu) : display(disp), memory(cpu->state.memory), irqHandler(cpu->irqHandler)
+        LCDController(LCDisplay &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) :
+            display(disp), memory(cpu->state.memory), irqHandler(cpu->irqHandler), canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw)
         {
             counters.cycle = 0;
             counters.vCount = 0;
@@ -411,17 +450,21 @@ namespace gbaemu::lcd
                     std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
                     std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),
                     std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
+
+            for (int32_t i = 0; i < 4; ++i)
+                backgrounds[i] = std::make_unique<Background>(i);
+
+            renderControl = WAIT;
+            renderThread = std::make_unique<std::thread>(&LCDController::renderLoop, this);
+            renderThread->detach();
         }
 
         /* updates all raw pointers into the sections of memory (in case they might change) */
         void updateReferences();
-
-        uint32_t getBackgroundMode() const;
-        /* renders the current screen to canvas */
-        void render();
-        void plotPalette();
         bool tick();
     };
+
+    
 } // namespace gbaemu::lcd
 
 #endif /* LCD_CONTROLLER_HPP */

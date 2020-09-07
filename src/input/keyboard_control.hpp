@@ -210,7 +210,8 @@ namespace gbaemu::keyboard
         {SDLK_UP, Keypad::UP},
         {SDLK_DOWN, Keypad::DOWN},
         {SDLK_l, Keypad::BUTTON_L},
-        {SDLK_COLON, Keypad::BUTTON_R}};
+        {SDLK_COLON, Keypad::BUTTON_R},
+        {SDLK_p, Keypad::BUTTON_R}};
 
 } // namespace gbaemu::keyboard
 

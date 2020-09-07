@@ -27,6 +27,9 @@ namespace gbaemu
     template <class T, T FRAC, T INT, class ResultType=double>
     ResultType fpToFloat(T fp);
 
+    template <class T, T Frac, T Int, class InType=double>
+    T floatToFixedPoint(InType f);
+
 #define STRINGIFY(x) (#x)
 
 #define STRINGIFY_CASE_ID(x) \

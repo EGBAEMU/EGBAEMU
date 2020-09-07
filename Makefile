@@ -3,11 +3,11 @@ OUT := bin
 BUILDDIR := build
 
 CC := g++
-CCFLAGS := -std=c++17 -g -Wall -I$(SRC)
+CCFLAGS := -std=c++17 -g -ffast-math -Wall -I$(SRC)
 ifeq ($(OS),Windows_NT)
-  LDFLAGS := -lmingw32 -lSDL2main -lSDL2
+  LDFLAGS := -lmingw32 -lSDL2main -lSDL2 -pthread
 else
-  LDFLAGS := -lSDL2
+  LDFLAGS := -lSDL2 -pthread
 endif
 
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))

@@ -172,10 +172,12 @@ namespace gbaemu::lcd
             }
 
             common::math::mat<3, 3> translation{
-                {1, 0, -origin[0]},
-                {0, 1, -origin[1]},
+                {1, 0, origin[0]},
+                {0, 1, origin[1]},
                 {0, 0, 1}
             };
+
+            //std::cout << translation << '\n';
 
             common::math::mat<3, 3> invTranslation{
                 {1, 0, -translation[0][2]},
@@ -192,16 +194,16 @@ namespace gbaemu::lcd
             common::math::real_t adet = 1 / ((shear[0][0] * shear[1][1]) - (shear[0][1] * shear[1][0]));
 
             common::math::mat<3, 3> invShear{
-                {shear[1][1], -shear[0][1], 0},
-                {-shear[1][0], shear[0][0], 0},
+                {shear[1][1] * adet, -shear[0][1] * adet, 0},
+                {-shear[1][0] * adet, shear[0][0] * adet, 0},
                 {0, 0, 1}
             };
 
             //std::cout << origin[0] << ' ' << origin[1] << ' ' << d[0] << ' ' << d[1] << ' ' << dm[0] << ' ' << dm[1] << '\n';
-            //std::cout << translation << '\n';
+            //std::cout << shear << '\n';
 
-            trans = invTranslation * shear * translation;
-            invTrans = translation * invShear * invTranslation;
+            trans = translation * shear;
+            invTrans = invShear * invTranslation;
         } else {
             /* use scrolling parameters */
             trans = common::math::mat<3, 3>::id();
@@ -294,6 +296,9 @@ namespace gbaemu::lcd
         auto pixels = canvas.pixels();
         auto stride = canvas.getWidth();
 
+        if (mosaicEnabled)
+            std::cout << "INFO: Mosaic enabled" << std::endl;
+
         for (uint32_t scIndex = 0; scIndex < scCount; ++scIndex) {
             uint16_t *bgMap = reinterpret_cast<uint16_t *>(bgMapBase + scIndex * 0x800);
 
@@ -302,9 +307,10 @@ namespace gbaemu::lcd
 
                 /* tile info */
                 uint32_t tileNumber = entry & 0x3FF;
+                uint32_t paletteNumber = (entry >> 12) & 0xF;
 
-                int32_t tileX = scXOffset[scIndex] + (mapIndex % 32) * 8;
-                int32_t tileY = scYOffset[scIndex] + (mapIndex / 32) * 8;
+                int32_t tileX = scXOffset[scIndex] + (mapIndex % 32);
+                int32_t tileY = scYOffset[scIndex] + (mapIndex / 32);
 
                 /* TODO: flipping */
                 bool hFlip = (entry >> 10) & 1;
@@ -323,8 +329,7 @@ namespace gbaemu::lcd
                         }
                     }
                 } else {
-                    uint8_t *tile = tiles + (tileNumber * 32);
-                    uint32_t paletteNumber = (entry >> 12) & 0xF;
+                    uint32_t *tile = reinterpret_cast<uint32_t *>(tiles + (tileNumber * 32));
 
                     for (uint32_t ty = 0; ty < 8; ++ty) {
                         uint32_t srcTy = vFlip ? (7 - ty) : ty;
@@ -434,12 +439,170 @@ namespace gbaemu::lcd
     void Background::drawToDisplay(LCDisplay &display)
     {
         display.canvas.beginDraw();
-        display.canvas.drawSprite(canvas.pixels(), width, height, canvas.getWidth(), trans, invTrans, wrap);
+        display.canvas.drawSprite(canvas.pixels(), canvas.getWidth(), canvas.getHeight(), canvas.getWidth(), trans, invTrans, wrap);
         display.canvas.endDraw();
     }
 
-    void LCDController::blendBackgrounds()
+    /*
+        LCDController
+     */
+
+    void LCDController::onHBlank()
     {
+        updateReferences();
+
+        uint32_t bgMode = le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
+
+        /* Which background layers are enabled to begin with? */
+        for (uint32_t i = 0; i < 4; ++i)
+            backgrounds[i]->enabled = regs.DISPCNT & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
+
+        if (bgMode == 0) {
+            for (uint32_t i = 0; i < 4; ++i) {
+                backgrounds[i]->enabled = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
+
+                if (backgrounds[i]->enabled) {
+                    backgrounds[i]->loadSettings(0, i, regs, memory);
+                    backgrounds[i]->renderBG0(palette);
+                }
+            }
+        } else if (bgMode == 1) {
+            backgrounds[0]->loadSettings(0, 0, regs, memory);
+            backgrounds[1]->loadSettings(0, 1, regs, memory);
+            backgrounds[2]->loadSettings(2, 2, regs, memory);
+        } else if (bgMode == 2) {
+            backgrounds[2]->loadSettings(2, 2, regs, memory);
+            backgrounds[3]->loadSettings(2, 3, regs, memory);
+        } else if (bgMode == 3) {
+            backgrounds[2]->loadSettings(3, 2, regs, memory);
+        } else if (bgMode == 4) {
+            backgrounds[2]->loadSettings(4, 2, regs, memory);
+        } else if (bgMode == 5) {
+            backgrounds[2]->loadSettings(5, 2, regs, memory);
+        } else {
+            std::cout << "WARNING: unsupported bg mode " << bgMode << "\n";
+        }
+
+        /* sort backgrounds by priority, disabled backgrounds will be skipped in rendering */
+        std::sort(backgrounds.begin(), backgrounds.end(), [](const std::unique_ptr<Background>& b1, const std::unique_ptr<Background>& b2) -> bool {
+            int32_t delta = b1->priority - b2->priority;
+            return (delta == 0) ? (b1->id - b2->id < 0) : (delta < 0);
+        });
+    }
+
+    void LCDController::onVBlank()
+    {
+
+    }
+
+    void LCDController::render()
+    {
+        uint32_t bgMode = le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
+
+        display.canvas.beginDraw();
+        display.canvas.clear(0xFF000000);
+
+        switch (bgMode) {
+            case 0:
+                for (uint32_t i = 0; i < 4; ++i) {
+                    if (backgrounds[i]->enabled) {
+                        backgrounds[i]->renderBG0(palette);
+                        backgrounds[i]->drawToDisplay(display);
+                    }
+                }
+
+                break;
+            case 1:
+                if (backgrounds[0]->enabled) {
+                    backgrounds[0]->renderBG0(palette);
+                    backgrounds[0]->drawToDisplay(display);
+                }
+
+                if (backgrounds[1]->enabled) {
+                    backgrounds[1]->renderBG0(palette);
+                    backgrounds[1]->drawToDisplay(display);
+                }
+
+                if (backgrounds[2]->enabled) {
+                    backgrounds[2]->renderBG2(palette);
+                    backgrounds[2]->drawToDisplay(display);
+                }
+
+                break;
+            case 2:
+                if (backgrounds[2]->enabled) {
+                    backgrounds[2]->renderBG2(palette);
+                    backgrounds[2]->drawToDisplay(display);
+                }
+
+                if (backgrounds[3]->enabled) {
+                    backgrounds[3]->renderBG2(palette);
+                    backgrounds[3]->drawToDisplay(display);
+                }
+
+                break;
+            case 3:
+                if (backgrounds[2]->enabled) {
+                    backgrounds[2]->renderBG3(memory);
+                    backgrounds[2]->drawToDisplay(display);
+                }
+
+                break;
+            case 4:
+                if (backgrounds[2]->enabled) {
+                    backgrounds[2]->renderBG4(palette, memory);
+                    backgrounds[2]->drawToDisplay(display);
+                }
+
+                break;
+            case 5:
+                if (backgrounds[2]->enabled) {
+                    backgrounds[2]->renderBG5(palette, memory);
+                    backgrounds[2]->drawToDisplay(display);
+                }    
+
+                break;
+
+            default:
+                std::cout << "WARNING: Unsupported background mode " << std::dec << bgMode << "!\n";
+                break;
+        }
+
+        display.canvas.endDraw();
+        display.drawToTarget(2);
+    }
+
+    void LCDController::renderLoop()
+    {
+        while (true) {
+            //canDrawToScreenMutex->lock();
+            renderControlMutex.lock();
+
+            bool exitLoop = (renderControl == EXIT);
+            bool wait = (renderControl == WAIT);
+            renderControl = WAIT;
+
+            if (wait) {
+                renderControlMutex.unlock();
+                continue;
+            } else if (exitLoop) {
+                renderControlMutex.unlock();
+                break;
+            }
+
+            render();
+
+            /* Tell the window we are done, if it isn't ready it has to try next time. */
+            canDrawToScreenMutex->lock();
+            *canDrawToScreen = true;
+            canDrawToScreenMutex->unlock();
+
+            /*
+                Allow another call to render() only if render() has finished. If onHBlank() gets executed
+                while we are rendering we crash.
+             */
+            renderControlMutex.unlock();
+        }
     }
 
     void LCDController::updateReferences()
@@ -449,133 +612,10 @@ namespace gbaemu::lcd
         palette.objPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET + 0x200, nullptr, memReg));
     }
 
-    uint32_t LCDController::getBackgroundMode() const
-    {
-        return le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
-    }
-
-    void LCDController::render()
-    {
-        updateReferences();
-        uint32_t bgMode = getBackgroundMode();
-        display.canvas.beginDraw();
-        display.canvas.clear(0xFF000000);
-
-        Memory::MemoryRegion memReg;
-        uint8_t *vram = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, memReg);
-
-        for (uint32_t i = 0; i < 4; ++i)
-            backgrounds[i].enabled = regs.DISPCNT & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
-
-        if (bgMode == 0) {
-            /*
-                Mode  Rot/Scal Layers Size               Tiles Colors       Features
-                0     No       0123   256x256..512x515   1024  16/16..256/1 SFMABP
-                Features: S)crolling, F)lip, M)osaic, A)lphaBlending, B)rightness, P)riority.
-            */
-            /* TODO: I guess text mode? */
-            for (uint32_t i = 0; i < 4; ++i) {
-                backgrounds[i].enabled = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
-
-                if (backgrounds[i].enabled) {
-                    backgrounds[i].loadSettings(0, i, regs, memory);
-                    backgrounds[i].renderBG0(palette);
-                }
-            }
-
-            /* TODO: render top alpha last */
-            std::vector<int32_t> backgroundIds = {backgrounds[0].id, backgrounds[1].id, backgrounds[2].id, backgrounds[3].id};
-            std::stable_sort(backgroundIds.begin(), backgroundIds.end(), [&](int32_t id1, int32_t id2) { return backgrounds[id1].priority - backgrounds[id2].priority; });
-
-            /* TODO: alpha blending */
-            for (uint32_t i = 0; i < 4; ++i) {
-                auto bgId = backgroundIds[i];
-            }
-
-            for (uint32_t i = 0; i < 4; ++i) {
-                if (!backgrounds[i].enabled)
-                    continue;
-
-                backgrounds[i].drawToDisplay(display);
-            }
-        } else if (bgMode == 1) {
-            backgrounds[0].loadSettings(0, 0, regs, memory);
-            backgrounds[1].loadSettings(0, 1, regs, memory);
-            backgrounds[2].loadSettings(2, 2, regs, memory);
-
-            if (backgrounds[0].enabled) {
-                backgrounds[0].renderBG0(palette);
-                backgrounds[0].drawToDisplay(display);
-            }
-
-            if (backgrounds[1].enabled) {
-                backgrounds[1].renderBG0(palette);
-                backgrounds[1].drawToDisplay(display);
-            }
-
-            if (backgrounds[2].enabled) {
-                backgrounds[2].renderBG2(palette);
-                backgrounds[2].drawToDisplay(display);
-            }
-            //backgrounds[2].renderBG2(palette);
-        } else if (bgMode == 2) {
-            backgrounds[2].loadSettings(2, 2, regs, memory);
-            backgrounds[3].loadSettings(2, 3, regs, memory);
-
-            if (backgrounds[2].enabled) {
-                backgrounds[2].renderBG2(palette);
-                backgrounds[2].drawToDisplay(display);
-            }
-
-            if (backgrounds[3].enabled) {
-                backgrounds[3].renderBG2(palette);
-                backgrounds[3].drawToDisplay(display);
-            }
-        } else if (bgMode == 3) {
-            /* TODO: This should easily be extendable to support BG4, BG5 */
-            /* BG Mode 3 - 240x160 pixels, 32768 colors */
-            backgrounds[2].loadSettings(3, 2, regs, memory);
-
-            if (backgrounds[2].enabled) {
-                backgrounds[2].renderBG3(memory);
-                backgrounds[2].drawToDisplay(display);
-            }
-        } else if (bgMode == 4) {
-            backgrounds[2].loadSettings(4, 2, regs, memory);
-
-            if (backgrounds[2].enabled) {
-                backgrounds[2].renderBG4(palette, memory);
-                backgrounds[2].drawToDisplay(display);
-            }
-        } else if (bgMode == 5) {
-            backgrounds[2].loadSettings(5, 2, regs, memory);
-
-            if (backgrounds[2].enabled) {
-                backgrounds[2].renderBG5(palette, memory);
-                backgrounds[2].drawToDisplay(display);
-            }
-        } else {
-            std::cout << "WARNING: unsupported bg mode " << bgMode << "\n";
-        }
-
-        display.canvas.endDraw();
-        display.drawToTarget(2);
-
-        blendBackgrounds();
-    }
-
-    void LCDController::plotPalette()
-    {
-        for (uint32_t i = 0; i < 256; ++i)
-            display.canvas.pixels()[i] = palette.getBgColor(i);
-    }
-
     bool LCDController::tick()
     {
         static bool irqTriggeredV = false;
         static bool irqTriggeredH = false;
-
-        updateReferences();
 
         bool result = false;
         uint32_t vState = counters.cycle % 280896;
@@ -604,9 +644,23 @@ namespace gbaemu::lcd
         }
 
         /* rendering once per h-blank */
-        if (counters.hBlanking && counters.cycle % 1232 == 0) {
-            render();
-            result = true;
+        if (counters.hBlanking && counters.cycle % (1231 * 4) == 0) {
+            /*
+                Rendering will not be able to keep up with each hblank, but that's ok because we per scanline updates
+                are not visible to the human eye.
+             */
+
+            /* No blocking, otherwise we have gained nothing. */
+            
+            if (renderControlMutex.try_lock()) {
+                onHBlank();
+                renderControl = RUN;
+                renderControlMutex.unlock();
+            }
+        }
+
+        if (counters.vBlanking && counters.cycle % 197120 == 0) {
+            onVBlank();
         }
 
         /* update stat */

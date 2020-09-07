@@ -1,6 +1,9 @@
 #include "util.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
+
 
 namespace gbaemu
 {
@@ -59,6 +62,13 @@ namespace gbaemu
         ResultType value = static_cast<ResultType>(fp & ((INT_MASK << INT_OFF) | FRAC_MASK)) * (sign ? -1.f : 1.f);
         return value / static_cast<ResultType>(1 << FRAC);
     }
+
+    template <class T, T Frac, T Int, class InType=double>
+    T floatToFixedPoint(InType f)
+    {
+        T signBit = std::signbit(f) ? (static_cast<T>(1) << (Frac + Int)) : static_cast<T>(0);
+        return static_cast<T>(std::abs(f) * (1 << Frac)) | signBit;
+    }
 } // namespace gbaemu
 
 template uint16_t gbaemu::bitSet<uint16_t>(uint16_t, uint16_t, uint16_t, uint16_t);
@@ -67,3 +77,8 @@ template uint16_t gbaemu::le<uint16_t>(uint16_t);
 template uint32_t gbaemu::le<uint32_t>(uint32_t);
 template double gbaemu::fpToFloat<uint32_t, 8, 19>(uint32_t);
 template double gbaemu::fpToFloat<uint16_t, 8, 7>(uint16_t);
+
+template uint16_t gbaemu::floatToFixedPoint<uint16_t, 8, 7, float>(float);
+template uint16_t gbaemu::floatToFixedPoint<uint16_t, 8, 7, double>(double);
+template uint32_t gbaemu::floatToFixedPoint<uint32_t, 8, 19, float>(float);
+template uint32_t gbaemu::floatToFixedPoint<uint32_t, 8, 19, double>(double);
