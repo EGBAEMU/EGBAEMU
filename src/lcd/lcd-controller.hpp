@@ -2,6 +2,8 @@
 #define LCD_CONTROLLER_HPP
 
 #include "canvas.hpp"
+#include "cpu.hpp"
+#include "io/interrupts.hpp"
 #include "io/io_regs.hpp"
 #include "mat.hpp"
 #include <array>
@@ -361,6 +363,7 @@ namespace gbaemu::lcd
       private:
         LCDisplay &display;
         Memory &memory;
+        InterruptHandler &irqHandler;
         LCDColorPalette palette;
         LCDIORegs regs = {0};
         std::array<Background, 4> backgrounds;
@@ -394,13 +397,13 @@ namespace gbaemu::lcd
         }
 
       public:
-        LCDController(LCDisplay &disp, Memory &mem) : display(disp), memory(mem)
+        LCDController(LCDisplay &disp, CPU *cpu) : display(disp), memory(cpu->state.memory), irqHandler(cpu->irqHandler)
         {
             counters.cycle = 0;
             counters.vCount = 0;
             counters.hBlanking = false;
             counters.vBlanking = false;
-            mem.ioHandler.registerIOMappedDevice(
+            memory.ioHandler.registerIOMappedDevice(
                 IO_Mapped(
                     static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET),
                     static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET) + sizeof(regs),
