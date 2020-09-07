@@ -38,6 +38,8 @@ namespace gbaemu
 
     void Keypad::setKeyInputState(bool released, KeyInput key)
     {
+        //std::cout << std::dec << key << (released ? " released" : "pressed") << '\n';
+
         uint16_t currentValue = le(regs.keyStatus);
         currentValue = (currentValue & ~(static_cast<uint16_t>(1) << key)) | (released ? (static_cast<uint16_t>(1) << key) : 0);
         regs.keyStatus = le(currentValue);

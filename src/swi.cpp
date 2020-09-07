@@ -376,11 +376,6 @@ namespace gbaemu
             auto &m = state->memory;
 
             for (size_t i = 0; i < iterationCount; ++i) {
-                common::math::mat<3, 3> scale{
-                    {m.read32(sourceAddr, &info, i != 0) / 256.f, 0, 0},
-                    {0, m.read32(sourceAddr + 4, &info, true) / 256.f, 0},
-                    {0, 0, 1}};
-
                 uint32_t off = i * 20;
                 float ox = m.read32(off + sourceAddr, &info, true) / 256.f;
                 float oy = m.read32(off + sourceAddr + 4, &info, true) / 256.f;
@@ -390,16 +385,44 @@ namespace gbaemu
                 float sy = m.read16(off + sourceAddr + 14, &info, true) / 256.f;
                 float theta = (m.read32(sourceAddr + 16, &info, true) >> 8) / 128.f * M_PI;
 
+                /*
                 auto r = common::math::scale_matrix({sx, sy, 1}) *
-                         common::math::rotation_around_matrix(theta, {0, 0, 1}, {cx - ox, cy - oy, 1});
+                         common::math::rotation_matrix(theta, {0, 0, 1}) *
+                         common::math::translation_matrix({cx - ox, cy - oy, 1});
+                 */
+
+                common::math::mat<3, 3> scale{
+                    {sx, 0, 0},
+                    {0, sy, 0},
+                    {0, 0, 1}
+                };
+
+                common::math::mat<3, 3> rotation{
+                    {std::cos(theta), -std::sin(theta), 0 },
+                    {std::sin(theta), std::cos(theta), 0},
+                    {0, 0, 1}
+                };
+
+                common::math::mat<3, 3> translation{
+                    {1, 0, cx - ox},
+                    {0, 1, cy - oy},
+                    {0, 0, 1}
+                };
+
+                auto r = scale * rotation * translation;
 
                 uint32_t dstOff = i * 16;
-                m.write16(dstOff + destAddr, r[0][0] * 256, &info, i != 0);
-                m.write16(dstOff + destAddr + 2, r[0][1] * 256, &info, true);
-                m.write16(dstOff + destAddr + 4, r[1][0] * 256, &info, true);
-                m.write16(dstOff + destAddr + 6, r[1][1] * 256, &info, true);
-                m.write32(dstOff + destAddr + 8, r[0][2] * 256, &info, true);
+                m.write16(dstOff + destAddr,      r[0][0] * 256, &info, i != 0);
+                m.write16(dstOff + destAddr + 2,  r[0][1] * 256, &info, true);
+                m.write16(dstOff + destAddr + 4,  r[1][0] * 256, &info, true);
+                m.write16(dstOff + destAddr + 6,  r[1][1] * 256, &info, true);
+                m.write32(dstOff + destAddr + 8,  r[0][2] * 256, &info, true);
                 m.write32(dstOff + destAddr + 12, r[1][2] * 256, &info, true);
+
+                //std::cout << std::dec << i << '\n' <<
+                //    "    " << cx << ' ' << cy << ' '  << ox << ' ' << oy << '\n';
+
+                std::cout << r[0][2] * 256 << '\n';
             }
 
             return info;
