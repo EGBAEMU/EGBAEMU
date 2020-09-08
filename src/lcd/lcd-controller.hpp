@@ -210,58 +210,42 @@ namespace gbaemu::lcd
         uint16_t BLDY;     // Brightness (Fade-In/Out) Coefficient
     } __attribute__((packed));
 
-    struct LCDBgObj {
-        struct ObjAttribute {
-            uint16_t attribute[3];
-        } __attribute__((packed));
+    namespace OBJ_ATTRIBUTE
+    {
+        static const uint16_t Y_COORD_OFFSET = 0,
+                              ROT_SCALE_OFFSET = 8,
+                              DOUBLE_SIZE_OFFSET = 9,
+                              DISABLE_OFFSET = 9,
+                              OBJ_MODE_OFFSET = 10,
+                              OBJ_MOSAIC_OFFSET = 12,
+                              COLOR_PALETTE_OFFSET = 13,
+                              OBJ_SHAPE_OFFSET = 14,
+                              X_COORD_OFFSET = 0,
+                              ROT_SCALE_PARAM_OFFSET = 9,
+                              H_FLIP_OFFSET = 12,
+                              V_FLIP_OFFSET = 13,
+                              OBJ_SIZE_OFFSET = 14,
+                              CHAR_NAME_OFFSET = 0,
+                              PRIORITY_OFFSET = 10,
+                              PALETTE_NUMBER_OFFSET = 12;
 
-        uint32_t bgMode;
-
-        /* VRAM region */
-        union {
-            /* bg map and tiles */
-            /*
-                Text BG Screen (2 bytes per entry)
-                Specifies the tile number and attributes. Note that BG tile numbers are always specified in steps of 1 (unlike OBJ tile numbers which are using steps of two in 256 color/1 palette mode).
-
-                Bit   Expl.
-                0-9   Tile Number     (0-1023) (a bit less in 256 color mode, because
-                                        there'd be otherwise no room for the bg map)
-                10    Horizontal Flip (0=Normal, 1=Mirrored)
-                11    Vertical Flip   (0=Normal, 1=Mirrored)
-                12-15 Palette Number  (0-15)    (Not used in 256 color/1 palette mode)
-
-                A Text BG Map always consists of 32x32 entries (256x256 pixels), 400h entries = 800h bytes. However, depending on the BG Size, one, two, or four of these Maps may be used together, allowing to create backgrounds of 256x256, 512x256, 256x512, or 512x512 pixels, if so, the first map (SC0) is located at base+0, the next map (SC1) at base+800h, and so on.     
-             
-
-                Rotation/Scaling BG Screen (1 byte per entry)
-                In this mode, only 256 tiles can be used. There are no x/y-flip attributes, the color depth is always 256 colors/1 palette.
-
-                Bit   Expl.
-                0-7   Tile Number     (0-255)
-
-                The dimensions of Rotation/Scaling BG Maps depend on the BG size. For size 0-3 that are: 16x16 tiles (128x128 pixels), 32x32 tiles (256x256 pixels), 64x64 tiles (512x512 pixels), or 128x128 tiles (1024x1024 pixels).
-
-                The size and VRAM base address of the separate BG maps for BG0-3 are set up by BG0CNT-BG3CNT registers.             
-             */
-            uint8_t *bgMode012;
-            /* frame buffer 0 */
-            uint8_t *bgMode3;
-            /* frame buffer 0 and 1*/
-            struct {
-                uint8_t *frameBuffer0;
-                uint8_t *frameBuffer1;
-            } bgMode45;
-        } bg;
-
-        /* depends on bg mode */
-        uint8_t *objTiles;
-        /* OAM region */
-        uint8_t *attributes;
-
-        void setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t bgMode);
-        ObjAttribute *accessAttribute(uint32_t index);
-    };
+        static const uint16_t Y_COORD_MASK = 0xFF,
+                              ROT_SCALE_MASK = 1,
+                              DOUBLE_SIZE_MASK = 1,
+                              DISABLE_MASK = 1,
+                              OBJ_MODE_MASK = 3,
+                              OBJ_MOSAIC_MASK = 1,
+                              COLOR_PALETTE_MASK = 1,
+                              OBJ_SHAPE_MASK = 3,
+                              X_COORD_MASK = 0x1FF,
+                              ROT_SCALE_PARAM_MASK = 0x1F,
+                              H_FLIP_MASK = 1,
+                              V_FLIP_MASK = 1,
+                              OBJ_SIZE_MASK = 3,
+                              CHAR_NAME_MASK = 0x3FF,
+                              PRIORITY_MASK = 3,
+                              PALETTE_NUMBER_MASK = 0xF;
+    }
 
     struct LCDColorPalette {
         /* TODO: maybe this can be const */
@@ -319,6 +303,38 @@ namespace gbaemu::lcd
         }
     };
 
+    struct OBJLayer {
+        enum OBJShape : uint16_t {
+            SQUARE = 0,
+            HORIZONTAL,
+            VERTICAL
+        };
+
+        enum OBJMode : uint16_t {
+            NORMAL,
+            SEMI_TRANSPARENT,
+            OBJ_WINDOW
+        };
+
+        struct OBJAttribute {
+            uint16_t attribute[3];
+        } __attribute__((packed));
+
+        uint32_t bgMode;
+        /* depends on bg mode */
+        uint8_t *objTiles;
+        uint32_t areaSize;
+        /* OAM region */
+        uint8_t *attributes;
+
+        uint32_t tempBuffer[64 * 64];
+
+        void setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t bgMode);
+        OBJAttribute *accessAttribute(uint32_t index);
+        OBJAttribute getAttribute(uint32_t index);
+        void draw(LCDColorPalette& palette, bool use2dMapping, LCDisplay& display);
+    };
+
     struct Background {
         /* BG0, BG1, BG2, BG3 */
         int32_t id;
@@ -355,11 +371,6 @@ namespace gbaemu::lcd
         void drawToDisplay(LCDisplay &display);
     };
 
-    class OBJLayer
-    {
-
-    };
-
     class LCDController
     {
       public:
@@ -383,6 +394,7 @@ namespace gbaemu::lcd
         LCDColorPalette palette;
         LCDIORegs regs = {0};
         std::array<std::unique_ptr<Background>, 4> backgrounds;
+        OBJLayer objLayer;
         /* special color effects, 0-3 ~ BG0-3, 4 OBJ, 5, Backdrop(?) */
         int32_t firstTargetLayerID;
         int32_t secondTargetLayerID;

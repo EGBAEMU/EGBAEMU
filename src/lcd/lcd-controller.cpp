@@ -21,35 +21,7 @@
 
 namespace gbaemu::lcd
 {
-    void LCDBgObj::setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t mode)
-    {
-        bgMode = mode;
-
-        switch (bgMode) {
-            case 0:
-            case 1:
-            case 2:
-                bg.bgMode012 = vramBaseAddress;
-                objTiles = vramBaseAddress + 0x10000;
-                break;
-            case 3:
-                bg.bgMode3 = vramBaseAddress;
-                objTiles = vramBaseAddress + 0x14000;
-                break;
-            case 4:
-                bg.bgMode45.frameBuffer0 = vramBaseAddress;
-                bg.bgMode45.frameBuffer1 = vramBaseAddress + 0xA000;
-                objTiles = vramBaseAddress + 0x14000;
-                break;
-        }
-
-        attributes = oamBaseAddress;
-    }
-
-    LCDBgObj::ObjAttribute *LCDBgObj::accessAttribute(uint32_t index)
-    {
-        return reinterpret_cast<ObjAttribute *>(attributes + (index * 0x8));
-    }
+    /* LCDColorPalette */
 
     uint32_t LCDColorPalette::toR8G8B8(uint16_t color)
     {
@@ -86,6 +58,203 @@ namespace gbaemu::lcd
     uint32_t LCDColorPalette::getObjColor(uint32_t i1, uint32_t i2) const
     {
         return getObjColor(i1 * 16 + i2);
+    }
+
+    /* OBJLayer */
+
+    void OBJLayer::setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t mode)
+    {
+        bgMode = mode;
+
+        switch (bgMode) {
+            case 0: case 1: case 2:
+                objTiles = vramBaseAddress + 0x10000;
+                areaSize = 32 * 1024;
+                break;
+            case 3: case 4: case 5:
+                objTiles = vramBaseAddress + 0x14000;
+                areaSize = 16 * 1024;
+                break;
+        }
+
+        attributes = oamBaseAddress;
+    }
+
+    OBJLayer::OBJAttribute *OBJLayer::accessAttribute(uint32_t index)
+    {
+        return reinterpret_cast<OBJAttribute *>(attributes + (index * 0x8));
+    }
+
+    OBJLayer::OBJAttribute OBJLayer::getAttribute(uint32_t index)
+    {
+        auto uints = reinterpret_cast<const uint16_t *>(attributes + (index * 0x8));
+        return OBJAttribute{ le(uints[0]), le(uints[1]), le(uints[2]) };
+    }
+
+    void OBJLayer::draw(LCDColorPalette& palette, bool use2dMapping, LCDisplay& display)
+    {
+        for (uint32_t i = 0; i < 128; ++i) {
+            OBJAttribute attr = getAttribute(i);
+
+            bool useRotScale = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::ROT_SCALE_MASK, OBJ_ATTRIBUTE::ROT_SCALE_OFFSET);
+            bool vFlip = false;
+            bool hFlip = false;
+
+            if (!useRotScale) {
+                bool disabled = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::DISABLE_MASK, OBJ_ATTRIBUTE::DISABLE_OFFSET);
+
+                if (disabled)
+                    continue;
+
+                vFlip = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::V_FLIP_MASK, OBJ_ATTRIBUTE::V_FLIP_OFFSET);
+                hFlip = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::H_FLIP_MASK, OBJ_ATTRIBUTE::H_FLIP_OFFSET);
+            } else {
+
+            }
+
+            /* 16x16 palette */
+            bool usePalette16 = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::COLOR_PALETTE_MASK, OBJ_ATTRIBUTE::COLOR_PALETTE_OFFSET);
+
+            uint16_t yOff = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::Y_COORD_MASK, OBJ_ATTRIBUTE::Y_COORD_OFFSET);
+            uint16_t xOff = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::X_COORD_MASK, OBJ_ATTRIBUTE::X_COORD_OFFSET);
+
+            OBJShape shape = static_cast<OBJShape>(bitGet<uint16_t>(attr.attribute[0],
+                OBJ_ATTRIBUTE::OBJ_SHAPE_MASK, OBJ_ATTRIBUTE::OBJ_SHAPE_OFFSET));
+            uint16_t size = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::OBJ_SIZE_MASK, OBJ_ATTRIBUTE::OBJ_SIZE_OFFSET);
+            uint16_t tileNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::CHAR_NAME_MASK, OBJ_ATTRIBUTE::CHAR_NAME_OFFSET);
+            bool useMosaic = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MOSAIC_MASK, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET);
+            OBJMode mode = static_cast<OBJMode>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MODE_MASK, OBJ_ATTRIBUTE::OBJ_MODE_OFFSET));
+
+            if (3 <= bgMode && bgMode <= 5 && tileNumber < 512)
+                continue;
+
+            /*
+                Size  Square   Horizontal  Vertical
+                0     8x8      16x8        8x16
+                1     16x16    32x8        8x32
+                2     32x32    32x16       16x32
+                3     64x64    64x32       32x64
+             */
+
+            uint32_t width, height;
+
+            /* TODO: Maybe there is a better way to do this. */
+            switch (shape) {
+                case SQUARE:
+                    width = (size + 1) * 8;
+                    height = (size + 1) * 8;
+                    break;
+
+                case HORIZONTAL:
+                    if (size == 0) {
+                        width = 16;
+                        height = 8;
+                    } else if (size == 1) {
+                        width = 32;
+                        height = 8;
+                    } else if (size == 2) {
+                        width = 32;
+                        height = 16;
+                    } else {
+                        width = 64;
+                        height = 32;
+                    }           
+
+                    break;
+                case VERTICAL:
+                    if (size == 0) {
+                        width = 8;
+                        height = 16;
+                    } else if (size == 1) {
+                        width = 8;
+                        height = 32;
+                    } else if (size == 2) {
+                        width = 16;
+                        height = 32;
+                    } else {
+                        width = 32;
+                        height = 64;
+                    }
+
+                    break;
+            }
+
+            std::fill_n(tempBuffer, 64 * 64, 0);
+
+            /* draw all tiles */
+            
+            /*
+            tileNumber = i * 1;
+            xOff = i * 8;
+            yOff = 0;
+            usePalette16 = true;
+            width = 8;
+            height = 8;
+
+            if (tileNumber >= 16)
+                return;
+             */
+             
+
+            /* I don't know why this is inverted... */
+            if (!usePalette16) {
+                uint16_t paletteNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PALETTE_NUMBER_MASK, OBJ_ATTRIBUTE::PALETTE_NUMBER_OFFSET);
+                uint32_t *firstTile = reinterpret_cast<uint32_t *>(objTiles + (tileNumber * 64));
+
+                for (uint32_t y = 0; y < height; ++y) {
+                    uint32_t row = firstTile[y];
+
+                    for (int32_t x = 0; x < width; ++x) {
+                        uint32_t index = (row & (0xF << (7 - x))) >> (7 - x);
+                        uint32_t color = palette.getBgColor(paletteNumber, index);
+                        tempBuffer[y * 64 + x] = color;    
+                    }
+                }
+            } else {
+                /* bit 0 of tileNumber should be ignored */
+                //uint8_t *firstTile = objTiles + ((tileNumber & ~static_cast<uint16_t>(1)) * 64);
+
+                for (uint32_t tileY = 0; tileY < height / 8; ++tileY) {
+                    for (uint32_t tileX = 0; tileX < width / 8; ++tileX) {
+                        uint32_t tempYOff = tileY * 8;
+                        uint32_t tempXOff = tileX * 8;
+
+                        //uint8_t *firstTile = objTiles + (((tileNumber) & ~static_cast<uint16_t>(1)) * 64);
+                        uint8_t *firstTile = objTiles + ((tileNumber / 2 + tileX) * 64);                        
+                        //uint8_t *tile = firstTile + (tileX * 128);
+
+                        if (use2dMapping) {
+
+                        } else {
+
+                        }
+
+                        for (uint32_t py = 0; py < 8; ++py) {
+                            for (uint32_t px = 0; px < 8; ++px) {
+                                uint32_t paletteIndex = firstTile[py * 8 + px];
+                                uint32_t color = palette.getObjColor(paletteIndex);
+                                tempBuffer[(tempYOff + py) * 64 + (tempXOff + px)] = color;        
+                            }
+                        }
+                    }
+                }
+            }
+
+            common::math::mat<3, 3> trans{
+                {1, 0, xOff},
+                {0, 1, yOff},
+                {0, 0, 1},  
+            };
+
+            common::math::mat<3, 3> invTrans{
+                {1, 0, -xOff},
+                {0, 1, -yOff},
+                {0, 0, 1},  
+            };
+
+            display.canvas.drawSprite(tempBuffer, 64, 64, 64,
+                trans, invTrans, false);
+        }
     }
 
     void Background::loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory)
@@ -474,6 +643,12 @@ namespace gbaemu::lcd
         updateReferences();
 
         uint32_t bgMode = le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
+        Memory::MemoryRegion region;
+        uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, region);
+        uint8_t *oamBase = memory.resolveAddr(Memory::OAM_OFFSET, nullptr, region);
+
+        /* obj layer */
+        objLayer.setMode(vramBase, oamBase, bgMode);
 
         /* Which background layers are enabled to begin with? */
         for (uint32_t i = 0; i < 4; ++i)
@@ -559,6 +734,7 @@ namespace gbaemu::lcd
         display.canvas.beginDraw();
         display.canvas.clear(0xFF000000);
 
+        /* TODO: fix rendering order */
         switch (bgMode) {
             case 0:
                 for (uint32_t i = 0; i < 4; ++i) {
@@ -627,6 +803,9 @@ namespace gbaemu::lcd
                 std::cout << "WARNING: Unsupported background mode " << std::dec << bgMode << "!\n";
                 break;
         }
+
+        bool use2dMapping = !(le(regs.DISPCNT) & DISPCTL::OBJ_CHAR_VRAM_MAPPING_MASK);
+        objLayer.draw(palette, use2dMapping, display);
 
         display.canvas.endDraw();
         display.drawToTarget(2);
