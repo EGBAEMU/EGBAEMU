@@ -105,22 +105,36 @@ namespace gbaemu::lcd
 
     namespace BLDCNT
     {
-        static const uint32_t BG0_TARGET_PIXEL1_MASK = 1,
-                              BG1_TARGET_PIXEL1_MASK = 1 << 1,
-                              BG2_TARGET_PIXEL1_MASK = 1 << 2,
-                              BG3_TARGET_PIXEL1_MASK = 1 << 3,
-                              OBJ_TARGET_PIXEL1_MASK = 1 << 4,
-                              BD_TARGET_PIXEL1_MASK = 1 << 5,
-                              COLOR_SPECIAL_FX_MASK = 0b111 << 6,
-                              BG0_TARGET_PIXEL2_MASK = 1 << 8,
-                              BG1_TARGET_PIXEL2_MASK = 1 << 9,
-                              BG2_TARGET_PIXEL2_MASK = 1 << 10,
-                              BG3_TARGET_PIXEL2_MASK = 1 << 11,
-                              OBJ_TARGET_PIXEL2_MASK = 1 << 12,
-                              BD_TARGET_PIXEL2_MASK = 1 << 13;
+        static const uint16_t BG0_TARGET_PIXEL1_OFFSET = 0,
+                              BG1_TARGET_PIXEL1_OFFSET = 1,
+                              BG2_TARGET_PIXEL1_OFFSET = 2,
+                              BG3_TARGET_PIXEL1_OFFSET = 3,
+                              OBJ_TARGET_PIXEL1_OFFSET = 4,
+                              BD_TARGET_PIXEL1_OFFSET = 5,
+                              COLOR_SPECIAL_FX_OFFSET = 6,
+                              BG0_TARGET_PIXEL2_OFFSET = 8,
+                              BG1_TARGET_PIXEL2_OFFSET = 9,
+                              BG2_TARGET_PIXEL2_OFFSET = 10,
+                              BG3_TARGET_PIXEL2_OFFSET = 11,
+                              OBJ_TARGET_PIXEL2_OFFSET = 12,
+                              BD_TARGET_PIXEL2_OFFSET = 13;
 
-        enum ColorSpecialEffect {
-            None,
+        static const uint16_t BG0_TARGET_PIXEL1_MASK = 1 << BG0_TARGET_PIXEL1_OFFSET,
+                              BG1_TARGET_PIXEL1_MASK = 1 << BG1_TARGET_PIXEL1_OFFSET,
+                              BG2_TARGET_PIXEL1_MASK = 1 << BG2_TARGET_PIXEL1_OFFSET,
+                              BG3_TARGET_PIXEL1_MASK = 1 << BG3_TARGET_PIXEL1_OFFSET,
+                              OBJ_TARGET_PIXEL1_MASK = 1 << OBJ_TARGET_PIXEL1_OFFSET,
+                              BD_TARGET_PIXEL1_MASK = 1 << BD_TARGET_PIXEL1_OFFSET,
+                              COLOR_SPECIAL_FX_MASK = 3 << COLOR_SPECIAL_FX_OFFSET,
+                              BG0_TARGET_PIXEL2_MASK = 1 << BG0_TARGET_PIXEL2_OFFSET,
+                              BG1_TARGET_PIXEL2_MASK = 1 << BG1_TARGET_PIXEL2_OFFSET,
+                              BG2_TARGET_PIXEL2_MASK = 1 << BG2_TARGET_PIXEL2_OFFSET,
+                              BG3_TARGET_PIXEL2_MASK = 1 << BG3_TARGET_PIXEL2_OFFSET,
+                              OBJ_TARGET_PIXEL2_MASK = 1 << OBJ_TARGET_PIXEL2_OFFSET,
+                              BD_TARGET_PIXEL2_MASK = 1 << BD_TARGET_PIXEL2_OFFSET;
+
+        enum ColorSpecialEffect : uint16_t {
+            None = 0,
             AlphaBlending,
             BrightnessIncrease,
             BrightnessDecrease
@@ -326,39 +340,11 @@ namespace gbaemu::lcd
         uint8_t *bgMapBase;
         uint8_t *tiles;
 
-        /* only for bg2, bg3, updated on each vblank */
-        struct {
-            /* xy coordinate of the upper left corner */
-            double origin[2];
-            /* dx, dy */
-            double d[2];
-            /* dmx, dmy */
-            double dm[2];
-
-            /*
-                x0, y0      rotation center
-                x1, y1      old pixel position
-                x2, y2      new pixel position
-
-                dx = cos(alpha) / xMag
-                dmx = sin(alpha) / xMag
-                dy = Sin (alpha) / yMag
-                dmy = Cos (alpha) / yMag
-
-                x2 = dx(x1-x0) + dmx(y1-y0) + x0
-                y2 = dy(x1-x0) + dmy(y1-y0) + y0
-             */
-        } scale_rotate;
-
         /* general transformation of background in target display space */
         common::math::mat<3, 3> trans;
         common::math::mat<3, 3> invTrans;
 
         Background(int32_t i) : id(i), canvas(1024, 1024), enabled(false) {}
-
-        ~Background() {
-            std::cout << "background destructor" << std::endl;
-        }
 
         void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory);
         void renderBG0(LCDColorPalette &palette);
@@ -367,6 +353,11 @@ namespace gbaemu::lcd
         void renderBG4(LCDColorPalette &palette, Memory &memory);
         void renderBG5(LCDColorPalette &palette, Memory &memory);
         void drawToDisplay(LCDisplay &display);
+    };
+
+    class OBJLayer
+    {
+
     };
 
     class LCDController
@@ -388,9 +379,15 @@ namespace gbaemu::lcd
         LCDisplay &display;
         Memory &memory;
         InterruptHandler &irqHandler;
+
         LCDColorPalette palette;
         LCDIORegs regs = {0};
         std::array<std::unique_ptr<Background>, 4> backgrounds;
+        /* special color effects, 0-3 ~ BG0-3, 4 OBJ, 5, Backdrop(?) */
+        int32_t firstTargetLayerID;
+        int32_t secondTargetLayerID;
+        BLDCNT::ColorSpecialEffect colorSpecialEffect;
+
         /* rendering is done in a separate thread */
         RenderControl renderControl;
         std::mutex renderControlMutex;

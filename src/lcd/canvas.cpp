@@ -1,5 +1,6 @@
 #include "canvas.hpp"
 
+#include "../util.hpp"
 #include <cassert>
 
 
@@ -96,7 +97,7 @@ namespace gbaemu::lcd
         int32_t fromY = static_cast<int32_t>(min4(corners[0][1], corners[1][1], corners[2][1], corners[3][1]));
         int32_t toX =   static_cast<int32_t>(max4(corners[0][0], corners[1][0], corners[2][0], corners[3][0]));
         int32_t toY =   static_cast<int32_t>(max4(corners[0][1], corners[1][1], corners[2][1], corners[3][1]));
-
+        
         /*
         auto getLineIntersection = [](const vec3& a, const vec3& b, real_t f, uint32_t coord, real_t& lambda) -> bool {
             auto abDelta = b[coord] - a[coord];
@@ -117,6 +118,19 @@ namespace gbaemu::lcd
 
         auto width = getWidth();
         auto destPixels = pixels();
+
+        /* highlight bounds */
+        /*
+        if (wrap) {
+
+        } else {
+            destPixels[clamp(fromY, 0, height - 1) * width + clamp(fromX, 0, width - 1)] = 0xFF0000FF;
+            destPixels[clamp(toY, 0, height - 1) * width + clamp(fromX, 0, width - 1)] = 0xFF0000FF;
+            destPixels[clamp(fromY, 0, height - 1) * width + clamp(toX, 0, width - 1)] = 0xFF0000FF;
+            destPixels[clamp(toY, 0, height - 1) * width + clamp(toX, 0, width - 1)] = 0xFF0000FF;
+        }
+         */
+
 
         for (int32_t y = fromY, canvY = fromY; y <= toY; ++y, ++canvY) {
             if (!wrap) {
@@ -163,8 +177,10 @@ namespace gbaemu::lcd
             /* draw scanline */
             for (int32_t x = fromX, canvX = fromX; x <= toX; ++x, ++canvX) {
                 if (!wrap) {
-                    if (x < 0)
+                    if (x < 0) {
+                        spriteCoord += spriteStep;
                         continue;
+                    }
                     else if (x >= getWidth())
                         break;
                 } else {
@@ -172,18 +188,21 @@ namespace gbaemu::lcd
                         canvX = canvX % getWidth();
                 }
 
-                if (0 <= spriteCoord[0] && spriteCoord[0] <= srcWidth - 1 &&
-                    0 <= spriteCoord[1] && spriteCoord[1] <= srcHeight - 1) {
+                if (0 <= spriteCoord[0] && spriteCoord[0] < srcWidth &&
+                    0 <= spriteCoord[1] && spriteCoord[1] < srcHeight) {
                     int32_t sx = static_cast<int32_t>(spriteCoord[0]);
                     int32_t sy = static_cast<int32_t>(spriteCoord[1]);
+                    PixelType srcColor = src[sy * srcStride + sx];
 
-                    assert(0 <= canvX && canvX < width);
-                    assert(0 <= canvY && canvY < height);
-                    assert(0 <= spriteCoord[0] && spriteCoord[0] <= srcWidth - 1);
-                    assert(0 <= spriteCoord[1] && spriteCoord[1] <= srcHeight - 1);
+                    /* TODO: assumes PixelType = uint32_t */
+                    if (srcColor & 0xFF000000) {
+                        assert(0 <= canvX && canvX < width);
+                        assert(0 <= canvY && canvY < height);
+                        assert(0 <= spriteCoord[0] && spriteCoord[0] < srcWidth);
+                        assert(0 <= spriteCoord[1] && spriteCoord[1] < srcHeight);
 
-                    //std::cout << std::dec << canvX << " " << x % width << "\n";
-                    destPixels[canvY * width + canvX] = src[sy * srcStride + sx];
+                        destPixels[canvY * width + canvX] = srcColor;
+                    }
                 }
 
                 spriteCoord += spriteStep;

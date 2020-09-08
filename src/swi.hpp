@@ -4,12 +4,12 @@
 #include "cpu_state.hpp"
 #include "inst.hpp"
 #include "util.hpp"
+#include "lcd/lcd-controller.hpp"
 
 namespace gbaemu
 {
     namespace swi
     {
-
         typedef InstructionExecutionInfo SWIHandler(CPUState *);
 
         SWIHandler softReset;

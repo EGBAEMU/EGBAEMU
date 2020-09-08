@@ -57,11 +57,15 @@ namespace gbaemu::lcd
         uint32_t g = static_cast<uint32_t>((color >> 5) & 0x1F) << 3;
         uint32_t b = static_cast<uint32_t>((color >> 10) & 0x1F) << 3;
 
-        return (r << 16) | (g << 8) | b;
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
     uint32_t LCDColorPalette::getBgColor(uint32_t index) const
     {
+        /* 0 = transparent */
+        if (index == 0)
+            return 0x0;
+
         return toR8G8B8(bgPalette[index]);
     }
 
@@ -72,6 +76,10 @@ namespace gbaemu::lcd
 
     uint32_t LCDColorPalette::getObjColor(uint32_t index) const
     {
+        /* 0 = transparent */
+        if (index == 0)
+            return 0x0;
+
         return toR8G8B8(objPalette[index]);
     }
 
@@ -154,21 +162,21 @@ namespace gbaemu::lcd
             float dm[2];
 
             if (bgIndex == 2) {
-                origin[0] = fpToFloat<uint32_t, 8, 19>(le(regs.BG2X));
-                origin[1] = fpToFloat<uint32_t, 8, 19>(le(regs.BG2Y));
+                origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2X));
+                origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2Y));
 
-                d[0] = fpToFloat<uint16_t, 8, 7>(le(regs.BG2P[0]));
-                dm[0] = fpToFloat<uint16_t, 8, 7>(le(regs.BG2P[1]));
-                d[1] = fpToFloat<uint16_t, 8, 7>(le(regs.BG2P[2]));
-                dm[1] = fpToFloat<uint16_t, 8, 7>(le(regs.BG2P[3]));
+                d[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[0]));
+                dm[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[1]));
+                d[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[2]));
+                dm[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[3]));
             } else {
-                origin[0] = fpToFloat<uint32_t, 8, 19>(le(regs.BG3X));
-                origin[1] = fpToFloat<uint32_t, 8, 19>(le(regs.BG3Y));
+                origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3X));
+                origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3Y));
 
-                d[0] = fpToFloat<uint16_t, 8, 7>(le(regs.BG3P[0]));
-                dm[0] = fpToFloat<uint16_t, 8, 7>(le(regs.BG3P[1]));
-                d[1] = fpToFloat<uint16_t, 8, 7>(le(regs.BG3P[2]));
-                dm[1] = fpToFloat<uint16_t, 8, 7>(le(regs.BG3P[3]));
+                d[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[0]));
+                dm[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[1]));
+                d[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[2]));
+                dm[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[3]));
             }
 
             common::math::mat<3, 3> translation{
@@ -191,7 +199,15 @@ namespace gbaemu::lcd
                 {0, 0, 1}
             };
 
-            common::math::real_t adet = 1 / ((shear[0][0] * shear[1][1]) - (shear[0][1] * shear[1][0]));
+            /*
+                TODO: This is guesswork. Some demos don't touch these scrolling/scaling registers and leave them at zero.
+                It could be that the GBA interprets this as the id transformation. So we check if the transformation is
+                invertable and set trans to id if that's the case.
+            */
+            if (std::abs((shear[0][0] * shear[1][1]) - (shear[0][1] * shear[1][0])) < 1e-6)
+                shear = common::math::mat<3, 3>::id();
+            
+            common::math::real_t adet =  1 / (shear[0][0] * shear[1][1]) - (shear[0][1] * shear[1][0]);
 
             common::math::mat<3, 3> invShear{
                 {shear[1][1] * adet, -shear[0][1] * adet, 0},
@@ -202,8 +218,14 @@ namespace gbaemu::lcd
             //std::cout << origin[0] << ' ' << origin[1] << ' ' << d[0] << ' ' << d[1] << ' ' << dm[0] << ' ' << dm[1] << '\n';
             //std::cout << shear << '\n';
 
-            trans = translation * shear;
-            invTrans = invShear * invTranslation;
+            //std::cout << rotation << std::endl;
+
+            //std::cout << shear * invShear << std::endl;
+
+            trans = shear * translation;
+            invTrans = invTranslation * invShear;
+
+            //std::cout << trans * invTrans << std::endl;
         } else {
             /* use scrolling parameters */
             trans = common::math::mat<3, 3>::id();
@@ -325,7 +347,7 @@ namespace gbaemu::lcd
                         for (uint32_t tx = 0; tx < 8; ++tx) {
                             uint32_t srcTx = hFlip ? (7 - tx) : tx;
                             uint32_t color = palette.getBgColor(tile[srcTy * 8 + srcTx]);
-                            pixels[(tileY * 8 + ty) * stride + (tileX * 8 + tx)] = color;
+                            pixels[(tileY * 8 + scYOffset[scIndex] + ty) * stride + (tileX * 8 + scXOffset[scIndex] + tx)] = color;
                         }
                     }
                 } else {
@@ -431,7 +453,7 @@ namespace gbaemu::lcd
         for (int32_t y = 0; y < 128; ++y) {
             for (int32_t x = 0; x < 160; ++x) {
                 uint16_t color = srcPixels[y * 160 + x];
-                pixels[y * stride + x] = color;
+                pixels[y * stride + x] = LCDColorPalette::toR8G8B8(color);
             }
         }
     }
@@ -439,7 +461,7 @@ namespace gbaemu::lcd
     void Background::drawToDisplay(LCDisplay &display)
     {
         display.canvas.beginDraw();
-        display.canvas.drawSprite(canvas.pixels(), canvas.getWidth(), canvas.getHeight(), canvas.getWidth(), trans, invTrans, wrap);
+        display.canvas.drawSprite(canvas.pixels(), width, height, canvas.getWidth(), trans, invTrans, wrap);
         display.canvas.endDraw();
     }
 
@@ -485,9 +507,44 @@ namespace gbaemu::lcd
 
         /* sort backgrounds by priority, disabled backgrounds will be skipped in rendering */
         std::sort(backgrounds.begin(), backgrounds.end(), [](const std::unique_ptr<Background>& b1, const std::unique_ptr<Background>& b2) -> bool {
-            int32_t delta = b1->priority - b2->priority;
+            int32_t delta = b2->priority - b1->priority;
             return (delta == 0) ? (b1->id - b2->id < 0) : (delta < 0);
         });
+
+        /* load special color effects */
+        uint16_t bldcnt = le(regs.BLDCNT);
+
+        firstTargetLayerID = -1;
+        secondTargetLayerID = -1;
+
+        for (size_t i = 4; i > 0; --i) {
+            if ((i - 1) <= 3 && backgrounds[i - 1]->enabled) {
+                if (bitGet<uint16_t>(bldcnt, 1, backgrounds[i - 1]->id))
+                    firstTargetLayerID = backgrounds[i - 1]->id;
+                
+                if (bitGet<uint16_t>(bldcnt, 1, backgrounds[i - 1]->id + BLDCNT::BG0_TARGET_PIXEL2_OFFSET))
+                    secondTargetLayerID = backgrounds[i - 1]->id;
+            }
+        }
+
+        /* first/second target layers are not background layers */
+        if (firstTargetLayerID == -1) {
+            if (bitGet<uint16_t>(bldcnt, BLDCNT::OBJ_TARGET_PIXEL1_MASK, BLDCNT::OBJ_TARGET_PIXEL1_OFFSET))
+                firstTargetLayerID = 4;
+            else if (bitGet<uint16_t>(bldcnt, BLDCNT::BD_TARGET_PIXEL1_MASK, BLDCNT::BD_TARGET_PIXEL1_OFFSET))
+                firstTargetLayerID = 5;
+        }
+
+        if (secondTargetLayerID == -1) {
+            if (bitGet<uint16_t>(bldcnt, BLDCNT::OBJ_TARGET_PIXEL2_MASK, BLDCNT::OBJ_TARGET_PIXEL2_OFFSET))
+                secondTargetLayerID = 4;
+            else if (bitGet<uint16_t>(bldcnt, BLDCNT::BD_TARGET_PIXEL2_MASK, BLDCNT::BD_TARGET_PIXEL2_OFFSET))
+                secondTargetLayerID = 5;
+        }
+
+        /* what actual special effect is used? */
+        colorSpecialEffect = static_cast<BLDCNT::ColorSpecialEffect>(
+            bitGet(bldcnt, BLDCNT::COLOR_SPECIAL_FX_MASK, BLDCNT::COLOR_SPECIAL_FX_OFFSET));
     }
 
     void LCDController::onVBlank()
@@ -513,19 +570,22 @@ namespace gbaemu::lcd
 
                 break;
             case 1:
-                if (backgrounds[0]->enabled) {
-                    backgrounds[0]->renderBG0(palette);
-                    backgrounds[0]->drawToDisplay(display);
-                }
+                /*
+                    id 0, 1 in BG0
+                    id 2 in BG2
+                 */
 
-                if (backgrounds[1]->enabled) {
-                    backgrounds[1]->renderBG0(palette);
-                    backgrounds[1]->drawToDisplay(display);
-                }
+                for (size_t i = 0; i < 4; ++i) {
+                    if (!backgrounds[i]->enabled)
+                        continue;
 
-                if (backgrounds[2]->enabled) {
-                    backgrounds[2]->renderBG2(palette);
-                    backgrounds[2]->drawToDisplay(display);
+                    if (backgrounds[i]->id <= 1) {
+                        backgrounds[i]->renderBG0(palette);
+                        backgrounds[i]->drawToDisplay(display);
+                    } else if (backgrounds[i]->id == 2) {
+                        backgrounds[i]->renderBG2(palette);
+                        backgrounds[i]->drawToDisplay(display);
+                    }
                 }
 
                 break;

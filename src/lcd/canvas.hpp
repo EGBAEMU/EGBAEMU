@@ -53,10 +53,6 @@ namespace gbaemu::lcd {
             Canvas<PixelType>::width = 0;
             Canvas<PixelType>::height = 0;
         }
-
-        ~MemoryCanvas() {
-            std::cout << "MemoryCanvas destructor" << std::endl;
-        }
     };
 }
 

@@ -45,12 +45,18 @@ namespace gbaemu
     }
 
     template <class T>
+    T bitGet(T val, T mask, T off)
+    {
+        return (val & (mask << off)) >> off;
+    }
+
+    template <class T>
     T bmap(bool b) {
         return static_cast<T>(b ? 1 : 0);
     }
 
     template <class T, T FRAC, T INT, class ResultType=double>
-    ResultType fpToFloat(T fp) {
+    ResultType fixedToFloat(T fp) {
         /* [1 bit sign][INT bits integer][FRAC bits fractional] */
         const T FRAC_MASK = (static_cast<T>(1) << FRAC) - 1;
         const T INT_OFF =  FRAC;
@@ -64,21 +70,36 @@ namespace gbaemu
     }
 
     template <class T, T Frac, T Int, class InType=double>
-    T floatToFixedPoint(InType f)
+    T floatToFixed(InType f)
     {
         T signBit = std::signbit(f) ? (static_cast<T>(1) << (Frac + Int)) : static_cast<T>(0);
         return static_cast<T>(std::abs(f) * (1 << Frac)) | signBit;
     }
+
+    template <class T>
+    T clamp(const T& value, const T& mn, const T& mx)
+    {
+        return std::min(mx, std::max(mn, value));
+    }
 } // namespace gbaemu
 
 template uint16_t gbaemu::bitSet<uint16_t>(uint16_t, uint16_t, uint16_t, uint16_t);
+
+template uint16_t gbaemu::bitGet<uint16_t>(uint16_t, uint16_t, uint16_t);
+
 template uint16_t gbaemu::bmap<uint16_t>(bool);
+
 template uint16_t gbaemu::le<uint16_t>(uint16_t);
 template uint32_t gbaemu::le<uint32_t>(uint32_t);
-template double gbaemu::fpToFloat<uint32_t, 8, 19>(uint32_t);
-template double gbaemu::fpToFloat<uint16_t, 8, 7>(uint16_t);
 
-template uint16_t gbaemu::floatToFixedPoint<uint16_t, 8, 7, float>(float);
-template uint16_t gbaemu::floatToFixedPoint<uint16_t, 8, 7, double>(double);
-template uint32_t gbaemu::floatToFixedPoint<uint32_t, 8, 19, float>(float);
-template uint32_t gbaemu::floatToFixedPoint<uint32_t, 8, 19, double>(double);
+template double gbaemu::fixedToFloat<uint32_t, 8, 19>(uint32_t);
+template double gbaemu::fixedToFloat<uint16_t, 8, 7>(uint16_t);
+
+template uint16_t gbaemu::floatToFixed<uint16_t, 8, 7, float>(float);
+template uint16_t gbaemu::floatToFixed<uint16_t, 8, 7, double>(double);
+template uint32_t gbaemu::floatToFixed<uint32_t, 8, 19, float>(float);
+template uint32_t gbaemu::floatToFixed<uint32_t, 8, 19, double>(double);
+
+template float gbaemu::clamp<float>(const float&, const float&, const float&);
+template double gbaemu::clamp<double>(const double&, const double&, const double&);
+template int32_t gbaemu::clamp<int32_t>(const int32_t&, const int32_t&, const int32_t&);

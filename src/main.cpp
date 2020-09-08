@@ -20,6 +20,8 @@
 #include "input/keyboard_control.hpp"
 #include "io/keypad.hpp"
 
+#include "swi.hpp"
+
 #include "math3d.hpp"
 
 #define SHOW_WINDOW true

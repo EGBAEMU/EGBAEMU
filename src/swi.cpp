@@ -11,6 +11,8 @@ namespace gbaemu
 {
     namespace swi
     {
+        gbaemu::lcd::Background *pBackground = nullptr;
+
         const char *swiToString(uint8_t index)
         {
             if (index < sizeof(biosCallHandlerStr) / sizeof(biosCallHandlerStr[0])) {
@@ -412,12 +414,23 @@ namespace gbaemu
                 auto r = scale * rotation * translation;
 
                 uint32_t dstOff = i * 16;
-                m.write16(dstOff + destAddr,      gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[0][0]), &info, i != 0);
-                m.write16(dstOff + destAddr + 2,  gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[0][1]), &info, true);
-                m.write16(dstOff + destAddr + 4,  gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[1][0]), &info, true);
-                m.write16(dstOff + destAddr + 6,  gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[1][1]), &info, true);
-                m.write32(dstOff + destAddr + 8,  gbaemu::floatToFixedPoint<uint32_t, 8, 19, common::math::real_t>(r[0][2]), &info, true);
-                m.write32(dstOff + destAddr + 12, gbaemu::floatToFixedPoint<uint32_t, 8, 19, common::math::real_t>(r[1][2]), &info, true);
+                m.write16(dstOff + destAddr,      gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(r[0][0]), &info, i != 0);
+                m.write16(dstOff + destAddr + 2,  gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(r[0][1]), &info, true);
+                m.write16(dstOff + destAddr + 4,  gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(r[1][0]), &info, true);
+                m.write16(dstOff + destAddr + 6,  gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(r[1][1]), &info, true);
+                m.write32(dstOff + destAddr + 8,  gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(r[0][2]), &info, true);
+                m.write32(dstOff + destAddr + 12, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(r[1][2]), &info, true);
+
+                /*
+                std::cout << "-----------------------\n" << std::dec;
+                std::cout << r[0][0] << ' ' << gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[0][0]) << '\n';
+                std::cout << r[0][1] << ' ' << gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[0][1]) << '\n';
+                std::cout << r[1][0] << ' ' << gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[1][0]) << '\n';
+                std::cout << r[1][1] << ' ' << gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[1][1]) << '\n';
+                 */
+
+                //if (state->accessReg(regs::PC_OFFSET) == 0x8000714)
+                //    pBackground->theta = theta;
             }
 
             return info;
