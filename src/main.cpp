@@ -29,7 +29,7 @@
 #define DEBUG_STACK_PRINT_RANGE 5
 #define SDL_EVENT_POLL_INTERVALL 16384
 
-static bool doRun = true;
+static volatile bool doRun = true;
 
 static void handleSignal(int signum)
 {
@@ -39,8 +39,7 @@ static void handleSignal(int signum)
     }
 }
 
-static bool runCPU = true;
-std::mutex runCPUMutex;
+static volatile bool runCPU = true;
 
 static void cpuLoop(gbaemu::CPU& cpu, gbaemu::lcd::LCDController& lcdController)
 {
@@ -90,13 +89,10 @@ static void cpuLoop(gbaemu::CPU& cpu, gbaemu::lcd::LCDController& lcdController)
         }
          */
 
-        if (i % 1000 == 0 && runCPUMutex.try_lock()) {
+        if (i % 1000 == 0) {
             if (!runCPU) {
-                runCPUMutex.unlock();
                 break;
             }
-
-            runCPUMutex.unlock();
         }
 
         if (j >= 1001) {
@@ -207,9 +203,7 @@ int main(int argc, char **argv)
     }
 
     /* TODO: timeout */
-    runCPUMutex.lock();
     runCPU = false;
-    runCPUMutex.unlock();
 
     return 0;
 }
