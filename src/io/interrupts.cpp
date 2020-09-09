@@ -17,22 +17,25 @@ namespace gbaemu
 
     void InterruptHandler::internalWrite8ToReg(uint32_t offset, uint8_t value)
     {
-        regsMutex.lock();
-        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
-        regsMutex.unlock();
+        if (offset == 2 || offset == 3) {
+            regsMutex.lock();
+            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+            regsMutex.unlock();
+        } else {
+            std::cout << "WARNING: internal write to non IRQ request registers!" << std::endl;
+            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+        }
     }
 
     void InterruptHandler::externalWrite8ToReg(uint32_t offset, uint8_t value)
     {
-        regsMutex.lock();
-
         if (offset == 2 || offset == 3) {
+            regsMutex.lock();
             *(offset + reinterpret_cast<uint8_t *>(&regs)) &= ~value;
+            regsMutex.unlock();
         } else {
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
         }
-
-        regsMutex.unlock();
     }
 
     InterruptHandler::InterruptHandler(CPU *cpu) : cpu(cpu)
