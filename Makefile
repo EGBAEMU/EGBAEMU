@@ -50,7 +50,7 @@ windows: CMakeLists.txt
 	mkdir -p $(MSC_BUILDDIR) && \
 	cd $(MSC_BUILDDIR) && \
 	cmake .. && \
-	echo '"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" amd64 && MSBuild ALL_BUILD.vcxproj' | cmd
+	cmake --build . --config Release --target ALL_BUILD
 
 clean:
 	rm -rf $(objs) $(deps) $(OUT) $(BUILDDIR) CMakeLists.txt $(MSC_BUILDDIR)
