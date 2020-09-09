@@ -2,6 +2,8 @@
 #define INTERRUPT_HPP
 
 #include "regs.hpp"
+#include <thread>
+#include <mutex>
 
 namespace gbaemu
 {
@@ -74,10 +76,12 @@ namespace gbaemu
             uint16_t irqMasterEnable;
         } __attribute__((packed)) regs = {0};
         bool needsOneIdleCycle = false;
+        /* protects regs */
+        std::mutex regsMutex;
 
         static const uint32_t INTERRUPT_CONTROL_REG_ADDR;
 
-        uint8_t read8FromReg(uint32_t offset);
+        uint8_t read8FromReg(uint32_t offset) const;
 
         void internalWrite8ToReg(uint32_t offset, uint8_t value);
 
