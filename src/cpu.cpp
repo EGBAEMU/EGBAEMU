@@ -2,6 +2,7 @@
 
 #include "swi.hpp"
 #include <limits>
+#include <cassert>
 
 namespace gbaemu
 {
@@ -108,7 +109,10 @@ namespace gbaemu
                 uint32_t prevPC = state.getCurrentPC();
                 info = execute();
                 // Current cycle must be removed
-                --info.cycleCount;
+                
+                /* TODO: Maybe there is a bug in a instruction that returns 0 cycle counts. */
+                if (info.cycleCount >= 1)
+                    --info.cycleCount;
 
                 if (info.hasCausedException) {
                     std::cout << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception" << std::endl;

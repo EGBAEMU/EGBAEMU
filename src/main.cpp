@@ -74,8 +74,8 @@ static void cpuLoop(gbaemu::CPU& cpu, gbaemu::lcd::LCDController& lcdController)
 
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
-        /*
         if (prevPC != postPC) {
+            /*
             charlie.check(prevPC, postPC, inst, cpu.state);
 
             if (stepMode) {
@@ -87,8 +87,10 @@ static void cpuLoop(gbaemu::CPU& cpu, gbaemu::lcd::LCDController& lcdController)
                 std::cout << cpu.state.toString() << '\n';
                 std::cout << cpu.state.printStack(DEBUG_STACK_PRINT_RANGE) << '\n';
             }
+             */
+
+            //std::cout << inst.toString() << '\n';
         }
-         */
 
         if (i % 1000 == 0 && runCPUMutex.try_lock()) {
             if (!runCPU) {
