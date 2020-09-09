@@ -479,8 +479,19 @@ namespace gbaemu
                 float sy = m.read16(srcOff + sourceAddr + 2, &info, true) / 256.f;
                 float theta = (m.read16(srcOff + sourceAddr + 4, &info, true) >> 8) / 128.f * M_PI;
 
-                auto r = common::math::scale_matrix(sx, sy, 0) *
-                         common::math::rotation_matrix(theta, {0, 0, 1});
+                common::math::mat<3, 3> scale{
+                    {sx, 0, 0},
+                    {0, sy, 0},
+                    {0, 0, 1}
+                };
+
+                common::math::mat<3, 3> rotation{
+                    {std::cos(theta), -std::sin(theta), 0 },
+                    {std::sin(theta), std::cos(theta), 0},
+                    {0, 0, 1}
+                };
+
+                auto r = scale * rotation;
 
                 uint32_t destOff = diff * 4;
                 m.write16(destOff + destAddr, r[0][0] * 256, &info, i != 0);

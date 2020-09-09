@@ -18,6 +18,8 @@
 
 namespace gbaemu::lcd
 {
+    typedef uint32_t color_t;
+
     /*
         The table summarizes the facilities of the separate BG modes (video modes).
 
