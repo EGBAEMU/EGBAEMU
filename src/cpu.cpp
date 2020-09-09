@@ -98,31 +98,35 @@ namespace gbaemu
         }
 
         if (!dmaInfo.dmaExecutes) {
-            // Execute pipeline only after stall is over
-            if (info.cycleCount == 0) {
-                irqHandler.checkForInterrupt();
-                // TODO: Check for interrupt here
-                // TODO: stall for certain instructions like wait for interrupt...
-                // TODO: Fetch can be executed always. Decode and Execute stages might have been flushed after branch
-                fetch();
-                decode();
-                uint32_t prevPC = state.getCurrentPC();
-                info = execute();
-                // Current cycle must be removed
-
-                --info.cycleCount;
-
-                if (info.hasCausedException) {
-                    std::cout << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception" << std::endl;
-                    //TODO print cause
-                    //TODO set cause in memory class
-
-                    //TODO maybe return reason? as this might be needed to exit a game?
-                    // Abort
-                    return true;
-                }
+            if (info.haltCPU) {
+                info.haltCPU = irqHandler.checkForHaltCondition(info.haltCondition);
             } else {
-                --info.cycleCount;
+                // Execute pipeline only after stall is over
+                if (info.cycleCount == 0) {
+                    irqHandler.checkForInterrupt();
+                    // TODO: Check for interrupt here
+                    // TODO: stall for certain instructions like wait for interrupt...
+                    // TODO: Fetch can be executed always. Decode and Execute stages might have been flushed after branch
+                    fetch();
+                    decode();
+                    uint32_t prevPC = state.getCurrentPC();
+                    info = execute();
+                    // Current cycle must be removed
+
+                    --info.cycleCount;
+
+                    if (info.hasCausedException) {
+                        std::cout << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception" << std::endl;
+                        //TODO print cause
+                        //TODO set cause in memory class
+
+                        //TODO maybe return reason? as this might be needed to exit a game?
+                        // Abort
+                        return true;
+                    }
+                } else {
+                    --info.cycleCount;
+                }
             }
         }
 
@@ -266,7 +270,7 @@ namespace gbaemu
                             uint8_t index = armInst.params.software_interrupt.comment >> 16;
                             if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
                                 std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
-                                info = swi::biosCallHandler[index](&state);
+                                info = swi::biosCallHandler[index](this);
                             } else {
                                 std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
                             }
@@ -348,7 +352,7 @@ namespace gbaemu
                         uint8_t index = thumbInst.params.software_interrupt.comment;
                         if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
                             std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
-                            info = swi::biosCallHandler[index](&state);
+                            info = swi::biosCallHandler[index](this);
                         } else {
                             std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
                         }

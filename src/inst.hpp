@@ -62,6 +62,10 @@ namespace gbaemu
 
         // DMA specific stuff
         bool dmaExecutes;
+
+        // CPU halting
+        bool haltCPU;
+        uint32_t haltCondition;
     };
 
     enum ConditionOPCode : uint8_t {

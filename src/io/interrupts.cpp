@@ -151,4 +151,15 @@ namespace gbaemu
         }
     }
 
+    bool InterruptHandler::checkForHaltCondition(uint32_t mask)
+    {
+        /*
+            Halt mode is terminated when any enabled interrupts are requested, 
+            that is when (IE AND IF) is not zero, the GBA locks up if that condition doesn't get true.
+        */
+        mask &= 0x3FFF;
+        uint16_t irqRequestReg = le(regs.irqRequest) & 0x3FFF;
+        return irqRequestReg & mask;
+    }
+
 } // namespace gbaemu
