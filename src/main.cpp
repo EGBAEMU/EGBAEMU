@@ -207,8 +207,10 @@ int main(int argc, char **argv)
     /* TODO: timeout */
     runCPU = false;
 
-    cpuThread.join();
+    /* kill LCDController thread and wait */
     controller.exitThread();
+    /* wait for cpu thread to exit */
+    cpuThread.join();
 
     return 0;
 }
