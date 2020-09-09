@@ -259,6 +259,7 @@ namespace gbaemu::lcd
         uint32_t getBgColor(uint32_t i1, uint32_t i2) const;
         uint32_t getObjColor(uint32_t index) const;
         uint32_t getObjColor(uint32_t i1, uint32_t i2) const;
+        uint32_t getBackdropColor() const;
     };
 
     class LCDisplay
