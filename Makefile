@@ -30,6 +30,17 @@ $(objs): $(BUILDDIR)/%.o : %.cpp
 	@mkdir -p $(@D)
 	$(CC) $(CCFLAGS) -MMD -MP -c $< -o $@
 
+CMakeLists.txt:
+	echo "cmake_minimum_required(VERSION 3.7)" > CMakeLists.txt
+	echo "project(gbaemu)" >> CMakeLists.txt
+	echo "set (CMAKE_CXX_STANDARD 17)" >> CMakeLists.txt
+	echo "find_package(SDL2 REQUIRED)" >> CMakeLists.txt
+	echo -n "include_directories($$" >> CMakeLists.txt
+	echo "{SDL2_INCLUDE_DIRS} $(SRC))" >> CMakeLists.txt
+	echo "add_executable(gbaemu $(srcs))" >> CMakeLists.txt
+	echo -n "target_link_libraries(gbaemu $$" >> CMakeLists.txt
+	echo "{SDL2_LIBRARIES})" >> CMakeLists.txt
+
 clean:
 	rm -rf $(objs) $(deps) $(OUT) $(BUILDDIR)
 
