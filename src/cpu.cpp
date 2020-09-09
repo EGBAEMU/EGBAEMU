@@ -1,8 +1,8 @@
 #include "cpu.hpp"
 
 #include "swi.hpp"
-#include <limits>
 #include <cassert>
+#include <limits>
 
 namespace gbaemu
 {
@@ -109,10 +109,8 @@ namespace gbaemu
                 uint32_t prevPC = state.getCurrentPC();
                 info = execute();
                 // Current cycle must be removed
-                
-                /* TODO: Maybe there is a bug in a instruction that returns 0 cycle counts. */
-                if (info.cycleCount >= 1)
-                    --info.cycleCount;
+
+                --info.cycleCount;
 
                 if (info.hasCausedException) {
                     std::cout << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception" << std::endl;
@@ -383,6 +381,8 @@ namespace gbaemu
         }
 
         // Add 1S cycle needed to fetch a instruction if not other requested
+        info.cycleCount += 1;
+        // Handle wait cycles!
         if (!info.noDefaultSCycle) {
             info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(postPc, prevThumbMode ? sizeof(uint16_t) : sizeof(uint32_t));
         }
