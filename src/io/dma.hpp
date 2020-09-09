@@ -85,12 +85,14 @@ namespace gbaemu
         Memory &memory;
         InterruptHandler &irqHandler;
 
+#include "packed.h"
         struct DMARegs {
             uint32_t srcAddr;
             uint32_t destAddr;
             uint32_t count;
             uint16_t cntReg;
-        } __attribute__((packed)) regs = {0};
+        } PACKED regs = {0};
+#include "endpacked.h"
 
         enum AddrCntType : uint8_t {
             INCREMENT = 0,

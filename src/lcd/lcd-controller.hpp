@@ -178,10 +178,11 @@ namespace gbaemu::lcd
         uint16_t VCOUNT;        // Vertical Counter (LY)
         uint16_t BGCNT[4];      // BG0 Control
 
+#include "packed.h"
         struct _BGOFS {
             uint16_t h;
             uint16_t v;
-        } __attribute__((packed)) BGOFS[4];
+        } PACKED BGOFS[4];
 
         //uint16_t BG0HOFS;                       // BG0 X-Offset
         //uint16_t BG0VOFS;                       // BG0 Y-Offset
@@ -208,7 +209,8 @@ namespace gbaemu::lcd
         uint16_t BLDCNT;   // Color Special Effects Selection
         uint16_t BLDALPHA; // Alpha Blending Coefficients
         uint16_t BLDY;     // Brightness (Fade-In/Out) Coefficient
-    } __attribute__((packed));
+    } PACKED;
+#include "endpacked.h"
 
     namespace OBJ_ATTRIBUTE
     {
@@ -317,9 +319,11 @@ namespace gbaemu::lcd
             OBJ_WINDOW
         };
 
+#include "packed.h"
         struct OBJAttribute {
             uint16_t attribute[3];
-        } __attribute__((packed));
+        } PACKED;
+#include "endpacked.h"
 
         uint32_t bgMode;
         /* depends on bg mode */

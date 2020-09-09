@@ -68,13 +68,15 @@ namespace gbaemu
           4xx0800h  4    R/W  ?         Mirrors of 4000800h (repeated each 64K)
           4700000h  4    W    (3DS)     Disable ARM7 bootrom overlay (3DS only)
         */
+#include "packed.h"
         struct InterruptControlRegs {
             uint16_t irqEnable;
             uint16_t irqRequest;
             uint16_t waitStateCnt;
             uint16_t _;
             uint16_t irqMasterEnable;
-        } __attribute__((packed)) regs = {0};
+        } PACKED regs = {0};
+#include "endpacked.h"
         bool needsOneIdleCycle = false;
         /* protects regs */
         std::mutex regsMutex;

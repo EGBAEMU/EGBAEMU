@@ -245,19 +245,19 @@ namespace gbaemu::lcd
             }
 
             common::math::mat<3, 3> trans{
-                {1, 0, xOff},
-                {0, 1, yOff},
-                {0, 0, 1},  
+                {static_cast<real_t>(1), static_cast<real_t>(0), static_cast<real_t>(xOff)},
+                {static_cast<real_t>(0), static_cast<real_t>(1), static_cast<real_t>(yOff)},
+                {static_cast<real_t>(0), static_cast<real_t>(0), static_cast<real_t>(1)},
             };
 
             common::math::mat<3, 3> invTrans{
-                {1, 0, -xOff},
-                {0, 1, -yOff},
-                {0, 0, 1},  
+                {static_cast<real_t>(1), static_cast<real_t>(0), static_cast<real_t>(-xOff)},
+                {static_cast<real_t>(0), static_cast<real_t>(1), static_cast<real_t>(-yOff)},
+                {static_cast<real_t>(0), static_cast<real_t>(0), static_cast<real_t>(1)},
             };
 
             display.canvas.drawSprite(tempBuffer, 64, 64, 64,
-                trans, invTrans, false);
+                                      trans, invTrans, false);
         }
     }
 

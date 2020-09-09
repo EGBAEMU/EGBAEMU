@@ -22,10 +22,12 @@ namespace gbaemu
           4000130h  2    R    KEYINPUT  Key Status
           4000132h  2    R/W  KEYCNT    Key Interrupt Control
         */
+#include "packed.h"
         struct KeypadRegister {
             uint16_t keyStatus;
             uint16_t keyIRQCnt;
-        } __attribute__((packed)) regs = {0};
+        } PACKED regs = {0};
+#include "endpacked.h"
 
         uint8_t read8FromReg(uint32_t offset);
         void write8ToReg(uint32_t offset, uint8_t value);

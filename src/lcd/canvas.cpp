@@ -79,11 +79,10 @@ namespace gbaemu::lcd
 
         /* Calculate the bounds of the transformed sprite on the canvas. */
         vec3 corners[] = {
-            trans * vec3{0, 0, 1},
-            trans * vec3{srcWidth - 1, 0, 1},
-            trans * vec3{0, srcHeight - 1, 1},
-            trans * vec3{srcWidth - 1, srcHeight - 1, 1}
-        };
+            trans * vec3{static_cast<real_t>(0), static_cast<real_t>(0), static_cast<real_t>(1)},
+            trans * vec3{static_cast<real_t>(srcWidth - 1), static_cast<real_t>(0), static_cast<real_t>(1)},
+            trans * vec3{static_cast<real_t>(0), static_cast<real_t>(srcHeight - 1), static_cast<real_t>(1)},
+            trans * vec3{static_cast<real_t>(srcWidth - 1), static_cast<real_t>(srcHeight - 1), static_cast<real_t>(1)}};
 
         auto min4 = [](real_t a, real_t b, real_t c, real_t d)  {
             return std::min(a, std::min(b, std::min(c, d)));
@@ -148,8 +147,8 @@ namespace gbaemu::lcd
                 sprite space.
              */
 
-            const auto a = invTrans * vec3{fromX, y, 1};
-            const auto b = invTrans * vec3{toX, y, 1};
+            const auto a = invTrans * vec3{static_cast<real_t>(fromX), static_cast<real_t>(y), static_cast<real_t>(1)};
+            const auto b = invTrans * vec3{static_cast<real_t>(toX), static_cast<real_t>(y), static_cast<real_t>(1)};
 
             //real_t lambda;
             vec3 spriteFrom = a, spriteTo = b;
