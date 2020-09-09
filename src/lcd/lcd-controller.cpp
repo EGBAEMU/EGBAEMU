@@ -932,4 +932,12 @@ namespace gbaemu::lcd
 
         return result;
     }
+
+    void LCDController::exitThread()
+    {
+        renderControlMutex.lock();
+        renderControl = EXIT;
+        renderControlMutex.unlock();
+        renderThread->join();
+    }
 } // namespace gbaemu::lcd

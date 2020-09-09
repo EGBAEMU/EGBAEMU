@@ -471,11 +471,7 @@ namespace gbaemu::lcd
         /* updates all raw pointers into the sections of memory (in case they might change) */
         void updateReferences();
         bool tick();
-
-        void exitThread() {
-            //TODO signal that we want to exit
-            renderThread->join();
-        }
+        void exitThread();
     };
 
     

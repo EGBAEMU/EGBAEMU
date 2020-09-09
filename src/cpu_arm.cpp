@@ -12,7 +12,7 @@ namespace gbaemu
     {
         // Check given restrictions
         if (rd == rm) {
-            std::cout << "ERROR: MUL/MLA destination register may not be the same as the first operand!" << std::endl;
+            //std::cout << "ERROR: MUL/MLA destination register may not be the same as the first operand!" << std::endl;
         }
         if (rd == regs::PC_OFFSET || rn == regs::PC_OFFSET || rs == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
             std::cout << "ERROR: MUL/MLA PC register may not be involved in calculations!" << std::endl;
