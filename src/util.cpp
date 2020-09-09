@@ -49,22 +49,20 @@ namespace gbaemu
     template <class T, T FRAC, T INT, class ResultType>
     ResultType fixedToFloat(T fp) {
         /* [1 bit sign][INT bits integer][FRAC bits fractional] */
-        const T FRAC_MASK = (static_cast<T>(1) << FRAC) - 1;
-        const T INT_OFF =  FRAC;
-        const T INT_MASK = (static_cast<T>(1) << INT) - 1;
         const T SIGN_OFF = FRAC + INT;
 
         auto sign = (fp >> SIGN_OFF) & 1;
 
-        ResultType value = static_cast<ResultType>(fp & ((INT_MASK << INT_OFF) | FRAC_MASK)) * (sign ? -1.f : 1.f);
-        return value / static_cast<ResultType>(1 << FRAC);
+        ResultType value = static_cast<ResultType>(fp & ((static_cast<T>(1) << SIGN_OFF) - 1));
+        value = sign ? -value : value;
+        return value / static_cast<ResultType>(static_cast<T>(1) << FRAC);
     }
 
     template <class T, T Frac, T Int, class InType>
     T floatToFixed(InType f)
     {
         T signBit = std::signbit(f) ? (static_cast<T>(1) << (Frac + Int)) : static_cast<T>(0);
-        return static_cast<T>(std::abs(f) * (1 << Frac)) | signBit;
+        return static_cast<T>(std::abs(f) * (static_cast<T>(1) << Frac)) | signBit;
     }
 
     template <class T>
