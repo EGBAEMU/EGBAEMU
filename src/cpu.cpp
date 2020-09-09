@@ -373,8 +373,14 @@ namespace gbaemu
         }
 
         const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+
+        /*
+        Mis-aligned PC/R15 (branch opcodes, or MOV/ALU/LDR with Rd=R15)
+        For ARM code, the low bits of the target address should be usually zero, otherwise, R15 is forcibly aligned by clearing the lower two bits.
+        For THUMB code, the low bit of the target address may/should/must be set, the bit is (or is not) interpreted as thumb-bit (depending on the opcode), and R15 is then forcibly aligned by clearing the lower bit.
+        In short, R15 will be always forcibly aligned, so mis-aligned branches won't have effect on subsequent opcodes that use R15, or [R15+disp] as operand.
+        */
         // Ensure that pc is word / halfword aligned & apply normalization to handle mirroring
-        //TODO apply normalization or leaf it as is(and fix memory accesses): value might be needed?
         Memory::MemoryRegion memReg;
         const uint32_t postPc = state.accessReg(regs::PC_OFFSET) = state.memory.normalizeAddress(state.accessReg(regs::PC_OFFSET) & (postThumbMode ? 0xFFFFFFFE : 0xFFFFFFFC), memReg);
 

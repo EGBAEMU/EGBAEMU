@@ -170,12 +170,12 @@ namespace gbaemu
             *currentRegs[rd] = static_cast<uint32_t>(memVal);
         } else {
             // LDR part
-            uint32_t alignedWord = state.memory.read32(memAddr & 0xFFFFFFFC, &info);
+            uint32_t alignedWord = state.memory.read32(memAddr, &info);
             alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memAddr & 0x03) * 8, false, false) & 0xFFFFFFFF;
             *currentRegs[rd] = alignedWord;
 
             // STR part
-            state.memory.write32(memAddr & 0xFFFFFFFC, newMemVal, &info);
+            state.memory.write32(memAddr, newMemVal, &info);
         }
 
         return info;
@@ -732,7 +732,7 @@ namespace gbaemu
                 (Above applies to little endian mode, as used in GBA.)
                 */
 
-                uint32_t alignedWord = state.memory.read32(memoryAddress & 0xFFFFFFFC, &info);
+                uint32_t alignedWord = state.memory.read32(memoryAddress, &info);
                 alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
                 *currentRegs[rd] = alignedWord;
             }
@@ -741,7 +741,7 @@ namespace gbaemu
                 state.memory.write8(memoryAddress, rdValue, &info);
             } else {
                 // Mask out unaligned bits!
-                state.memory.write32(memoryAddress & 0xFFFFFFFC, rdValue, &info);
+                state.memory.write32(memoryAddress, rdValue, &info);
             }
         }
 
@@ -832,19 +832,15 @@ namespace gbaemu
             uint32_t readData;
             if (transferSize == 16) {
                 // Handle misaligned address
-                if (memoryAddress & 1) {
-                    if (!sign) {
-                        // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
-                        // LDRH with ROR (see LDR with non word aligned)
-                        readData = static_cast<uint32_t>(state.memory.read16(memoryAddress & 0xFFFFFFFE, &info));
-                        readData = shifts::shift(readData, shifts::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
-                    } else {
-                        // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]         ;sign-expand BYTE value
-                        readData = state.memory.read8(memoryAddress, &info);
-                        transferSize = 8;
-                    }
+                if (sign && memoryAddress & 1) {
+                    // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]         ;sign-expand BYTE value
+                    readData = state.memory.read8(memoryAddress, &info);
+                    transferSize = 8;
                 } else {
+                    // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
+                    // LDRH with ROR (see LDR with non word aligned)
                     readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &info));
+                    readData = shifts::shift(readData, shifts::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
                 }
             } else {
                 readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &info));
@@ -858,8 +854,7 @@ namespace gbaemu
             state.accessReg(rd) = readData;
         } else {
             if (transferSize == 16) {
-                // Enforce halfword alignment
-                state.memory.write16(memoryAddress & 0xFFFFFFFE, rdValue, &info);
+                state.memory.write16(memoryAddress, rdValue, &info);
             } else {
                 state.memory.write8(memoryAddress, rdValue, &info);
             }

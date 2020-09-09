@@ -50,19 +50,35 @@ namespace gbaemu
         }
     }
 
+    /*
+    ARM CPU Memory Alignments
+
+    The CPU does NOT support accessing mis-aligned addresses (which would be rather slow because it'd have to merge/split that data into two accesses).
+    When reading/writing code/data to/from memory, Words and Halfwords must be located at well-aligned memory address, ie. 32bit words aligned by 4, and 16bit halfwords aligned by 2.
+
+    Mis-aligned STR,STRH,STM,LDM,LDRD,STRD,PUSH,POP (forced align)
+    The mis-aligned low bit(s) are ignored, the memory access goes to a forcibly aligned (rounded-down) memory address.
+    For LDRD/STRD, it isn't clearly defined if the address must be aligned by 8 (on the NDS, align-4 seems to be okay) (align-8 may be required on other CPUs with 64bit databus).
+
+    Mis-aligned LDR,SWP (rotated read)
+    Reads from forcibly aligned address "addr AND (NOT 3)", and does then rotate the data as "ROR (addr AND 3)*8". That effect is internally used by LDRB and LDRH opcodes (which do then mask-out the unused bits).
+    The SWP opcode works like a combination of LDR and STR, that means, it does read-rotated, but does write-unrotated.
+    */
     uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq) const
     {
+        uint32_t alignedAddr = addr & ~static_cast<uint32_t>(1);
+
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(uint16_t)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint16_t));
+            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(alignedAddr, sizeof(uint16_t)) : nonSeqWaitCyclesForVirtualAddr(alignedAddr, sizeof(uint16_t));
         }
 
         MemoryRegion memReg;
 
-        const auto src = resolveAddr(addr, execInfo, memReg);
+        const auto src = resolveAddr(alignedAddr, execInfo, memReg);
         if (memReg == OUT_OF_ROM) {
             return readOutOfROM(addr);
         } else if (memReg == IO_REGS) {
-            return ioHandler.externalRead16(addr);
+            return ioHandler.externalRead16(alignedAddr);
         } else {
             return (static_cast<uint16_t>(src[0]) << 0) |
                    (static_cast<uint16_t>(src[1]) << 8);
@@ -71,21 +87,19 @@ namespace gbaemu
 
     uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq) const
     {
-        if (addr & 0x03) {
-            std::cout << "WARNING: word read on non word aligned address: 0x" << std::hex << addr << '!' << std::endl;
-        }
+        uint32_t alignedAddr = addr & ~static_cast<uint32_t>(3);
 
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(uint32_t)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint32_t));
+            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(alignedAddr, sizeof(uint32_t)) : nonSeqWaitCyclesForVirtualAddr(alignedAddr, sizeof(uint32_t));
         }
 
         MemoryRegion memReg;
-        const auto src = resolveAddr(addr, execInfo, memReg);
+        const auto src = resolveAddr(alignedAddr, execInfo, memReg);
 
         if (memReg == OUT_OF_ROM) {
             return readOutOfROM(addr);
         } else if (memReg == IO_REGS) {
-            return ioHandler.externalRead32(addr);
+            return ioHandler.externalRead32(alignedAddr);
         } else {
             return (static_cast<uint32_t>(src[0]) << 0) |
                    (static_cast<uint32_t>(src[1]) << 8) |
@@ -157,6 +171,8 @@ namespace gbaemu
 
     void Memory::write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo, bool seq)
     {
+        addr = addr & ~static_cast<uint32_t>(1);
+
         if (execInfo != nullptr) {
             execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(value)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
         }
@@ -179,9 +195,7 @@ namespace gbaemu
 
     void Memory::write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo, bool seq)
     {
-        if (addr & 0x03) {
-            std::cout << "WARNING: word write on non word aligned address: 0x" << std::hex << addr << '!' << std::endl;
-        }
+        addr = addr & ~static_cast<uint32_t>(3);
 
         if (execInfo != nullptr) {
             execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(value)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
