@@ -60,6 +60,11 @@ namespace gbaemu::lcd
         return getObjColor(i1 * 16 + i2);
     }
 
+    uint32_t LCDColorPalette::getBackdropColor() const
+    {
+        return toR8G8B8(bgPalette[0]);
+    }
+
     /* OBJLayer */
 
     void OBJLayer::setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t mode)
@@ -731,7 +736,8 @@ namespace gbaemu::lcd
         uint32_t bgMode = le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
 
         display.canvas.beginDraw();
-        display.canvas.clear(0xFF000000);
+        /* clear with brackdrop color */
+        display.canvas.clear(palette.getBackdropColor());
 
         /* TODO: fix rendering order */
         switch (bgMode) {
