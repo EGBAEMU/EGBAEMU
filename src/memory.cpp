@@ -354,10 +354,8 @@ namespace gbaemu
             case IO_REGS:
                 if (addr >= IO_REGS_LIMIT) {
                     std::cout << "ERROR: read invalid io reg address: 0x" << std::hex << addr << std::endl;
-                    return zeroMem;
-                } else {
-                    return (io_regs + ((addr)-IO_REGS_OFFSET));
                 }
+                return zeroMem;
         }
 
         // invalid address!
@@ -404,10 +402,8 @@ namespace gbaemu
             case IO_REGS:
                 if (addr >= IO_REGS_LIMIT) {
                     std::cout << "ERROR: write invalid io reg address: 0x" << std::hex << addr << std::endl;
-                    return wasteMem;
-                } else {
-                    return (io_regs + ((addr)-IO_REGS_OFFSET));
                 }
+                return wasteMem;
         }
 
         // invalid address!

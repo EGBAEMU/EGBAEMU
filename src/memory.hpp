@@ -112,7 +112,7 @@ namespace gbaemu
         //uint8_t *bios;
         uint8_t *wram;
         uint8_t *iwram;
-        uint8_t *io_regs;
+        //uint8_t *io_regs;
         uint8_t *bg_obj_ram;
         uint8_t *vram;
         uint8_t *oam;
@@ -180,8 +180,8 @@ namespace gbaemu
             GBA_MEM_CLEAR(wram, WRAM);
             iwram = GBA_ALLOC_MEM_REG(IWRAM);
             GBA_MEM_CLEAR(iwram, IWRAM);
-            io_regs = GBA_ALLOC_MEM_REG(IO_REGS);
-            GBA_MEM_CLEAR(io_regs, IO_REGS);
+            //io_regs = GBA_ALLOC_MEM_REG(IO_REGS);
+            //GBA_MEM_CLEAR(io_regs, IO_REGS);
             bg_obj_ram = GBA_ALLOC_MEM_REG(BG_OBJ_RAM);
             GBA_MEM_CLEAR(bg_obj_ram, BG_OBJ_RAM);
             vram = GBA_ALLOC_MEM_REG(VRAM);
@@ -197,7 +197,7 @@ namespace gbaemu
             //delete[] bios;
             delete[] wram;
             delete[] iwram;
-            delete[] io_regs;
+            //delete[] io_regs;
             delete[] bg_obj_ram;
             delete[] vram;
             delete[] oam;
@@ -209,7 +209,7 @@ namespace gbaemu
             //bios = nullptr;
             wram = nullptr;
             iwram = nullptr;
-            io_regs = nullptr;
+            //io_regs = nullptr;
             bg_obj_ram = nullptr;
             vram = nullptr;
             oam = nullptr;
