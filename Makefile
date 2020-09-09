@@ -2,6 +2,8 @@ SRC := src
 OUT := bin
 BUILDDIR := build
 
+MSC_BUILDDIR := msc_build
+
 CC := g++
 CCFLAGS := -std=c++17 -g -ffast-math -Wall -I$(SRC)
 ifeq ($(OS),Windows_NT)
@@ -17,12 +19,12 @@ srcs := $(call rwildcard,$(SRC),*.cpp)
 objs = $(patsubst %, $(BUILDDIR)/%,$(srcs:.cpp=.o))
 deps = $(patsubst %, $(BUILDDIR)/%,$(srcs:.cpp=.d))
 
-.PHONY: all clean gbaemu
+.PHONY: all clean gbaemu windows CMakeLists.txt
 
 all: gbaemu
 
 gbaemu: $(objs)
-	mkdir -p $(OUT)
+	@mkdir -p $(OUT)
 	$(CC) $^ -o $(OUT)/$@ $(LDFLAGS)
 
 #%.o: %.cpp
@@ -38,10 +40,19 @@ CMakeLists.txt:
 	echo -n "include_directories($$" >> CMakeLists.txt
 	echo "{SDL2_INCLUDE_DIRS} $(SRC))" >> CMakeLists.txt
 	echo "add_executable(gbaemu $(srcs))" >> CMakeLists.txt
-	echo -n "target_link_libraries(gbaemu $$" >> CMakeLists.txt
-	echo "{SDL2_LIBRARIES})" >> CMakeLists.txt
+	echo -n "target_link_libraries(gbaemu " >> CMakeLists.txt
+	echo "SDL2main SDL2)" >> CMakeLists.txt
+#	echo -n "target_link_libraries(gbaemu $$" >> CMakeLists.txt
+#	echo "{SDL2_LIBRARIES})" >> CMakeLists.txt
+
+windows: CMakeLists.txt
+	rm -rf $(MSC_BUILDDIR) && \
+	mkdir -p $(MSC_BUILDDIR) && \
+	cd $(MSC_BUILDDIR) && \
+	cmake .. && \
+	echo '"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" amd64 && MSBuild ALL_BUILD.vcxproj' | cmd
 
 clean:
-	rm -rf $(objs) $(deps) $(OUT) $(BUILDDIR)
+	rm -rf $(objs) $(deps) $(OUT) $(BUILDDIR) CMakeLists.txt $(MSC_BUILDDIR)
 
 -include $(deps)
