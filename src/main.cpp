@@ -180,7 +180,7 @@ int main(int argc, char **argv)
 
     std::cout << "INFO: Launching CPU thread" << std::endl;
     std::thread cpuThread(cpuLoop, std::ref(cpu), std::ref(controller));
-    cpuThread.detach();
+    // cpuThread.detach();
 
     while (doRun) {
         SDL_Event event;
@@ -204,6 +204,9 @@ int main(int argc, char **argv)
 
     /* TODO: timeout */
     runCPU = false;
+
+    cpuThread.join();
+    controller.exitThread();
 
     return 0;
 }
