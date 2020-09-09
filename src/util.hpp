@@ -6,11 +6,7 @@
 
 namespace gbaemu
 {
-    uint16_t flip16(uint16_t bytes);
-
-    uint16_t fflip16(uint16_t bytes);
-
-    /* returns val in little endian regardless of the platform */
+    /* converts from or to little endian regardless of the platform */
     template <class T>
     T le(T val);
 

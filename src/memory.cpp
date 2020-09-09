@@ -35,7 +35,7 @@ namespace gbaemu
     uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq) const
     {
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(uint8_t)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(uint8_t));
+            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(addr, sizeof(uint8_t)) : cyclesForVirtualAddrNonSeq(addr, sizeof(uint8_t));
         }
 
         MemoryRegion memReg;
@@ -69,7 +69,7 @@ namespace gbaemu
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(1);
 
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(alignedAddr, sizeof(uint16_t)) : nonSeqWaitCyclesForVirtualAddr(alignedAddr, sizeof(uint16_t));
+            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(alignedAddr, sizeof(uint16_t)) : cyclesForVirtualAddrNonSeq(alignedAddr, sizeof(uint16_t));
         }
 
         MemoryRegion memReg;
@@ -90,7 +90,7 @@ namespace gbaemu
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(3);
 
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(alignedAddr, sizeof(uint32_t)) : nonSeqWaitCyclesForVirtualAddr(alignedAddr, sizeof(uint32_t));
+            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(alignedAddr, sizeof(uint32_t)) : cyclesForVirtualAddrNonSeq(alignedAddr, sizeof(uint32_t));
         }
 
         MemoryRegion memReg;
@@ -111,7 +111,7 @@ namespace gbaemu
     void Memory::write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq)
     {
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(value)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
+            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(addr, sizeof(value)) : cyclesForVirtualAddrNonSeq(addr, sizeof(value));
         }
 
         MemoryRegion memReg;
@@ -174,7 +174,7 @@ namespace gbaemu
         addr = addr & ~static_cast<uint32_t>(1);
 
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(value)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
+            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(addr, sizeof(value)) : cyclesForVirtualAddrNonSeq(addr, sizeof(value));
         }
 
         MemoryRegion memReg;
@@ -198,7 +198,7 @@ namespace gbaemu
         addr = addr & ~static_cast<uint32_t>(3);
 
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? seqWaitCyclesForVirtualAddr(addr, sizeof(value)) : nonSeqWaitCyclesForVirtualAddr(addr, sizeof(value));
+            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(addr, sizeof(value)) : cyclesForVirtualAddrNonSeq(addr, sizeof(value));
         }
 
         MemoryRegion memReg;
@@ -328,11 +328,11 @@ namespace gbaemu
     }
 
 #define COMBINE_MEM_ADDR(addr, x, storage) \
-    case x:                             \
-        return (storage + ((addr) - x##_OFFSET))
+    case x:                                \
+        return (storage + ((addr)-x##_OFFSET))
 #define COMBINE_MEM_ADDR_(addr, lim, off, storage) \
     case lim:                                      \
-        return (storage + ((addr) - off##_OFFSET))
+        return (storage + ((addr)-off##_OFFSET))
 
     static const uint8_t noBackupMedia[] = {0xFF, 0xFF, 0xFF, 0xFF};
 
@@ -430,7 +430,7 @@ namespace gbaemu
         return wasteMem;
     }
 
-    uint8_t Memory::nonSeqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const
+    uint8_t Memory::cyclesForVirtualAddrNonSeq(uint32_t address, uint8_t bytesToRead) const
     {
         MemoryRegion memoryRegion;
         normalizeAddress(address, memoryRegion);
@@ -441,19 +441,18 @@ namespace gbaemu
                 // divided by 2 to get the access count on the 16 bit bus (2 bytes)
                 uint8_t accessTimes = (bytesToRead + 1) / 2;
                 // times 2 because there are always 2 wait cycles(regardless of N or S read)
-                // plus access count - 1 because we need to add the read cycles between the attempts except the always expected first read
-                return accessTimes * 2 + accessTimes - 1;
+                return accessTimes * 2 + accessTimes;
             }
             // No wait states here
             case BIOS:
             case IWRAM:
             case IO_REGS:
             case BG_OBJ_RAM:
-                return 0;
+                return 1;
             case VRAM:
             case OAM: {
                 // 16 bit bus else no additional wait times
-                return (bytesToRead + 1) / 2 - 1;
+                return (bytesToRead + 1) / 2;
             }
 
                 //TODO those are configurable and different for N and S cycles (WAITCNT register)
@@ -485,18 +484,18 @@ namespace gbaemu
             case EXT_ROM1: {
                 // Initial waitstate (N,S) = (4,2)
                 uint8_t accessTimes = (bytesToRead + 1) / 2;
-                return accessTimes * 4 + accessTimes - 1;
+                return accessTimes * 4 + accessTimes;
             }
             case EXT_SRAM_:
             case EXT_SRAM:
                 // Only 8 bit bus -> accesTimes = bytesToRead
-                return bytesToRead * 2 + bytesToRead - 1;
+                return bytesToRead * 2 + bytesToRead;
         }
 
-        return 0;
+        return 1;
     }
 
-    uint8_t Memory::seqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const
+    uint8_t Memory::cyclesForVirtualAddrSeq(uint32_t address, uint8_t bytesToRead) const
     {
         MemoryRegion memoryRegion;
         normalizeAddress(address, memoryRegion);
@@ -507,23 +506,22 @@ namespace gbaemu
                 // divided by 2 to get the access count on the 16 bit bus (2 bytes)
                 uint8_t accessTimes = (bytesToRead + 1) / 2;
                 // times 2 because there are always 2 wait cycles(regardless of N or S read)
-                // plus access count - 1 because we need to add the read cycles between the attempts except the always expected first read
-                return accessTimes * 2 + accessTimes - 1;
+                return accessTimes * 2 + accessTimes;
             }
             // No wait states here
             case BIOS:
             case IWRAM:
             case IO_REGS:
             case BG_OBJ_RAM:
-                return 0;
+                return 1;
             case VRAM:
             case OAM: {
                 // 16 bit bus else no additional wait times
-                return (bytesToRead + 1) / 2 - 1;
+                return (bytesToRead + 1) / 2;
             }
 
-                //TODO those are configurable and different for N and S cycles
-                /*
+            //TODO those are configurable and different for N and S cycles
+            /*
             ROM Waitstates
             The GBA starts the cartridge with 4,2 waitstates (N,S) and prefetch disabled.
             The program may change these settings by writing to WAITCNT, 
@@ -551,15 +549,15 @@ namespace gbaemu
             case EXT_ROM1: {
                 // Initial waitstate (N,S) = (4,2)
                 uint8_t accessTimes = (bytesToRead + 1) / 2;
-                return accessTimes * 2 + accessTimes - 1;
+                return accessTimes * 2 + accessTimes;
             }
             case EXT_SRAM_:
             case EXT_SRAM:
                 // Only 8 bit bus -> accesTimes = bytesToRead
-                return bytesToRead * 2 + bytesToRead - 1;
+                return bytesToRead * 2 + bytesToRead;
         }
 
-        return 0;
+        return 1;
     }
 
     void Memory::scanROMForBackupID()

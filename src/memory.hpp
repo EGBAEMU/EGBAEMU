@@ -246,8 +246,8 @@ namespace gbaemu
         uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg);
         uint32_t normalizeAddress(uint32_t addr, MemoryRegion &memReg) const;
 
-        uint8_t nonSeqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
-        uint8_t seqWaitCyclesForVirtualAddr(uint32_t address, uint8_t bytesToRead) const;
+        uint8_t cyclesForVirtualAddrNonSeq(uint32_t address, uint8_t bytesToRead) const;
+        uint8_t cyclesForVirtualAddrSeq(uint32_t address, uint8_t bytesToRead) const;
 
         uint32_t getBiosBaseAddr() const
         {

@@ -391,17 +391,12 @@ namespace gbaemu
         }
 
         // Add 1S cycle needed to fetch a instruction if not other requested
-        info.cycleCount += 1;
         // Handle wait cycles!
         if (!info.noDefaultSCycle) {
-            info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(postPc, prevThumbMode ? sizeof(uint16_t) : sizeof(uint32_t));
+            info.cycleCount += state.memory.cyclesForVirtualAddrSeq(postPc, prevThumbMode ? sizeof(uint16_t) : sizeof(uint32_t));
         }
-        if (info.additionalProgCyclesN) {
-            info.cycleCount += state.memory.nonSeqWaitCyclesForVirtualAddr(postPc, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * info.additionalProgCyclesN;
-        }
-        if (info.additionalProgCyclesS) {
-            info.cycleCount += state.memory.seqWaitCyclesForVirtualAddr(postPc, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * info.additionalProgCyclesS;
-        }
+        info.cycleCount += state.memory.cyclesForVirtualAddrNonSeq(postPc, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * info.additionalProgCyclesN;
+        info.cycleCount += state.memory.cyclesForVirtualAddrSeq(postPc, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * info.additionalProgCyclesS;
 
         // Change from arm mode to thumb mode or vice versa
         if (prevThumbMode != postThumbMode) {

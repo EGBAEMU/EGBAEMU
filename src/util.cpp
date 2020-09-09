@@ -7,15 +7,6 @@
 
 namespace gbaemu
 {
-    uint16_t flip16(uint16_t bytes) {
-        return bytes;
-        //return ((bytes & 0xFF00) >> 8) | ((bytes & 0xFF) << 8);
-    }
-
-    uint16_t fflip16(uint16_t bytes) {
-        return ((bytes & 0xFF00) >> 8) | ((bytes & 0xFF) << 8);
-    }
-
 #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
     template <class T>
     T le(T val) {
@@ -55,7 +46,7 @@ namespace gbaemu
         return static_cast<T>(b ? 1 : 0);
     }
 
-    template <class T, T FRAC, T INT, class ResultType=double>
+    template <class T, T FRAC, T INT, class ResultType>
     ResultType fixedToFloat(T fp) {
         /* [1 bit sign][INT bits integer][FRAC bits fractional] */
         const T FRAC_MASK = (static_cast<T>(1) << FRAC) - 1;
@@ -69,7 +60,7 @@ namespace gbaemu
         return value / static_cast<ResultType>(1 << FRAC);
     }
 
-    template <class T, T Frac, T Int, class InType=double>
+    template <class T, T Frac, T Int, class InType>
     T floatToFixed(InType f)
     {
         T signBit = std::signbit(f) ? (static_cast<T>(1) << (Frac + Int)) : static_cast<T>(0);
