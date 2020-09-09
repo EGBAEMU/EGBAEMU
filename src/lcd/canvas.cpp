@@ -3,21 +3,23 @@
 #include "../util.hpp"
 #include <cassert>
 
-
 namespace gbaemu::lcd
 {
     template <class PixelType>
-    int32_t Canvas<PixelType>::getWidth() const {
+    int32_t Canvas<PixelType>::getWidth() const
+    {
         return width;
     }
 
     template <class PixelType>
-    int32_t Canvas<PixelType>::getHeight() const {
+    int32_t Canvas<PixelType>::getHeight() const
+    {
         return height;
     }
 
     template <class PixelType>
-    void Canvas<PixelType>::clear(PixelType color) {
+    void Canvas<PixelType>::clear(PixelType color)
+    {
         auto pixs = pixels();
 
         for (int32_t y = 0; y < height; ++y)
@@ -26,7 +28,8 @@ namespace gbaemu::lcd
     }
 
     template <class PixelType>
-    void Canvas<PixelType>::fillRect(int32_t x, int32_t y, int32_t w, int32_t h, PixelType color) {
+    void Canvas<PixelType>::fillRect(int32_t x, int32_t y, int32_t w, int32_t h, PixelType color)
+    {
         /* clipping */
         int32_t xFrom = std::max(0, x);
         /* exclusive */
@@ -49,7 +52,8 @@ namespace gbaemu::lcd
 
     template <class PixelType>
     void Canvas<PixelType>::drawSprite(const PixelType *src, int32_t srcWidth, int32_t srcHeight, int32_t srcStride,
-            const common::math::mat<3, 3>& trans, const common::math::mat<3, 3>& invTrans, bool wrap) {
+                                       const common::math::mat<3, 3> &trans, const common::math::mat<3, 3> &invTrans, bool wrap)
+    {
         typedef common::math::vec<2> vec2;
         typedef common::math::vec<3> vec3;
         typedef common::math::mat<3, 3> mat;
@@ -84,19 +88,19 @@ namespace gbaemu::lcd
             trans * vec3{static_cast<real_t>(0), static_cast<real_t>(srcHeight - 1), static_cast<real_t>(1)},
             trans * vec3{static_cast<real_t>(srcWidth - 1), static_cast<real_t>(srcHeight - 1), static_cast<real_t>(1)}};
 
-        auto min4 = [](real_t a, real_t b, real_t c, real_t d)  {
+        auto min4 = [](real_t a, real_t b, real_t c, real_t d) {
             return std::min(a, std::min(b, std::min(c, d)));
         };
 
-        auto max4 = [](real_t a, real_t b, real_t c, real_t d)  {
+        auto max4 = [](real_t a, real_t b, real_t c, real_t d) {
             return std::max(a, std::max(b, std::max(c, d)));
         };
 
         int32_t fromX = static_cast<int32_t>(min4(corners[0][0], corners[1][0], corners[2][0], corners[3][0]));
         int32_t fromY = static_cast<int32_t>(min4(corners[0][1], corners[1][1], corners[2][1], corners[3][1]));
-        int32_t toX =   static_cast<int32_t>(max4(corners[0][0], corners[1][0], corners[2][0], corners[3][0]));
-        int32_t toY =   static_cast<int32_t>(max4(corners[0][1], corners[1][1], corners[2][1], corners[3][1]));
-        
+        int32_t toX = static_cast<int32_t>(max4(corners[0][0], corners[1][0], corners[2][0], corners[3][0]));
+        int32_t toY = static_cast<int32_t>(max4(corners[0][1], corners[1][1], corners[2][1], corners[3][1]));
+
         /*
         auto getLineIntersection = [](const vec3& a, const vec3& b, real_t f, uint32_t coord, real_t& lambda) -> bool {
             auto abDelta = b[coord] - a[coord];
@@ -130,7 +134,6 @@ namespace gbaemu::lcd
         }
          */
 
-
         for (int32_t y = fromY, canvY = fromY; y <= toY; ++y, ++canvY) {
             if (!wrap) {
                 if (y < 0)
@@ -159,14 +162,14 @@ namespace gbaemu::lcd
             //    spriteFrom = lerp(spriteFrom, spriteTo, lambda);
 
             //if (getLineIntersection(spriteFrom, spriteTo, srcWidth - 1, 0, lambda))
-                //spriteTo = lerp(spriteFrom, spriteTo, lambda);
+            //spriteTo = lerp(spriteFrom, spriteTo, lambda);
 
             /* top, bottom */
             //if (getLineIntersection(spriteFrom, spriteTo, 0, 1, lambda))
-                //spriteFrom = lerp(spriteFrom, spriteTo, lambda);
+            //spriteFrom = lerp(spriteFrom, spriteTo, lambda);
 
             //if (getLineIntersection(spriteFrom, spriteTo, srcHeight - 1, 1, lambda))
-                //spriteTo = lerp(spriteFrom, spriteTo, lambda);
+            //spriteTo = lerp(spriteFrom, spriteTo, lambda);
 
             /* line segment in sprite space is spriteFrom ---- spriteTo */
             const vec3 spriteDelta = spriteTo - spriteFrom;
@@ -179,8 +182,7 @@ namespace gbaemu::lcd
                     if (x < 0) {
                         spriteCoord += spriteStep;
                         continue;
-                    }
-                    else if (x >= getWidth())
+                    } else if (x >= getWidth())
                         break;
                 } else {
                     if (canvX < 0 || canvX >= getWidth())
@@ -210,4 +212,4 @@ namespace gbaemu::lcd
     }
 
     template class Canvas<uint32_t>;
-}
+} // namespace gbaemu::lcd

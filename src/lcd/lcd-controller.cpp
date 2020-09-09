@@ -72,11 +72,15 @@ namespace gbaemu::lcd
         bgMode = mode;
 
         switch (bgMode) {
-            case 0: case 1: case 2:
+            case 0:
+            case 1:
+            case 2:
                 objTiles = vramBaseAddress + 0x10000;
                 areaSize = 32 * 1024;
                 break;
-            case 3: case 4: case 5:
+            case 3:
+            case 4:
+            case 5:
                 objTiles = vramBaseAddress + 0x14000;
                 areaSize = 16 * 1024;
                 break;
@@ -93,11 +97,13 @@ namespace gbaemu::lcd
     OBJLayer::OBJAttribute OBJLayer::getAttribute(uint32_t index)
     {
         auto uints = reinterpret_cast<const uint16_t *>(attributes + (index * 0x8));
-        return OBJAttribute{ le(uints[0]), le(uints[1]), le(uints[2]) };
+        return OBJAttribute{le(uints[0]), le(uints[1]), le(uints[2])};
     }
 
-    void OBJLayer::draw(LCDColorPalette& palette, bool use2dMapping, LCDisplay& display)
+    void OBJLayer::draw(LCDColorPalette &palette, bool use2dMapping, LCDisplay &display)
     {
+        typedef common::math::real_t real_t;
+
         for (uint32_t i = 0; i < 128; ++i) {
             OBJAttribute attr = getAttribute(i);
 
@@ -114,7 +120,6 @@ namespace gbaemu::lcd
                 vFlip = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::V_FLIP_MASK, OBJ_ATTRIBUTE::V_FLIP_OFFSET);
                 hFlip = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::H_FLIP_MASK, OBJ_ATTRIBUTE::H_FLIP_OFFSET);
             } else {
-
             }
 
             /* 16x16 palette */
@@ -124,7 +129,7 @@ namespace gbaemu::lcd
             uint16_t xOff = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::X_COORD_MASK, OBJ_ATTRIBUTE::X_COORD_OFFSET);
 
             OBJShape shape = static_cast<OBJShape>(bitGet<uint16_t>(attr.attribute[0],
-                OBJ_ATTRIBUTE::OBJ_SHAPE_MASK, OBJ_ATTRIBUTE::OBJ_SHAPE_OFFSET));
+                                                                    OBJ_ATTRIBUTE::OBJ_SHAPE_MASK, OBJ_ATTRIBUTE::OBJ_SHAPE_OFFSET));
             uint16_t size = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::OBJ_SIZE_MASK, OBJ_ATTRIBUTE::OBJ_SIZE_OFFSET);
             uint16_t tileNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::CHAR_NAME_MASK, OBJ_ATTRIBUTE::CHAR_NAME_OFFSET);
             bool useMosaic = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MOSAIC_MASK, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET);
@@ -163,7 +168,7 @@ namespace gbaemu::lcd
                     } else {
                         width = 64;
                         height = 32;
-                    }           
+                    }
 
                     break;
                 case VERTICAL:
@@ -187,7 +192,7 @@ namespace gbaemu::lcd
             std::fill_n(tempBuffer, 64 * 64, 0);
 
             /* draw all tiles */
-            
+
             /*
             tileNumber = i * 1;
             xOff = i * 8;
@@ -199,7 +204,6 @@ namespace gbaemu::lcd
             if (tileNumber >= 16)
                 return;
              */
-             
 
             /* I don't know why this is inverted... */
             if (!usePalette16) {
@@ -212,7 +216,7 @@ namespace gbaemu::lcd
                     for (int32_t x = 0; x < width; ++x) {
                         uint32_t index = (row & (0xF << (7 - x))) >> (7 - x);
                         uint32_t color = palette.getBgColor(paletteNumber, index);
-                        tempBuffer[y * 64 + x] = color;    
+                        tempBuffer[y * 64 + x] = color;
                     }
                 }
             } else {
@@ -220,7 +224,7 @@ namespace gbaemu::lcd
                     for (uint32_t tileX = 0; tileX < width / 8; ++tileX) {
                         uint32_t tempYOff = tileY * 8;
                         uint32_t tempXOff = tileX * 8;
-                        
+
                         uint8_t *firstTile;
 
                         /*
@@ -237,7 +241,7 @@ namespace gbaemu::lcd
                             for (uint32_t px = 0; px < 8; ++px) {
                                 uint32_t paletteIndex = firstTile[py * 8 + px];
                                 uint32_t color = palette.getObjColor(paletteIndex);
-                                tempBuffer[(tempYOff + py) * 64 + (tempXOff + px)] = color;        
+                                tempBuffer[(tempYOff + py) * 64 + (tempXOff + px)] = color;
                             }
                         }
                     }
@@ -355,22 +359,19 @@ namespace gbaemu::lcd
             common::math::mat<3, 3> translation{
                 {1, 0, origin[0]},
                 {0, 1, origin[1]},
-                {0, 0, 1}
-            };
+                {0, 0, 1}};
 
             //std::cout << translation << '\n';
 
             common::math::mat<3, 3> invTranslation{
                 {1, 0, -translation[0][2]},
                 {0, 1, -translation[1][2]},
-                {0, 0, 1}
-            };
+                {0, 0, 1}};
 
             common::math::mat<3, 3> shear{
                 {d[0], dm[0], 0},
                 {d[1], dm[1], 0},
-                {0, 0, 1}
-            };
+                {0, 0, 1}};
 
             /*
                 TODO: This is guesswork. Some demos don't touch these scrolling/scaling registers and leave them at zero.
@@ -379,14 +380,13 @@ namespace gbaemu::lcd
             */
             if (std::abs((shear[0][0] * shear[1][1]) - (shear[0][1] * shear[1][0])) < 1e-6)
                 shear = common::math::mat<3, 3>::id();
-            
-            common::math::real_t adet =  1 / (shear[0][0] * shear[1][1]) - (shear[0][1] * shear[1][0]);
+
+            common::math::real_t adet = 1 / (shear[0][0] * shear[1][1]) - (shear[0][1] * shear[1][0]);
 
             common::math::mat<3, 3> invShear{
                 {shear[1][1] * adet, -shear[0][1] * adet, 0},
                 {-shear[1][0] * adet, shear[0][0] * adet, 0},
-                {0, 0, 1}
-            };
+                {0, 0, 1}};
 
             //std::cout << origin[0] << ' ' << origin[1] << ' ' << d[0] << ' ' << d[1] << ' ' << dm[0] << ' ' << dm[1] << '\n';
             //std::cout << shear << '\n';
@@ -685,7 +685,7 @@ namespace gbaemu::lcd
         }
 
         /* sort backgrounds by priority, disabled backgrounds will be skipped in rendering */
-        std::sort(backgrounds.begin(), backgrounds.end(), [](const std::unique_ptr<Background>& b1, const std::unique_ptr<Background>& b2) -> bool {
+        std::sort(backgrounds.begin(), backgrounds.end(), [](const std::unique_ptr<Background> &b1, const std::unique_ptr<Background> &b2) -> bool {
             int32_t delta = b2->priority - b1->priority;
             return (delta == 0) ? (b1->id - b2->id < 0) : (delta < 0);
         });
@@ -700,7 +700,7 @@ namespace gbaemu::lcd
             if ((i - 1) <= 3 && backgrounds[i - 1]->enabled) {
                 if (bitGet<uint16_t>(bldcnt, 1, backgrounds[i - 1]->id))
                     firstTargetLayerID = backgrounds[i - 1]->id;
-                
+
                 if (bitGet<uint16_t>(bldcnt, 1, backgrounds[i - 1]->id + BLDCNT::BG0_TARGET_PIXEL2_OFFSET))
                     secondTargetLayerID = backgrounds[i - 1]->id;
             }
@@ -728,7 +728,6 @@ namespace gbaemu::lcd
 
     void LCDController::onVBlank()
     {
-
     }
 
     void LCDController::render()
@@ -774,7 +773,7 @@ namespace gbaemu::lcd
                 for (size_t i = 0; i < 4; ++i) {
                     if (!backgrounds[i]->enabled)
                         continue;
-                    
+
                     if (2 <= backgrounds[i]->id && backgrounds[i]->id <= 3) {
                         backgrounds[i]->renderBG2(palette);
                         backgrounds[i]->drawToDisplay(display);
@@ -786,7 +785,7 @@ namespace gbaemu::lcd
                 for (size_t i = 0; i < 4; ++i) {
                     if (!backgrounds[i]->enabled)
                         continue;
-                    
+
                     if (backgrounds[i]->id == 2) {
                         backgrounds[i]->renderBG3(memory);
                         backgrounds[i]->drawToDisplay(display);
@@ -798,7 +797,7 @@ namespace gbaemu::lcd
                 for (size_t i = 0; i < 4; ++i) {
                     if (!backgrounds[i]->enabled)
                         continue;
-                    
+
                     if (backgrounds[i]->id == 2) {
                         backgrounds[i]->renderBG4(palette, memory);
                         backgrounds[i]->drawToDisplay(display);
@@ -810,7 +809,7 @@ namespace gbaemu::lcd
                 for (size_t i = 0; i < 4; ++i) {
                     if (!backgrounds[i]->enabled)
                         continue;
-                    
+
                     if (backgrounds[i]->id == 2) {
                         backgrounds[i]->renderBG5(palette, memory);
                         backgrounds[i]->drawToDisplay(display);
@@ -910,7 +909,7 @@ namespace gbaemu::lcd
              */
 
             /* No blocking, otherwise we have gained nothing. */
-            
+
             if (renderControlMutex.try_lock()) {
                 onHBlank();
                 renderControl = RUN;
