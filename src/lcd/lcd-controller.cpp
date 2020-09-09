@@ -211,22 +211,21 @@ namespace gbaemu::lcd
                     }
                 }
             } else {
-                /* bit 0 of tileNumber should be ignored */
-                //uint8_t *firstTile = objTiles + ((tileNumber & ~static_cast<uint16_t>(1)) * 64);
-
                 for (uint32_t tileY = 0; tileY < height / 8; ++tileY) {
                     for (uint32_t tileX = 0; tileX < width / 8; ++tileX) {
                         uint32_t tempYOff = tileY * 8;
                         uint32_t tempXOff = tileX * 8;
+                        
+                        uint8_t *firstTile;
 
-                        //uint8_t *firstTile = objTiles + (((tileNumber) & ~static_cast<uint16_t>(1)) * 64);
-                        uint8_t *firstTile = objTiles + ((tileNumber / 2 + tileX) * 64);                        
-                        //uint8_t *tile = firstTile + (tileX * 128);
-
+                        /*
+                            This is actually not what the documentation says. Actually the first bit of tileNumber
+                            should be ignored.
+                         */
                         if (use2dMapping) {
-
+                            firstTile = objTiles + ((tileNumber / 2 + tileX + tileY * 32) * 64);
                         } else {
-
+                            firstTile = objTiles + ((tileNumber / 2 + tileX + tileY * (width / 8)) * 64);
                         }
 
                         for (uint32_t py = 0; py < 8; ++py) {
@@ -737,7 +736,7 @@ namespace gbaemu::lcd
         /* TODO: fix rendering order */
         switch (bgMode) {
             case 0:
-                for (uint32_t i = 0; i < 4; ++i) {
+                for (size_t i = 0; i < 4; ++i) {
                     if (backgrounds[i]->enabled) {
                         backgrounds[i]->renderBG0(palette);
                         backgrounds[i]->drawToDisplay(display);
@@ -766,36 +765,51 @@ namespace gbaemu::lcd
 
                 break;
             case 2:
-                if (backgrounds[2]->enabled) {
-                    backgrounds[2]->renderBG2(palette);
-                    backgrounds[2]->drawToDisplay(display);
-                }
-
-                if (backgrounds[3]->enabled) {
-                    backgrounds[3]->renderBG2(palette);
-                    backgrounds[3]->drawToDisplay(display);
+                for (size_t i = 0; i < 4; ++i) {
+                    if (!backgrounds[i]->enabled)
+                        continue;
+                    
+                    if (2 <= backgrounds[i]->id && backgrounds[i]->id <= 3) {
+                        backgrounds[i]->renderBG2(palette);
+                        backgrounds[i]->drawToDisplay(display);
+                    }
                 }
 
                 break;
             case 3:
-                if (backgrounds[2]->enabled) {
-                    backgrounds[2]->renderBG3(memory);
-                    backgrounds[2]->drawToDisplay(display);
+                for (size_t i = 0; i < 4; ++i) {
+                    if (!backgrounds[i]->enabled)
+                        continue;
+                    
+                    if (backgrounds[i]->id == 2) {
+                        backgrounds[i]->renderBG3(memory);
+                        backgrounds[i]->drawToDisplay(display);
+                    }
                 }
 
                 break;
             case 4:
-                if (backgrounds[2]->enabled) {
-                    backgrounds[2]->renderBG4(palette, memory);
-                    backgrounds[2]->drawToDisplay(display);
+                for (size_t i = 0; i < 4; ++i) {
+                    if (!backgrounds[i]->enabled)
+                        continue;
+                    
+                    if (backgrounds[i]->id == 2) {
+                        backgrounds[i]->renderBG4(palette, memory);
+                        backgrounds[i]->drawToDisplay(display);
+                    }
                 }
 
                 break;
             case 5:
-                if (backgrounds[2]->enabled) {
-                    backgrounds[2]->renderBG5(palette, memory);
-                    backgrounds[2]->drawToDisplay(display);
-                }    
+                for (size_t i = 0; i < 4; ++i) {
+                    if (!backgrounds[i]->enabled)
+                        continue;
+                    
+                    if (backgrounds[i]->id == 2) {
+                        backgrounds[i]->renderBG5(palette, memory);
+                        backgrounds[i]->drawToDisplay(display);
+                    }
+                }
 
                 break;
 
