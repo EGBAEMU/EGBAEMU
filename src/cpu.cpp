@@ -384,8 +384,12 @@ namespace gbaemu
         Memory::MemoryRegion memReg;
         const uint32_t postPc = state.accessReg(regs::PC_OFFSET) = state.memory.normalizeAddress(state.accessReg(regs::PC_OFFSET) & (postThumbMode ? 0xFFFFFFFE : 0xFFFFFFFC), memReg);
 
-        if (memReg == Memory::OUT_OF_ROM) {
-            std::cout << "CRITIAL ERROR: PC points out to address out of its ROM bounds! Aborting!" << std::endl;
+        if (memReg == Memory::BIOS) {
+            std::cout << "CRITIAL ERROR: PC points to bios address which we do not use for execution! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
+            info.hasCausedException = true;
+            return info;
+        } else if (memReg == Memory::OUT_OF_ROM) {
+            std::cout << "CRITIAL ERROR: PC points out to address out of its ROM bounds! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
             info.hasCausedException = true;
             return info;
         }

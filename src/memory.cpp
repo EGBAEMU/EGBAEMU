@@ -258,7 +258,6 @@ namespace gbaemu
 
         addr = addr & 0x0FFFFFFF;
 
-        //TODO handle memory mirroring!!!
         switch (memReg) {
             //PATCH_MEM_ADDR(addr, BIOS);
             PATCH_MEM_ADDR(addr, WRAM);

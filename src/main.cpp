@@ -41,14 +41,16 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 {
     gbaemu::debugger::Watchdog charlie;
     gbaemu::debugger::JumpTrap jumpTrap;
-    //charlie.registerTrap(jumpTrap);
+    charlie.registerTrap(jumpTrap);
 
     bool stepMode = false;
     //THUMB memory mirroring ROM?
     // gbaemu::debugger::AddressTrap bp1(0x08000536, &stepMode);
-    gbaemu::debugger::AddressTrap bp1(0x08000264, &stepMode);
+    gbaemu::debugger::AddressTrapTimesX bp1(0x802081a, 38, &stepMode);
     //gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x08000338, &stepMode);
     gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R7_OFFSET, 0x080005c2, &stepMode);
+
+    charlie.registerTrap(bp1);
 
     std::chrono::high_resolution_clock::time_point t;
 

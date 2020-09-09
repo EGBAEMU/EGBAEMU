@@ -47,6 +47,20 @@ namespace gbaemu::debugger
         bool satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
     };
 
+    class AddressTrapTimesX : public Trap
+    {
+      private:
+        uint32_t address;
+        uint32_t triggersNeeded;
+        bool *setStepMode;
+
+      public:
+        AddressTrapTimesX(uint32_t addr, uint32_t triggersNeeded, bool *stepMode) : address(addr), triggersNeeded(triggersNeeded), setStepMode(stepMode) {}
+
+        void trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
+        bool satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
+    };
+
     class CPUModeTrap : public Trap
     {
       private:
