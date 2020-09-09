@@ -3,10 +3,9 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
-#include <vector>
-#include <chrono>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 #include "cpu.hpp"
 #include "debugger.hpp"
@@ -38,9 +37,7 @@ static void handleSignal(int signum)
     }
 }
 
-static volatile bool runCPU = true;
-
-static void cpuLoop(gbaemu::CPU& cpu, gbaemu::lcd::LCDController& lcdController)
+static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 {
     gbaemu::debugger::Watchdog charlie;
     gbaemu::debugger::JumpTrap jumpTrap;
@@ -58,11 +55,11 @@ static void cpuLoop(gbaemu::CPU& cpu, gbaemu::lcd::LCDController& lcdController)
 
     lcdController.updateReferences();
 
-    for (uint32_t i = 0, j = 0;; ++i, ++j) {
+    for (uint32_t i = 0, j = 0; doRun; ++i, ++j) {
         if (j == 1)
             t = std::chrono::high_resolution_clock::now();
 
-        uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
+        // uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
         auto inst = cpu.state.pipeline.decode.instruction;
 
         if (cpu.step()) {
@@ -72,7 +69,7 @@ static void cpuLoop(gbaemu::CPU& cpu, gbaemu::lcd::LCDController& lcdController)
 
         lcdController.tick();
 
-        uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
+        // uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
         /*
         if (prevPC != postPC)  {
@@ -89,12 +86,6 @@ static void cpuLoop(gbaemu::CPU& cpu, gbaemu::lcd::LCDController& lcdController)
             }
         }
          */
-
-        if (i % 1000 == 0) {
-            if (!runCPU) {
-                break;
-            }
-        }
 
         if (j >= 1001) {
             double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
@@ -203,8 +194,7 @@ int main(int argc, char **argv)
         }
     }
 
-    /* TODO: timeout */
-    runCPU = false;
+    doRun = false;
 
     /* kill LCDController thread and wait */
     controller.exitThread();
