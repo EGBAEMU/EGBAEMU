@@ -381,7 +381,7 @@ namespace gbaemu::lcd
             if (std::abs((shear[0][0] * shear[1][1]) - (shear[0][1] * shear[1][0])) < 1e-6)
                 shear = common::math::mat<3, 3>::id();
 
-            common::math::real_t adet = 1 / (shear[0][0] * shear[1][1]) - (shear[0][1] * shear[1][0]);
+            common::math::real_t adet = 1 / ((shear[0][0] * shear[1][1]) - (shear[0][1] * shear[1][0]));
 
             common::math::mat<3, 3> invShear{
                 {shear[1][1] * adet, -shear[0][1] * adet, 0},
