@@ -1,16 +1,17 @@
 #ifndef SWI_HPP
 #define SWI_HPP
 
-#include "cpu_state.hpp"
 #include "inst.hpp"
-#include "util.hpp"
 #include "lcd/lcd-controller.hpp"
+#include "util.hpp"
 
 namespace gbaemu
 {
+    class CPU;
+
     namespace swi
     {
-        typedef InstructionExecutionInfo SWIHandler(CPUState *);
+        typedef InstructionExecutionInfo SWIHandler(CPU *);
 
         SWIHandler softReset;
         SWIHandler registerRamReset;

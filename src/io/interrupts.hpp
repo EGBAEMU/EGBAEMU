@@ -96,6 +96,8 @@ namespace gbaemu
 
         void setInterrupt(InterruptType type);
 
+        bool checkForHaltCondition(uint32_t mask);
+
       private:
         bool isInterruptMasterSet() const;
 
