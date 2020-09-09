@@ -38,7 +38,7 @@ namespace gbaemu
     template <class T>
     T bitGet(T val, T mask, T off)
     {
-        return (val & (mask << off)) >> off;
+        return (val >> off) & 0x1;
     }
 
     template <class T>

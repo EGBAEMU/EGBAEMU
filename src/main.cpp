@@ -44,7 +44,6 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
     //charlie.registerTrap(jumpTrap);
 
     bool stepMode = false;
-    bool doRender = false;
     //THUMB memory mirroring ROM?
     // gbaemu::debugger::AddressTrap bp1(0x08000536, &stepMode);
     gbaemu::debugger::AddressTrap bp1(0x08000264, &stepMode);
@@ -60,7 +59,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
             t = std::chrono::high_resolution_clock::now();
 
         // uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
-        auto inst = cpu.state.pipeline.decode.instruction;
+        //auto inst = cpu.state.pipeline.decode.instruction;
 
         if (cpu.step()) {
             std::cout << "Abort execution!" << std::endl;

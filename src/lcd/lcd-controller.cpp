@@ -213,7 +213,7 @@ namespace gbaemu::lcd
                 for (uint32_t y = 0; y < height; ++y) {
                     uint32_t row = firstTile[y];
 
-                    for (int32_t x = 0; x < width; ++x) {
+                    for (uint32_t x = 0; x < width; ++x) {
                         uint32_t index = (row & (0xF << (7 - x))) >> (7 - x);
                         uint32_t color = palette.getBgColor(paletteNumber, index);
                         tempBuffer[y * 64 + x] = color;
@@ -656,7 +656,7 @@ namespace gbaemu::lcd
 
         /* Which background layers are enabled to begin with? */
         for (uint32_t i = 0; i < 4; ++i)
-            backgrounds[i]->enabled = regs.DISPCNT & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
+            backgrounds[i]->enabled = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
 
         if (bgMode == 0) {
             for (uint32_t i = 0; i < 4; ++i) {
