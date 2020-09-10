@@ -41,9 +41,14 @@ namespace gbaemu
                 case ThumbInstructionCategory::ALU_OP:
                     ss << " r" << static_cast<uint32_t>(params.alu_op.rd) << ", r" << static_cast<uint32_t>(params.alu_op.rs);
                     break;
-                case ThumbInstructionCategory::BR_XCHG:
-                    ss << " r" << static_cast<uint32_t>(params.br_xchg.rd) << ", r" << static_cast<uint32_t>(params.br_xchg.rs);
+                case ThumbInstructionCategory::BR_XCHG: {
+                    ss << " r";
+                    if (id != BX)
+                        ss << static_cast<uint32_t>(params.br_xchg.rd) << ", r";
+
+                    ss << static_cast<uint32_t>(params.br_xchg.rs);
                     break;
+                }
                 case ThumbInstructionCategory::PC_LD:
                     ss << " r" << static_cast<uint32_t>(params.pc_ld.rd) << ", [((PC + 4) & ~2) + " << static_cast<uint32_t>(params.pc_ld.offset * 4) << "]";
                     break;
