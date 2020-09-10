@@ -89,10 +89,8 @@ namespace gbaemu
         struct {
             struct {
                 uint32_t lastInstruction;
-                uint32_t lastReadData;
 
                 uint32_t instruction;
-                uint32_t readData;
             } fetch;
 
             struct {

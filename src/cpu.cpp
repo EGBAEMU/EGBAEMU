@@ -49,7 +49,6 @@ namespace gbaemu
     {
         // propagate pipeline
         state.pipeline.fetch.lastInstruction = state.pipeline.fetch.instruction;
-        state.pipeline.fetch.lastReadData = state.pipeline.fetch.readData;
 
         bool thumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
 
