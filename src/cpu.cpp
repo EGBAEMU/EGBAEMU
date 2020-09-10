@@ -476,6 +476,7 @@ namespace gbaemu
                             break;
                     }
                     */
+                std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(modeBits) << " prevPC: 0x" << std::hex << prevPc << std::endl;
                 break;
         }
 

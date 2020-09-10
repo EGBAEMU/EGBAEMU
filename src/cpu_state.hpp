@@ -36,6 +36,11 @@ namespace gbaemu
             SystemMode
         } mode = SystemMode;
 
+        CPUState() {
+            // Ensure that system mode is also set in CPSR register!
+            regs.CPSR = 0b11111;
+        }
+
       private:
         //TODO are there conventions about inital reg values?
         struct Regs {
@@ -130,14 +135,14 @@ namespace gbaemu
             return regsHacks[mode];
         }
 
-        uint32_t *const *const getModeRegs(CPUMode mode)
+        uint32_t *const *const getModeRegs(CPUMode cpuMode)
         {
-            return regsHacks[mode];
+            return regsHacks[cpuMode];
         }
 
-        const uint32_t *const *const getModeRegs(CPUMode mode) const
+        const uint32_t *const *const getModeRegs(CPUMode cpuMode) const
         {
-            return regsHacks[mode];
+            return regsHacks[cpuMode];
         }
 
         uint32_t &accessReg(uint8_t offset)
