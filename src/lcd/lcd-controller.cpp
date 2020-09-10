@@ -151,10 +151,21 @@ namespace gbaemu::lcd
             /* TODO: Maybe there is a better way to do this. */
             switch (shape) {
                 case SQUARE:
-                    width = (size + 1) * 8;
-                    height = (size + 1) * 8;
-                    break;
+                    if (size == 0) {
+                        width = 8;
+                        height = 8;
+                    } else if (size == 1) {
+                        width = 16;
+                        height = 16;
+                    } else if (size == 2) {
+                        width = 32;
+                        height = 32;
+                    } else {
+                        width = 64;
+                        height = 64;
+                    }
 
+                    break;
                 case HORIZONTAL:
                     if (size == 0) {
                         width = 16;
@@ -195,13 +206,13 @@ namespace gbaemu::lcd
 
             /*
             tileNumber = i * 1;
-            xOff = i * 8;
-            yOff = 0;
+            xOff = (i % 8) * 8;
+            yOff = (i / 8) * 8;
             usePalette16 = true;
             width = 8;
             height = 8;
 
-            if (tileNumber >= 16)
+            if (i >= 128)
                 return;
              */
 
@@ -220,6 +231,8 @@ namespace gbaemu::lcd
                     }
                 }
             } else {
+                uint32_t tileOffIndex = 0;
+
                 for (uint32_t tileY = 0; tileY < height / 8; ++tileY) {
                     for (uint32_t tileX = 0; tileX < width / 8; ++tileX) {
                         uint32_t tempYOff = tileY * 8;
@@ -231,10 +244,11 @@ namespace gbaemu::lcd
                             This is actually not what the documentation says. Actually the first bit of tileNumber
                             should be ignored.
                          */
+
                         if (use2dMapping) {
                             firstTile = objTiles + ((tileNumber / 2 + tileX + tileY * 32) * 64);
                         } else {
-                            firstTile = objTiles + ((tileNumber / 2 + tileX + tileY * (width / 8)) * 64);
+                            firstTile = objTiles + ((tileNumber / 2 + tileX + (tileY * (width / 8))) * 64);
                         }
 
                         for (uint32_t py = 0; py < 8; ++py) {
