@@ -106,7 +106,10 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
             j = 0;
         }
     }
+
+    // std::cout << jumpTrap.toString() << std::endl;
 }
+
 
 int main(int argc, char **argv)
 {
@@ -166,7 +169,6 @@ int main(int argc, char **argv)
     cpu.initPipeline();
 
     std::cout << "Max legit ROM address: 0x" << std::hex << (gbaemu::Memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize() - 1) << std::endl;
-    std::cout << "Max legit original ROM address: 0x" << std::hex << (cpu.state.memory.getBiosBaseAddr() - 1) << std::endl;
 
     gbaemu::Keypad keypad(&cpu);
     gbaemu::keyboard::KeyboardController gameController(keypad);

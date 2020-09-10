@@ -119,7 +119,6 @@ namespace gbaemu
 
         uint8_t *ext_sram = nullptr;
         uint8_t *rom = nullptr;
-        size_t origRomSize = 0;
         size_t romSize = 0;
 
         static const constexpr uint8_t BIOS_READ_AFTER_STARTUP[] = {0x00, 0xF0, 0x29, 0xE1};
@@ -160,7 +159,7 @@ namespace gbaemu
             0x03, 0x00, 0xA0, 0xE3, // mov    r0, BIOS_AFTER_IRQ (= 3)
             0x00, 0x00, 0x2B, 0xEF, // svc    0x2B
             0x0F, 0x50, 0xBD, 0xE8, // ldmfd  r13!,r0-r3,r12,r14  ;restore registers from SP_irq
-            0x04, 0xF0, 0x5E, 0xE2, // subs   r15,r14,4h          ;return from IRQ (PC=LR-4, CPSR=SPSR)
+            0x00, 0xF0, 0x5E, 0xE2, // subs   r15,r14,0h          ;return from IRQ (PC=LR, CPSR=SPSR)
 
             //TODO maybe SWI implementations?
         };
@@ -222,11 +221,20 @@ namespace gbaemu
 
         void loadROM(const uint8_t *rom, size_t romSize)
         {
-            appendBiosCodeToROM(rom, romSize);
+            if (this->romSize) {
+                delete[] this->rom;
+            }
+            this->romSize = romSize;
+            this->rom = new uint8_t[this->romSize];
+            std::copy_n(rom, romSize, this->rom);
 
             // TODO reset stats
             scanROMForBackupID();
             biosReadState = BIOS_AFTER_STARTUP;
+        }
+
+        constexpr size_t getBiosSize() const {
+            return sizeof(customBiosCode)/sizeof(customBiosCode[0]);
         }
 
         size_t getRomSize() const
@@ -235,8 +243,8 @@ namespace gbaemu
         }
 
         uint8_t read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false) const;
-        uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false) const;
-        uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false) const;
+        uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false) const;
+        uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false) const;
         void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq = false);
         void write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo, bool seq = false);
         void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo, bool seq = false);
@@ -249,10 +257,6 @@ namespace gbaemu
         uint8_t cyclesForVirtualAddrNonSeq(uint32_t address, uint8_t bytesToRead) const;
         uint8_t cyclesForVirtualAddrSeq(uint32_t address, uint8_t bytesToRead) const;
 
-        uint32_t getBiosBaseAddr() const
-        {
-            return EXT_ROM_OFFSET + origRomSize;
-        }
         void setBiosReadState(BiosReadState readState)
         {
             biosReadState = readState;
@@ -261,7 +265,6 @@ namespace gbaemu
       private:
         void scanROMForBackupID();
         uint32_t readOutOfROM(uint32_t addr) const;
-        void appendBiosCodeToROM(const uint8_t *rom, size_t romSize);
     };
 } // namespace gbaemu
 

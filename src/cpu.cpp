@@ -57,12 +57,10 @@ namespace gbaemu
         if (thumbMode) {
             //TODO check this
             /* pc is at [27:1] */
-            uint32_t pc = (state.accessReg(regs::PC_OFFSET) >> 1) & 0x07FFFFFF;
-            state.pipeline.fetch.instruction = state.memory.read16((pc * 2) + 4, nullptr);
+            state.pipeline.fetch.instruction = state.memory.read16(state.accessReg(regs::PC_OFFSET) + 4, nullptr, false, true);
         } else {
             /* pc is at [27:2] */
-            uint32_t pc = (state.accessReg(regs::PC_OFFSET) >> 2) & 0x03FFFFFF;
-            state.pipeline.fetch.instruction = state.memory.read32((pc * 4) + 8, nullptr);
+            state.pipeline.fetch.instruction = state.memory.read32(state.accessReg(regs::PC_OFFSET) + 8, nullptr, false, true);
         }
     }
 
@@ -383,8 +381,8 @@ namespace gbaemu
         Memory::MemoryRegion memReg;
         const uint32_t postPc = state.accessReg(regs::PC_OFFSET) = state.memory.normalizeAddress(state.accessReg(regs::PC_OFFSET) & (postThumbMode ? 0xFFFFFFFE : 0xFFFFFFFC), memReg);
 
-        if (memReg == Memory::BIOS) {
-            std::cout << "CRITIAL ERROR: PC points to bios address which we do not use for execution! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
+        if (memReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
+            std::cout << "CRITIAL ERROR: PC points to bios address outside of our code! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
             info.hasCausedException = true;
             return info;
         } else if (memReg == Memory::OUT_OF_ROM) {

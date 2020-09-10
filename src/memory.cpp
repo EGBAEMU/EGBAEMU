@@ -7,19 +7,6 @@
 
 namespace gbaemu
 {
-    void Memory::appendBiosCodeToROM(const uint8_t *rom, size_t romSize)
-    {
-        if (this->romSize) {
-            delete[] this->rom;
-        }
-        uint32_t biosCodeSize = sizeof(customBiosCode) / sizeof(customBiosCode[0]);
-        this->origRomSize = romSize;
-        this->romSize = romSize + biosCodeSize;
-        this->rom = new uint8_t[this->romSize];
-        std::copy_n(rom, origRomSize, this->rom);
-        std::copy_n(customBiosCode, biosCodeSize, this->rom + origRomSize);
-    }
-
     uint32_t Memory::readOutOfROM(uint32_t addr) const
     {
         /*
@@ -64,7 +51,7 @@ namespace gbaemu
     Reads from forcibly aligned address "addr AND (NOT 3)", and does then rotate the data as "ROR (addr AND 3)*8". That effect is internally used by LDRB and LDRH opcodes (which do then mask-out the unused bits).
     The SWP opcode works like a combination of LDR and STR, that means, it does read-rotated, but does write-unrotated.
     */
-    uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq) const
+    uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction) const
     {
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(1);
 
@@ -74,7 +61,11 @@ namespace gbaemu
 
         MemoryRegion memReg;
 
-        const auto src = resolveAddr(alignedAddr, execInfo, memReg);
+        const uint8_t* src = resolveAddr(alignedAddr, execInfo, memReg);
+        if (readInstruction && memReg == BIOS && alignedAddr < getBiosSize()) {
+            // For instructions we are allowed to read from bios
+            src = customBiosCode + alignedAddr;
+        }
         if (memReg == OUT_OF_ROM) {
             return readOutOfROM(addr);
         } else if (memReg == IO_REGS) {
@@ -85,7 +76,7 @@ namespace gbaemu
         }
     }
 
-    uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq) const
+    uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction) const
     {
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(3);
 
@@ -94,8 +85,12 @@ namespace gbaemu
         }
 
         MemoryRegion memReg;
-        const auto src = resolveAddr(alignedAddr, execInfo, memReg);
+        const uint8_t *src = resolveAddr(alignedAddr, execInfo, memReg);
 
+        if (readInstruction && memReg == BIOS && alignedAddr < getBiosSize()) {
+            // For instructions we are allowed to read from bios
+            src = customBiosCode + alignedAddr;
+        }
         if (memReg == OUT_OF_ROM) {
             return readOutOfROM(addr);
         } else if (memReg == IO_REGS) {

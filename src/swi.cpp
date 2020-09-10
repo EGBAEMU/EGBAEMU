@@ -70,7 +70,7 @@ namespace gbaemu
             InstructionExecutionInfo info{0};
             info.haltCPU = true;
             // load IE
-            info.haltCondition = cpu->state.memory.ioHandler.internalRead16(0x04000200);
+            info.haltCondition = cpu->state.memory.ioHandler.internalRead16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR);
 
             return info;
         }
@@ -79,7 +79,7 @@ namespace gbaemu
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
 
             // The function forcefully sets IME=1
-            cpu->state.memory.ioHandler.internalWrite16(0x04000208, 0x1);
+            cpu->state.memory.ioHandler.externalWrite8(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 8, 0x1);
 
             InstructionExecutionInfo info{0};
             info.haltCondition = cpu->state.accessReg(regs::R1_OFFSET);
@@ -90,7 +90,7 @@ namespace gbaemu
                 info.haltCPU = true;
 
                 //TODO only discard in R1 selected ones or all??
-                cpu->state.memory.ioHandler.externalWrite16(0x04000202, info.haltCondition);
+                cpu->state.memory.ioHandler.externalWrite16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 2, info.haltCondition);
             } else {
                 //0=Return immediately if an old flag was already set
                 // check if condition is currently satisfied and if so return else cause halt

@@ -245,10 +245,10 @@ namespace gbaemu
                 ss << "0x" << std::setw(8) << i << "    ";
 
                 if (getFlag(cpsr_flags::THUMB_STATE)) {
-                    uint32_t bytes = memory.read16(i, nullptr);
+                    uint32_t bytes = memory.read16(i, nullptr, false, true);
 
-                    uint32_t b0 = memory.read8(i, nullptr);
-                    uint32_t b1 = memory.read8(i + 1, nullptr);
+                    uint32_t b0 = bytes & 0xFF;
+                    uint32_t b1 = (bytes >> 8) & 0xFF;
 
                     auto inst = decoder->decode(bytes).thumb;
 
@@ -260,12 +260,12 @@ namespace gbaemu
 
                     i += 2;
                 } else {
-                    uint32_t bytes = memory.read32(i, nullptr);
+                    uint32_t bytes = memory.read32(i, nullptr, false, true);
 
-                    uint32_t b0 = memory.read8(i, nullptr);
-                    uint32_t b1 = memory.read8(i + 1, nullptr);
-                    uint32_t b2 = memory.read8(i + 2, nullptr);
-                    uint32_t b3 = memory.read8(i + 3, nullptr);
+                    uint32_t b0 = bytes & 0xFF;
+                    uint32_t b1 = (bytes >> 8) & 0xFF;
+                    uint32_t b2 = (bytes >> 16) & 0xFF;
+                    uint32_t b3 = (bytes >> 24) & 0xFF;
 
                     auto inst = decoder->decode(bytes).arm;
 

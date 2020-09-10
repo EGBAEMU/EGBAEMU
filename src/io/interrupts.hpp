@@ -2,8 +2,8 @@
 #define INTERRUPT_HPP
 
 #include "regs.hpp"
-#include <thread>
 #include <mutex>
+#include <thread>
 
 namespace gbaemu
 {
@@ -81,8 +81,6 @@ namespace gbaemu
         /* protects regs */
         std::mutex regsMutex;
 
-        static const uint32_t INTERRUPT_CONTROL_REG_ADDR;
-
         uint8_t read8FromReg(uint32_t offset) const;
 
         void internalWrite8ToReg(uint32_t offset, uint8_t value);
@@ -90,6 +88,8 @@ namespace gbaemu
         void externalWrite8ToReg(uint32_t offset, uint8_t value);
 
       public:
+        static const uint32_t INTERRUPT_CONTROL_REG_ADDR;
+
         InterruptHandler(CPU *cpu);
 
         bool isInterruptEnabled(InterruptType type) const;
