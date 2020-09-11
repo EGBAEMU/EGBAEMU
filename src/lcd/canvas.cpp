@@ -1,6 +1,7 @@
 #include "canvas.hpp"
+#include "util.hpp"
 
-#include "../util.hpp"
+#include <algorithm>
 #include <cassert>
 
 namespace gbaemu::lcd

@@ -10,6 +10,8 @@
 
 #include <condition_variable>
 #include <functional>
+#include <array>
+#include <memory>
 #include <mutex>
 #include <thread>
 

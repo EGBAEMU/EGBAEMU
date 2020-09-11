@@ -1,5 +1,6 @@
 #include "util.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 
