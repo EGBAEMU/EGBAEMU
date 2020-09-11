@@ -131,7 +131,7 @@ namespace gbaemu
                     state = IDLE;
 
                     // Clear enable bit to indicate that we are done!
-                    regs.cntReg &= le(~DMA_CNT_REG_EN_MASK);
+                    regs.cntReg &= ~le(DMA_CNT_REG_EN_MASK);
 
                     if (irqOnEnd) {
                         irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::DMA_0 + channel));
