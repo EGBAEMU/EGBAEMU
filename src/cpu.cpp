@@ -413,6 +413,9 @@ namespace gbaemu
             initPipeline();
         } else {
             //TODO this is probably unwanted if we changed the mode?
+            if (prevThumbMode != postThumbMode) {
+                std::cout << "WARNING: mode change, but no PC change-> no flush occurred & wrong mode code will be executed! At PrevPC: 0x" << std::hex << prevPc << std::endl;
+            }
             // Increment the pc counter to the next instruction
             state.accessReg(regs::PC_OFFSET) = postPc + (postThumbMode ? 2 : 4);
         }
