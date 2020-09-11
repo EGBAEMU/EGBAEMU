@@ -231,8 +231,6 @@ namespace gbaemu::lcd
                     }
                 }
             } else {
-                uint32_t tileOffIndex = 0;
-
                 for (uint32_t tileY = 0; tileY < height / 8; ++tileY) {
                     for (uint32_t tileX = 0; tileX < width / 8; ++tileX) {
                         uint32_t tempYOff = tileY * 8;
@@ -242,7 +240,7 @@ namespace gbaemu::lcd
 
                         /*
                             This is actually not what the documentation says. Actually the first bit of tileNumber
-                            should be ignored.
+                            should be ignored. Ignoring = dividing by 2?!
                          */
 
                         if (use2dMapping) {
@@ -269,8 +267,8 @@ namespace gbaemu::lcd
             };
 
             common::math::mat<3, 3> invTrans{
-                {static_cast<real_t>(1), static_cast<real_t>(0), static_cast<real_t>(-xOff)},
-                {static_cast<real_t>(0), static_cast<real_t>(1), static_cast<real_t>(-yOff)},
+                {static_cast<real_t>(1), static_cast<real_t>(0), -trans[0][2]},
+                {static_cast<real_t>(0), static_cast<real_t>(1), -trans[1][2]},
                 {static_cast<real_t>(0), static_cast<real_t>(0), static_cast<real_t>(1)},
             };
 
@@ -375,8 +373,6 @@ namespace gbaemu::lcd
                 {0, 1, origin[1]},
                 {0, 0, 1}};
 
-            //std::cout << translation << '\n';
-
             common::math::mat<3, 3> invTranslation{
                 {1, 0, -translation[0][2]},
                 {0, 1, -translation[1][2]},
@@ -402,17 +398,10 @@ namespace gbaemu::lcd
                 {-shear[1][0] * adet, shear[0][0] * adet, 0},
                 {0, 0, 1}};
 
-            //std::cout << origin[0] << ' ' << origin[1] << ' ' << d[0] << ' ' << d[1] << ' ' << dm[0] << ' ' << dm[1] << '\n';
-            //std::cout << shear << '\n';
+            //invTranslation = translation = common::math::mat<3, 3>::id();
 
-            //std::cout << rotation << std::endl;
-
-            //std::cout << shear * invShear << std::endl;
-
-            trans = shear * translation;
-            invTrans = invTranslation * invShear;
-
-            //std::cout << trans * invTrans << std::endl;
+            trans = translation * shear;
+            invTrans = invShear * invTranslation;
         } else {
             /* use scrolling parameters */
             trans = common::math::mat<3, 3>::id();
@@ -667,6 +656,10 @@ namespace gbaemu::lcd
 
         /* obj layer */
         objLayer.setMode(vramBase, oamBase, bgMode);
+
+        /* reset id's */
+        for (int32_t i = 0; i < 4; ++i)
+            backgrounds[i]->id = i;
 
         /* Which background layers are enabled to begin with? */
         for (uint32_t i = 0; i < 4; ++i)
