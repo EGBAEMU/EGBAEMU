@@ -137,16 +137,6 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    /* signal and window stuff */
-    std::signal(SIGINT, handleSignal);
-
-    gbaemu::lcd::Window window(1280, 720);
-    auto canv = window.getCanvas();
-    canv.beginDraw();
-    canv.clear(0xFF365e7a);
-    canv.endDraw();
-    window.present();
-
     /* read gba file */
     std::ifstream file(argv[1], std::ios::binary);
 
@@ -157,6 +147,16 @@ int main(int argc, char **argv)
 
     std::vector<char> buf(std::istreambuf_iterator<char>(file), {});
     file.close();
+
+    /* signal and window stuff */
+    std::signal(SIGINT, handleSignal);
+
+    gbaemu::lcd::Window window(1280, 720);
+    auto canv = window.getCanvas();
+    canv.beginDraw();
+    canv.clear(0xFF365e7a);
+    canv.endDraw();
+    window.present();
 
     /* intialize CPU and print game info */
     gbaemu::CPU cpu;
@@ -194,7 +194,6 @@ int main(int argc, char **argv)
 
     std::cout << "INFO: Launching CPU thread" << std::endl;
     std::thread cpuThread(cpuLoop, std::ref(cpu), std::ref(controller));
-    // cpuThread.detach();
 
     while (doRun) {
         SDL_Event event;

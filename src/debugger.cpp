@@ -1,4 +1,5 @@
 #include "debugger.hpp"
+#include <sstream>
 
 namespace gbaemu::debugger
 {

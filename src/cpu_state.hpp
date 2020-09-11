@@ -3,43 +3,13 @@
 
 #include "inst.hpp"
 #include "memory.hpp"
-#include "regs.hpp"
-#include "util.hpp"
 #include <cstdint>
-#include <iomanip>
-#include <sstream>
 #include <string>
 
 namespace gbaemu
 {
 
     struct CPUState {
-        /*
-        https://problemkaputt.de/gbatek.htm#armcpuregisterset
-        https://static.docs.arm.com/dvi0027/b/DVI_0027A_ARM7TDMI_PO.pdf
-     */
-
-        /*
-        enum OperationState : uint8_t {
-            ARMState,
-            ThumbState
-        } operationState = ARMState;
-        */
-
-        enum CPUMode : uint8_t {
-            UserMode,
-            FIQ,
-            IRQ,
-            SupervisorMode,
-            AbortMode,
-            UndefinedMode,
-            SystemMode
-        } mode = SystemMode;
-
-        CPUState() {
-            // Ensure that system mode is also set in CPSR register!
-            regs.CPSR = 0b11111;
-        }
 
       private:
         //TODO are there conventions about inital reg values?
@@ -75,26 +45,21 @@ namespace gbaemu
             // System / User mode regs
             {regs.rx, regs.rx + 1, regs.rx + 2, regs.rx + 3, regs.rx + 4, regs.rx + 5, regs.rx + 6, regs.rx + 7, regs.rx + 8, regs.rx + 9, regs.rx + 10, regs.rx + 11, regs.rx + 12, regs.rx + 13, regs.rx + 14, regs.rx + 15, &regs.CPSR, &regs.CPSR}};
 
-        const char *cpuModeToString() const
-        {
-            switch (mode) {
-                STRINGIFY_CASE_ID(UserMode);
-                STRINGIFY_CASE_ID(FIQ);
-                STRINGIFY_CASE_ID(IRQ);
-                STRINGIFY_CASE_ID(SupervisorMode);
-                STRINGIFY_CASE_ID(AbortMode);
-                STRINGIFY_CASE_ID(UndefinedMode);
-                STRINGIFY_CASE_ID(SystemMode);
-            }
-            return "UNKNOWN";
-        }
-
       public:
+        enum CPUMode : uint8_t {
+            UserMode,
+            FIQ,
+            IRQ,
+            SupervisorMode,
+            AbortMode,
+            UndefinedMode,
+            SystemMode
+        } mode = SystemMode;
+
         /* pipeline */
         struct {
             struct {
                 uint32_t lastInstruction;
-
                 uint32_t instruction;
             } fetch;
 
@@ -102,185 +67,40 @@ namespace gbaemu
                 Instruction instruction;
                 Instruction lastInstruction;
             } decode;
-            /*
-        struct {
-            uint32_t result;
-        } execute;
-        */
         } pipeline = {0};
 
         Memory memory;
 
         const InstructionDecoder *decoder;
 
-        ~CPUState() {
+      public:
+        CPUState();
+        ~CPUState();
 
-        }
+        const char *cpuModeToString() const;
 
-        uint32_t getCurrentPC() const
-        {
-            // TODO: This is somewhat finshy as there are 3 active pc's due to pipelining. As the regs
-            // only get modified by the EXECUTE stage, this will return the pc for the exec stage.
-            // Fetch will be at +8 and decode at +4. Maybe encode this as option or so.
-            return accessReg(regs::PC_OFFSET);
-        }
+        uint32_t getCurrentPC() const;
 
-        uint32_t *const *const getCurrentRegs()
-        {
-            return regsHacks[mode];
-        }
+        uint32_t *const *const getCurrentRegs();
 
-        const uint32_t *const *const getCurrentRegs() const
-        {
-            return regsHacks[mode];
-        }
+        const uint32_t *const *const getCurrentRegs() const;
 
-        uint32_t *const *const getModeRegs(CPUMode cpuMode)
-        {
-            return regsHacks[cpuMode];
-        }
+        uint32_t *const *const getModeRegs(CPUMode cpuMode);
 
-        const uint32_t *const *const getModeRegs(CPUMode cpuMode) const
-        {
-            return regsHacks[cpuMode];
-        }
+        const uint32_t *const *const getModeRegs(CPUMode cpuMode) const;
 
-        uint32_t &accessReg(uint8_t offset)
-        {
-            return *(getCurrentRegs()[offset]);
-        }
+        uint32_t &accessReg(uint8_t offset);
 
-        uint32_t accessReg(uint8_t offset) const
-        {
-            return *(getCurrentRegs()[offset]);
-        }
+        uint32_t accessReg(uint8_t offset) const;
 
-        void setFlag(size_t flag, bool value = true)
-        {
-            if (value)
-                accessReg(regs::CPSR_OFFSET) |= (1 << flag);
-            else
-                accessReg(regs::CPSR_OFFSET) &= ~(1 << flag);
-        }
+        void setFlag(size_t flag, bool value = true);
 
-        bool getFlag(size_t flag) const
-        {
-            return accessReg(regs::CPSR_OFFSET) & (1 << flag);
-        }
+        bool getFlag(size_t flag) const;
 
-        std::string toString() const
-        {
-            std::stringstream ss;
+        std::string toString() const;
+        std::string printStack(uint32_t words) const;
 
-            /* general purpose registers */
-            for (uint32_t i = 0; i < 18; ++i) {
-                /* name */
-                ss << "r" << std::dec << i << ' ';
-
-                if (i == regs::PC_OFFSET)
-                    ss << "(PC) ";
-                else if (i == regs::LR_OFFSET)
-                    ss << "(LR) ";
-                else if (i == regs::SP_OFFSET)
-                    ss << "(SP) ";
-                else if (i == regs::CPSR_OFFSET)
-                    ss << "(CPSR) ";
-                else if (i == regs::SPSR_OFFSET)
-                    ss << "(SPSR) ";
-
-                ss << "    ";
-
-                /* value */
-                uint32_t value = accessReg(i);
-                /* TODO: show fixed point */
-                ss << std::dec << value << " = 0x" << std::hex << value << '\n';
-            }
-
-            /* flag registers */
-            ss << "N=" << getFlag(cpsr_flags::N_FLAG) << ' ' << "Z=" << getFlag(cpsr_flags::Z_FLAG) << ' ' << "C=" << getFlag(cpsr_flags::C_FLAG) << ' ' << "V=" << getFlag(cpsr_flags::V_FLAG) << ' ' << "Q=" << getFlag(cpsr_flags::Q_FLAG) << '\n';
-            // Cpu Mode
-            ss << "CPU Mode: " << cpuModeToString() << '\n';
-
-            return ss.str();
-        }
-
-        std::string printStack(uint32_t words) const
-        {
-            std::stringstream ss;
-            ss << std::setfill('0') << std::hex;
-
-            ss << "Stack:\n";
-            for (uint32_t stackAddr = accessReg(regs::SP_OFFSET); words > 0; --words) {
-                /* address, pad hex numbers with 0 */
-                ss << "0x" << std::setw(8) << stackAddr << ":    "
-                   << "0x" << std::setw(8) << memory.read32(stackAddr, nullptr) << '\n';
-
-                stackAddr += 4;
-            }
-
-            return ss.str();
-        }
-
-        std::string disas(uint32_t addr, uint32_t cmds) const
-        {
-            std::stringstream ss;
-            ss << std::setfill('0') << std::hex;
-
-            uint32_t startAddr = addr - (cmds / 2) * (getFlag(cpsr_flags::THUMB_STATE) ? 2 : 4);
-            //if (startAddr < Memory::MemoryRegionOffset::EXT_ROM_OFFSET) {
-            //    startAddr = Memory::MemoryRegionOffset::EXT_ROM_OFFSET;
-            //}
-
-            for (uint32_t i = startAddr; cmds > 0; --cmds) {
-
-                /* indicate executed instruction */
-                //if (i == addr)
-                //    ss << "<- ";
-
-                /* indicate current instruction */
-                if (i == accessReg(regs::PC_OFFSET))
-                    ss << "=> ";
-
-                /* address, pad hex numbers with 0 */
-                ss << "0x" << std::setw(8) << i << "    ";
-
-                if (getFlag(cpsr_flags::THUMB_STATE)) {
-                    uint32_t bytes = memory.read16(i, nullptr, false, true);
-
-                    uint32_t b0 = bytes & 0xFF;
-                    uint32_t b1 = (bytes >> 8) & 0xFF;
-
-                    auto inst = decoder->decode(bytes).thumb;
-
-                    /* bytes */
-                    ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << " [" << std::setw(4) << bytes << ']';
-
-                    /* code */
-                    ss << "    " << inst.toString() << '\n';
-
-                    i += 2;
-                } else {
-                    uint32_t bytes = memory.read32(i, nullptr, false, true);
-
-                    uint32_t b0 = bytes & 0xFF;
-                    uint32_t b1 = (bytes >> 8) & 0xFF;
-                    uint32_t b2 = (bytes >> 16) & 0xFF;
-                    uint32_t b3 = (bytes >> 24) & 0xFF;
-
-                    auto inst = decoder->decode(bytes).arm;
-
-                    /* bytes */
-                    ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << std::setw(2) << b2 << ' ' << std::setw(2) << b3 << " [" << std::setw(8) << bytes << ']';
-
-                    /* code */
-                    ss << "    " << inst.toString() << '\n';
-
-                    i += 4;
-                }
-            }
-
-            return ss.str();
-        }
+        std::string disas(uint32_t addr, uint32_t cmds) const;
     };
 
 } // namespace gbaemu
