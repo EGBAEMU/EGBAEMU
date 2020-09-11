@@ -22,14 +22,14 @@ namespace gbaemu
         static const constexpr uint8_t DMA_CNT_REG_TYPE_OFF = 10;
         static const constexpr uint8_t DMA_CNT_REG_REPEAT_OFF = 9;
 
-        static const constexpr uint32_t DMA_CNT_REG_EN_MASK = static_cast<uint32_t>(1) << DMA_CNT_REG_EN_OFF;
-        static const constexpr uint32_t DMA_CNT_REG_IRQ_MASK = static_cast<uint32_t>(1) << DMA_CNT_REG_IRQ_OFF;
-        static const constexpr uint32_t DMA_CNT_REG_DRQ_MASK = static_cast<uint32_t>(1) << DMA_CNT_REG_DRQ_OFF;
-        static const constexpr uint32_t DMA_CNT_REG_TYPE_MASK = static_cast<uint32_t>(1) << DMA_CNT_REG_TYPE_OFF;
-        static const constexpr uint32_t DMA_CNT_REG_REPEAT_MASK = static_cast<uint32_t>(1) << DMA_CNT_REG_REPEAT_OFF;
-        static const constexpr uint32_t DMA_CNT_REG_TIMING_MASK = static_cast<uint32_t>(3) << DMA_CNT_REG_TIMING_OFF;
-        static const constexpr uint32_t DMA_CNT_REG_SRC_ADR_CNT_MASK = static_cast<uint32_t>(3) << DMA_CNT_REG_SRC_ADR_CNT_OFF;
-        static const constexpr uint32_t DMA_CNT_REG_DST_ADR_CNT_MASK = static_cast<uint32_t>(3) << DMA_CNT_REG_DST_ADR_CNT_OFF;
+        static const constexpr uint16_t DMA_CNT_REG_EN_MASK = static_cast<uint16_t>(1) << DMA_CNT_REG_EN_OFF;
+        static const constexpr uint16_t DMA_CNT_REG_IRQ_MASK = static_cast<uint16_t>(1) << DMA_CNT_REG_IRQ_OFF;
+        static const constexpr uint16_t DMA_CNT_REG_DRQ_MASK = static_cast<uint16_t>(1) << DMA_CNT_REG_DRQ_OFF;
+        static const constexpr uint16_t DMA_CNT_REG_TYPE_MASK = static_cast<uint16_t>(1) << DMA_CNT_REG_TYPE_OFF;
+        static const constexpr uint16_t DMA_CNT_REG_REPEAT_MASK = static_cast<uint16_t>(1) << DMA_CNT_REG_REPEAT_OFF;
+        static const constexpr uint16_t DMA_CNT_REG_TIMING_MASK = static_cast<uint16_t>(3) << DMA_CNT_REG_TIMING_OFF;
+        static const constexpr uint16_t DMA_CNT_REG_SRC_ADR_CNT_MASK = static_cast<uint16_t>(3) << DMA_CNT_REG_SRC_ADR_CNT_OFF;
+        static const constexpr uint16_t DMA_CNT_REG_DST_ADR_CNT_MASK = static_cast<uint16_t>(3) << DMA_CNT_REG_DST_ADR_CNT_OFF;
 
       public:
         static const constexpr uint32_t DMA0_BASE_ADDR = Memory::IO_REGS_OFFSET | 0x0B0;
@@ -89,7 +89,7 @@ namespace gbaemu
         struct DMARegs {
             uint32_t srcAddr;
             uint32_t destAddr;
-            uint32_t count;
+            uint16_t count;
             uint16_t cntReg;
         } PACKED regs = {0};
 #include "endpacked.h"
