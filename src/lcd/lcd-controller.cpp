@@ -376,6 +376,16 @@ namespace gbaemu::lcd
                 step.dmx = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[1]));
                 step.dy = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[2]));
                 step.dmy = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[3]));
+
+                if (step.dx == 0 && step.dy == 0) {
+                    step.dx = 1;
+                    step.dy = 0;
+                }
+
+                if (step.dmx == 0 && step.dmy == 0) {
+                    step.dmx = 0;
+                    step.dmy = 1;
+                }
             } else {
                 step.origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3X));
                 step.origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3Y));
