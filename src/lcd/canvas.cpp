@@ -211,5 +211,44 @@ namespace gbaemu::lcd
         }
     }
 
+    template <class PixelType>
+    void Canvas<PixelType>::drawSprite(const PixelType *src, int32_t srcWidth, int32_t srcHeight, int32_t srcStride,
+                                       const common::math::vec<2>& origin,
+                                       common::math::real_t dx, common::math::real_t dy,
+                                       common::math::real_t dmx, common::math::real_t dmy,
+                                       bool wrap)
+    {
+        /* TODO: Implement wrapping. */
+        typedef common::math::vec<2> vec2;
+
+        PixelType *destPixels = pixels();
+        vec2 spriteCoordScanLine = origin;
+
+        for (int32_t canvY = 0; canvY < height; ++canvY) {
+            vec2 spriteCoord = spriteCoordScanLine;
+
+            for (int32_t canvX = 0; canvX < width; ++canvX) {
+                int32_t sx = spriteCoord[0];
+                int32_t sy = spriteCoord[1];
+
+                /* assumes PixelType = uint32_t */
+                if (0 <= spriteCoord[0] && spriteCoord[0] < srcWidth &&
+                    0 <= spriteCoord[1] && spriteCoord[1] < srcHeight) {
+                    PixelType color = src[sy * srcStride + sx];
+
+                    if (color & 0xFF000000) {
+                        destPixels[canvY * width + canvX] = color;
+                    }
+                }
+
+                spriteCoord[0] += dx;
+                spriteCoord[1] += dy;
+            }
+
+            spriteCoordScanLine[0] += dmx;
+            spriteCoordScanLine[1] += dmy;
+        }        
+    }
+
     template class Canvas<uint32_t>;
 } // namespace gbaemu::lcd

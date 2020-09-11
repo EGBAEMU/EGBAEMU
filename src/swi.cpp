@@ -422,43 +422,26 @@ namespace gbaemu
                 float sy = m.read16(off + sourceAddr + 14, &info, true) / 256.f;
                 float theta = (m.read32(sourceAddr + 16, &info, true) >> 8) / 128.f * M_PI;
 
-                common::math::mat<3, 3> scale{
-                    {sx, 0, 0},
-                    {0, sy, 0},
-                    {0, 0, 1}};
-
-                common::math::mat<3, 3> rotation{
-                    {std::cos(theta), -std::sin(theta), 0},
-                    {std::sin(theta), std::cos(theta), 0},
-                    {0, 0, 1}};
-
-                common::math::mat<3, 3> dataTranslation{
-                    {1, 0, -ox},
-                    {0, 1, -oy},
-                    {0, 0, 1}};
-
-                common::math::mat<3, 3> displayTranslation{
-                    {1, 0, cx},
-                    {0, 1, cy},
-                    {0, 0, 1}};
-
-                /*
-                    Display center and data center can be user defined. Let's say there is a 64x64 image on a 240x160 background. The image
-                    should be rotated and scaled around its center and displayed on the displays center. The user might use the following values:
-                    scaleX = scaleY = 1
-                    rotation of theta = pi / 2
-                    data center: ox = oy = 64 / 2 = 32
-                    display center: cx = 240 / 2 = 120, cy = 160 / 2 = 80
-                 */
-                auto r = displayTranslation * rotation * scale * dataTranslation;
+                /* F* THIS. This is taken from mgba. */
+                common::math::real_t a, b, c, d, rx, ry;
+                a = d = cosf(theta);
+                b = c = sinf(theta);
+                // Scale
+                a *= sx;
+                b *= -sx;
+                c *= sy;
+                d *= sy;
+                // Translate
+                rx = ox - (a * cx + b * cy);
+                ry = oy - (c * cx + d * cy);
 
                 uint32_t dstOff = i * 16;
-                m.write16(dstOff + destAddr, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(r[0][0]), &info, i != 0);
-                m.write16(dstOff + destAddr + 2, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(r[0][1]), &info, true);
-                m.write16(dstOff + destAddr + 4, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(r[1][0]), &info, true);
-                m.write16(dstOff + destAddr + 6, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(r[1][1]), &info, true);
-                m.write32(dstOff + destAddr + 8, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(r[0][2]), &info, true);
-                m.write32(dstOff + destAddr + 12, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(r[1][2]), &info, true);
+                m.write16(dstOff + destAddr, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(a), &info, i != 0);
+                m.write16(dstOff + destAddr + 2, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(b), &info, true);
+                m.write16(dstOff + destAddr + 4, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(c), &info, true);
+                m.write16(dstOff + destAddr + 6, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(d), &info, true);
+                m.write32(dstOff + destAddr + 8, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(rx), &info, true);
+                m.write32(dstOff + destAddr + 12, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(ry), &info, true);
             }
 
             return info;

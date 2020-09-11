@@ -63,12 +63,31 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
         // uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
         //auto inst = cpu.state.pipeline.decode.instruction;
 
+        /*
+        if (stepMode) {
+            std::cout << "press enter to continue\n";
+            std::cin.get();
+
+            std::cout << "========================================================================\n";
+            std::cout << cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), DISAS_CMD_RANGE);
+            std::cout << cpu.state.toString() << '\n';
+            std::cout << cpu.state.printStack(DEBUG_STACK_PRINT_RANGE) << '\n';
+        }
+         */
+
         if (cpu.step()) {
             std::cout << "Abort execution!" << std::endl;
             break;
         }
 
         lcdController.tick();
+
+        /*
+        if (gbaemu::le(cpu.state.memory.read32(0x4000028, nullptr)) == 45568) { // ||
+            //cpu.state.accessReg(gbaemu::regs::PC_OFFSET) == 0x08001cec) {
+            stepMode = true;
+        }
+         */
 
         // uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
