@@ -1,10 +1,10 @@
 #include "interrupts.hpp"
-#include "dma.hpp"
-#include "timer.hpp"
-
-#include "cpu.hpp"
+#include "cpu/cpu.hpp"
+#include "cpu/regs.hpp"
 #include "memory.hpp"
 #include "util.hpp"
+
+#include <iostream>
 
 namespace gbaemu
 {

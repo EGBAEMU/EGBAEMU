@@ -71,7 +71,6 @@ namespace gbaemu::debugger
 
     void AddressTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
     {
-        //asm("int $3");
         *setStepMode = true;
     }
 
@@ -92,12 +91,12 @@ namespace gbaemu::debugger
 
     void Watchdog::registerTrap(Trap &t)
     {
-        traps.push_back(std::shared_ptr<Trap>(&t));
+        traps.push_back(&t);
     }
 
     void Watchdog::check(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
     {
-        for (auto &trap : traps)
+        for (auto trap : traps)
             if (trap->satisfied(prevPC, postPC, inst, state))
                 trap->trigger(prevPC, postPC, inst, state);
     }

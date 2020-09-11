@@ -1,8 +1,7 @@
 #ifndef DEBUGGER_HPP
 #define DEBUGGER_HPP
 
-#include "cpu_state.hpp"
-#include <memory>
+#include "cpu/cpu_state.hpp"
 #include <vector>
 
 namespace gbaemu::debugger
@@ -95,7 +94,7 @@ namespace gbaemu::debugger
     class Watchdog
     {
       private:
-        std::vector<std::shared_ptr<Trap>> traps;
+        std::vector<Trap*> traps;
 
       public:
         void registerTrap(Trap &t);

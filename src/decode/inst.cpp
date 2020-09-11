@@ -1,7 +1,9 @@
 #include "inst.hpp"
-#include "cpu_state.hpp"
-#include "regs.hpp"
+#include "cpu/cpu_state.hpp"
+#include "cpu/regs.hpp"
 #include "util.hpp"
+
+#include <iostream>
 
 namespace gbaemu
 {

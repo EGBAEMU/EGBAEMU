@@ -2,9 +2,8 @@
 #define INST_ARM_HPP
 
 #include "inst.hpp"
-#include "regs.hpp"
+#include "cpu/regs.hpp"
 #include <cstdint>
-#include <functional>
 
 namespace gbaemu
 {

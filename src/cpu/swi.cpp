@@ -1,13 +1,12 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <cstring>
 
 #include "cpu.hpp"
 #include "cpu_state.hpp"
-#include "math3d.hpp"
+#include "math/math3d.hpp"
 #include "regs.hpp"
 #include "swi.hpp"
-#include <algorithm>
-#include <cstring>
 
 namespace gbaemu
 {

@@ -1,10 +1,9 @@
 #ifndef IO_REGS_HPP
 #define IO_REGS_HPP
 
-#include <algorithm>
 #include <cstdint>
-#include <functional>
 #include <set>
+#include <functional>
 
 namespace gbaemu
 {

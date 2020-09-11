@@ -1,12 +1,9 @@
 #ifndef MEMORY_HPP
 #define MEMORY_HPP
 
-#include "inst.hpp"
+#include "decode/inst.hpp"
 #include "io/io_regs.hpp"
-#include <algorithm>
-#include <cstddef>
 #include <cstdint>
-#include <iostream>
 
 namespace gbaemu
 {

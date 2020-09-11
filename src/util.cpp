@@ -1,20 +1,20 @@
 #include "util.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
-
 
 namespace gbaemu
 {
 #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
     template <class T>
-    T le(T val) {
+    T le(T val)
+    {
         return flipBytes(val);
     }
 #else
     template <class T>
-    T le(T val) {
+    T le(T val)
+    {
         return val;
     }
 #endif
@@ -31,7 +31,8 @@ namespace gbaemu
     }
 
     template <class T>
-    T bitSet(T val, T mask, T off, T insVal) {
+    T bitSet(T val, T mask, T off, T insVal)
+    {
         return (val & ~(mask << off)) | ((insVal & mask) << off);
     }
 
@@ -42,12 +43,14 @@ namespace gbaemu
     }
 
     template <class T>
-    T bmap(bool b) {
+    T bmap(bool b)
+    {
         return static_cast<T>(b ? 1 : 0);
     }
 
     template <class T, T FRAC, T INT, class ResultType>
-    ResultType fixedToFloat(T fp) {
+    ResultType fixedToFloat(T fp)
+    {
         /* [1 bit sign][INT bits integer][FRAC bits fractional] */
         const T SIGN_OFF = FRAC + INT;
 
@@ -66,7 +69,7 @@ namespace gbaemu
     }
 
     template <class T>
-    T clamp(const T& value, const T& mn, const T& mx)
+    T clamp(const T &value, const T &mn, const T &mx)
     {
         return std::min(mx, std::max(mn, value));
     }
@@ -89,6 +92,6 @@ template uint16_t gbaemu::floatToFixed<uint16_t, 8, 7, double>(double);
 template uint32_t gbaemu::floatToFixed<uint32_t, 8, 19, float>(float);
 template uint32_t gbaemu::floatToFixed<uint32_t, 8, 19, double>(double);
 
-template float gbaemu::clamp<float>(const float&, const float&, const float&);
-template double gbaemu::clamp<double>(const double&, const double&, const double&);
-template int32_t gbaemu::clamp<int32_t>(const int32_t&, const int32_t&, const int32_t&);
+template float gbaemu::clamp<float>(const float &, const float &, const float &);
+template double gbaemu::clamp<double>(const double &, const double &, const double &);
+template int32_t gbaemu::clamp<int32_t>(const int32_t &, const int32_t &, const int32_t &);

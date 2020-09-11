@@ -2,19 +2,16 @@
 #define LCD_CONTROLLER_HPP
 
 #include "canvas.hpp"
-#include "cpu.hpp"
+#include "cpu/cpu.hpp"
 #include "io/interrupts.hpp"
 #include "io/io_regs.hpp"
-#include "mat.hpp"
+#include "io/memory.hpp"
+#include "math/mat.hpp"
 
-#include <array>
-#include <memory.hpp>
-#include <thread>
+#include <condition_variable>
 #include <functional>
 #include <mutex>
-#include <memory>
-#include <future>
-#include <condition_variable>
+#include <thread>
 
 namespace gbaemu::lcd
 {
@@ -249,7 +246,7 @@ namespace gbaemu::lcd
                               CHAR_NAME_MASK = 0x3FF,
                               PRIORITY_MASK = 3,
                               PALETTE_NUMBER_MASK = 0xF;
-    }
+    } // namespace OBJ_ATTRIBUTE
 
     struct LCDColorPalette {
         /* TODO: maybe this can be const */
@@ -339,7 +336,7 @@ namespace gbaemu::lcd
         void setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t bgMode);
         OBJAttribute *accessAttribute(uint32_t index);
         OBJAttribute getAttribute(uint32_t index);
-        void draw(LCDColorPalette& palette, bool use2dMapping, LCDisplay& display);
+        void draw(LCDColorPalette &palette, bool use2dMapping, LCDisplay &display);
     };
 
     struct Background {
@@ -381,18 +378,17 @@ namespace gbaemu::lcd
     class LCDController
     {
       public:
-        enum RenderControl
-        {
+        enum RenderControl {
             WAIT,
             RUN,
             EXIT
         };
 
-        enum RenderState
-        {
+        enum RenderState {
             READY,
             IN_PROGRESS
         };
+
       private:
         LCDisplay &display;
         Memory &memory;
@@ -410,7 +406,7 @@ namespace gbaemu::lcd
         /* rendering is done in a separate thread */
         RenderControl renderControl;
         std::mutex renderControlMutex;
-        
+
         std::mutex *canDrawToScreenMutex;
         bool *canDrawToScreen;
 
@@ -451,8 +447,7 @@ namespace gbaemu::lcd
         void renderLoop();
 
       public:
-        LCDController(LCDisplay &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) :
-            display(disp), memory(cpu->state.memory), irqHandler(cpu->irqHandler), canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw)
+        LCDController(LCDisplay &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) : display(disp), memory(cpu->state.memory), irqHandler(cpu->irqHandler), canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw)
         {
             counters.cycle = 0;
             counters.vCount = 0;
@@ -481,7 +476,6 @@ namespace gbaemu::lcd
         void exitThread();
     };
 
-    
 } // namespace gbaemu::lcd
 
 #endif /* LCD_CONTROLLER_HPP */

@@ -1,8 +1,8 @@
 #include "inst_arm.hpp"
-
-#include "cpu_state.hpp"
-#include "swi.hpp"
+#include "cpu/cpu_state.hpp"
+#include "cpu/swi.hpp"
 #include "util.hpp"
+
 #include <iostream>
 #include <sstream>
 

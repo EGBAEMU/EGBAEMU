@@ -1,8 +1,8 @@
 #include "timer.hpp"
-
-#include "cpu.hpp"
-#include "dma.hpp"
+#include "cpu/cpu.hpp"
 #include "interrupts.hpp"
+
+#include <functional>
 
 namespace gbaemu
 {

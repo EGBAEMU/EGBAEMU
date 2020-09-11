@@ -2,8 +2,8 @@
 #define CPU_HPP
 
 #include "cpu_state.hpp"
-#include "inst_arm.hpp"
-#include "inst_thumb.hpp"
+#include "decode/inst_arm.hpp"
+#include "decode/inst_thumb.hpp"
 #include "io/dma.hpp"
 #include "io/interrupts.hpp"
 #include "io/timer.hpp"

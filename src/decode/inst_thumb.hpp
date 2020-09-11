@@ -1,10 +1,9 @@
 #ifndef INST_THUMB_HPP
 #define INST_THUMB_HPP
 
+#include "cpu/regs.hpp"
 #include "inst.hpp"
-#include "regs.hpp"
 #include <cstdint>
-#include <functional>
 
 namespace gbaemu
 {

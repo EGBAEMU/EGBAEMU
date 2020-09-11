@@ -1,8 +1,8 @@
 #ifndef CPU_STATE_HPP
 #define CPU_STATE_HPP
 
-#include "inst.hpp"
-#include "memory.hpp"
+#include "decode/inst.hpp"
+#include "io/memory.hpp"
 #include <cstdint>
 #include <string>
 

@@ -1,9 +1,6 @@
-#include "io/dma.hpp"
-#include "io/interrupts.hpp"
-#include "io/timer.hpp"
-
 #include "cpu.hpp"
 
+#include <iostream>
 #include <set>
 
 namespace gbaemu

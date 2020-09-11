@@ -2,6 +2,7 @@
 #define MAT_HPP
 
 #include "vec.hpp"
+
 #include <functional>
 
 namespace common::math

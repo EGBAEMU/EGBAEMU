@@ -1,9 +1,7 @@
 #ifndef INTERRUPT_HPP
 #define INTERRUPT_HPP
 
-#include "regs.hpp"
 #include <mutex>
-#include <thread>
 
 namespace gbaemu
 {

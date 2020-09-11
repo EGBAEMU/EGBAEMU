@@ -1,11 +1,10 @@
 #ifndef CANVAS_HPP
 #define CANVAS_HPP
 
-#include <algorithm>
 #include <cstdint>
 #include <vector>
 
-#include "mat.hpp"
+#include "math/mat.hpp"
 
 namespace gbaemu::lcd
 {

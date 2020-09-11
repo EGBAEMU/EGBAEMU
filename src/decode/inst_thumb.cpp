@@ -1,5 +1,5 @@
 #include "inst_thumb.hpp"
-#include "swi.hpp"
+#include "cpu/swi.hpp"
 #include "util.hpp"
 
 #include <iostream>

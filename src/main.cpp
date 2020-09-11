@@ -2,25 +2,17 @@
 #include <csignal>
 #include <fstream>
 #include <iostream>
-#include <iterator>
 #include <mutex>
 #include <thread>
 #include <vector>
 
-#include "cpu.hpp"
+#include "cpu/cpu.hpp"
 #include "debugger.hpp"
-#include "io/dma.hpp"
-#include "io/interrupts.hpp"
-#include "io/timer.hpp"
 #include "lcd/lcd-controller.hpp"
 #include "lcd/window.hpp"
 
 #include "input/keyboard_control.hpp"
 #include "io/keypad.hpp"
-
-#include "swi.hpp"
-
-#include "math3d.hpp"
 
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5

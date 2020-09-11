@@ -1,7 +1,7 @@
 #ifndef SWI_HPP
 #define SWI_HPP
 
-#include "inst.hpp"
+#include "decode/inst.hpp"
 #include "lcd/lcd-controller.hpp"
 #include "util.hpp"
 
