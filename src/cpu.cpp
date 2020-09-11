@@ -96,7 +96,7 @@ namespace gbaemu
 
         if (!dmaInfo.dmaExecutes) {
             if (info.haltCPU) {
-                info.haltCPU = irqHandler.checkForHaltCondition(info.haltCondition);
+                info.haltCPU = !irqHandler.checkForHaltCondition(info.haltCondition);
             } else {
                 // Execute pipeline only after stall is over
                 if (info.cycleCount == 0) {

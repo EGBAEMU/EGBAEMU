@@ -50,7 +50,7 @@ namespace gbaemu
         }
 
         InstructionExecutionInfo halt(CPU *cpu)
-        {   
+        {
             /*
                 SWI 02h (GBA) or SWI 06h (NDS7/NDS9/DSi7/DSi9) - Halt
 
@@ -94,9 +94,7 @@ namespace gbaemu
             } else {
                 //0=Return immediately if an old flag was already set
                 // check if condition is currently satisfied and if so return else cause halt
-                if (!cpu->irqHandler.checkForHaltCondition(info.haltCondition)) {
-                    info.haltCPU = true;
-                }
+                info.haltCPU = !cpu->irqHandler.checkForHaltCondition(info.haltCondition);
             }
 
             return info;
@@ -516,14 +514,12 @@ namespace gbaemu
                 common::math::mat<3, 3> scale{
                     {sx, 0, 0},
                     {0, sy, 0},
-                    {0, 0, 1}
-                };
+                    {0, 0, 1}};
 
                 common::math::mat<3, 3> rotation{
-                    {std::cos(theta), -std::sin(theta), 0 },
+                    {std::cos(theta), -std::sin(theta), 0},
                     {std::sin(theta), std::cos(theta), 0},
-                    {0, 0, 1}
-                };
+                    {0, 0, 1}};
 
                 auto r = scale * rotation;
 
