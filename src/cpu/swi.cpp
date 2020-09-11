@@ -421,47 +421,26 @@ namespace gbaemu
                 float sy = m.read16(off + sourceAddr + 14, &info, true) / 256.f;
                 float theta = (m.read32(sourceAddr + 16, &info, true) >> 8) / 128.f * M_PI;
 
-                /*
-                auto r = common::math::scale_matrix({sx, sy, 1}) *
-                         common::math::rotation_matrix(theta, {0, 0, 1}) *
-                         common::math::translation_matrix({cx - ox, cy - oy, 1});
-                 */
-
-                common::math::mat<3, 3> scale{
-                    {sx, 0, 0},
-                    {0, sy, 0},
-                    {0, 0, 1}};
-
-                common::math::mat<3, 3> rotation{
-                    {std::cos(theta), -std::sin(theta), 0},
-                    {std::sin(theta), std::cos(theta), 0},
-                    {0, 0, 1}};
-
-                common::math::mat<3, 3> translation{
-                    {1, 0, cx - ox},
-                    {0, 1, cy - oy},
-                    {0, 0, 1}};
-
-                auto r = scale * rotation * translation;
+                /* F* THIS. This is taken from mgba. */
+                common::math::real_t a, b, c, d, rx, ry;
+                a = d = cosf(theta);
+                b = c = sinf(theta);
+                // Scale
+                a *= sx;
+                b *= -sx;
+                c *= sy;
+                d *= sy;
+                // Translate
+                rx = ox - (a * cx + b * cy);
+                ry = oy - (c * cx + d * cy);
 
                 uint32_t dstOff = i * 16;
-                m.write16(dstOff + destAddr, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(r[0][0]), &info, i != 0);
-                m.write16(dstOff + destAddr + 2, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(r[0][1]), &info, true);
-                m.write16(dstOff + destAddr + 4, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(r[1][0]), &info, true);
-                m.write16(dstOff + destAddr + 6, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(r[1][1]), &info, true);
-                m.write32(dstOff + destAddr + 8, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(r[0][2]), &info, true);
-                m.write32(dstOff + destAddr + 12, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(r[1][2]), &info, true);
-
-                /*
-                std::cout << "-----------------------\n" << std::dec;
-                std::cout << r[0][0] << ' ' << gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[0][0]) << '\n';
-                std::cout << r[0][1] << ' ' << gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[0][1]) << '\n';
-                std::cout << r[1][0] << ' ' << gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[1][0]) << '\n';
-                std::cout << r[1][1] << ' ' << gbaemu::floatToFixedPoint<uint16_t, 8, 7, common::math::real_t>(r[1][1]) << '\n';
-                 */
-
-                //if (cpu->state.accessReg(regs::PC_OFFSET) == 0x8000714)
-                //    pBackground->theta = theta;
+                m.write16(dstOff + destAddr, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(a), &info, i != 0);
+                m.write16(dstOff + destAddr + 2, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(b), &info, true);
+                m.write16(dstOff + destAddr + 4, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(c), &info, true);
+                m.write16(dstOff + destAddr + 6, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(d), &info, true);
+                m.write32(dstOff + destAddr + 8, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(rx), &info, true);
+                m.write32(dstOff + destAddr + 12, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(ry), &info, true);
             }
 
             return info;

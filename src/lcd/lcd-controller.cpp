@@ -100,6 +100,17 @@ namespace gbaemu::lcd
         return OBJAttribute{le(uints[0]), le(uints[1]), le(uints[2])};
     }
 
+    void OBJLayer::getRotationParameters(uint32_t index, common::math::real_t& a, common::math::real_t& b,
+            common::math::real_t& c, common::math::real_t& d)
+    {
+        const uint16_t *uints = reinterpret_cast<const uint16_t *>(attributes);
+
+        a = fixedToFloat<uint16_t, 8, 7>(le(uints[index * 4 + 3]));
+        b = fixedToFloat<uint16_t, 8, 7>(le(uints[(index + 1) * 4 + 3]));
+        c = fixedToFloat<uint16_t, 8, 7>(le(uints[(index + 2) * 4 + 3]));
+        d = fixedToFloat<uint16_t, 8, 7>(le(uints[(index + 3) * 4 + 3]));
+    }
+
     void OBJLayer::draw(LCDColorPalette &palette, bool use2dMapping, LCDisplay &display)
     {
         typedef common::math::real_t real_t;
@@ -231,8 +242,6 @@ namespace gbaemu::lcd
                     }
                 }
             } else {
-                uint32_t tileOffIndex = 0;
-
                 for (uint32_t tileY = 0; tileY < height / 8; ++tileY) {
                     for (uint32_t tileX = 0; tileX < width / 8; ++tileX) {
                         uint32_t tempYOff = tileY * 8;
@@ -242,7 +251,7 @@ namespace gbaemu::lcd
 
                         /*
                             This is actually not what the documentation says. Actually the first bit of tileNumber
-                            should be ignored.
+                            should be ignored. Ignoring = dividing by 2?!
                          */
 
                         if (use2dMapping) {
@@ -262,20 +271,31 @@ namespace gbaemu::lcd
                 }
             }
 
-            common::math::mat<3, 3> trans{
-                {static_cast<real_t>(1), static_cast<real_t>(0), static_cast<real_t>(xOff)},
-                {static_cast<real_t>(0), static_cast<real_t>(1), static_cast<real_t>(yOff)},
-                {static_cast<real_t>(0), static_cast<real_t>(0), static_cast<real_t>(1)},
+            /* get parameters */
+            common::math::real_t dx, dmx, dy, dmy;
+            common::math::vec<2> origin{
+                -static_cast<common::math::real_t>(xOff),
+                -static_cast<common::math::real_t>(yOff)
             };
 
-            common::math::mat<3, 3> invTrans{
-                {static_cast<real_t>(1), static_cast<real_t>(0), static_cast<real_t>(-xOff)},
-                {static_cast<real_t>(0), static_cast<real_t>(1), static_cast<real_t>(-yOff)},
-                {static_cast<real_t>(0), static_cast<real_t>(0), static_cast<real_t>(1)},
-            };
+            if (useRotScale) {
+                uint16_t index = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::ROT_SCALE_PARAM_MASK, OBJ_ATTRIBUTE::ROT_SCALE_PARAM_OFFSET);
+                getRotationParameters(index, dx, dmx, dy, dmy);
+            } else {
+                /* default */
+                dx = 1;
+                dy = 0;
+                dmx = 0;
+                dmy = 1;
+            }
+
+            //dx = 1;
+            //dy = 0;
+            //dmx = 0;
+            //dmy = 1;
 
             display.canvas.drawSprite(tempBuffer, 64, 64, 64,
-                                      trans, invTrans, false);
+                origin, dx, dy, dmx, dmy);
         }
     }
 
@@ -348,81 +368,42 @@ namespace gbaemu::lcd
 
         /* scaling, rotation, only for bg2, bg3 */
         if (bgIndex == 2 || bgIndex == 3) {
-            float origin[2];
-            float d[2];
-            float dm[2];
-
             if (bgIndex == 2) {
-                origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2X));
-                origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2Y));
+                step.origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2X));
+                step.origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2Y));
 
-                d[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[0]));
-                dm[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[1]));
-                d[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[2]));
-                dm[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[3]));
+                step.dx = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[0]));
+                step.dmx = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[1]));
+                step.dy = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[2]));
+                step.dmy = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[3]));
+
+                if (step.dx == 0 && step.dy == 0) {
+                    step.dx = 1;
+                    step.dy = 0;
+                }
+
+                if (step.dmx == 0 && step.dmy == 0) {
+                    step.dmx = 0;
+                    step.dmy = 1;
+                }
             } else {
-                origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3X));
-                origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3Y));
+                step.origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3X));
+                step.origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3Y));
 
-                d[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[0]));
-                dm[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[1]));
-                d[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[2]));
-                dm[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[3]));
+                step.dx = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[0]));
+                step.dmx = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[1]));
+                step.dy = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[2]));
+                step.dmy = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[3]));
             }
-
-            common::math::mat<3, 3> translation{
-                {1, 0, origin[0]},
-                {0, 1, origin[1]},
-                {0, 0, 1}};
-
-            //std::cout << translation << '\n';
-
-            common::math::mat<3, 3> invTranslation{
-                {1, 0, -translation[0][2]},
-                {0, 1, -translation[1][2]},
-                {0, 0, 1}};
-
-            common::math::mat<3, 3> shear{
-                {d[0], dm[0], 0},
-                {d[1], dm[1], 0},
-                {0, 0, 1}};
-
-            /*
-                TODO: This is guesswork. Some demos don't touch these scrolling/scaling registers and leave them at zero.
-                It could be that the GBA interprets this as the id transformation. So we check if the transformation is
-                invertable and set trans to id if that's the case.
-            */
-            if (std::abs((shear[0][0] * shear[1][1]) - (shear[0][1] * shear[1][0])) < 1e-6)
-                shear = common::math::mat<3, 3>::id();
-
-            common::math::real_t adet = 1 / ((shear[0][0] * shear[1][1]) - (shear[0][1] * shear[1][0]));
-
-            common::math::mat<3, 3> invShear{
-                {shear[1][1] * adet, -shear[0][1] * adet, 0},
-                {-shear[1][0] * adet, shear[0][0] * adet, 0},
-                {0, 0, 1}};
-
-            //std::cout << origin[0] << ' ' << origin[1] << ' ' << d[0] << ' ' << d[1] << ' ' << dm[0] << ' ' << dm[1] << '\n';
-            //std::cout << shear << '\n';
-
-            //std::cout << rotation << std::endl;
-
-            //std::cout << shear * invShear << std::endl;
-
-            trans = shear * translation;
-            invTrans = invTranslation * invShear;
-
-            //std::cout << trans * invTrans << std::endl;
         } else {
             /* use scrolling parameters */
-            trans = common::math::mat<3, 3>::id();
-            invTrans = common::math::mat<3, 3>::id();
+            step.origin[0] = le(regs.BGOFS[bgIndex].h) & 0x1F;
+            step.origin[1] = le(regs.BGOFS[bgIndex].v) & 0x1F;
 
-            trans[0][2] = le(regs.BGOFS[bgIndex].h) & 0x1F;
-            trans[1][2] = le(regs.BGOFS[bgIndex].v) & 0x1F;
-
-            invTrans[0][2] = -trans[0][2];
-            invTrans[1][2] = -trans[1][2];
+            step.dx = 1;
+            step.dy = 0;
+            step.dmx = 0;
+            step.dmy = 1;
         }
 
         /* 32x32 tiles, arrangement depends on resolution */
@@ -647,8 +628,27 @@ namespace gbaemu::lcd
 
     void Background::drawToDisplay(LCDisplay &display)
     {
+        auto pixs = canvas.pixels();
+        auto stride = canvas.getWidth();
+
+        /* draw bounds */
+        /*
+        for (int32_t y = 0; y < canvas.getHeight(); y += 32) {
+            for (int32_t x = 0; x < canvas.getWidth(); ++x) {
+                pixs[y * stride + x] = 0xFFFF0000;
+            }
+        }
+
+        for (int32_t x = 0; x < canvas.getWidth(); x += 32) {
+            for (int32_t y = 0; y < canvas.getHeight(); ++y) {
+                pixs[y * stride + x] = 0xFFFF0000;
+            }
+        }
+         */
+
         display.canvas.beginDraw();
-        display.canvas.drawSprite(canvas.pixels(), width, height, canvas.getWidth(), trans, invTrans, wrap);
+        display.canvas.drawSprite(canvas.pixels(), canvas.getWidth(), canvas.getHeight(), canvas.getWidth(),
+            step.origin, step.dx, step.dy, step.dmx, step.dmy);
         display.canvas.endDraw();
     }
 
@@ -667,6 +667,10 @@ namespace gbaemu::lcd
 
         /* obj layer */
         objLayer.setMode(vramBase, oamBase, bgMode);
+
+        /* reset id's */
+        for (int32_t i = 0; i < 4; ++i)
+            backgrounds[i]->id = i;
 
         /* Which background layers are enabled to begin with? */
         for (uint32_t i = 0; i < 4; ++i)

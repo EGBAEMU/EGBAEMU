@@ -8,9 +8,9 @@
 #include "io/memory.hpp"
 #include "math/mat.hpp"
 
+#include <array>
 #include <condition_variable>
 #include <functional>
-#include <array>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -338,6 +338,8 @@ namespace gbaemu::lcd
         void setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t bgMode);
         OBJAttribute *accessAttribute(uint32_t index);
         OBJAttribute getAttribute(uint32_t index);
+        void getRotationParameters(uint32_t index, common::math::real_t &a, common::math::real_t &b,
+                                   common::math::real_t &c, common::math::real_t &d);
         void draw(LCDColorPalette &palette, bool use2dMapping, LCDisplay &display);
     };
 
@@ -363,6 +365,11 @@ namespace gbaemu::lcd
         uint8_t *tiles;
 
         /* general transformation of background in target display space */
+        struct {
+            common::math::real_t dx, dy, dmx, dmy;
+            common::math::vec<2> origin;
+        } step;
+
         common::math::mat<3, 3> trans;
         common::math::mat<3, 3> invTrans;
 
