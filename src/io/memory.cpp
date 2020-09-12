@@ -293,7 +293,7 @@ namespace gbaemu
             case EXT_ROM3:
             case EXT_ROM3_: {
                 //TODO proper ROM mirroring... cause this is shady AF
-                //TODO we need something similar in the memory class...
+                /*
                 uint32_t romSizeLog2 = getRomSize();
                 // Uff: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
                 romSizeLog2--;
@@ -303,7 +303,8 @@ namespace gbaemu
                 romSizeLog2 |= romSizeLog2 >> 8;
                 romSizeLog2 |= romSizeLog2 >> 16;
                 romSizeLog2++;
-                uint32_t romOffset = ((addr - EXT_ROM_OFFSET) & (romSizeLog2 - 1));
+                */
+                uint32_t romOffset = ((addr & 0x00FFFFFF)/* & (romSizeLog2 - 1)*/);
                 if (romOffset >= getRomSize()) {
                     std::cout << "ERROR: trying to access rom out of bounds! Addr: 0x" << std::hex << addr << std::endl;
                     // Indicate out of ROM!!!
@@ -449,8 +450,8 @@ namespace gbaemu
                 return (bytesToRead + 1) / 2;
             }
 
-                //TODO those are configurable and different for N and S cycles (WAITCNT register)
-                /*
+            //TODO those are configurable and different for N and S cycles (WAITCNT register)
+            /*
             ROM Waitstates
             The GBA starts the cartridge with 4,2 waitstates (N,S) and prefetch disabled.
             The program may change these settings by writing to WAITCNT, 
