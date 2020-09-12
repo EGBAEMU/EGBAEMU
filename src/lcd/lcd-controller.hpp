@@ -8,6 +8,8 @@
 #include "io/memory.hpp"
 #include "math/mat.hpp"
 
+#include "defs.hpp"
+
 #include <array>
 #include <condition_variable>
 #include <functional>
@@ -17,8 +19,6 @@
 
 namespace gbaemu::lcd
 {
-    typedef uint32_t color_t;
-
     /*
         The table summarizes the facilities of the separate BG modes (video modes).
 
@@ -36,141 +36,6 @@ namespace gbaemu::lcd
         In mode 1 layers 0 and 1 are in text mode.
         All other layers are in map mode.
      */
-    namespace DISPCTL
-    {
-        static const uint32_t BG_MODE_MASK = 0b111,
-                              CBG_MODE_MASK = 1 << 3,
-                              DISPLAY_FRAME_SELECT_MASK = 1 << 4,
-                              HBLANK_INTERVAL_FREE_MASK = 1 << 5,
-                              OBJ_CHAR_VRAM_MAPPING_MASK = 1 << 6,
-                              FORCES_BLANK_MASK = 1 << 7,
-                              SCREEN_DISPLAY_BG0_MASK = 1 << 8,
-                              SCREEN_DISPLAY_BG1_MASK = 1 << 9,
-                              SCREEN_DISPLAY_BG2_MASK = 1 << 10,
-                              SCREEN_DISPLAY_BG3_MASK = 1 << 11,
-                              SCREEN_DISPLAY_OBJ_ASMK = 1 << 12,
-                              WINDOW_0_DISPLAY_FLAG_MASK = 1 << 13,
-                              WINDOW_1_DISPLAY_FLAG_MASK = 1 << 14,
-                              OBJ_WINDOW_DISPLAY_FLAG_MASK = 1 << 15;
-
-        static uint32_t SCREEN_DISPLAY_BGN_MASK(uint32_t n)
-        {
-            return 1 << (8 + n);
-        }
-    } // namespace DISPCTL
-
-    namespace DISPSTAT
-    {
-        static const uint16_t VBLANK_FLAG_OFFSET = 0,
-                              HBLANK_FLAG_OFFSET = 1,
-                              VCOUNTER_FLAG_OFFSET = 2,
-                              VBLANK_IRQ_ENABLE_OFFSET = 3,
-                              HBLANK_IRQ_ENABLE_OFFSET = 4,
-                              VCOUNTER_IRQ_ENABLE_OFFSET = 5,
-                              VCOUNT_SETTING_OFFSET = 8;
-
-        static const uint16_t VBLANK_FLAG_MASK = 1,
-                              HBLANK_FLAG_MASK = 1,
-                              VCOUNTER_FLAG_MASK = 1,
-                              VBLANK_IRQ_ENABLE_MASK = 1,
-                              HBLANK_IRQ_ENABLE_MASK = 1,
-                              VCOUNTER_IRQ_ENABLE_MASK = 1,
-                              VCOUNT_SETTING_MASK = 0xFF;
-    } // namespace DISPSTAT
-
-    namespace VCOUNT
-    {
-        static const uint16_t CURRENT_SCANLINE_OFFSET = 0;
-        static const uint16_t CURRENT_SCANLINE_MASK = 0xFF;
-    } // namespace VCOUNT
-
-    namespace BGCNT
-    {
-        static const uint32_t BG_PRIORITY_MASK = 0b11,
-                              CHARACTER_BASE_BLOCK_MASK = 0b11 << 2,
-                              MOSAIC_MASK = 1 << 6,
-                              COLORS_PALETTES_MASK = 1 << 7,
-                              SCREEN_BASE_BLOCK_MASK = 0x1F << 8,
-                              DISPLAY_AREA_OVERFLOW_MASK = 1 << 13,
-                              /*
-                                Internal Screen Size (dots) and size of BG Map (bytes):
-
-                                Value  Text Mode      Rotation/Scaling Mode
-                                0      256x256 (2K)   128x128   (256 bytes)
-                                1      512x256 (4K)   256x256   (1K)
-                                2      256x512 (4K)   512x512   (4K)
-                                3      512x512 (8K)   1024x1024 (16K)
-                               */
-            SCREEN_SIZE_MASK = 0b11 << 14;
-    }
-
-    namespace BLDCNT
-    {
-        static const uint16_t BG0_TARGET_PIXEL1_OFFSET = 0,
-                              BG1_TARGET_PIXEL1_OFFSET = 1,
-                              BG2_TARGET_PIXEL1_OFFSET = 2,
-                              BG3_TARGET_PIXEL1_OFFSET = 3,
-                              OBJ_TARGET_PIXEL1_OFFSET = 4,
-                              BD_TARGET_PIXEL1_OFFSET = 5,
-                              COLOR_SPECIAL_FX_OFFSET = 6,
-                              BG0_TARGET_PIXEL2_OFFSET = 8,
-                              BG1_TARGET_PIXEL2_OFFSET = 9,
-                              BG2_TARGET_PIXEL2_OFFSET = 10,
-                              BG3_TARGET_PIXEL2_OFFSET = 11,
-                              OBJ_TARGET_PIXEL2_OFFSET = 12,
-                              BD_TARGET_PIXEL2_OFFSET = 13;
-
-        static const uint16_t BG0_TARGET_PIXEL1_MASK = 1 << BG0_TARGET_PIXEL1_OFFSET,
-                              BG1_TARGET_PIXEL1_MASK = 1 << BG1_TARGET_PIXEL1_OFFSET,
-                              BG2_TARGET_PIXEL1_MASK = 1 << BG2_TARGET_PIXEL1_OFFSET,
-                              BG3_TARGET_PIXEL1_MASK = 1 << BG3_TARGET_PIXEL1_OFFSET,
-                              OBJ_TARGET_PIXEL1_MASK = 1 << OBJ_TARGET_PIXEL1_OFFSET,
-                              BD_TARGET_PIXEL1_MASK = 1 << BD_TARGET_PIXEL1_OFFSET,
-                              COLOR_SPECIAL_FX_MASK = 3 << COLOR_SPECIAL_FX_OFFSET,
-                              BG0_TARGET_PIXEL2_MASK = 1 << BG0_TARGET_PIXEL2_OFFSET,
-                              BG1_TARGET_PIXEL2_MASK = 1 << BG1_TARGET_PIXEL2_OFFSET,
-                              BG2_TARGET_PIXEL2_MASK = 1 << BG2_TARGET_PIXEL2_OFFSET,
-                              BG3_TARGET_PIXEL2_MASK = 1 << BG3_TARGET_PIXEL2_OFFSET,
-                              OBJ_TARGET_PIXEL2_MASK = 1 << OBJ_TARGET_PIXEL2_OFFSET,
-                              BD_TARGET_PIXEL2_MASK = 1 << BD_TARGET_PIXEL2_OFFSET;
-
-        enum ColorSpecialEffect : uint16_t {
-            None = 0,
-            AlphaBlending,
-            BrightnessIncrease,
-            BrightnessDecrease
-        };
-    } // namespace BLDCNT
-
-    namespace BLDALPHA
-    {
-        static const uint32_t EVA_COEFF_MASK = 0x1F,
-                              EVB_COEFF_MASK = 0x1F << 8;
-    }
-
-    namespace BLDY
-    {
-        static const uint32_t EVY_COEFF_MASK = 0x1F;
-    }
-
-    namespace MOSAIC
-    {
-        static const uint32_t BG_MOSAIC_HSIZE_OFFSET = 0,
-                              BG_MOSAIC_VSIZE_OFFSET = 4,
-                              OBJ_MOSAIC_HSIZE_OFFSET = 8,
-                              OBJ_MOSAIC_VSIZE_OFFSET = 12;
-
-        static const uint32_t BG_MOSAIC_HSIZE_MASK = 0xF << BG_MOSAIC_HSIZE_OFFSET,
-                              BG_MOSAIC_VSIZE_MASK = 0xF << BG_MOSAIC_VSIZE_OFFSET,
-                              OBJ_MOSAIC_HSIZE_MASK = 0xF << OBJ_MOSAIC_HSIZE_OFFSET,
-                              OBJ_MOSAIC_VSIZE_MASK = 0xF << OBJ_MOSAIC_VSIZE_OFFSET;
-    } // namespace MOSAIC
-
-    namespace DIMENSIONS
-    {
-        static const int32_t WIDTH = 240,
-                             HEIGHT = 160;
-    }
 
     struct LCDIORegs {
         uint16_t DISPCNT;       // LCD Control
@@ -272,7 +137,7 @@ namespace gbaemu::lcd
         int32_t targetX, targetY;
         Canvas<uint32_t> &target;
 
-        LCDisplay(uint32_t x, uint32_t y, Canvas<uint32_t> &targ) : canvas(DIMENSIONS::WIDTH, DIMENSIONS::HEIGHT), targetX(x), targetY(y), target(targ) {}
+        LCDisplay(uint32_t x, uint32_t y, Canvas<uint32_t> &targ) : canvas(SCREEN_WIDTH, SCREEN_HEIGHT), targetX(x), targetY(y), target(targ) {}
 
         int32_t stride() const
         {
@@ -338,8 +203,7 @@ namespace gbaemu::lcd
         void setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t bgMode);
         OBJAttribute *accessAttribute(uint32_t index);
         OBJAttribute getAttribute(uint32_t index);
-        void getRotationParameters(uint32_t index, common::math::real_t &a, common::math::real_t &b,
-                                   common::math::real_t &c, common::math::real_t &d);
+        std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(uint32_t index);
         void draw(LCDColorPalette &palette, bool use2dMapping, LCDisplay &display);
     };
 
@@ -366,7 +230,8 @@ namespace gbaemu::lcd
 
         /* general transformation of background in target display space */
         struct {
-            common::math::real_t dx, dy, dmx, dmy;
+            common::math::vec<2> d;
+            common::math::vec<2> dm;
             common::math::vec<2> origin;
         } step;
 

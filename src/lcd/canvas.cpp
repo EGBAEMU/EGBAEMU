@@ -215,39 +215,39 @@ namespace gbaemu::lcd
     template <class PixelType>
     void Canvas<PixelType>::drawSprite(const PixelType *src, int32_t srcWidth, int32_t srcHeight, int32_t srcStride,
                                        const common::math::vec<2>& origin,
-                                       common::math::real_t dx, common::math::real_t dy,
-                                       common::math::real_t dmx, common::math::real_t dmy,
+                                       const common::math::vec<2>& d,
+                                       const common::math::vec<2>& dm,
+                                       const common::math::vec<2>& screenRef,
                                        bool wrap)
     {
         /* TODO: Implement wrapping. */
+        /* Implemented according to pseudo code on https://www.coranac.com/tonc/text/affobj.htm. */
         typedef common::math::vec<2> vec2;
+        typedef common::math::real_t real_t;
 
         PixelType *destPixels = pixels();
-        vec2 spriteCoordScanLine = origin;
+        vec2 spriteCoordScanLine = vec2{d[0], d[1]} * (-screenRef[0]) + vec2{dm[0], dm[1]} * (-screenRef[1]) + origin;
 
-        for (int32_t canvY = 0; canvY < height; ++canvY) {
+        for (int32_t y = 0; y < height; ++y) {
             vec2 spriteCoord = spriteCoordScanLine;
 
-            for (int32_t canvX = 0; canvX < width; ++canvX) {
+            for (int32_t x = 0; x < width; ++x) {
                 int32_t sx = spriteCoord[0];
                 int32_t sy = spriteCoord[1];
 
                 /* assumes PixelType = uint32_t */
-                if (0 <= spriteCoord[0] && spriteCoord[0] < srcWidth &&
-                    0 <= spriteCoord[1] && spriteCoord[1] < srcHeight) {
+                if (0 <= sx && sx < srcWidth && 0 <= sy && sy < srcHeight) {
                     PixelType color = src[sy * srcStride + sx];
 
                     if (color & 0xFF000000) {
-                        destPixels[canvY * width + canvX] = color;
+                        destPixels[y * width + x] = color;
                     }
                 }
 
-                spriteCoord[0] += dx;
-                spriteCoord[1] += dy;
+                spriteCoord += d;
             }
 
-            spriteCoordScanLine[0] += dmx;
-            spriteCoordScanLine[1] += dmy;
+            spriteCoordScanLine += dm;
         }        
     }
 

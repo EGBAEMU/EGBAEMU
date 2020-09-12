@@ -100,15 +100,20 @@ namespace gbaemu::lcd
         return OBJAttribute{le(uints[0]), le(uints[1]), le(uints[2])};
     }
 
-    void OBJLayer::getRotationParameters(uint32_t index, common::math::real_t& a, common::math::real_t& b,
-            common::math::real_t& c, common::math::real_t& d)
+    std::tuple<common::math::vec<2>, common::math::vec<2>> OBJLayer::getRotScaleParameters(uint32_t index)
     {
         const uint16_t *uints = reinterpret_cast<const uint16_t *>(attributes);
 
-        a = fixedToFloat<uint16_t, 8, 7>(le(uints[index * 4 + 3]));
-        b = fixedToFloat<uint16_t, 8, 7>(le(uints[(index + 1) * 4 + 3]));
-        c = fixedToFloat<uint16_t, 8, 7>(le(uints[(index + 2) * 4 + 3]));
-        d = fixedToFloat<uint16_t, 8, 7>(le(uints[(index + 3) * 4 + 3]));
+        return std::make_tuple<common::math::vec<2>, common::math::vec<2>>(
+            common::math::vec<2>{
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[index       * 4 + 3])),
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[(index + 2) * 4 + 3]))
+            },
+            common::math::vec<2>{
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[(index + 1) * 4 + 3])),
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[(index + 3) * 4 + 3]))
+            }
+        );
     }
 
     void OBJLayer::draw(LCDColorPalette &palette, bool use2dMapping, LCDisplay &display)
@@ -272,30 +277,62 @@ namespace gbaemu::lcd
             }
 
             /* get parameters */
-            common::math::real_t dx, dmx, dy, dmy;
-            common::math::vec<2> origin{
-                -static_cast<common::math::real_t>(xOff),
-                -static_cast<common::math::real_t>(yOff)
-            };
+            common::math::vec<2> d, dm;
 
             if (useRotScale) {
                 uint16_t index = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::ROT_SCALE_PARAM_MASK, OBJ_ATTRIBUTE::ROT_SCALE_PARAM_OFFSET);
-                getRotationParameters(index, dx, dmx, dy, dmy);
-            } else {
-                /* default */
-                dx = 1;
-                dy = 0;
-                dmx = 0;
-                dmy = 1;
+                auto result = getRotScaleParameters(index);
+
+                d = std::get<0>(result);
+                dm = std::get<1>(result);
+
+                bool doubleSize = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::DOUBLE_SIZE_MASK, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET);
             }
 
-            //dx = 1;
-            //dy = 0;
-            //dmx = 0;
-            //dmy = 1;
+            //xOff = 0;
+            //yOff = 0;
 
-            display.canvas.drawSprite(tempBuffer, 64, 64, 64,
-                origin, dx, dy, dmx, dmy);
+            common::math::vec<2> origin{
+                static_cast<common::math::real_t>(width) / 2,
+                static_cast<common::math::real_t>(height) / 2
+            };
+
+#ifdef DEBUG_DRAW_SPRITE_BOUNDS
+            {
+                color_t color = (i == 0) ? 0xFFFF0000 : 0xFF00FF00;
+
+                for (int32_t y = 0; y < height; ++y) {
+                    tempBuffer[y * 64] = color;
+                    tempBuffer[y * 64 + width - 1] = color;
+                }
+
+                for (int32_t x = 0; x < width; ++x) {
+                    tempBuffer[x] = color;
+                    tempBuffer[(height - 1) * 64 + x] = color;
+                }
+            }
+#endif
+
+#ifdef DEBUG_DRAW_SPRITE_GRID
+            {
+                color_t color = (i == 0) ? 0xFFFF0000 : 0xFF00FF00;
+
+                for (int32_t y = 0; y < height; ++y)
+                    for (int32_t x = 0; x < width; x += SPRITE_GRID_SPACING)
+                        tempBuffer[y * 64 + x] = color;
+
+                for (int32_t y = 0; y < height; y += SPRITE_GRID_SPACING)
+                    for (int32_t x = 0; x < width; ++x)
+                        tempBuffer[y * 64 + x] = color;
+            }
+#endif
+
+            common::math::vec<2> screenRef{
+                static_cast<common::math::real_t>(xOff + width),
+                static_cast<common::math::real_t>(yOff + height)
+            };
+
+            display.canvas.drawSprite(tempBuffer, width, height, 64, origin, d, dm, screenRef);
         }
     }
 
@@ -372,38 +409,38 @@ namespace gbaemu::lcd
                 step.origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2X));
                 step.origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2Y));
 
-                step.dx = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[0]));
-                step.dmx = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[1]));
-                step.dy = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[2]));
-                step.dmy = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[3]));
-
-                if (step.dx == 0 && step.dy == 0) {
-                    step.dx = 1;
-                    step.dy = 0;
-                }
-
-                if (step.dmx == 0 && step.dmy == 0) {
-                    step.dmx = 0;
-                    step.dmy = 1;
-                }
+                step.d[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[0]));
+                step.dm[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[1]));
+                step.d[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[2]));
+                step.dm[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[3]));
             } else {
                 step.origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3X));
                 step.origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3Y));
 
-                step.dx = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[0]));
-                step.dmx = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[1]));
-                step.dy = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[2]));
-                step.dmy = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[3]));
+                step.d[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[0]));
+                step.dm[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[1]));
+                step.d[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[2]));
+                step.dm[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[3]));
+            }
+
+            if (step.d[0] == 0 && step.d[1] == 0) {
+                step.d[0] = 1;
+                step.d[1] = 0;
+            }
+
+            if (step.dm[0] == 0 && step.dm[1] == 0) {
+                step.dm[0] = 0;
+                step.dm[1] = 1;
             }
         } else {
             /* use scrolling parameters */
             step.origin[0] = le(regs.BGOFS[bgIndex].h) & 0x1F;
             step.origin[1] = le(regs.BGOFS[bgIndex].v) & 0x1F;
 
-            step.dx = 1;
-            step.dy = 0;
-            step.dmx = 0;
-            step.dmy = 1;
+            step.d[0] = 1;
+            step.d[1] = 0;
+            step.dm[0] = 0;
+            step.dm[1] = 1;
         }
 
         /* 32x32 tiles, arrangement depends on resolution */
@@ -628,27 +665,27 @@ namespace gbaemu::lcd
 
     void Background::drawToDisplay(LCDisplay &display)
     {
-        auto pixs = canvas.pixels();
-        auto stride = canvas.getWidth();
+#ifdef DEBUG_DRAW_BG_BOUNDS
+        {
+            auto pixs = canvas.pixels();
+            auto stride = canvas.getWidth();
 
-        /* draw bounds */
-        /*
-        for (int32_t y = 0; y < canvas.getHeight(); y += 32) {
-            for (int32_t x = 0; x < canvas.getWidth(); ++x) {
-                pixs[y * stride + x] = 0xFFFF0000;
-            }
-        }
-
-        for (int32_t x = 0; x < canvas.getWidth(); x += 32) {
             for (int32_t y = 0; y < canvas.getHeight(); ++y) {
-                pixs[y * stride + x] = 0xFFFF0000;
+                pixs[y * stride] = BG_BOUNDS_COLOR;
+                pixs[y * stride + stride - 1] = BG_BOUNDS_COLOR;
+            }
+
+            for (int32_t x = 0; x < canvas.getWidth(); ++x) {
+                pixs[x] = BG_BOUNDS_COLOR;
+                pixs[(canvas.getHeight() - 1) * stride + x] = BG_BOUNDS_COLOR;
             }
         }
-         */
+#endif
 
         display.canvas.beginDraw();
+        const common::math::vec<2> screenRef{0, 0};
         display.canvas.drawSprite(canvas.pixels(), canvas.getWidth(), canvas.getHeight(), canvas.getWidth(),
-            step.origin, step.dx, step.dy, step.dmx, step.dmy);
+            step.origin, step.d, step.dm, screenRef);
         display.canvas.endDraw();
     }
 

@@ -87,6 +87,7 @@ template uint32_t gbaemu::le<uint32_t>(uint32_t);
 
 template double gbaemu::fixedToFloat<uint32_t, 8, 19>(uint32_t);
 template double gbaemu::fixedToFloat<uint16_t, 8, 7>(uint16_t);
+template float gbaemu::fixedToFloat<uint16_t, 8, 7>(uint16_t);
 
 template uint16_t gbaemu::floatToFixed<uint16_t, 8, 7, float>(float);
 template uint16_t gbaemu::floatToFixed<uint16_t, 8, 7, double>(double);

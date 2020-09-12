@@ -32,8 +32,9 @@ namespace gbaemu::lcd
                         const common::math::mat<3, 3> &trans, const common::math::mat<3, 3> &invTrans, bool wrap = false);
         void drawSprite(const PixelType *src, int32_t srcWidth, int32_t srcHeight, int32_t srcStride,
                         const common::math::vec<2>& origin,
-                        common::math::real_t dx, common::math::real_t dy,
-                        common::math::real_t dmx, common::math::real_t dmy,
+                        const common::math::vec<2>& d,
+                        const common::math::vec<2>& dm,
+                        const common::math::vec<2>& screenRef,
                         bool wrap = false);
     };
 
