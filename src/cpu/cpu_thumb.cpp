@@ -28,6 +28,9 @@ namespace gbaemu
         } else {
             // First instruction
             extendedAddr <<= 12;
+            // The destination address range is (PC+4)-400000h..+3FFFFEh -> sign extension is needed
+            // Apply sign extension!
+            extendedAddr = static_cast<uint32_t>(static_cast<int32_t>(extendedAddr << 9) / (static_cast<int32_t>(1) << 9));
             *currentRegs[regs::LR_OFFSET] = *currentRegs[regs::PC_OFFSET] + 4 + extendedAddr;
 
             // pipeline flush -> additional cycles needed
