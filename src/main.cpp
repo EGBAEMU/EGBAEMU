@@ -16,7 +16,7 @@
 
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5
-#define DEBUG_STACK_PRINT_RANGE 5
+#define DEBUG_STACK_PRINT_RANGE 8
 #define SDL_EVENT_POLL_INTERVALL 16384
 
 static volatile bool doRun = true;

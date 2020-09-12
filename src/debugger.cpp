@@ -1,5 +1,6 @@
 #include "debugger.hpp"
 #include <sstream>
+#include <iostream>
 
 namespace gbaemu::debugger
 {
@@ -57,6 +58,18 @@ namespace gbaemu::debugger
     bool RegisterNonZeroTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
     {
         return minPcOffset < postPC && state.accessReg(targetReg) != 0;
+    }
+
+    void MemoryChangeTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
+    {
+        *stepMode = true;
+        prevMemValue = state.memory.read32(memAddr, nullptr);
+        std::cout << "INFO memory trap triggered of addr: 0x" << std::hex << memAddr << " new Value: 0x" << std::hex << prevMemValue << std::endl;
+    }
+
+    bool MemoryChangeTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
+    {
+        return minPcOffset < postPC && state.memory.read32(memAddr, nullptr) != prevMemValue;
     }
 
     void AddressTrapTimesX::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)

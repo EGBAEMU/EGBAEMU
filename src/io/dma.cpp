@@ -42,7 +42,7 @@ namespace gbaemu
             case IDLE:
                 if (extractRegValues()) {
                     state = conditionSatisfied() ? STARTED : WAITING_PAUSED;
-                    std::cout << "INFO: Registered DMA" << channel << " transfer request." << std::endl;
+                    std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
                     std::cout << "      Source Addr: 0x" << std::hex << srcAddr << std::endl;
                     std::cout << "      Dest Addr:   0x" << std::hex << destAddr << std::endl;
                     std::cout << "      Words: 0x" << std::hex << count << std::endl;

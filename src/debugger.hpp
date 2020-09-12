@@ -87,6 +87,21 @@ namespace gbaemu::debugger
         bool satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
     };
 
+    class MemoryChangeTrap : public Trap
+    {
+      private:
+        uint32_t memAddr;
+        bool *stepMode;
+        uint32_t minPcOffset;
+        uint32_t prevMemValue;
+
+      public:
+        MemoryChangeTrap(uint32_t memAddr, uint32_t minPcOffset, bool *stepMode) : memAddr(memAddr), stepMode(stepMode), minPcOffset(minPcOffset), prevMemValue(0) {}
+
+        void trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
+        bool satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
+    };
+
     /*
         A Watchdog checks at every instruction/CPU-state if any of the traps can trigger
         and calls their trigger function.

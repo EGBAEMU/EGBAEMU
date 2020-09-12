@@ -101,15 +101,12 @@ namespace gbaemu
                 // Execute pipeline only after stall is over
                 if (info.cycleCount == 0) {
                     irqHandler.checkForInterrupt();
-                    // TODO: Check for interrupt here
-                    // TODO: stall for certain instructions like wait for interrupt...
-                    // TODO: Fetch can be executed always. Decode and Execute stages might have been flushed after branch
                     fetch();
                     decode();
                     uint32_t prevPC = state.getCurrentPC();
                     info = execute();
-                    // Current cycle must be removed
 
+                    // Current cycle must be removed
                     --info.cycleCount;
 
                     if (info.hasCausedException) {
