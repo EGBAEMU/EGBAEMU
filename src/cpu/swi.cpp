@@ -260,6 +260,8 @@ namespace gbaemu
         */
         InstructionExecutionInfo cpuFastSet(CPU *cpu)
         {
+            std::cout << "WARNING: cpuFastSet called, which doesnt has sanity checks nor proper mirroring handling!\n";
+
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
@@ -314,6 +316,8 @@ namespace gbaemu
         */
         InstructionExecutionInfo cpuSet(CPU *cpu)
         {
+            std::cout << "WARNING: cpuSet called, which doesnt has sanity checks nor proper mirroring handling!\n";
+
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
             //TODO proper time calculation
