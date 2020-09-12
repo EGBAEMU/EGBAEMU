@@ -1,9 +1,5 @@
-
-#include "io/dma.hpp"
-#include "io/interrupts.hpp"
-#include "io/timer.hpp"
-
 #include "cpu.hpp"
+#include "util.hpp"
 
 #include <set>
 
@@ -30,7 +26,7 @@ namespace gbaemu
             extendedAddr <<= 12;
             // The destination address range is (PC+4)-400000h..+3FFFFEh -> sign extension is needed
             // Apply sign extension!
-            extendedAddr = static_cast<uint32_t>(static_cast<int32_t>(extendedAddr << 9) / (static_cast<int32_t>(1) << 9));
+            extendedAddr = signExt<int32_t, uint32_t, 23>(extendedAddr);
             *currentRegs[regs::LR_OFFSET] = *currentRegs[regs::PC_OFFSET] + 4 + extendedAddr;
 
             // pipeline flush -> additional cycles needed
@@ -43,7 +39,7 @@ namespace gbaemu
 
     InstructionExecutionInfo CPU::handleThumbUnconditionalBranch(int16_t offset)
     {
-        state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(state.getCurrentPC()) + 4 + (offset * 2));
+        state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(state.getCurrentPC() + 4 + static_cast<int32_t>(offset) * 2);
 
         // Unconditional branches take 2S + 1N
         InstructionExecutionInfo info{0};

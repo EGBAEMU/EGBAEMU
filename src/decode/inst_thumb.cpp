@@ -475,7 +475,7 @@ namespace gbaemu
 
                 // first we extract the 11 bit offset, then we place it at the MSB so we can automatically sign extend it after casting to a signed type
                 // finally shift back where it came from but this time with correct sign
-                instruction.params.unconditional_branch.offset = static_cast<int16_t>((lastInst & 0x07FF) << 5) / (1 << 5) /*>> 5*/;
+                instruction.params.unconditional_branch.offset = signExt<int16_t, uint16_t, 11>(static_cast<uint16_t>(lastInst & 0x07FF));
             } else if ((lastInst & MASK_THUMB_LONG_BRANCH_WITH_LINK) == VAL_THUMB_LONG_BRANCH_WITH_LINK) {
 
                 instruction.cat = ThumbInstructionCategory::LONG_BRANCH_WITH_LINK;

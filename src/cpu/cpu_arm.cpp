@@ -1,4 +1,5 @@
 #include "cpu.hpp"
+#include "util.hpp"
 
 #include <iostream>
 #include <set>
@@ -845,7 +846,7 @@ namespace gbaemu
 
             if (sign) {
                 // Do the sign extension by moving MSB to bit 31 and then reinterpret as signed and divide by power of 2 for a sign extended shift back
-                readData = static_cast<uint32_t>(static_cast<int32_t>(readData << (32 - transferSize)) / (static_cast<int32_t>(1) << (32 - transferSize)));
+                readData = signExt<int32_t, uint32_t>(readData, transferSize);
             }
 
             state.accessReg(rd) = readData;

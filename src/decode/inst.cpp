@@ -128,8 +128,8 @@ namespace gbaemu
                     return extendedVal << amount;
                 case LSR: {
                     /*
-                Carry flag is the MSB of the out shifted values! -> bit amount - 1
-                */
+                    Carry flag is the MSB of the out shifted values! -> bit amount - 1
+                    */
                     uint64_t carry = (amount > 32 ? 0 : (static_cast<uint64_t>((extendedVal >> (amount - 1)) & 0x1) << 32));
                     uint64_t res = (extendedVal >> amount) | carry;
 
@@ -143,8 +143,8 @@ namespace gbaemu
                 case ASR: {
 
                     /*
-                Carry flag is the MSB of the out shifted values! -> bit amount - 1
-                */
+                    Carry flag is the MSB of the out shifted values! -> bit amount - 1
+                    */
                     // ensure a value in range of [0, 32]
                     uint8_t restOf32 = amount % 32;
                     amount = (amount > 32 ? (restOf32 ? restOf32 : 32) : amount);
@@ -163,8 +163,8 @@ namespace gbaemu
                     }
 
                     /*
-                Carry flag is the MSB of the out shifted values! -> bit amount - 1
-                */
+                    Carry flag is the MSB of the out shifted values! -> bit amount - 1
+                    */
                     uint64_t extendedRes = static_cast<uint64_t>(res) | (static_cast<uint64_t>((extendedVal >> (amount - 1)) & 0x1) << 32);
 
                     return extendedRes;

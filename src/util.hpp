@@ -3,7 +3,6 @@
 
 #include <cstdint>
 
-
 namespace gbaemu
 {
     /* converts from or to little endian regardless of the platform */
@@ -31,6 +30,18 @@ namespace gbaemu
 
     template <class T>
     T clamp(const T& value, const T& mn, const T& mx);
+
+    template <class SignT, class T>
+    SignT signExt(T val, uint8_t usedBits)
+    {
+        return static_cast<SignT>(static_cast<SignT>(val) << (sizeof(SignT) * 8 - usedBits)) / ((static_cast<SignT>(1) << (sizeof(SignT) * 8 - usedBits)));
+    }
+
+    template <class SignT, class T, uint8_t usedBits>
+    SignT signExt(T val)
+    {
+        return static_cast<SignT>(static_cast<SignT>(val) << (sizeof(SignT) * 8 - usedBits)) / ((static_cast<SignT>(1) << (sizeof(SignT) * 8 - usedBits)));
+    }
 
 #define STRINGIFY(x) (#x)
 
