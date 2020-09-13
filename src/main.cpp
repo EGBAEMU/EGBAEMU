@@ -161,17 +161,17 @@ int main(int argc, char **argv)
     gbaemu::lcd::LCDController controller(display, &cpu, &canDrawToScreenMutex, &canDrawToScreen);
 
     std::cout << "Game Title: ";
-    for (size_t i = 0; i < 12; ++i) {
+    for (uint32_t i = 0; i < 12; ++i) {
         std::cout << static_cast<char>(cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0A0 + i, nullptr));
     }
     std::cout << std::endl;
     std::cout << "Game Code: ";
-    for (size_t i = 0; i < 4; ++i) {
+    for (uint32_t i = 0; i < 4; ++i) {
         std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0AC + i, nullptr) << " ";
     }
     std::cout << std::endl;
     std::cout << "Maker Code: ";
-    for (size_t i = 0; i < 2; ++i) {
+    for (uint32_t i = 0; i < 2; ++i) {
         std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0B0 + i, nullptr) << " ";
     }
     std::cout << std::endl;

@@ -49,7 +49,7 @@ namespace gbaemu
                         ss << (x ? "x" : "");
                         ss << (c ? "c" : "");
                         if (params.data_proc_psr_transf.i) {
-                            uint32_t roredImm = shift(imm, shiftType, shiftAmount, false, false);
+                            uint32_t roredImm = static_cast<uint32_t>(shift(imm, shiftType, shiftAmount, false, false));
                             ss << ", #" << roredImm;
                         } else {
                             ss << ", r" << std::dec << static_cast<uint32_t>(rm);
@@ -65,7 +65,7 @@ namespace gbaemu
                             ss << " r" << static_cast<uint32_t>(rn);
 
                         if (params.data_proc_psr_transf.i) {
-                            uint32_t roredImm = shift(imm, shiftType, shiftAmount, false, false);
+                            uint32_t roredImm = static_cast<uint32_t>(shift(imm, shiftType, shiftAmount, false, false));
                             ss << ", #" << roredImm;
                         } else {
                             ss << " r" << static_cast<uint32_t>(rm);

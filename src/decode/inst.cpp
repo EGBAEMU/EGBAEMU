@@ -155,7 +155,7 @@ namespace gbaemu
                     // ensure a value in range of [0, 32]
                     uint8_t restOf32 = amount % 32;
                     amount = (amount > 32 ? (restOf32 ? restOf32 : 32) : amount);
-                    uint32_t res = (extendedVal >> amount) | (extendedVal << (32 - amount));
+                    uint32_t res = static_cast<uint32_t>((extendedVal >> amount) | (extendedVal << (32 - amount)));
 
                     // ROR#0: Interpreted as RRX#1 (RCR), like ROR#1, but Op2 Bit 31 set to old C.
                     if (initialZeroAmount) {

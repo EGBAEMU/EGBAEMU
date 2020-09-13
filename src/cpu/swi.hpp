@@ -60,7 +60,7 @@ namespace gbaemu
         //Custom SWI handler
         SWIHandler changeBIOSState;
 
-        const SWIHandler *const biosCallHandler[] = {
+        SWIHandler *const biosCallHandler[] = {
             softReset,
             registerRamReset,
             halt,

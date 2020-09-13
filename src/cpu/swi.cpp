@@ -415,7 +415,7 @@ namespace gbaemu
 
             auto &m = cpu->state.memory;
 
-            for (size_t i = 0; i < iterationCount; ++i) {
+            for (uint32_t i = 0; i < iterationCount; ++i) {
                 uint32_t off = i * 20;
                 float ox = m.read32(off + sourceAddr, &info, true) / 256.f;
                 float oy = m.read32(off + sourceAddr + 4, &info, true) / 256.f;
@@ -487,7 +487,7 @@ namespace gbaemu
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
 
-            for (size_t i = 0; i < iterationCount; ++i) {
+            for (uint32_t i = 0; i < iterationCount; ++i) {
                 uint32_t srcOff = i * 8;
                 float sx = m.read16(srcOff + sourceAddr, &info, i != 0) / 256.f;
                 float sy = m.read16(srcOff + sourceAddr + 2, &info, true) / 256.f;

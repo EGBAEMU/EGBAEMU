@@ -334,7 +334,7 @@ namespace gbaemu
 
     InstructionExecutionInfo CPU::handleThumbMoveShiftedReg(InstructionID ins, uint8_t rs, uint8_t rd, uint8_t offset)
     {
-        uint64_t rsValue = static_cast<uint64_t>(state.accessReg(rs));
+        uint32_t rsValue = state.accessReg(rs);
         uint64_t rdValue = 0;
 
         shifts::ShiftType shiftType = shifts::ShiftType::LSL;

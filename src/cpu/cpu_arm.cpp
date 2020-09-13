@@ -410,7 +410,7 @@ namespace gbaemu
                 shifterOperand = (-shifterOperand) & 0x0FFFFFFFF;
                 break;
             case NEG:
-                resultValue = 0 - static_cast<int64_t>(rnValue);
+                resultValue = -static_cast<int64_t>(rnValue);
                 shifterOperand = (-rnValue) & 0x0FFFFFFFF;
                 rnValue = 0;
                 break;
@@ -445,7 +445,7 @@ namespace gbaemu
         }
 
         if (dontUpdateRD.find(inst.id) == dontUpdateRD.end())
-            state.accessReg(inst.params.data_proc_psr_transf.rd) = resultValue;
+            state.accessReg(inst.params.data_proc_psr_transf.rd) = static_cast<uint32_t>(resultValue);
 
         InstructionExecutionInfo info{0};
         bool destPC = inst.params.data_proc_psr_transf.rd == regs::PC_OFFSET;
@@ -710,9 +710,11 @@ namespace gbaemu
             rdValue += thumb ? 6 : 12;
         }
 
+        offset = up ? offset: -offset;
+
         /* if the offset is added depends on the indexing mode */
         if (pre)
-            memoryAddress = up ? rnValue + offset : rnValue - offset;
+            memoryAddress = rnValue + offset;
         else
             memoryAddress = rnValue;
 
@@ -744,7 +746,7 @@ namespace gbaemu
         }
 
         if (!pre)
-            memoryAddress += up ? offset : -offset;
+            memoryAddress += offset;
 
         if ((!pre || writeback) && (!load || rn != rd))
             *currentRegs[rn] = memoryAddress;
@@ -820,9 +822,11 @@ namespace gbaemu
             rdValue += thumb ? 6 : 12;
         }
 
+        offset = up ? offset : -offset;
+
         uint32_t memoryAddress;
         if (pre) {
-            memoryAddress = rnValue + (up ? offset : -offset);
+            memoryAddress = rnValue + offset;
         } else
             memoryAddress = rnValue;
 
@@ -860,7 +864,7 @@ namespace gbaemu
 
         if ((!pre || writeback) && (!load || rn != rd)) {
             if (!pre) {
-                memoryAddress += (up ? offset : -offset);
+                memoryAddress += offset;
             }
 
             state.accessReg(rn) = memoryAddress;

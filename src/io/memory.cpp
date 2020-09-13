@@ -140,7 +140,7 @@ namespace gbaemu
                     // 0x06010000-0x06017FFF ignored
                     // 0x06000000-0x0600FFFF as BG_OBJ_RAM
                     uint32_t normalizedAddr = normalizeAddress(addr, memReg);
-                    if (normalizedAddr <= (bitMapMode ? 0x0613FFFF : 0x0600FFFF)) {
+                    if (normalizedAddr <= static_cast<uint32_t>(bitMapMode ? 0x0613FFFF : 0x0600FFFF)) {
                         // Reuse BG_OBJ_RAM code
                     } else {
                         // Else ignored
