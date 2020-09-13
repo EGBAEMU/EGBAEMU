@@ -277,7 +277,8 @@ namespace gbaemu::lcd
             }
 
             /* get parameters */
-            common::math::vec<2> d, dm;
+            common::math::vec<2> d{1, 0}, dm{0, 1};
+            bool doubleSized =  useRotScale && bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::DOUBLE_SIZE_MASK, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET);
 
             if (useRotScale) {
                 uint16_t index = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::ROT_SCALE_PARAM_MASK, OBJ_ATTRIBUTE::ROT_SCALE_PARAM_OFFSET);
@@ -285,16 +286,11 @@ namespace gbaemu::lcd
 
                 d = std::get<0>(result);
                 dm = std::get<1>(result);
-
-                bool doubleSize = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::DOUBLE_SIZE_MASK, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET);
             }
 
-            //xOff = 0;
-            //yOff = 0;
-
             common::math::vec<2> origin{
-                static_cast<common::math::real_t>(width) / 2,
-                static_cast<common::math::real_t>(height) / 2
+                static_cast<real_t>(width) / 2,
+                static_cast<real_t>(height) / 2
             };
 
 #ifdef DEBUG_DRAW_SPRITE_BOUNDS
@@ -328,11 +324,17 @@ namespace gbaemu::lcd
 #endif
 
             common::math::vec<2> screenRef{
-                static_cast<common::math::real_t>(xOff + width),
-                static_cast<common::math::real_t>(yOff + height)
+                static_cast<real_t>(xOff + width / 2),
+                static_cast<real_t>(yOff + height / 2)
             };
 
-            display.canvas.drawSprite(tempBuffer, width, height, 64, origin, d, dm, screenRef);
+            if (doubleSized) {
+                screenRef[0] = static_cast<real_t>(xOff + width);
+                screenRef[1] = static_cast<real_t>(yOff + height);
+            }
+
+            display.canvas.drawSprite(tempBuffer, width, height, 64,
+                origin, d, dm, screenRef);
         }
     }
 
