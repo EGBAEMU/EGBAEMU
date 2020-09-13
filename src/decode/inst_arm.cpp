@@ -514,8 +514,6 @@ namespace gbaemu
 
                 bool l = (lastInst >> 24) & 1;
 
-                //std::cout << std::hex << lastInst << std::endl;
-
                 instruction.params.branch.l = l;
                 /* convert signed 24 to signed 32 */
                 uint32_t si = lastInst & 0x00FFFFFF;

@@ -163,8 +163,8 @@ namespace gbaemu
             if (getFlag(cpsr_flags::THUMB_STATE)) {
                 uint32_t bytes = memory.read16(i, nullptr, false, true);
 
-                uint32_t b0 = bytes & 0xFF;
-                uint32_t b1 = (bytes >> 8) & 0xFF;
+                uint32_t b0 = bytes & 0x0FF;
+                uint32_t b1 = (bytes >> 8) & 0x0FF;
 
                 auto inst = decoder->decode(bytes).thumb;
 
@@ -178,10 +178,10 @@ namespace gbaemu
             } else {
                 uint32_t bytes = memory.read32(i, nullptr, false, true);
 
-                uint32_t b0 = bytes & 0xFF;
-                uint32_t b1 = (bytes >> 8) & 0xFF;
-                uint32_t b2 = (bytes >> 16) & 0xFF;
-                uint32_t b3 = (bytes >> 24) & 0xFF;
+                uint32_t b0 = bytes & 0x0FF;
+                uint32_t b1 = (bytes >> 8) & 0x0FF;
+                uint32_t b2 = (bytes >> 16) & 0x0FF;
+                uint32_t b3 = (bytes >> 24) & 0x0FF;
 
                 auto inst = decoder->decode(bytes).arm;
 

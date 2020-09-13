@@ -23,6 +23,36 @@ namespace gbaemu
             }
         }
 
+        InstructionExecutionInfo callBiosCodeSWIHandler(CPU *cpu)
+        {
+            /*
+            How BIOS Processes SWIs
+            SWIs can be called from both within THUMB and ARM mode. In ARM mode, only the upper 8bit of the 24bit comment field are interpreted.
+            Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
+            In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
+            */
+
+            // Save the current CPSR register value into SPSR_svc
+            *(cpu->state.getModeRegs(CPUState::SupervisorMode)[regs::SPSR_OFFSET]) = cpu->state.accessReg(regs::CPSR_OFFSET);
+            // Save PC to LR_svc
+            *(cpu->state.getModeRegs(CPUState::SupervisorMode)[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + (cpu->state.getFlag(cpsr_flags::THUMB_STATE) ? 2 : 4);
+
+            // Ensure that the CPSR represents that we are in ARM mode again
+            // Clear all flags & enforce supervisor mode
+            //TODO In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure.
+            // Also disable interrupts
+            cpu->state.accessReg(regs::CPSR_OFFSET) = 0b010011 | (1 << 7);
+
+            // Offset to the swi routine
+            cpu->state.accessReg(regs::PC_OFFSET) = Memory::BIOS_SWI_HANDLER_OFFSET;
+
+            InstructionExecutionInfo info{0};
+
+            info.forceBranch = true;
+
+            return info;
+        }
+
         InstructionExecutionInfo softReset(CPU *cpu)
         {
             //TODO implement
@@ -260,6 +290,7 @@ namespace gbaemu
         */
         InstructionExecutionInfo cpuFastSet(CPU *cpu)
         {
+            /*
             std::cout << "WARNING: cpuFastSet called, which doesnt has sanity checks nor proper mirroring handling!\n";
 
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
@@ -302,6 +333,8 @@ namespace gbaemu
             }
 
             return info;
+            */
+            return callBiosCodeSWIHandler(cpu);
         }
         /*
         Memory copy/fill in units of 4 bytes or 2 bytes. Memcopy is implemented as repeated LDMIA/STMIA [Rb]!,r3 or LDRH/STRH r3,[r0,r5] instructions. Memfill as single LDMIA or LDRH followed by repeated STMIA [Rb]!,r3 or STRH r3,[r0,r5].
@@ -316,6 +349,7 @@ namespace gbaemu
         */
         InstructionExecutionInfo cpuSet(CPU *cpu)
         {
+            /*
             std::cout << "WARNING: cpuSet called, which doesnt has sanity checks nor proper mirroring handling!\n";
 
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
@@ -361,6 +395,8 @@ namespace gbaemu
             }
 
             return info;
+            */
+            return callBiosCodeSWIHandler(cpu);
         }
 
         /*

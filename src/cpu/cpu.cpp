@@ -400,7 +400,7 @@ namespace gbaemu
 
         // Change from arm mode to thumb mode or vice versa
         if (prevThumbMode != postThumbMode) {
-            if (state.decoder == &armDecoder) {
+            if (postThumbMode) {
                 state.decoder = &thumbDecoder;
             } else {
                 state.decoder = &armDecoder;
