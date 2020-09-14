@@ -49,7 +49,8 @@ namespace gbaemu
             STRINGIFY_CASE_ID(LDRH);
             STRINGIFY_CASE_ID(LDRSB);
             STRINGIFY_CASE_ID(LDRSH);
-            STRINGIFY_CASE_ID(LDRD);
+            // supported arm5 and up
+            //STRINGIFY_CASE_ID(LDRD);
             STRINGIFY_CASE_ID(MLA);
             STRINGIFY_CASE_ID(MOV);
             STRINGIFY_CASE_ID(MRS);
@@ -203,9 +204,9 @@ namespace gbaemu
     bool Instruction::isValid() const
     {
         if (isArm)
-            return (arm.cat != arm::INVALID_CAT) && (arm.id != INVALID);
+            return arm.cat != arm::INVALID_CAT && arm.id != INVALID;
         else
-            return thumb.cat != thumb::INVALID_CAT && (thumb.id != INVALID);
+            return thumb.cat != thumb::INVALID_CAT && thumb.id != INVALID;
     }
 
     Instruction Instruction::fromARM(arm::ARMInstruction &armInst)

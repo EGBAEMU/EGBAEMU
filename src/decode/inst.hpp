@@ -122,7 +122,7 @@ namespace gbaemu
         LDRH,
         LDRSB,
         LDRSH,
-        LDRD, /* supported arm5 and up */
+        //LDRD, /* supported arm5 and up */
         MLA,
         MOV,
         MRS,
