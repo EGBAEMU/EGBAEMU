@@ -72,6 +72,13 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 
         //BREAK(cpu.state.accessReg(gbaemu::regs::PC_OFFSET) == 0x03007d80);
 
+        if(cpu.state.getCurrentPC() == 0x80b55ee) {
+            std::cout << cpu.executionInfo.message << cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), 32) <<
+                cpu.state.toString() << std::endl;
+            break;
+        }
+
+
         if (cpu.step() == gbaemu::CPUExecutionInfoType::EXCEPTION) {
             std::cout << cpu.executionInfo.message << cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), 32) << std::endl;
             break;
