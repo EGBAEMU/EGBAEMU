@@ -109,7 +109,7 @@ namespace gbaemu::debugger
         uint32_t prevMemValue;
 
       public:
-        MemoryChangeTrap(uint32_t memAddr, uint32_t minPcOffset, bool *stepMode) : memAddr(memAddr), stepMode(stepMode), minPcOffset(minPcOffset), prevMemValue(0) {}
+        MemoryChangeTrap(uint32_t memAddr, uint32_t minPcOffset, bool *stepMode, uint32_t initialMemValue = 0) : memAddr(memAddr), stepMode(stepMode), minPcOffset(minPcOffset), prevMemValue(initialMemValue) {}
 
         void trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
         bool satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
