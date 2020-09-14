@@ -92,48 +92,6 @@ namespace gbaemu::lcd
         uint32_t getBackdropColor() const;
     };
 
-    class LCDisplay
-    {
-      public:
-        MemoryCanvas<uint32_t> canvas;
-        int32_t targetX, targetY;
-        Canvas<uint32_t> &target;
-
-        LCDisplay(uint32_t x, uint32_t y, Canvas<uint32_t> &targ) : canvas(SCREEN_WIDTH, SCREEN_HEIGHT), targetX(x), targetY(y), target(targ) {}
-
-        int32_t stride() const
-        {
-            return canvas.getWidth();
-        }
-
-        void drawToTarget(int32_t scale = 1)
-        {
-            target.beginDraw();
-
-            auto stride = target.getWidth();
-            auto dest = target.pixels();
-
-            auto src = canvas.pixels();
-            auto srcStride = canvas.getWidth();
-
-            for (int32_t y = 0; y < canvas.getHeight(); ++y)
-                for (int32_t x = 0; x < canvas.getWidth(); ++x) {
-                    auto color = src[y * srcStride + x];
-
-                    for (int32_t iy = 0; iy < scale; ++iy)
-                        for (int32_t ix = 0; ix < scale; ++ix)
-                            dest[(y * scale + iy + targetY) * stride + (x * scale + ix + targetX)] = color;
-                }
-
-            target.endDraw();
-        }
-
-        void clear()
-        {
-            canvas.clear(0xFF000000);
-        }
-    };
-
     class Layer {
       public:
         enum LayerId : int32_t
@@ -237,7 +195,6 @@ namespace gbaemu::lcd
         void renderBG3(Memory &memory);
         void renderBG4(LCDColorPalette &palette, Memory &memory);
         void renderBG5(LCDColorPalette &palette, Memory &memory);
-        void drawToDisplay(LCDisplay &display);
         void draw(color_t clearColor = 0xFF000000 /* black */);
     };
 

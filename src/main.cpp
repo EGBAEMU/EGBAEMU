@@ -155,7 +155,6 @@ int main(int argc, char **argv)
     cpu.state.memory.loadROM(reinterpret_cast<uint8_t *>(buf.data()), buf.size());
 
     /* initialize SDL and LCD */
-    gbaemu::lcd::LCDisplay display(0, 0, canv);
     std::mutex canDrawToScreenMutex;
     bool canDrawToScreen = false;
     gbaemu::lcd::LCDController controller(windowCanvas, &cpu, &canDrawToScreenMutex, &canDrawToScreen);

@@ -683,32 +683,6 @@ namespace gbaemu::lcd
         }
     }
 
-    void Background::drawToDisplay(LCDisplay &display)
-    {
-#ifdef DEBUG_DRAW_BG_BOUNDS
-        {
-            auto pixs = canvas.pixels();
-            auto stride = canvas.getWidth();
-
-            for (int32_t y = 0; y < canvas.getHeight(); ++y) {
-                pixs[y * stride] = BG_BOUNDS_COLOR;
-                pixs[y * stride + stride - 1] = BG_BOUNDS_COLOR;
-            }
-
-            for (int32_t x = 0; x < canvas.getWidth(); ++x) {
-                pixs[x] = BG_BOUNDS_COLOR;
-                pixs[(canvas.getHeight() - 1) * stride + x] = BG_BOUNDS_COLOR;
-            }
-        }
-#endif
-
-        display.canvas.beginDraw();
-        const common::math::vec<2> screenRef{0, 0};
-        display.canvas.drawSprite(canvas.pixels(), canvas.getWidth(), canvas.getHeight(), canvas.getWidth(),
-            step.origin, step.d, step.dm, screenRef);
-        display.canvas.endDraw();
-    }
-
     void Background::draw(color_t clearColor)
     {
         canvas.clear(clearColor);
