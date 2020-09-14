@@ -163,6 +163,9 @@ namespace gbaemu::lcd
 
         std::array<std::unique_ptr<MemoryCanvas<color_t>>, 4> layers;
 
+        bool asFirstTarget;
+        bool asSecondTarget;
+
         OBJLayer();
         void setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t bgMode);
         OBJAttribute *accessAttribute(uint32_t index);
@@ -192,6 +195,9 @@ namespace gbaemu::lcd
         uint32_t scYOffset[4];
         uint8_t *bgMapBase;
         uint8_t *tiles;
+
+        bool asFirstTarget;
+        bool asSecondTarget;
 
         /* general transformation of background in target display space */
         struct {
@@ -256,6 +262,21 @@ namespace gbaemu::lcd
         int32_t firstTargetLayerID;
         int32_t secondTargetLayerID;
         BLDCNT::ColorSpecialEffect colorSpecialEffect;
+
+        struct
+        {
+            uint32_t evy;
+        } brightnessEffect;
+
+        struct
+        {
+            uint32_t eva;
+            uint32_t evb;
+        } alphaEffect;
+
+        /* refers to the backdrop layer */
+        bool asFirstTarget;
+        bool asSecondTarget;
 
         /* rendering is done in a separate thread */
         RenderControl renderControl;

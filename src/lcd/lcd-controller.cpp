@@ -838,13 +838,55 @@ namespace gbaemu::lcd
             The last step is to mix the two appropriate layers and draw all other layers according to priority to the display.
          */
 
+        auto dst = display.target.pixels();
+        auto w = display.target.getWidth();
         display.target.beginDraw();
 
-        for (int32_t i = 0; i < 4; ++i) {
-            if (backgrounds[i]->enabled)
-                copyLayer(backgrounds[i]->displayCanvas);
+        for (int32_t y = 0; y < SCREEN_HEIGHT; ++y) {
+            for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+                int32_t coord = y * SCREEN_WIDTH + x;
+                color_t firstPixel, secondPixel, finalColor;
 
-            copyLayer(*objLayer.layers[i]);
+                /* select first, second target pixel */
+                for (int32_t i = 0; i < 4; ++i) {
+                    if (i <= 3) {
+                        if (backgrounds[i]->enabled && backgrounds[i]->asFirstTarget)
+                            firstPixel = backgrounds[i]->canvas.pixels()[coord];
+                    } else if (i == 4 && objLayer.asFirstTarget) {
+                        firstPixel = objLayer.layers[i]->pixels()[coord];
+                    } else if (asFirstTarget) {
+                        firstPixel = palette.getBackdropColor();
+                    }
+
+                    if (i <= 3) {
+                        if (backgrounds[i]->enabled && backgrounds[i]->asSecondTarget)
+                            secondPixel = backgrounds[i]->canvas.pixels()[coord];
+                    } else if (i == 4 && objLayer.asSecondTarget) {
+                        secondPixel = objLayer.layers[i]->pixels()[coord];
+                    } else if (asSecondTarget) {
+                        secondPixel = palette.getBackdropColor();
+                    }
+                }
+
+                switch (colorSpecialEffect) {
+                    case BLDCNT::ColorSpecialEffect::None:
+                        finalColor = firstPixel;
+                        break;
+                    case BLDCNT::ColorSpecialEffect::BrightnessIncrease:
+                        finalColor = firstPixel + (31 - firstPixel) * brightnessEffect.evy;
+                        break;
+                    case BLDCNT::ColorSpecialEffect::BrightnessDecrease:
+                        finalColor = firstPixel - firstPixel * brightnessEffect.evy;
+                        break;
+                    case BLDCNT::ColorSpecialEffect::AlphaBlending:
+                        finalColor = std::min<color_t>(31, firstPixel * alphaEffect.eva + secondPixel * alphaEffect.evb);
+                        break;
+                    default:
+                        break;
+                }
+
+                dst[y * w + x] = finalColor;
+            }
         }
 
         display.target.endDraw();
