@@ -1,31 +1,28 @@
 #include "debugger.hpp"
-#include <sstream>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
+#include <sstream>
 
 namespace gbaemu::debugger
 {
 
-    void ExecutionHistory::collect(CPU* cpu, uint32_t address) 
-    {   
-
-        entries.push_back(cpu->state.disas(address, 1));    
+    void ExecutionHistory::collect(CPU *cpu, uint32_t address)
+    {
+        entries.push_back(cpu->state.disas(address, 1));
         // How many elements to remove?
         int32_t overhang = entries.size() - historySize;
-      
+
         if (overhang > 0) {
             entries.erase(entries.begin(), entries.begin() + overhang);
         }
-
     }
 
-    void ExecutionHistory::dumpHistory(CPU* cpu) const
-    {   
+    void ExecutionHistory::dumpHistory(CPU *cpu) const
+    {
         // Just dump every stuff
-        for (unsigned i = 0; i < entries.size(); ++i) {
-            std::cout << entries[i];
+        for (const auto &inst : entries) {
+            std::cout << inst;
         }
-
     }
 
     bool JumpTrap::isLoop(uint32_t from, uint32_t to) const
