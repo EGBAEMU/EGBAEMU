@@ -42,7 +42,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
     bool preStepMode = false;
     bool dummyStepMode = false;
     //THUMB memory mirroring ROM?
-    gbaemu::debugger::AddressTrap bp1(0x8001720, &stepMode);
+    gbaemu::debugger::AddressTrap bp1(0x0800169A, &stepMode);
     gbaemu::debugger::ExecutionRegionTrap bp2(gbaemu::Memory::MemoryRegion::IWRAM, &stepMode);
     gbaemu::debugger::MemoryChangeTrap bp3(0x03007FFC, 0, &dummyStepMode);
     //gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x08000338, &stepMode);
@@ -62,28 +62,6 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
         auto inst = cpu.state.pipeline.decode.instruction;
 
-        /*
-        if (stepMode) {
-            std::cout << "press enter to continue\n";
-            std::cin.get();
-
-            std::cout << "========================================================================\n";
-            std::cout << cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), DISAS_CMD_RANGE);
-            std::cout << cpu.state.toString() << '\n';
-            std::cout << cpu.state.printStack(DEBUG_STACK_PRINT_RANGE) << '\n';
-        }
-         */
-
-        //BREAK(cpu.state.accessReg(gbaemu::regs::PC_OFFSET) == 0x03007d80);
-
-        //if(cpu.state.getCurrentPC() == 0xfffffff) {
-        //    std::cout << cpu.executionInfo.message << cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), 64) <<
-        //        cpu.state.toString() << std::endl;
-        //    break;
-        //}
-
-
-      
         if (cpu.step() == gbaemu::CPUExecutionInfoType::EXCEPTION) {
             std::cout << cpu.executionInfo.message << cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), 32) << std::endl;
             break;
@@ -91,17 +69,10 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 
         lcdController.tick();
 
-        /*
-        if (gbaemu::le(cpu.state.memory.read32(0x4000028, nullptr)) == 45568) { // ||
-            //cpu.state.accessReg(gbaemu::regs::PC_OFFSET) == 0x08001cec) {
-            stepMode = true;
-        }
-         */
-
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
  
-        if (prevPC != postPC && false)  {
-            history.addEntry(prevPC, inst, cpu.state.getFlag(gbaemu::cpsr_flags::THUMB_STATE));
+        if (prevPC != postPC)  {
+            history.collect(&cpu, prevPC);
             charlie.check(prevPC, postPC, inst, cpu.state);
 
             if (stepMode) {
@@ -143,6 +114,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
         }
     }
 
+    doRun = false;
     lcdController.exitThread();
     // std::cout << jumpTrap.toString() << std::endl;
 }

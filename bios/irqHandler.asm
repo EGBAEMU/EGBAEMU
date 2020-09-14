@@ -5,7 +5,7 @@ irqHandler:
     swi 0x2B0000 ; SWI to update bios state
     mov r0, 0x4000000 ;ptr+4 to 03FFFFFC (mirror of 03007FFC)
     add r14, r15, 0 ;retadr for USER handler $+8
-    
+
     ldr r15, [r0, -4] ; call user irq handler
 
     ;Interrupt handler exit code

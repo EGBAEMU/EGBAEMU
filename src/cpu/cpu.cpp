@@ -1,8 +1,6 @@
 #include "cpu.hpp"
 
-#include "swi.hpp"
-#include <cassert>
-#include <limits>
+#include <iostream>
 #include <sstream>
 
 namespace gbaemu
@@ -65,12 +63,10 @@ namespace gbaemu
         }
     }
 
-    bool CPU::decode()
+    void CPU::decode()
     {
         state.pipeline.decode.lastInstruction = state.pipeline.decode.instruction;
         state.pipeline.decode.instruction = state.decoder->decode(state.pipeline.fetch.lastInstruction);
-
-        return state.pipeline.decode.instruction.isValid();
     }
 
     CPUExecutionInfoType CPU::step()
@@ -105,15 +101,8 @@ namespace gbaemu
                 if (info.cycleCount == 0) {
                     irqHandler.checkForInterrupt();
                     fetch();
+                    decode();
 
-                    if (!decode()) {
-                        std::stringstream ss;
-                        ss << "ERROR: Decoded instruction is invalid: [" << std::hex << state.pipeline.fetch.lastInstruction << "] @ " << state.accessReg(regs::PC_OFFSET);
-                        executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());
-
-                        return EXCEPTION;
-                    }
-                    
                     uint32_t prevPC = state.getCurrentPC();
                     info = execute();
 
@@ -182,205 +171,12 @@ namespace gbaemu
         const bool prevThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
 
         if (state.pipeline.decode.lastInstruction.isArmInstruction()) {
-            if (state.pipeline.decode.lastInstruction.arm.id == InstructionID::INVALID) {
-                std::cout << "ERROR: trying to execute invalid ARM instruction! PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
-            } else {
-                arm::ARMInstruction &armInst = state.pipeline.decode.lastInstruction.arm;
-
-                // Do we even need an execution?
-                if (conditionSatisfied(armInst.condition, state)) {
-
-                    // prefer using switch to get warned if a category is not handled
-                    switch (armInst.cat) {
-                        case arm::ARMInstructionCategory::MUL_ACC:
-                            info = handleMultAcc(armInst.params.mul_acc.a,
-                                                 armInst.params.mul_acc.s,
-                                                 armInst.params.mul_acc.rd,
-                                                 armInst.params.mul_acc.rn,
-                                                 armInst.params.mul_acc.rs,
-                                                 armInst.params.mul_acc.rm);
-                            break;
-                        case arm::ARMInstructionCategory::MUL_ACC_LONG:
-                            info = handleMultAccLong(armInst.params.mul_acc_long.u,
-                                                     armInst.params.mul_acc_long.a,
-                                                     armInst.params.mul_acc_long.s,
-                                                     armInst.params.mul_acc_long.rd_msw,
-                                                     armInst.params.mul_acc_long.rd_lsw,
-                                                     armInst.params.mul_acc_long.rs,
-                                                     armInst.params.mul_acc_long.rm);
-                            break;
-                        case arm::ARMInstructionCategory::BRANCH_XCHG:
-                            info = handleBranchAndExchange(armInst.params.branch_xchg.rn);
-                            break;
-                        case arm::ARMInstructionCategory::DATA_SWP:
-                            info = handleDataSwp(armInst.params.data_swp.b,
-                                                 armInst.params.data_swp.rn,
-                                                 armInst.params.data_swp.rd,
-                                                 armInst.params.data_swp.rm);
-                            break;
-                            /* those two are the same */
-                        case arm::ARMInstructionCategory::HW_TRANSF_REG_OFF:
-                            info = execHalfwordDataTransferImmRegSignedTransfer(
-                                armInst.params.hw_transf_reg_off.p,
-                                armInst.params.hw_transf_reg_off.u,
-                                armInst.params.hw_transf_reg_off.l,
-                                armInst.params.hw_transf_reg_off.w,
-                                false,
-                                armInst.params.hw_transf_reg_off.rn,
-                                armInst.params.hw_transf_reg_off.rd,
-                                state.accessReg(armInst.params.hw_transf_reg_off.rm),
-                                16);
-                            break;
-                        case arm::ARMInstructionCategory::HW_TRANSF_IMM_OFF:
-                            info = execHalfwordDataTransferImmRegSignedTransfer(
-                                armInst.params.hw_transf_imm_off.p,
-                                armInst.params.hw_transf_imm_off.u,
-                                armInst.params.hw_transf_imm_off.l,
-                                armInst.params.hw_transf_imm_off.w,
-                                false,
-                                armInst.params.hw_transf_imm_off.rn,
-                                armInst.params.hw_transf_imm_off.rd,
-                                armInst.params.hw_transf_imm_off.offset,
-                                16);
-                            break;
-                        case arm::ARMInstructionCategory::SIGN_TRANSF:
-                            info = execHalfwordDataTransferImmRegSignedTransfer(
-                                armInst.params.sign_transf.p,
-                                armInst.params.sign_transf.u,
-                                armInst.params.sign_transf.l,
-                                armInst.params.sign_transf.w,
-                                true,
-                                armInst.params.sign_transf.rn,
-                                armInst.params.sign_transf.rd,
-                                armInst.params.sign_transf.b ? armInst.params.sign_transf.addrMode : state.accessReg(armInst.params.sign_transf.addrMode & 0x0F),
-                                armInst.params.sign_transf.h ? 16 : 8);
-                            break;
-                        case arm::ARMInstructionCategory::DATA_PROC_PSR_TRANSF:
-                            info = execDataProc(armInst);
-                            break;
-                        case arm::ARMInstructionCategory::LS_REG_UBYTE:
-                            info = execLoadStoreRegUByte(armInst);
-                            break;
-                        case arm::ARMInstructionCategory::BLOCK_DATA_TRANSF:
-                            info = execDataBlockTransfer(armInst);
-                            break;
-                        case arm::ARMInstructionCategory::BRANCH:
-                            info = handleBranch(armInst.params.branch.l, armInst.params.branch.offset);
-                            break;
-
-                        case arm::ARMInstructionCategory::SOFTWARE_INTERRUPT: {
-
-                            /*
-                                SWIs can be called from both within THUMB and ARM mode. In ARM mode, only the upper 8bit of the 24bit comment field are interpreted.
-                                //TODO is switching needed?
-                                Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
-                                In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
-                                */
-                            uint8_t index = armInst.params.software_interrupt.comment >> 16;
-                            if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
-                                if (index != 5 && index != 0x2B)
-                                    std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
-                                info = swi::biosCallHandler[index](this);
-                            } else {
-                                std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
-                            }
-                            break;
-                        }
-
-                        default:
-                            std::cout << "INVALID" << std::endl;
-                            break;
-                    }
-                }
-            }
+            arm::ARMInstruction &armInst = state.pipeline.decode.lastInstruction.arm;
+            if (conditionSatisfied(armInst.condition, state))
+                info = armExecuteHandler[state.pipeline.decode.lastInstruction.arm.cat](armInst, this);
         } else {
-            if (state.pipeline.decode.lastInstruction.thumb.id == InstructionID::INVALID) {
-                std::cout << "ERROR: trying to execute invalid THUMB instruction! PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
-            } else {
-                thumb::ThumbInstruction &thumbInst = state.pipeline.decode.lastInstruction.thumb;
-
-                // prefer using switch to get warned if a category is not handled
-                switch (thumbInst.cat) {
-                    case thumb::ThumbInstructionCategory::MOV_SHIFT:
-                        info = handleThumbMoveShiftedReg(thumbInst.id, thumbInst.params.mov_shift.rs, thumbInst.params.mov_shift.rd, thumbInst.params.mov_shift.offset);
-                        break;
-                    case thumb::ThumbInstructionCategory::ADD_SUB:
-                        info = handleThumbAddSubtract(thumbInst.id, thumbInst.params.add_sub.rd, thumbInst.params.add_sub.rs, thumbInst.params.add_sub.rn_offset);
-                        break;
-                    case thumb::ThumbInstructionCategory::MOV_CMP_ADD_SUB_IMM:
-                        info = handleThumbMovCmpAddSubImm(thumbInst.id, thumbInst.params.mov_cmp_add_sub_imm.rd, thumbInst.params.mov_cmp_add_sub_imm.offset);
-                        break;
-                    case thumb::ThumbInstructionCategory::ALU_OP:
-                        info = handleThumbALUops(thumbInst.id, thumbInst.params.alu_op.rs, thumbInst.params.alu_op.rd);
-                        break;
-                    case thumb::ThumbInstructionCategory::BR_XCHG:
-                        info = handleThumbBranchXCHG(thumbInst.id, thumbInst.params.br_xchg.rd, thumbInst.params.br_xchg.rs);
-                        break;
-                    case thumb::ThumbInstructionCategory::PC_LD:
-                        // info = handleThumbLoadPCRelative(thumbInst.params.pc_ld.rd, thumbInst.params.pc_ld.offset);
-                        // break;
-                    case thumb::ThumbInstructionCategory::LD_ST_REL_OFF:
-                        // info = handleThumbLoadStoreRegisterOffset(thumbInst.params.ld_st_rel_off.l, thumbInst.params.ld_st_rel_off.b, thumbInst.params.ld_st_rel_off.ro, thumbInst.params.ld_st_rel_off.rb, thumbInst.params.ld_st_rel_off.rd);
-                        // break;
-                    case thumb::ThumbInstructionCategory::LD_ST_IMM_OFF:
-                        // info = handleThumbLoadStoreImmOff(thumbInst.params.ld_st_imm_off.l, thumbInst.params.ld_st_imm_off.b, thumbInst.params.ld_st_imm_off.offset, thumbInst.params.ld_st_imm_off.rb, thumbInst.params.ld_st_imm_off.rd);
-                        // break;
-                    case thumb::ThumbInstructionCategory::LD_ST_REL_SP:
-                        // info = handleThumbLoadStoreSPRelative(thumbInst.params.ld_st_rel_sp.l, thumbInst.params.ld_st_rel_sp.rd, thumbInst.params.ld_st_rel_sp.offset);
-                        info = handleThumbLoadStore(thumbInst);
-                        break;
-                    case thumb::ThumbInstructionCategory::LD_ST_SIGN_EXT:
-                        // info = handleThumbLoadStoreSignExt(thumbInst.params.ld_st_sign_ext.h, thumbInst.params.ld_st_sign_ext.s, thumbInst.params.ld_st_sign_ext.ro, thumbInst.params.ld_st_sign_ext.rb, thumbInst.params.ld_st_sign_ext.rd);
-                        // break;
-                    case thumb::ThumbInstructionCategory::LD_ST_HW:
-                        // info = handleThumbLoadStoreHalfword(thumbInst.params.ld_st_hw.l, thumbInst.params.ld_st_hw.offset, thumbInst.params.ld_st_hw.rb, thumbInst.params.ld_st_hw.rd);
-                        info = handleThumbLoadStoreSignHalfword(thumbInst);
-                        break;
-                    case thumb::ThumbInstructionCategory::LOAD_ADDR:
-                        info = handleThumbRelAddr(thumbInst.params.load_addr.sp, thumbInst.params.load_addr.offset, thumbInst.params.load_addr.rd);
-                        break;
-                    case thumb::ThumbInstructionCategory::ADD_OFFSET_TO_STACK_PTR:
-                        info = handleThumbAddOffsetToStackPtr(thumbInst.params.add_offset_to_stack_ptr.s, thumbInst.params.add_offset_to_stack_ptr.offset);
-                        break;
-                    case thumb::ThumbInstructionCategory::PUSH_POP_REG:
-                        info = handleThumbPushPopRegister(thumbInst.params.push_pop_reg.l, thumbInst.params.push_pop_reg.r, thumbInst.params.push_pop_reg.rlist);
-                        break;
-                    case thumb::ThumbInstructionCategory::MULT_LOAD_STORE:
-                        info = handleThumbMultLoadStore(thumbInst.params.mult_load_store.l, thumbInst.params.mult_load_store.rb, thumbInst.params.mult_load_store.rlist);
-                        break;
-                    case thumb::ThumbInstructionCategory::COND_BRANCH:
-                        info = handleThumbConditionalBranch(thumbInst.params.cond_branch.cond, thumbInst.params.cond_branch.offset);
-                        break;
-                    case thumb::ThumbInstructionCategory::SOFTWARE_INTERRUPT: {
-
-                        /*
-                                SWIs can be called from both within THUMB and ARM mode. In ARM mode, only the upper 8bit of the 24bit comment field are interpreted.
-                                //TODO is switching needed?
-                                Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
-                                In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
-                                */
-                        uint8_t index = thumbInst.params.software_interrupt.comment;
-                        if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
-                            if (index != 5 && index != 0x2B)
-                                std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
-                            info = swi::biosCallHandler[index](this);
-                        } else {
-                            std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
-                        }
-                        break;
-                    }
-                    case thumb::ThumbInstructionCategory::UNCONDITIONAL_BRANCH:
-                        info = handleThumbUnconditionalBranch(thumbInst.params.unconditional_branch.offset);
-                        break;
-                    case thumb::ThumbInstructionCategory::LONG_BRANCH_WITH_LINK:
-                        info = handleThumbLongBranchWithLink(thumbInst.params.long_branch_with_link.h, thumbInst.params.long_branch_with_link.offset);
-                        break;
-
-                    default:
-                        std::cout << "INVALID" << std::endl;
-                        break;
-                }
-            }
+            thumb::ThumbInstruction &thumbInst = state.pipeline.decode.lastInstruction.thumb;
+            info = thumbExecuteHandler[state.pipeline.decode.lastInstruction.thumb.cat](thumbInst, this);
         }
 
         const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);

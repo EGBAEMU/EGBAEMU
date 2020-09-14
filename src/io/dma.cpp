@@ -19,6 +19,7 @@ namespace gbaemu
     void DMA::write8ToReg(uint32_t offset, uint8_t value)
     {
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+        std::cout << "DMA" << std::dec << static_cast<uint32_t>(channel) << ": write to offset: 0x" << std::hex << offset << " value: 0x" << std::hex << static_cast<uint32_t>(value) << std::endl;
     }
 
     DMA::DMA(DMAChannel channel, CPU *cpu) : channel(channel), state(IDLE), memory(cpu->state.memory), irqHandler(cpu->irqHandler)
@@ -26,7 +27,7 @@ namespace gbaemu
         memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
                 DMA_BASE_ADDRESSES[channel],
-                DMA_BASE_ADDRESSES[channel] + sizeof(regs),
+                DMA_BASE_ADDRESSES[channel] + sizeof(regs) - 1,
                 std::bind(&DMA::read8FromReg, this, std::placeholders::_1),
                 std::bind(&DMA::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
                 std::bind(&DMA::read8FromReg, this, std::placeholders::_1),
@@ -184,7 +185,7 @@ namespace gbaemu
             width32Bit = controlReg & DMA_CNT_REG_TYPE_MASK;
             srcCnt = static_cast<AddrCntType>((controlReg & DMA_CNT_REG_SRC_ADR_CNT_MASK) >> DMA_CNT_REG_SRC_ADR_CNT_OFF);
             dstCnt = static_cast<AddrCntType>((controlReg & DMA_CNT_REG_DST_ADR_CNT_MASK) >> DMA_CNT_REG_DST_ADR_CNT_OFF);
-            condition = static_cast<StartCondition>((controlReg & DMA_CNT_REG_TIMING_MASK >> DMA_CNT_REG_TIMING_OFF));
+            condition = static_cast<StartCondition>((controlReg & DMA_CNT_REG_TIMING_MASK) >> DMA_CNT_REG_TIMING_OFF);
 
             // Mask out ignored bits
             srcAddr = le(regs.srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);

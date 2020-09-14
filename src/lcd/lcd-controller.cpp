@@ -844,10 +844,10 @@ namespace gbaemu::lcd
 
         for (int32_t y = 0; y < SCREEN_HEIGHT; ++y) {
             for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+                /*
                 int32_t coord = y * SCREEN_WIDTH + x;
                 color_t firstPixel, secondPixel, finalColor;
 
-                /* select first, second target pixel */
                 for (int32_t i = 0; i < 4; ++i) {
                     if (i <= 3) {
                         if (backgrounds[i]->enabled && backgrounds[i]->asFirstTarget)
@@ -883,6 +883,20 @@ namespace gbaemu::lcd
                         break;
                     default:
                         break;
+                }
+
+                dst[y * w + x] = finalColor;
+                 */
+                color_t finalColor = 0xFF000000;
+
+                for (int32_t i = 0; i < 4; ++i) {
+                    if (backgrounds[i]->enabled)
+                        finalColor = backgrounds[i]->displayCanvas.pixels()[y * SCREEN_WIDTH + x];
+
+                    color_t objColor = objLayer.layers[i]->pixels()[y * SCREEN_WIDTH + x];
+
+                    if (objColor & 0xFF000000)
+                        finalColor = objColor;
                 }
 
                 dst[y * w + x] = finalColor;

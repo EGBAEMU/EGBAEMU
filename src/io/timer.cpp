@@ -40,7 +40,7 @@ namespace gbaemu
         memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
                 TIMER_REGS_BASE_OFFSET + sizeof(regs) * id,
-                TIMER_REGS_BASE_OFFSET + sizeof(regs) * id + sizeof(regs),
+                TIMER_REGS_BASE_OFFSET + sizeof(regs) * id + sizeof(regs) - 1,
                 std::bind(&Timer::read8FromReg, this, std::placeholders::_1),
                 std::bind(&Timer::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
                 std::bind(&Timer::read8FromReg, this, std::placeholders::_1),

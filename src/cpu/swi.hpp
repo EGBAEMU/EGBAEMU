@@ -2,7 +2,6 @@
 #define SWI_HPP
 
 #include "decode/inst.hpp"
-#include "lcd/lcd-controller.hpp"
 #include "util.hpp"
 
 namespace gbaemu

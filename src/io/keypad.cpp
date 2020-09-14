@@ -27,7 +27,7 @@ namespace gbaemu
         cpu->state.memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
                 KEYPAD_REG_BASE_ADDR,
-                KEYPAD_REG_BASE_ADDR + sizeof(regs),
+                KEYPAD_REG_BASE_ADDR + sizeof(regs) - 1,
                 std::bind(&Keypad::read8FromReg, this, std::placeholders::_1),
                 std::bind(&Keypad::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
                 std::bind(&Keypad::read8FromReg, this, std::placeholders::_1),

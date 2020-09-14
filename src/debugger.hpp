@@ -1,8 +1,9 @@
 #ifndef DEBUGGER_HPP
 #define DEBUGGER_HPP
 
-#include "cpu/cpu_state.hpp"
 #include "cpu/cpu.hpp"
+#include "cpu/cpu_state.hpp"
+#include <cstring>
 #include <vector>
 
 namespace gbaemu::debugger
@@ -11,21 +12,17 @@ namespace gbaemu::debugger
     class ExecutionHistory
     {
       public:
-        struct ExecutionEntry {
-          Instruction inst;
-          uint32_t address;
-          bool thumb;
-        };
+        ExecutionHistory(uint32_t historySize) : historySize(historySize)
+        {
+            entries.reserve(historySize + 1);
+        }
 
-        ExecutionHistory(uint32_t historySize) : historySize(historySize) {}
-
-        void addEntry(uint32_t address, Instruction &instruction, bool thumb);
-        void dumpHistory(CPU* cpu) const;
+        void collect(CPU *cpu, uint32_t address);
+        void dumpHistory(CPU *cpu) const;
 
       private:
         uint32_t historySize;
-        std::vector<ExecutionEntry> entries;
-      
+        std::vector<std::string> entries;
     };
 
     class Trap
@@ -114,7 +111,7 @@ namespace gbaemu::debugger
         uint8_t targetReg;
         bool *stepMode;
         uint32_t minPcOffset;
-      
+
       public:
         RegisterNonZeroTrap(uint8_t targetReg, uint32_t minPcOffset, bool *stepMode) : targetReg(targetReg), stepMode(stepMode), minPcOffset(minPcOffset) {}
 
@@ -144,7 +141,7 @@ namespace gbaemu::debugger
     class Watchdog
     {
       private:
-        std::vector<Trap*> traps;
+        std::vector<Trap *> traps;
 
       public:
         void registerTrap(Trap &t);

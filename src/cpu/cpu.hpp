@@ -8,6 +8,7 @@
 #include "io/interrupts.hpp"
 #include "io/timer.hpp"
 #include "regs.hpp"
+
 #include <cstdint>
 
 namespace gbaemu
@@ -59,8 +60,7 @@ namespace gbaemu
 
         void initPipeline();
         void fetch();
-        /* returns false if the decoded instruction is invalid */
-        bool decode();
+        void decode();
         InstructionExecutionInfo execute();
         CPUExecutionInfoType step();
 
@@ -98,6 +98,10 @@ namespace gbaemu
         InstructionExecutionInfo handleThumbMoveShiftedReg(InstructionID ins, uint8_t rs, uint8_t rd, uint8_t offset);
         InstructionExecutionInfo handleThumbBranchXCHG(InstructionID id, uint8_t rd, uint8_t rs);
         InstructionExecutionInfo handleThumbALUops(InstructionID instID, uint8_t rs, uint8_t rd);
+
+        // Lookup tables
+        static const std::function<InstructionExecutionInfo(thumb::ThumbInstruction &, CPU *)> thumbExecuteHandler[];
+        static const std::function<InstructionExecutionInfo(arm::ARMInstruction &, CPU *)> armExecuteHandler[];
     };
 
 } // namespace gbaemu
