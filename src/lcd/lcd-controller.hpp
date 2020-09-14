@@ -78,25 +78,28 @@ namespace gbaemu::lcd
 #include "endpacked.h"
 
     struct LCDColorPalette {
-        /* TODO: maybe this can be const */
         /* 256 entries */
-        uint16_t *bgPalette;
+        const uint16_t *bgPalette;
         /* 256 entries */
-        uint16_t *objPalette;
+        const uint16_t *objPalette;
 
-        static uint32_t toR8G8B8(uint16_t color);
-        uint32_t getBgColor(uint32_t index) const;
-        uint32_t getBgColor(uint32_t i1, uint32_t i2) const;
-        uint32_t getObjColor(uint32_t index) const;
-        uint32_t getObjColor(uint32_t i1, uint32_t i2) const;
-        uint32_t getBackdropColor() const;
+        static color_t toR8G8B8(uint16_t color);
+        /*
+            Under certain conditions the palette can be split up into 16 partitions of 16 colors. This is what
+            partition number and index refer to.
+         */
+        color_t getBgColor(uint32_t index) const;
+        color_t getBgColor(uint32_t paletteNumber, uint32_t index) const;
+        color_t getObjColor(uint32_t index) const;
+        color_t getObjColor(uint32_t paletteNumber, uint32_t index) const;
+        color_t getBackdropColor() const;
     };
 
     class Layer {
       public:
         enum LayerId : int32_t
         {
-            BG0,
+            BG0 = 0,
             BG1,
             BG2,
             BG3,
@@ -108,8 +111,11 @@ namespace gbaemu::lcd
         /* Contains the final image of the layer. Has the same size as the display. */
         MemoryCanvas<color_t> canvas;
         LayerId id;
-        int32_t order;
         bool enabled;
+
+        int32_t order;
+        bool asFirstTarget;
+        bool asSecondTarget;
 
         Layer(LayerId _id) : canvas(SCREEN_WIDTH, SCREEN_HEIGHT), id(_id), order(0), enabled(false) { }
     };
@@ -142,9 +148,6 @@ namespace gbaemu::lcd
         uint8_t *attributes;
 
         std::array<std::unique_ptr<MemoryCanvas<color_t>>, 4> layers;
-
-        bool asFirstTarget;
-        bool asSecondTarget;
 
         OBJLayer();
         void setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t bgMode);

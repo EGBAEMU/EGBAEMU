@@ -9,7 +9,14 @@
 
 namespace gbaemu::lcd
 {
+    /* The usual 8-8-8-8 bit ARGB color format, also used by SDL. */
     typedef uint32_t color_t;
+    static const constexpr color_t TRANSPARENT = 0x00000000,
+                                   BLACK = 0xFF000000,
+                                   WHITE = 0xFFFFFFFF;
+
+    /* This type is also used to represent 5-5-5 bit colors. */
+    typedef uint16_t color16_t;
     typedef common::math::vec<2> vec2;
     typedef common::math::vec<3> vec3;
     typedef common::math::mat<3, 3> mat3x3;
