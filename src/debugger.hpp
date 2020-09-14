@@ -4,6 +4,7 @@
 #include "cpu/cpu_state.hpp"
 #include "cpu/cpu.hpp"
 #include <vector>
+#include <cstring>
 
 namespace gbaemu::debugger
 {
@@ -11,20 +12,15 @@ namespace gbaemu::debugger
     class ExecutionHistory
     {
       public:
-        struct ExecutionEntry {
-          Instruction inst;
-          uint32_t address;
-          bool thumb;
-        };
-
+    
         ExecutionHistory(uint32_t historySize) : historySize(historySize) {}
 
-        void addEntry(uint32_t address, Instruction &instruction, bool thumb);
+        void collect(CPU* cpu, uint32_t address);
         void dumpHistory(CPU* cpu) const;
 
       private:
         uint32_t historySize;
-        std::vector<ExecutionEntry> entries;
+        std::vector<std::string> entries;
       
     };
 

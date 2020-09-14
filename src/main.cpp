@@ -93,7 +93,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
  
         if (prevPC != postPC)  {
-            history.addEntry(prevPC, inst, cpu.state.getFlag(gbaemu::cpsr_flags::THUMB_STATE));
+            history.collect(&cpu, prevPC);
             charlie.check(prevPC, postPC, inst, cpu.state);
 
             if (stepMode) {
