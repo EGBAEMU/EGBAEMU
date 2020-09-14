@@ -114,6 +114,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
         }
     }
 
+    doRun = false;
     lcdController.exitThread();
     // std::cout << jumpTrap.toString() << std::endl;
 }
