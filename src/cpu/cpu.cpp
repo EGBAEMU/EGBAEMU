@@ -3,6 +3,7 @@
 #include "swi.hpp"
 #include <cassert>
 #include <limits>
+#include <sstream>
 
 namespace gbaemu
 {
@@ -70,7 +71,7 @@ namespace gbaemu
         state.pipeline.decode.instruction = state.decoder->decode(state.pipeline.fetch.lastInstruction);
     }
 
-    bool CPU::step()
+    CPUExecutionInfoType CPU::step()
     {
         static InstructionExecutionInfo info{0};
         static InstructionExecutionInfo dmaInfo{0};
@@ -110,13 +111,17 @@ namespace gbaemu
                     --info.cycleCount;
 
                     if (info.hasCausedException) {
-                        std::cout << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception" << std::endl;
                         //TODO print cause
                         //TODO set cause in memory class
 
                         //TODO maybe return reason? as this might be needed to exit a game?
                         // Abort
-                        return true;
+                        std::stringstream ss;
+                        ss << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception\n";
+
+                        executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());
+
+                        return CPUExecutionInfoType::EXCEPTION;
                     }
                 } else {
                     --info.cycleCount;
@@ -124,7 +129,7 @@ namespace gbaemu
             }
         }
 
-        return false;
+        return CPUExecutionInfoType::NORMAL;
     }
 
     void CPU::setFlags(uint64_t resultValue, bool msbOp1, bool msbOp2, bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry)

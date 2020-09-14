@@ -11,7 +11,6 @@
 #include "defs.hpp"
 
 #include <array>
-#include <condition_variable>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -77,43 +76,6 @@ namespace gbaemu::lcd
         uint16_t BLDY;     // Brightness (Fade-In/Out) Coefficient
     } PACKED;
 #include "endpacked.h"
-
-    namespace OBJ_ATTRIBUTE
-    {
-        static const uint16_t Y_COORD_OFFSET = 0,
-                              ROT_SCALE_OFFSET = 8,
-                              DOUBLE_SIZE_OFFSET = 9,
-                              DISABLE_OFFSET = 9,
-                              OBJ_MODE_OFFSET = 10,
-                              OBJ_MOSAIC_OFFSET = 12,
-                              COLOR_PALETTE_OFFSET = 13,
-                              OBJ_SHAPE_OFFSET = 14,
-                              X_COORD_OFFSET = 0,
-                              ROT_SCALE_PARAM_OFFSET = 9,
-                              H_FLIP_OFFSET = 12,
-                              V_FLIP_OFFSET = 13,
-                              OBJ_SIZE_OFFSET = 14,
-                              CHAR_NAME_OFFSET = 0,
-                              PRIORITY_OFFSET = 10,
-                              PALETTE_NUMBER_OFFSET = 12;
-
-        static const uint16_t Y_COORD_MASK = 0xFF,
-                              ROT_SCALE_MASK = 1,
-                              DOUBLE_SIZE_MASK = 1,
-                              DISABLE_MASK = 1,
-                              OBJ_MODE_MASK = 3,
-                              OBJ_MOSAIC_MASK = 1,
-                              COLOR_PALETTE_MASK = 1,
-                              OBJ_SHAPE_MASK = 3,
-                              X_COORD_MASK = 0x1FF,
-                              ROT_SCALE_PARAM_MASK = 0x1F,
-                              H_FLIP_MASK = 1,
-                              V_FLIP_MASK = 1,
-                              OBJ_SIZE_MASK = 3,
-                              CHAR_NAME_MASK = 0x3FF,
-                              PRIORITY_MASK = 3,
-                              PALETTE_NUMBER_MASK = 0xF;
-    } // namespace OBJ_ATTRIBUTE
 
     struct LCDColorPalette {
         /* TODO: maybe this can be const */
@@ -285,7 +247,6 @@ namespace gbaemu::lcd
         bool *canDrawToScreen;
 
         std::unique_ptr<std::thread> renderThread;
-        std::condition_variable cv;
 
         struct {
             /*

@@ -52,21 +52,31 @@ namespace gbaemu
     template <class T, T FRAC, T INT, class ResultType>
     ResultType fixedToFloat(T fp)
     {
+        static_assert(1 + INT + FRAC <= sizeof(T) * 8, "Sign, integer and fraction take up more bits than T provides.");
+
         /* [1 bit sign][INT bits integer][FRAC bits fractional] */
+        /* This is fixed point 2's complement. */
         const T SIGN_OFF = FRAC + INT;
+        const ResultType factor = static_cast<ResultType>(static_cast<T>(1) << FRAC);
 
-        auto sign = (fp >> SIGN_OFF) & 1;
+        T bitValue = fp & ((static_cast<T>(1) << SIGN_OFF) - 1);
+        bool negative = (fp >> SIGN_OFF) & 1;
+        T compOffset = negative ? (static_cast<T>(1) << INT) : 0;
 
-        ResultType value = static_cast<ResultType>(fp & ((static_cast<T>(1) << SIGN_OFF) - 1));
-        value = sign ? -value : value;
-        return value / static_cast<ResultType>(static_cast<T>(1) << FRAC);
+        return static_cast<ResultType>(bitValue) / factor - static_cast<ResultType>(compOffset);
     }
 
     template <class T, T Frac, T Int, class InType>
     T floatToFixed(InType f)
     {
-        T signBit = std::signbit(f) ? (static_cast<T>(1) << (Frac + Int)) : static_cast<T>(0);
-        return static_cast<T>(std::abs(f) * (static_cast<T>(1) << Frac)) | signBit;
+        static_assert(1 + Int + Frac <= sizeof(T) * 8, "Sign, integer and fraction take up more bits than T provides.");
+
+        const T mask = (static_cast<T>(1) << (Frac + Int + 1)) - 1;
+        const InType factor = static_cast<InType>(static_cast<T>(1) << Frac);
+
+        T value = static_cast<T>(std::abs(f) * factor);
+
+        return (std::signbit(f) ? (~value + 1) : value) & mask;
     }
 
     template <class T>

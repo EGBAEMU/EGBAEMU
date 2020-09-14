@@ -67,7 +67,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
         }
          */
 
-        if (cpu.step()) {
+        if (cpu.step() == gbaemu::CPUExecutionInfoType::EXCEPTION) {
             std::cout << "Abort execution!" << std::endl;
             break;
         }

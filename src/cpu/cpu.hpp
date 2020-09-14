@@ -12,6 +12,28 @@
 
 namespace gbaemu
 {
+    enum CPUExecutionInfoType
+    {
+        NORMAL,
+        WARNING,
+        EXCEPTION
+    };
+
+    struct CPUExecutionInfo
+    {
+        CPUExecutionInfoType infoType;
+        std::string message;
+
+        CPUExecutionInfo() : infoType(NORMAL), message("Everything's good")
+        {
+            
+        }
+
+        CPUExecutionInfo(CPUExecutionInfoType info, const std::string& msg) : infoType(info), message(msg)
+        {
+
+        }
+    };
 
     class CPU
     {
@@ -30,13 +52,16 @@ namespace gbaemu
 
         InterruptHandler irqHandler;
 
+        /* If an error has occured more information can be found here. */
+        CPUExecutionInfo executionInfo;
+
         CPU();
 
         void initPipeline();
         void fetch();
         void decode();
         InstructionExecutionInfo execute();
-        bool step();
+        CPUExecutionInfoType step();
 
         void setFlags(uint64_t resultValue, bool msbOp1, bool msbOp2, bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry);
 

@@ -1,6 +1,7 @@
 #include "lcd-controller.hpp"
 
 #include <util.hpp>
+#include <algorithm>
 
 /*
     There are 4 background layers.
@@ -553,7 +554,8 @@ namespace gbaemu::lcd
 
                         for (uint32_t tx = 0; tx < 8; ++tx) {
                             uint32_t srcTx = hFlip ? (7 - tx) : tx;
-                            uint32_t color = palette.getBgColor(tile[srcTy * 8 + srcTx]);
+                            uint8_t colorIndex = tile[srcTy * 8 + srcTx];
+                            uint32_t color = palette.getBgColor(colorIndex);
                             pixels[(tileY * 8 + scYOffset[scIndex] + ty) * stride + (tileX * 8 + scXOffset[scIndex] + tx)] = color;
                         }
                     }
