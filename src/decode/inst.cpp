@@ -200,6 +200,14 @@ namespace gbaemu
             return thumb.toString();
     }
 
+    bool Instruction::isValid() const
+    {
+        if (isArm)
+            return arm.cat != arm::INVALID_CAT;
+        else
+            return thumb.cat != thumb::INVALID_CAT;
+    }
+
     Instruction Instruction::fromARM(arm::ARMInstruction &armInst)
     {
         Instruction result;

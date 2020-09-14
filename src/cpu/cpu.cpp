@@ -65,10 +65,12 @@ namespace gbaemu
         }
     }
 
-    void CPU::decode()
+    bool CPU::decode()
     {
         state.pipeline.decode.lastInstruction = state.pipeline.decode.instruction;
         state.pipeline.decode.instruction = state.decoder->decode(state.pipeline.fetch.lastInstruction);
+
+        return state.pipeline.decode.instruction.isValid();
     }
 
     CPUExecutionInfoType CPU::step()
@@ -103,7 +105,15 @@ namespace gbaemu
                 if (info.cycleCount == 0) {
                     irqHandler.checkForInterrupt();
                     fetch();
-                    decode();
+
+                    if (!decode()) {
+                        std::stringstream ss;
+                        ss << "ERROR: Decoded instruction is invalid: [" << std::hex << state.pipeline.fetch.lastInstruction << "] @ " << state.accessReg(regs::PC_OFFSET);
+                        executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());
+
+                        return EXCEPTION;
+                    }
+                    
                     uint32_t prevPC = state.getCurrentPC();
                     info = execute();
 

@@ -999,6 +999,9 @@ namespace gbaemu::lcd
 
     void LCDController::exitThread()
     {
+        if (!renderThread->joinable())
+            return;
+
         renderControlMutex.lock();
         renderControl = EXIT;
         renderControlMutex.unlock();
