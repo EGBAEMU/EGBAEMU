@@ -59,8 +59,7 @@ namespace gbaemu
 
         void initPipeline();
         void fetch();
-        /* returns false if the decoded instruction is invalid */
-        bool decode();
+        void decode();
         InstructionExecutionInfo execute();
         CPUExecutionInfoType step();
 

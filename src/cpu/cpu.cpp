@@ -65,12 +65,10 @@ namespace gbaemu
         }
     }
 
-    bool CPU::decode()
+    void CPU::decode()
     {
         state.pipeline.decode.lastInstruction = state.pipeline.decode.instruction;
         state.pipeline.decode.instruction = state.decoder->decode(state.pipeline.fetch.lastInstruction);
-
-        return state.pipeline.decode.instruction.isValid();
     }
 
     CPUExecutionInfoType CPU::step()
@@ -105,14 +103,7 @@ namespace gbaemu
                 if (info.cycleCount == 0) {
                     irqHandler.checkForInterrupt();
                     fetch();
-
-                    if (!decode()) {
-                        std::stringstream ss;
-                        ss << "ERROR: Decoded instruction is invalid: [" << std::hex << state.pipeline.fetch.lastInstruction << "] @ " << state.accessReg(regs::PC_OFFSET);
-                        executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());
-
-                        return EXCEPTION;
-                    }
+                    decode();
                     
                     uint32_t prevPC = state.getCurrentPC();
                     info = execute();
@@ -184,6 +175,7 @@ namespace gbaemu
         if (state.pipeline.decode.lastInstruction.isArmInstruction()) {
             if (state.pipeline.decode.lastInstruction.arm.id == InstructionID::INVALID) {
                 std::cout << "ERROR: trying to execute invalid ARM instruction! PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
+                info.hasCausedException = true;
             } else {
                 arm::ARMInstruction &armInst = state.pipeline.decode.lastInstruction.arm;
 
@@ -296,6 +288,7 @@ namespace gbaemu
         } else {
             if (state.pipeline.decode.lastInstruction.thumb.id == InstructionID::INVALID) {
                 std::cout << "ERROR: trying to execute invalid THUMB instruction! PC: 0x" << std::hex << state.getCurrentPC() << std::endl;
+                info.hasCausedException = true;
             } else {
                 thumb::ThumbInstruction &thumbInst = state.pipeline.decode.lastInstruction.thumb;
 
