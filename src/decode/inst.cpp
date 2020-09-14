@@ -203,9 +203,9 @@ namespace gbaemu
     bool Instruction::isValid() const
     {
         if (isArm)
-            return arm.cat != arm::INVALID_CAT;
+            return (arm.cat != arm::INVALID_CAT) && (arm.id != INVALID);
         else
-            return thumb.cat != thumb::INVALID_CAT;
+            return thumb.cat != thumb::INVALID_CAT && (thumb.id != INVALID);
     }
 
     Instruction Instruction::fromARM(arm::ARMInstruction &armInst)
