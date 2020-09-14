@@ -2,10 +2,32 @@
 #define DEBUGGER_HPP
 
 #include "cpu/cpu_state.hpp"
+#include "cpu/cpu.hpp"
 #include <vector>
 
 namespace gbaemu::debugger
 {
+
+    class ExecutionHistory
+    {
+      public:
+        struct ExecutionEntry {
+          Instruction inst;
+          uint32_t address;
+          bool thumb;
+        };
+
+        ExecutionHistory(uint32_t historySize) : historySize(historySize) {}
+
+        void addEntry(uint32_t address, Instruction &instruction, bool thumb);
+        void dumpHistory(CPU* cpu) const;
+
+      private:
+        uint32_t historySize;
+        std::vector<ExecutionEntry> entries;
+      
+    };
+
     class Trap
     {
       public:

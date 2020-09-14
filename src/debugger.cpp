@@ -1,9 +1,69 @@
 #include "debugger.hpp"
 #include <sstream>
 #include <iostream>
+#include <iomanip>
 
 namespace gbaemu::debugger
 {
+
+    void ExecutionHistory::addEntry(uint32_t address, Instruction& instruction, bool thumb) 
+    {   
+
+        entries.push_back({instruction, address, thumb});    
+        // How many elements to remove?
+        int32_t overhang = entries.size() - historySize;
+      
+        if (overhang > 0) {
+            entries.erase(entries.begin(), entries.begin() + overhang);
+        }
+
+    }
+
+    void ExecutionHistory::dumpHistory(CPU* cpu) const
+    {   
+        std::stringstream ss;
+        ss << std::setfill('0') << std::hex;
+
+        // Just dump every stuff
+        for (unsigned i = 0; i < entries.size(); ++i) {
+            
+            ExecutionEntry entry = entries[i];
+
+            /* address, pad hex numbers with 0 */
+            ss << "0x" << std::setw(8) << entry.address << "    ";
+
+            if (entry.thumb) {
+                uint32_t bytes = cpu->state.memory.read16(entry.address, nullptr, false, true);
+
+                uint32_t b0 = bytes & 0x0FF;
+                uint32_t b1 = (bytes >> 8) & 0x0FF;
+
+                /* bytes */
+                ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << " [" << std::setw(4) << bytes << ']';
+
+                /* code */
+                ss << "    " << entry.inst.toString() << '\n';
+
+            } else {
+                uint32_t bytes = cpu->state.memory.read32(entry.address, nullptr, false, true);
+
+                uint32_t b0 = bytes & 0x0FF;
+                uint32_t b1 = (bytes >> 8) & 0x0FF;
+                uint32_t b2 = (bytes >> 16) & 0x0FF;
+                uint32_t b3 = (bytes >> 24) & 0x0FF;
+
+                /* bytes */
+                ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << std::setw(2) << b2 << ' ' << std::setw(2) << b3 << " [" << std::setw(8) << bytes << ']';
+
+                /* code */
+                ss << "    " << entry.inst.toString() << '\n';
+
+            }
+        }
+
+        std::cout << ss.str() << std::endl;
+    }
+
     bool JumpTrap::isLoop(uint32_t from, uint32_t to) const
     {
         if (jumps.size() == 0)
