@@ -60,6 +60,19 @@ namespace gbaemu::debugger
         bool satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
     };
 
+    class ExecutionRegionTrap : public Trap
+    {
+      private:
+        Memory::MemoryRegion trapRegion;
+        bool *setStepMode;
+
+      public:
+        ExecutionRegionTrap(Memory::MemoryRegion trapRegion, bool *stepMode) : trapRegion(trapRegion), setStepMode(stepMode) {}
+
+        void trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
+        bool satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
+    };
+
     class CPUModeTrap : public Trap
     {
       private:

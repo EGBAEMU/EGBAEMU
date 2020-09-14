@@ -64,7 +64,7 @@ namespace gbaemu::debugger
     {
         *stepMode = true;
         prevMemValue = state.memory.read32(memAddr, nullptr);
-        std::cout << "INFO memory trap triggered of addr: 0x" << std::hex << memAddr << " new Value: 0x" << std::hex << prevMemValue << std::endl;
+        std::cout << "INFO memory trap triggered of addr: 0x" << std::hex << memAddr << " new Value: 0x" << std::hex << prevMemValue << " at PC: 0x" << std::hex << prevPC << std::endl;
     }
 
     bool MemoryChangeTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
@@ -80,6 +80,20 @@ namespace gbaemu::debugger
     bool AddressTrapTimesX::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
     {
         return postPC == address;
+    }
+
+    void ExecutionRegionTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
+    {
+        if (!*setStepMode) {
+            Memory::MemoryRegion memReg;
+            state.memory.normalizeAddress(postPC, memReg);
+            *setStepMode = memReg == trapRegion;
+        }
+    }
+
+    bool ExecutionRegionTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
+    {
+        return true;
     }
 
     void AddressTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
