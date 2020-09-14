@@ -134,6 +134,28 @@ namespace gbaemu::lcd
         }
     };
 
+    class Layer {
+      public:
+        enum LayerId : int32_t
+        {
+            BG0,
+            BG1,
+            BG2,
+            BG3,
+            BG4,
+            OBJ,
+            BD
+        };
+
+        /* Contains the final image of the layer. Has the same size as the display. */
+        MemoryCanvas<color_t> canvas;
+        LayerId id;
+        int32_t order;
+        bool enabled;
+
+        Layer(LayerId _id) : canvas(SCREEN_WIDTH, SCREEN_HEIGHT), id(_id), order(0), enabled(false) { }
+    };
+
     class OBJLayer {
       public:
         enum OBJShape : uint16_t {
@@ -174,11 +196,9 @@ namespace gbaemu::lcd
         void draw(LCDColorPalette &palette, bool use2dMapping);
     };
 
-    struct Background {
-        /* BG0, BG1, BG2, BG3 */
-        int32_t id;
-        MemoryCanvas<uint32_t> canvas;
-        MemoryCanvas<color_t> displayCanvas;
+    class Background : public Layer {
+      public:
+        MemoryCanvas<uint32_t> tempCanvas;
         /* settings */
         bool enabled;
         bool useOtherFrameBuffer;
@@ -209,7 +229,7 @@ namespace gbaemu::lcd
         common::math::mat<3, 3> trans;
         common::math::mat<3, 3> invTrans;
 
-        Background(int32_t i) : id(i), canvas(1024, 1024), displayCanvas(SCREEN_WIDTH, SCREEN_HEIGHT), enabled(false) {}
+        Background(LayerId i) : Layer(i), tempCanvas(1024, 1024) { }
 
         void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory);
         void renderBG0(LCDColorPalette &palette);
@@ -258,6 +278,8 @@ namespace gbaemu::lcd
         LCDIORegs regs = {0};
         std::array<std::unique_ptr<Background>, 4> backgrounds;
         OBJLayer objLayer;
+
+        std::array<std::weak_ptr<Canvas<color_t>>, 6> layers;
         /* special color effects, 0-3 ~ BG0-3, 4 OBJ, 5, Backdrop(?) */
         int32_t firstTargetLayerID;
         int32_t secondTargetLayerID;
@@ -341,7 +363,7 @@ namespace gbaemu::lcd
                     std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
 
             for (int32_t i = 0; i < 4; ++i)
-                backgrounds[i] = std::make_unique<Background>(i);
+                backgrounds[i] = std::make_unique<Background>(static_cast<Layer::LayerId>(i));
 
             renderControl = WAIT;
             renderThread = std::make_unique<std::thread>(&LCDController::renderLoop, this);

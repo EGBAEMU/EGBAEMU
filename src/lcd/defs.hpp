@@ -233,4 +233,6 @@ namespace gbaemu::lcd
     #endif
 #endif
 
+/* #define RENDERER_ENABLE_COLOR_EFFECTS 1 */
+
 #endif /* DEFS_HPP */

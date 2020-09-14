@@ -357,7 +357,7 @@ namespace gbaemu::lcd
 
     void Background::loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory)
     {
-        id = bgIndex;
+        id = static_cast<LayerId>(bgIndex);
 
         uint16_t size = (le(regs.BGCNT[bgIndex]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
 
@@ -539,8 +539,8 @@ namespace gbaemu::lcd
         if (!enabled)
             return;
 
-        auto pixels = canvas.pixels();
-        auto stride = canvas.getWidth();
+        auto pixels = tempCanvas.pixels();
+        auto stride = tempCanvas.getWidth();
 
         if (mosaicEnabled)
             std::cout << "INFO: Mosaic enabled" << std::endl;
@@ -600,8 +600,8 @@ namespace gbaemu::lcd
     void Background::renderBG2(LCDColorPalette &palette)
     {
         uint8_t *bgMap = reinterpret_cast<uint8_t *>(bgMapBase);
-        auto pixels = canvas.pixels();
-        auto stride = canvas.getWidth();
+        auto pixels = tempCanvas.pixels();
+        auto stride = tempCanvas.getWidth();
 
         for (uint32_t mapIndex = 0; mapIndex < (width / 8) * (height / 8); ++mapIndex) {
             uint8_t tileNumber = bgMap[mapIndex];
@@ -624,8 +624,8 @@ namespace gbaemu::lcd
 
     void Background::renderBG3(Memory &memory)
     {
-        auto pixels = canvas.pixels();
-        auto stride = canvas.getWidth();
+        auto pixels = tempCanvas.pixels();
+        auto stride = tempCanvas.getWidth();
         Memory::MemoryRegion memReg;
         const uint16_t *srcPixels = reinterpret_cast<const uint16_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET, nullptr, memReg));
 
@@ -639,8 +639,8 @@ namespace gbaemu::lcd
 
     void Background::renderBG4(LCDColorPalette &palette, Memory &memory)
     {
-        auto pixels = canvas.pixels();
-        auto stride = canvas.getWidth();
+        auto pixels = tempCanvas.pixels();
+        auto stride = tempCanvas.getWidth();
         Memory::MemoryRegion memReg;
         uint32_t fbOff;
 
@@ -663,8 +663,8 @@ namespace gbaemu::lcd
 
     void Background::renderBG5(LCDColorPalette &palette, Memory &memory)
     {
-        auto pixels = canvas.pixels();
-        auto stride = canvas.getWidth();
+        auto pixels = tempCanvas.pixels();
+        auto stride = tempCanvas.getWidth();
         Memory::MemoryRegion memReg;
         uint32_t fbOff;
 
@@ -711,9 +711,9 @@ namespace gbaemu::lcd
 
     void Background::draw(color_t clearColor)
     {
-        displayCanvas.clear(clearColor);
+        canvas.clear(clearColor);
         const common::math::vec<2> screenRef{0, 0};
-        displayCanvas.drawSprite(canvas.pixels(), canvas.getWidth(), canvas.getHeight(), canvas.getWidth(),
+        canvas.drawSprite(tempCanvas.pixels(), tempCanvas.getWidth(), tempCanvas.getHeight(), tempCanvas.getWidth(),
             step.origin, step.d, step.dm, screenRef);
     }
 
@@ -735,7 +735,7 @@ namespace gbaemu::lcd
 
         /* reset id's */
         for (int32_t i = 0; i < 4; ++i)
-            backgrounds[i]->id = i;
+            backgrounds[i]->id = static_cast<Layer::LayerId>(i);
 
         /* Which background layers are enabled to begin with? */
         for (uint32_t i = 0; i < 4; ++i)
@@ -844,9 +844,12 @@ namespace gbaemu::lcd
 
         for (int32_t y = 0; y < SCREEN_HEIGHT; ++y) {
             for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
-                /*
                 int32_t coord = y * SCREEN_WIDTH + x;
-                color_t firstPixel, secondPixel, finalColor;
+                color_t finalColor = 0xFF000000;
+
+#if RENDERER_ENABLE_COLOR_EFFECTS
+#error "Color effect rendering is not implemented."
+                color_t firstPixel, secondPixels;
 
                 for (int32_t i = 0; i < 4; ++i) {
                     if (i <= 3) {
@@ -885,19 +888,17 @@ namespace gbaemu::lcd
                         break;
                 }
 
-                dst[y * w + x] = finalColor;
-                 */
-                color_t finalColor = 0xFF000000;
-
+#else
                 for (int32_t i = 0; i < 4; ++i) {
                     if (backgrounds[i]->enabled)
-                        finalColor = backgrounds[i]->displayCanvas.pixels()[y * SCREEN_WIDTH + x];
+                        finalColor = backgrounds[i]->canvas.pixels()[y * SCREEN_WIDTH + x];
 
                     color_t objColor = objLayer.layers[i]->pixels()[y * SCREEN_WIDTH + x];
 
                     if (objColor & 0xFF000000)
                         finalColor = objColor;
                 }
+#endif
 
                 dst[y * w + x] = finalColor;
             }
