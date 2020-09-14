@@ -185,7 +185,7 @@ namespace gbaemu
             width32Bit = controlReg & DMA_CNT_REG_TYPE_MASK;
             srcCnt = static_cast<AddrCntType>((controlReg & DMA_CNT_REG_SRC_ADR_CNT_MASK) >> DMA_CNT_REG_SRC_ADR_CNT_OFF);
             dstCnt = static_cast<AddrCntType>((controlReg & DMA_CNT_REG_DST_ADR_CNT_MASK) >> DMA_CNT_REG_DST_ADR_CNT_OFF);
-            condition = static_cast<StartCondition>((controlReg & DMA_CNT_REG_TIMING_MASK >> DMA_CNT_REG_TIMING_OFF));
+            condition = static_cast<StartCondition>((controlReg & DMA_CNT_REG_TIMING_MASK) >> DMA_CNT_REG_TIMING_OFF);
 
             // Mask out ignored bits
             srcAddr = le(regs.srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);
