@@ -31,11 +31,15 @@ static void handleSignal(int signum)
 
 static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 {
+
+    gbaemu::debugger::ExecutionHistory history(100);
+
     gbaemu::debugger::Watchdog charlie;
     gbaemu::debugger::JumpTrap jumpTrap;
     charlie.registerTrap(jumpTrap);
 
     bool stepMode = false;
+    bool preStepMode = false;
     bool dummyStepMode = false;
     //THUMB memory mirroring ROM?
     gbaemu::debugger::AddressTrap bp1(0x8001720, &stepMode);
@@ -79,6 +83,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
         }
 
 
+      
         if (cpu.step() == gbaemu::CPUExecutionInfoType::EXCEPTION) {
             std::cout << cpu.executionInfo.message << cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), 32) << std::endl;
             break;
@@ -94,11 +99,18 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
          */
 
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
-
-        if (prevPC != postPC && false) {
+ 
+        if (prevPC != postPC)  {
+            history.addEntry(prevPC, inst, cpu.state.getFlag(gbaemu::cpsr_flags::THUMB_STATE));
             charlie.check(prevPC, postPC, inst, cpu.state);
 
             if (stepMode) {
+                if (stepMode != preStepMode) {
+                    std::cout << "=========== Execution History ==========" << std::endl;
+                    history.dumpHistory(&cpu);
+                    std::cout << "========================================" << std::endl;
+                }
+
                 std::cout << "IRQ Handler: 0x" << std::hex << cpu.state.memory.read32(0x03007FFC, nullptr, false, true) << std::endl;
                 std::cout << cpu.state.disas(cpu.state.memory.read32(0x03007FFC, nullptr, false, true), DISAS_CMD_RANGE) << std::endl;
                 std::cout << "press enter to continue\n";
@@ -108,6 +120,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
                 std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
                 std::cout << cpu.state.toString() << '\n';
                 std::cout << cpu.state.printStack(DEBUG_STACK_PRINT_RANGE) << '\n';
+                preStepMode = stepMode;
             }
         }
 
