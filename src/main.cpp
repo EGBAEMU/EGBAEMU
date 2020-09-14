@@ -71,6 +71,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
  
+        /*
         if (prevPC != postPC)  {
             history.collect(&cpu, prevPC);
             charlie.check(prevPC, postPC, inst, cpu.state);
@@ -94,6 +95,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
                 preStepMode = stepMode;
             }
         }
+         */
 
         if (j >= 1001) {
             double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();

@@ -944,10 +944,7 @@ namespace gbaemu::lcd
                 break;
             case 2:
                 for (size_t i = 0; i < 4; ++i) {
-                    if (!backgrounds[i]->enabled)
-                        continue;
-
-                    if (2 <= backgrounds[i]->id && backgrounds[i]->id <= 3) {
+                    if (backgrounds[i]->enabled && 2 <= backgrounds[i]->id && backgrounds[i]->id <= 3) {
                         backgrounds[i]->renderBG2(palette);
                         backgrounds[i]->draw(clearColor);
                     }
@@ -956,10 +953,7 @@ namespace gbaemu::lcd
                 break;
             case 3:
                 for (size_t i = 0; i < 4; ++i) {
-                    if (!backgrounds[i]->enabled)
-                        continue;
-
-                    if (backgrounds[i]->id == 2) {
+                    if (backgrounds[i]->enabled && backgrounds[i]->id == 2) {
                         backgrounds[i]->renderBG3(memory);
                         backgrounds[i]->draw(clearColor);
                     }
@@ -968,10 +962,7 @@ namespace gbaemu::lcd
                 break;
             case 4:
                 for (size_t i = 0; i < 4; ++i) {
-                    if (!backgrounds[i]->enabled)
-                        continue;
-
-                    if (backgrounds[i]->id == 2) {
+                    if (backgrounds[i]->enabled && backgrounds[i]->id == 2) {
                         backgrounds[i]->renderBG4(palette, memory);
                         backgrounds[i]->draw(clearColor);
                     }
@@ -980,10 +971,7 @@ namespace gbaemu::lcd
                 break;
             case 5:
                 for (size_t i = 0; i < 4; ++i) {
-                    if (!backgrounds[i]->enabled)
-                        continue;
-
-                    if (backgrounds[i]->id == 2) {
+                    if (backgrounds[i]->enabled && backgrounds[i]->id == 2) {
                         backgrounds[i]->renderBG5(palette, memory);
                         backgrounds[i]->draw(clearColor);
                     }
