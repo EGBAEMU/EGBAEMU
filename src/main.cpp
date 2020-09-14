@@ -40,13 +40,16 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 
     bool stepMode = false;
     bool preStepMode = false;
+    bool dummyStepMode = false;
     //THUMB memory mirroring ROM?
-    // gbaemu::debugger::AddressTrap bp1(0x08000536, &stepMode);
-    gbaemu::debugger::AddressTrapTimesX bp1(0x802081a, 38, &stepMode);
+    gbaemu::debugger::AddressTrap bp1(0x8001720, &stepMode);
+    gbaemu::debugger::ExecutionRegionTrap bp2(gbaemu::Memory::MemoryRegion::IWRAM, &stepMode);
+    gbaemu::debugger::MemoryChangeTrap bp3(0x03007FFC, 0, &dummyStepMode);
     //gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x08000338, &stepMode);
-    gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R7_OFFSET, 0x080005c2, &stepMode);
 
-    charlie.registerTrap(r12trap);
+    charlie.registerTrap(bp1);
+    charlie.registerTrap(bp2);
+    charlie.registerTrap(bp3);
 
     std::chrono::high_resolution_clock::time_point t;
 
@@ -74,8 +77,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
         //BREAK(cpu.state.accessReg(gbaemu::regs::PC_OFFSET) == 0x03007d80);
       
         if (cpu.step() == gbaemu::CPUExecutionInfoType::EXCEPTION) {
-            std::cout << cpu.executionInfo.message << '\n' <<
-                cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), 32) << std::endl;
+            std::cout << cpu.executionInfo.message << cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), 32) << std::endl;
             break;
         }
 
@@ -89,7 +91,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
          */
 
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
-        
+ 
         if (prevPC != postPC)  {
             history.addEntry(prevPC, inst, cpu.state.getFlag(gbaemu::cpsr_flags::THUMB_STATE));
             charlie.check(prevPC, postPC, inst, cpu.state);
@@ -100,6 +102,9 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
                     history.dumpHistory(&cpu);
                     std::cout << "========================================" << std::endl;
                 }
+
+                std::cout << "IRQ Handler: 0x" << std::hex << cpu.state.memory.read32(0x03007FFC, nullptr, false, true) << std::endl;
+                std::cout << cpu.state.disas(cpu.state.memory.read32(0x03007FFC, nullptr, false, true), DISAS_CMD_RANGE) << std::endl;
                 std::cout << "press enter to continue\n";
                 std::cin.get();
 
@@ -110,7 +115,6 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
                 preStepMode = stepMode;
             }
         }
-         
 
         if (j >= 1001) {
             double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
@@ -134,7 +138,6 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
     lcdController.exitThread();
     // std::cout << jumpTrap.toString() << std::endl;
 }
-
 
 int main(int argc, char **argv)
 {

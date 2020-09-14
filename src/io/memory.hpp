@@ -35,6 +35,7 @@ namespace gbaemu
     */
 #define GBA_ALLOC_MEM_REG(x) new uint8_t[x##_LIMIT - x##_OFFSET + 1]
 #define GBA_MEM_CLEAR(arr, x) std::fill_n(arr, x##_LIMIT - x##_OFFSET + 1, 0)
+#define GBA_MEM_CLEAR_VALUE(arr, x, value) std::fill_n(arr, x##_LIMIT - x##_OFFSET + 1, (value))
 
     class Memory
     {
@@ -257,7 +258,8 @@ namespace gbaemu
             wram = GBA_ALLOC_MEM_REG(WRAM);
             GBA_MEM_CLEAR(wram, WRAM);
             iwram = GBA_ALLOC_MEM_REG(IWRAM);
-            GBA_MEM_CLEAR(iwram, IWRAM);
+            //GBA_MEM_CLEAR(iwram, IWRAM);
+            GBA_MEM_CLEAR_VALUE(iwram, IWRAM, 1);
             //io_regs = GBA_ALLOC_MEM_REG(IO_REGS);
             //GBA_MEM_CLEAR(io_regs, IO_REGS);
             bg_obj_ram = GBA_ALLOC_MEM_REG(BG_OBJ_RAM);
