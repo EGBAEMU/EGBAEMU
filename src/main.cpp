@@ -76,11 +76,11 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 
         //BREAK(cpu.state.accessReg(gbaemu::regs::PC_OFFSET) == 0x03007d80);
 
-        if(cpu.state.getCurrentPC() == 0x80b55ee) {
-            std::cout << cpu.executionInfo.message << cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), 32) <<
-                cpu.state.toString() << std::endl;
-            break;
-        }
+        //if(cpu.state.getCurrentPC() == 0xfffffff) {
+        //    std::cout << cpu.executionInfo.message << cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), 64) <<
+        //        cpu.state.toString() << std::endl;
+        //    break;
+        //}
 
 
       
@@ -100,7 +100,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
  
-        if (prevPC != postPC)  {
+        if (prevPC != postPC && false)  {
             history.addEntry(prevPC, inst, cpu.state.getFlag(gbaemu::cpsr_flags::THUMB_STATE));
             charlie.check(prevPC, postPC, inst, cpu.state);
 
@@ -174,6 +174,7 @@ int main(int argc, char **argv)
     canv.clear(0xFF365e7a);
     canv.endDraw();
     window.present();
+    gbaemu::lcd::WindowCanvas windowCanvas = window.getCanvas();
 
     /* intialize CPU and print game info */
     gbaemu::CPU cpu;
@@ -183,7 +184,7 @@ int main(int argc, char **argv)
     gbaemu::lcd::LCDisplay display(0, 0, canv);
     std::mutex canDrawToScreenMutex;
     bool canDrawToScreen = false;
-    gbaemu::lcd::LCDController controller(display, &cpu, &canDrawToScreenMutex, &canDrawToScreen);
+    gbaemu::lcd::LCDController controller(windowCanvas, &cpu, &canDrawToScreenMutex, &canDrawToScreen);
 
     std::cout << "Game Title: ";
     for (uint32_t i = 0; i < 12; ++i) {

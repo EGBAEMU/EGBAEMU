@@ -68,6 +68,12 @@ namespace gbaemu::lcd
 
     /* OBJLayer */
 
+    OBJLayer::OBJLayer()
+    {
+        for (size_t i = 0; i < layers.size(); ++i)
+            layers[i] = std::make_unique<MemoryCanvas<color_t>>(SCREEN_WIDTH, SCREEN_HEIGHT);
+    }
+
     void OBJLayer::setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t mode)
     {
         bgMode = mode;
@@ -117,13 +123,17 @@ namespace gbaemu::lcd
         );
     }
 
-    void OBJLayer::draw(LCDColorPalette &palette, bool use2dMapping, LCDisplay &display)
+    void OBJLayer::draw(LCDColorPalette &palette, bool use2dMapping)
     {
         typedef common::math::real_t real_t;
+        std::array<color_t, 64 * 64> tempBuffer;
 
-        for (uint32_t i = 0; i < 128; ++i) {
+        for (size_t i = 0; i < layers.size(); ++i)
+            layers[i]->clear(0x0);
+
+        for (int32_t i = 127; i >= 0; --i) {
             OBJAttribute attr = getAttribute(i);
-
+            uint16_t priority = static_cast<uint16_t>(bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PRIORITY_MASK, OBJ_ATTRIBUTE::PRIORITY_OFFSET));
             bool useRotScale = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::ROT_SCALE_MASK, OBJ_ATTRIBUTE::ROT_SCALE_OFFSET);
             bool vFlip = false;
             bool hFlip = false;
@@ -217,7 +227,7 @@ namespace gbaemu::lcd
                     break;
             }
 
-            std::fill_n(tempBuffer, 64 * 64, 0);
+            std::fill_n(tempBuffer.begin(), 64 * 64, 0);
 
             /* draw all tiles */
 
@@ -334,7 +344,13 @@ namespace gbaemu::lcd
                 screenRef[1] = static_cast<real_t>(yOff + height);
             }
 
+            /*
             display.canvas.drawSprite(tempBuffer, width, height, 64,
+                origin, d, dm, screenRef);
+             */
+
+            /* 0 = highest priority */
+            layers[3 - priority]->drawSprite(tempBuffer.data(), width, height, 64,
                 origin, d, dm, screenRef);
         }
     }
@@ -693,6 +709,14 @@ namespace gbaemu::lcd
         display.canvas.endDraw();
     }
 
+    void Background::draw(color_t clearColor)
+    {
+        displayCanvas.clear(clearColor);
+        const common::math::vec<2> screenRef{0, 0};
+        displayCanvas.drawSprite(canvas.pixels(), canvas.getWidth(), canvas.getHeight(), canvas.getWidth(),
+            step.origin, step.d, step.dm, screenRef);
+    }
+
     /*
         LCDController
      */
@@ -789,21 +813,55 @@ namespace gbaemu::lcd
     {
     }
 
+    void LCDController::copyLayer(const Canvas<color_t>& src)
+    {
+        auto dstPixels = display.target.pixels();
+        auto dstStride = display.target.getWidth();
+
+        auto srcPixels = src.pixels();
+        auto srcStride = src.getWidth();
+
+        for (int32_t y = 0; y < SCREEN_HEIGHT; ++y) {
+            for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+                color_t color = srcPixels[y * srcStride + x];
+
+                if (color & 0xFF000000)
+                    dstPixels[y * dstStride + x] = color;
+            }
+        }
+    }
+
+    void LCDController::drawToTarget()
+    {
+        /*
+            At this point every background and the object layer contain all the pixels that will be drawn to the screen.
+            The last step is to mix the two appropriate layers and draw all other layers according to priority to the display.
+         */
+
+        display.target.beginDraw();
+
+        for (int32_t i = 0; i < 4; ++i) {
+            if (backgrounds[i]->enabled)
+                copyLayer(backgrounds[i]->displayCanvas);
+
+            copyLayer(*objLayer.layers[i]);
+        }
+
+        display.target.endDraw();
+    }
+
     void LCDController::render()
     {
         uint32_t bgMode = le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
-
-        display.canvas.beginDraw();
         /* clear with brackdrop color */
-        display.canvas.clear(palette.getBackdropColor());
+        color_t clearColor = palette.getBackdropColor();
 
-        /* TODO: fix rendering order */
         switch (bgMode) {
             case 0:
                 for (size_t i = 0; i < 4; ++i) {
                     if (backgrounds[i]->enabled) {
                         backgrounds[i]->renderBG0(palette);
-                        backgrounds[i]->drawToDisplay(display);
+                        backgrounds[i]->draw(clearColor);
                     }
                 }
 
@@ -820,10 +878,10 @@ namespace gbaemu::lcd
 
                     if (backgrounds[i]->id <= 1) {
                         backgrounds[i]->renderBG0(palette);
-                        backgrounds[i]->drawToDisplay(display);
+                        backgrounds[i]->draw(clearColor);
                     } else if (backgrounds[i]->id == 2) {
                         backgrounds[i]->renderBG2(palette);
-                        backgrounds[i]->drawToDisplay(display);
+                        backgrounds[i]->draw(clearColor);
                     }
                 }
 
@@ -835,7 +893,7 @@ namespace gbaemu::lcd
 
                     if (2 <= backgrounds[i]->id && backgrounds[i]->id <= 3) {
                         backgrounds[i]->renderBG2(palette);
-                        backgrounds[i]->drawToDisplay(display);
+                        backgrounds[i]->draw(clearColor);
                     }
                 }
 
@@ -847,7 +905,7 @@ namespace gbaemu::lcd
 
                     if (backgrounds[i]->id == 2) {
                         backgrounds[i]->renderBG3(memory);
-                        backgrounds[i]->drawToDisplay(display);
+                        backgrounds[i]->draw(clearColor);
                     }
                 }
 
@@ -859,7 +917,7 @@ namespace gbaemu::lcd
 
                     if (backgrounds[i]->id == 2) {
                         backgrounds[i]->renderBG4(palette, memory);
-                        backgrounds[i]->drawToDisplay(display);
+                        backgrounds[i]->draw(clearColor);
                     }
                 }
 
@@ -871,7 +929,7 @@ namespace gbaemu::lcd
 
                     if (backgrounds[i]->id == 2) {
                         backgrounds[i]->renderBG5(palette, memory);
-                        backgrounds[i]->drawToDisplay(display);
+                        backgrounds[i]->draw(clearColor);
                     }
                 }
 
@@ -883,10 +941,9 @@ namespace gbaemu::lcd
         }
 
         bool use2dMapping = !(le(regs.DISPCNT) & DISPCTL::OBJ_CHAR_VRAM_MAPPING_MASK);
-        objLayer.draw(palette, use2dMapping, display);
+        objLayer.draw(palette, use2dMapping);
 
-        display.canvas.endDraw();
-        display.drawToTarget(2);
+        drawToTarget();
     }
 
     void LCDController::renderLoop()

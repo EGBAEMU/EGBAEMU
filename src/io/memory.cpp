@@ -199,8 +199,8 @@ namespace gbaemu
         MemoryRegion memReg;
         auto dst = resolveAddr(addr, execInfo, memReg);
 
-        std::cout << "writing to " << std::hex << addr << '\n';
-        BREAK(addr == 0x3005d00);
+        //std::cout << "writing to " << std::hex << addr << '\n';
+        //BREAK(addr == 0x3005d00);
 
         if (memReg == OUT_OF_ROM) {
             std::cout << "CRITICAL ERROR: trying to write32 ROM + outside of its bounds!" << std::endl;

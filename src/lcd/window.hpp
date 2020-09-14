@@ -15,6 +15,7 @@ namespace gbaemu::lcd
         Window(uint32_t width, uint32_t height, const char *title = "gbaemu");
         ~Window();
         void present();
+        WindowCanvas getCanvas();
         WindowCanvas getCanvas() const;
     };
 } // namespace gbaemu::lcd

@@ -14,12 +14,12 @@ namespace gbaemu::lcd
     typedef common::math::vec<3> vec3;
     typedef common::math::mat<3, 3> mat3x3;
 
-    static const uint32_t SCREEN_WIDTH = 240;
-    static const uint32_t SCREEN_HEIGHT = 160;
+    static const constexpr uint32_t SCREEN_WIDTH = 240;
+    static const constexpr uint32_t SCREEN_HEIGHT = 160;
 
     namespace DISPCTL
     {
-        static const uint32_t BG_MODE_MASK = 0b111,
+        static const constexpr uint32_t BG_MODE_MASK = 0b111,
                               CBG_MODE_MASK = 1 << 3,
                               DISPLAY_FRAME_SELECT_MASK = 1 << 4,
                               HBLANK_INTERVAL_FREE_MASK = 1 << 5,
@@ -42,7 +42,7 @@ namespace gbaemu::lcd
 
     namespace DISPSTAT
     {
-        static const uint16_t VBLANK_FLAG_OFFSET = 0,
+        static const constexpr uint16_t VBLANK_FLAG_OFFSET = 0,
                               HBLANK_FLAG_OFFSET = 1,
                               VCOUNTER_FLAG_OFFSET = 2,
                               VBLANK_IRQ_ENABLE_OFFSET = 3,
@@ -50,7 +50,7 @@ namespace gbaemu::lcd
                               VCOUNTER_IRQ_ENABLE_OFFSET = 5,
                               VCOUNT_SETTING_OFFSET = 8;
 
-        static const uint16_t VBLANK_FLAG_MASK = 1,
+        static const constexpr uint16_t VBLANK_FLAG_MASK = 1,
                               HBLANK_FLAG_MASK = 1,
                               VCOUNTER_FLAG_MASK = 1,
                               VBLANK_IRQ_ENABLE_MASK = 1,
@@ -61,13 +61,13 @@ namespace gbaemu::lcd
 
     namespace VCOUNT
     {
-        static const uint16_t CURRENT_SCANLINE_OFFSET = 0;
-        static const uint16_t CURRENT_SCANLINE_MASK = 0xFF;
+        static const constexpr uint16_t CURRENT_SCANLINE_OFFSET = 0;
+        static const constexpr uint16_t CURRENT_SCANLINE_MASK = 0xFF;
     } // namespace VCOUNT
 
     namespace BGCNT
     {
-        static const uint32_t BG_PRIORITY_MASK = 0b11,
+        static const constexpr uint32_t BG_PRIORITY_MASK = 0b11,
                               CHARACTER_BASE_BLOCK_MASK = 0b11 << 2,
                               MOSAIC_MASK = 1 << 6,
                               COLORS_PALETTES_MASK = 1 << 7,
@@ -87,7 +87,7 @@ namespace gbaemu::lcd
 
     namespace BLDCNT
     {
-        static const uint16_t BG0_TARGET_PIXEL1_OFFSET = 0,
+        static const constexpr uint16_t BG0_TARGET_PIXEL1_OFFSET = 0,
                               BG1_TARGET_PIXEL1_OFFSET = 1,
                               BG2_TARGET_PIXEL1_OFFSET = 2,
                               BG3_TARGET_PIXEL1_OFFSET = 3,
@@ -101,7 +101,7 @@ namespace gbaemu::lcd
                               OBJ_TARGET_PIXEL2_OFFSET = 12,
                               BD_TARGET_PIXEL2_OFFSET = 13;
 
-        static const uint16_t BG0_TARGET_PIXEL1_MASK = 1 << BG0_TARGET_PIXEL1_OFFSET,
+        static const constexpr uint16_t BG0_TARGET_PIXEL1_MASK = 1 << BG0_TARGET_PIXEL1_OFFSET,
                               BG1_TARGET_PIXEL1_MASK = 1 << BG1_TARGET_PIXEL1_OFFSET,
                               BG2_TARGET_PIXEL1_MASK = 1 << BG2_TARGET_PIXEL1_OFFSET,
                               BG3_TARGET_PIXEL1_MASK = 1 << BG3_TARGET_PIXEL1_OFFSET,
@@ -126,23 +126,23 @@ namespace gbaemu::lcd
 
     namespace BLDALPHA
     {
-        static const uint32_t EVA_COEFF_MASK = 0x1F,
+        static const constexpr uint32_t EVA_COEFF_MASK = 0x1F,
                               EVB_COEFF_MASK = 0x1F << 8;
     }
 
     namespace BLDY
     {
-        static const uint32_t EVY_COEFF_MASK = 0x1F;
+        static const constexpr uint32_t EVY_COEFF_MASK = 0x1F;
     }
 
     namespace MOSAIC
     {
-        static const uint32_t BG_MOSAIC_HSIZE_OFFSET = 0,
+        static const constexpr uint32_t BG_MOSAIC_HSIZE_OFFSET = 0,
                               BG_MOSAIC_VSIZE_OFFSET = 4,
                               OBJ_MOSAIC_HSIZE_OFFSET = 8,
                               OBJ_MOSAIC_VSIZE_OFFSET = 12;
 
-        static const uint32_t BG_MOSAIC_HSIZE_MASK = 0xF << BG_MOSAIC_HSIZE_OFFSET,
+        static const constexpr uint32_t BG_MOSAIC_HSIZE_MASK = 0xF << BG_MOSAIC_HSIZE_OFFSET,
                               BG_MOSAIC_VSIZE_MASK = 0xF << BG_MOSAIC_VSIZE_OFFSET,
                               OBJ_MOSAIC_HSIZE_MASK = 0xF << OBJ_MOSAIC_HSIZE_OFFSET,
                               OBJ_MOSAIC_VSIZE_MASK = 0xF << OBJ_MOSAIC_VSIZE_OFFSET;
@@ -150,7 +150,7 @@ namespace gbaemu::lcd
 
     namespace OBJ_ATTRIBUTE
     {
-        static const uint16_t Y_COORD_OFFSET = 0,
+        static const constexpr uint16_t Y_COORD_OFFSET = 0,
                               ROT_SCALE_OFFSET = 8,
                               DOUBLE_SIZE_OFFSET = 9,
                               DISABLE_OFFSET = 9,
@@ -167,7 +167,7 @@ namespace gbaemu::lcd
                               PRIORITY_OFFSET = 10,
                               PALETTE_NUMBER_OFFSET = 12;
 
-        static const uint16_t Y_COORD_MASK = 0xFF,
+        static const constexpr uint16_t Y_COORD_MASK = 0xFF,
                               ROT_SCALE_MASK = 1,
                               DOUBLE_SIZE_MASK = 1,
                               DISABLE_MASK = 1,
