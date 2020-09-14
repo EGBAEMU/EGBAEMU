@@ -1,10 +1,94 @@
 #include "cpu.hpp"
+#include "swi.hpp"
 #include "util.hpp"
 
+#include <iostream>
 #include <set>
 
 namespace gbaemu
 {
+
+    const std::function<InstructionExecutionInfo(thumb::ThumbInstruction &, CPU *)> CPU::thumbExecuteHandler[] = {
+        // Category: MOV_SHIFT
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbMoveShiftedReg(thumbInst.id, thumbInst.params.mov_shift.rs, thumbInst.params.mov_shift.rd, thumbInst.params.mov_shift.offset); },
+        // Category: ADD_SUB
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbAddSubtract(thumbInst.id, thumbInst.params.add_sub.rd, thumbInst.params.add_sub.rs, thumbInst.params.add_sub.rn_offset); },
+        // Category: MOV_CMP_ADD_SUB_IMM
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            return cpu->handleThumbMovCmpAddSubImm(thumbInst.id, thumbInst.params.mov_cmp_add_sub_imm.rd, thumbInst.params.mov_cmp_add_sub_imm.offset);
+        },
+        // Category: ALU_OP
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            return cpu->handleThumbALUops(thumbInst.id, thumbInst.params.alu_op.rs, thumbInst.params.alu_op.rd);
+        },
+        // Category: BR_XCHG
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            return cpu->handleThumbBranchXCHG(thumbInst.id, thumbInst.params.br_xchg.rd, thumbInst.params.br_xchg.rs);
+        },
+        // Category: PC_LD
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbLoadStore(thumbInst); },
+        // Category: LD_ST_REL_OFF
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbLoadStore(thumbInst); },
+        // Category: LD_ST_SIGN_EXT
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbLoadStoreSignHalfword(thumbInst); },
+        // Category: LD_ST_IMM_OFF
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbLoadStore(thumbInst); },
+        // Category: LD_ST_HW
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbLoadStoreSignHalfword(thumbInst); },
+        // Category: LD_ST_REL_SP
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbLoadStore(thumbInst); },
+        // Category: LOAD_ADDR
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbRelAddr(thumbInst.params.load_addr.sp, thumbInst.params.load_addr.offset, thumbInst.params.load_addr.rd); },
+        // Category: ADD_OFFSET_TO_STACK_PTR
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            return cpu->handleThumbAddOffsetToStackPtr(thumbInst.params.add_offset_to_stack_ptr.s, thumbInst.params.add_offset_to_stack_ptr.offset);
+        },
+        // Category: PUSH_POP_REG
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            return cpu->handleThumbPushPopRegister(thumbInst.params.push_pop_reg.l, thumbInst.params.push_pop_reg.r, thumbInst.params.push_pop_reg.rlist);
+        },
+        // Category: MULT_LOAD_STORE
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            return cpu->handleThumbMultLoadStore(thumbInst.params.mult_load_store.l, thumbInst.params.mult_load_store.rb, thumbInst.params.mult_load_store.rlist);
+        },
+        // Category: COND_BRANCH
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            return cpu->handleThumbConditionalBranch(thumbInst.params.cond_branch.cond, thumbInst.params.cond_branch.offset);
+        },
+        // Category: SOFTWARE_INTERRUPT
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { /*
+                                                         SWIs can be called from both within THUMB and ARM mode. In ARM mode, only the upper 8bit of the 24bit comment field are interpreted.
+                                                         //TODO is switching needed?
+                                                         Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
+                                                         In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
+                                                         */
+                                                           uint8_t index = thumbInst.params.software_interrupt.comment;
+                                                           if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
+                                                               if (index != 5 && index != 0x2B)
+                                                                   std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
+                                                               return swi::biosCallHandler[index](cpu);
+                                                           } else {
+                                                               std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
+                                                           }
+                                                           return InstructionExecutionInfo{0};
+        },
+        // Category: UNCONDITIONAL_BRANCH
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            return cpu->handleThumbUnconditionalBranch(thumbInst.params.unconditional_branch.offset);
+        },
+        // Category: LONG_BRANCH_WITH_LINK
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            return cpu->handleThumbLongBranchWithLink(thumbInst.params.long_branch_with_link.h, thumbInst.params.long_branch_with_link.offset);
+        },
+        // Category: INVALID_CAT
+        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            std::cout << "ERROR: trying to execute invalid THUMB instruction! PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
+            InstructionExecutionInfo info{0};
+            info.hasCausedException = true;
+            return info;
+        },
+    };
+
     InstructionExecutionInfo CPU::handleThumbLongBranchWithLink(bool h, uint16_t offset)
     {
         auto currentRegs = state.getCurrentRegs();

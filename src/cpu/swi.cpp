@@ -4,6 +4,7 @@
 
 #include "cpu.hpp"
 #include "cpu_state.hpp"
+#include "lcd/lcd-controller.hpp"
 #include "math/math3d.hpp"
 #include "regs.hpp"
 #include "swi.hpp"

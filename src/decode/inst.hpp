@@ -190,7 +190,7 @@ namespace gbaemu
     {
 
         enum ARMInstructionCategory {
-            MUL_ACC,
+            MUL_ACC = 0,
             MUL_ACC_LONG,
             BRANCH_XCHG,
             DATA_SWP,
@@ -376,7 +376,7 @@ namespace gbaemu
         };
 */
         enum ThumbInstructionCategory {
-            MOV_SHIFT,
+            MOV_SHIFT = 0,
             ADD_SUB,
             MOV_CMP_ADD_SUB_IMM,
             ALU_OP,
