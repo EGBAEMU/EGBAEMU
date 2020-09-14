@@ -358,10 +358,10 @@ namespace gbaemu
                     instruction.id = InstructionID::LDRSH;
                 } /*else if (!l && h) { // supported arm5 and up
                     instruction.id = InstructionID::STRD;
-                }*/
+                }
                 else if (!l && !h) {
                     instruction.id = InstructionID::LDRD;
-                }
+                }*/
 
             } else if ((lastInst & MASK_DATA_PROC_PSR_TRANSF) == VAL_DATA_PROC_PSR_TRANSF) {
 

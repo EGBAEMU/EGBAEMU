@@ -49,7 +49,8 @@ namespace gbaemu
             STRINGIFY_CASE_ID(LDRH);
             STRINGIFY_CASE_ID(LDRSB);
             STRINGIFY_CASE_ID(LDRSH);
-            STRINGIFY_CASE_ID(LDRD);
+            // supported arm5 and up
+            //STRINGIFY_CASE_ID(LDRD);
             STRINGIFY_CASE_ID(MLA);
             STRINGIFY_CASE_ID(MOV);
             STRINGIFY_CASE_ID(MRS);
