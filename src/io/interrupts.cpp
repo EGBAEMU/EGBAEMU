@@ -43,7 +43,7 @@ namespace gbaemu
         cpu->state.memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
                 INTERRUPT_CONTROL_REG_ADDR,
-                INTERRUPT_CONTROL_REG_ADDR + sizeof(regs),
+                INTERRUPT_CONTROL_REG_ADDR + sizeof(regs) - 1,
                 std::bind(&InterruptHandler::read8FromReg, this, std::placeholders::_1),
                 std::bind(&InterruptHandler::externalWrite8ToReg, this, std::placeholders::_1, std::placeholders::_2),
                 std::bind(&InterruptHandler::read8FromReg, this, std::placeholders::_1),

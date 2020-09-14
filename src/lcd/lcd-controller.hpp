@@ -291,7 +291,7 @@ namespace gbaemu::lcd
             memory.ioHandler.registerIOMappedDevice(
                 IO_Mapped(
                     static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET),
-                    static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET) + sizeof(regs),
+                    static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET) + sizeof(regs) - 1,
                     std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),
                     std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
                     std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),

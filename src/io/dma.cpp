@@ -27,7 +27,7 @@ namespace gbaemu
         memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
                 DMA_BASE_ADDRESSES[channel],
-                DMA_BASE_ADDRESSES[channel] + sizeof(regs),
+                DMA_BASE_ADDRESSES[channel] + sizeof(regs) - 1,
                 std::bind(&DMA::read8FromReg, this, std::placeholders::_1),
                 std::bind(&DMA::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
                 std::bind(&DMA::read8FromReg, this, std::placeholders::_1),
