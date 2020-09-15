@@ -117,7 +117,6 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
     }
 
     doRun = false;
-    lcdController.exitThread();
     // std::cout << jumpTrap.toString() << std::endl;
 }
 
@@ -207,6 +206,7 @@ int main(int argc, char **argv)
     }
 
     doRun = false;
+    std::cout << "window closed" << std::endl;
 
     /* kill LCDController thread and wait */
     controller.exitThread();

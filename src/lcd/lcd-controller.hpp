@@ -99,20 +99,18 @@ namespace gbaemu::lcd
       public:
         enum LayerId : int32_t
         {
-            BG0 = 0,
-            BG1,
-            BG2,
-            BG3,
-            BG4,
-            OBJ,
+            BG0, BG1, BG2, BG3,
+            OBJ0, OBJ1, OBJ2, OBJ3,
             BD
         };
 
         /* Contains the final image of the layer. Has the same size as the display. */
         MemoryCanvas<color_t> canvas;
+        /* What layer are we talking about? */
         LayerId id;
         bool enabled;
 
+        /* The layer with the smallest order is the bottom most layer. */
         int32_t order;
         uint16_t priority;
         bool asFirstTarget;
@@ -198,7 +196,7 @@ namespace gbaemu::lcd
         void renderBG3(Memory &memory);
         void renderBG4(LCDColorPalette &palette, Memory &memory);
         void renderBG5(LCDColorPalette &palette, Memory &memory);
-        void draw(color_t clearColor = 0xFF000000 /* black */);
+        void draw();
     };
 
     class LCDController
@@ -235,10 +233,12 @@ namespace gbaemu::lcd
         } display;
 
         LCDColorPalette palette;
+        LCDIORegs regsRef{0};
         LCDIORegs regs = {0};
 
         /* backdrop layer, BG0-BG4, OBJ0-OBJ4 */
         std::array<std::shared_ptr<Background>, 4> backgroundLayers;
+        std::array<std::shared_ptr<Background>, 4> sortedBackgroundLayers;
         std::array<std::shared_ptr<OBJLayer>, 4> objLayers;
 
         std::array<std::shared_ptr<Layer>, 4 + 4> layers;
@@ -286,11 +286,11 @@ namespace gbaemu::lcd
 
         uint8_t read8FromReg(uint32_t offset)
         {
-            return *(offset + reinterpret_cast<uint8_t *>(&regs));
+            return *(offset + reinterpret_cast<uint8_t *>(&regsRef));
         }
         void write8ToReg(uint32_t offset, uint8_t value)
         {
-            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+            *(offset + reinterpret_cast<uint8_t *>(&regsRef)) = value;
         }
 
         void setupLayers();
@@ -304,7 +304,7 @@ namespace gbaemu::lcd
 
       public:
         LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) :
-            display{disp, 0, 0, 1, 1}, memory(cpu->state.memory), irqHandler(cpu->irqHandler),
+            display{disp, 0, 0, 3, 3}, memory(cpu->state.memory), irqHandler(cpu->irqHandler),
             canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw)
         {
             counters.cycle = 0;
@@ -314,7 +314,7 @@ namespace gbaemu::lcd
             memory.ioHandler.registerIOMappedDevice(
                 IO_Mapped(
                     static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET),
-                    static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET) + sizeof(regs) - 1,
+                    static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET) + sizeof(regsRef) - 1,
                     std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),
                     std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
                     std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),

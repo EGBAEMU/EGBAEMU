@@ -19,7 +19,7 @@ namespace gbaemu
     void DMA::write8ToReg(uint32_t offset, uint8_t value)
     {
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
-        std::cout << "DMA" << std::dec << static_cast<uint32_t>(channel) << ": write to offset: 0x" << std::hex << offset << " value: 0x" << std::hex << static_cast<uint32_t>(value) << std::endl;
+        //std::cout << "DMA" << std::dec << static_cast<uint32_t>(channel) << ": write to offset: 0x" << std::hex << offset << " value: 0x" << std::hex << static_cast<uint32_t>(value) << std::endl;
     }
 
     DMA::DMA(DMAChannel channel, CPU *cpu) : channel(channel), state(IDLE), memory(cpu->state.memory), irqHandler(cpu->irqHandler)
