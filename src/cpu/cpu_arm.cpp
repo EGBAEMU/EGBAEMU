@@ -89,6 +89,7 @@ namespace gbaemu
                                                      }
                                                      return InstructionExecutionInfo{0};
         },
+        /*
         // Category: INVALID_CAT
         [](arm::ARMInstruction &armInst, CPU *cpu) {
             std::cout << "ERROR: trying to execute invalid ARM instruction! PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
@@ -96,6 +97,7 @@ namespace gbaemu
             info.hasCausedException = true;
             return info;
         },
+        */
     };
 
     InstructionExecutionInfo CPU::handleMultAcc(bool a, bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm)
