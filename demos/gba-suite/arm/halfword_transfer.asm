@@ -10,6 +10,7 @@ t400:
         strh    r0, [mem]
         lsr     r0, 16
         ldr     r1, [mem]
+        and     r1, r0
         cmp     r1, r0
         bne     f400
 
@@ -165,6 +166,8 @@ t410:
         mov     r2, mem
         bic     r2, 0xFF000000
         bic     r2, 0xFF0000
+        bic     r1, 0xFF000000
+        bic     r1, 0xFF0000
         cmp     r2, r1
         bne     f410
 
@@ -186,6 +189,8 @@ t411:
         mov     r2, mem
         bic     r2, 0xFF000000
         bic     r2, 0xFF0000
+        bic     r1, 0xFF000000
+        bic     r1, 0xFF0000
         cmp     r2, r1
         bne     f411
 
