@@ -60,6 +60,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
             t = std::chrono::high_resolution_clock::now();
 
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
+        bool prevThumb = cpu.state.getFlag(gbaemu::cpsr_flags::THUMB_STATE);
         auto inst = cpu.state.pipeline.decode.instruction;
 
         if (cpu.step() == gbaemu::CPUExecutionInfoType::EXCEPTION) {
@@ -69,11 +70,12 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 
         lcdController.tick();
 
+
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
- 
-        if (prevPC != postPC)  {
+
+        if (prevPC != postPC) {
             history.collect(&cpu, prevPC);
-            charlie.check(prevPC, postPC, inst, cpu.state);
+            charlie.check(prevPC, postPC, prevThumb ? cpu.thumbDecoder.decode(inst) : cpu.armDecoder.decode(inst), cpu.state);
 
             if (stepMode) {
                 if (stepMode != preStepMode) {
