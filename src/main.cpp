@@ -65,6 +65,8 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 
         if (cpu.step() == gbaemu::CPUExecutionInfoType::EXCEPTION) {
             std::cout << cpu.executionInfo.message << cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), 32) << std::endl;
+            std::cout << cpu.state.toString() << std::endl;
+            std::cout << cpu.state.printStack(DEBUG_STACK_PRINT_RANGE) << std::endl;
             break;
         }
 
