@@ -206,6 +206,32 @@ namespace gbaemu
             srcAddr = le(regs.srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);
             destAddr = le(regs.destAddr) & (channel == DMA3 ? 0xFFFFFFF : 0x07FFFFFF);
             fetchCount();
+
+            if (condition == SPECIAL) {
+                std::cout << "ERROR: DMA" << channel << " timing: special not yet supported" << std::endl;
+
+                //TODO init for special timing!
+                if (channel == DMA1 || channel == DMA2) {
+                    /*
+                    Sound DMA (FIFO Timing Mode) (DMA1 and DMA2 only)
+                    In this mode, the DMA Repeat bit must be set, and the destination address must be FIFO_A (040000A0h) or FIFO_B (040000A4h).
+                    Upon DMA request from sound controller, 4 units of 32bits (16 bytes) are transferred (both Word Count register and DMA Transfer Type bit are ignored).
+                    The destination address will not be incremented in FIFO mode.
+                    */
+                    count = 4;
+                    width32Bit = true;
+                    srcCnt = INCREMENT;
+                    dstCnt = FIXED;
+                } else if (channel == DMA3) {
+                    /*
+                    Video Capture Mode (DMA3 only)
+                    Intended to copy a bitmap from memory (or from external hardware/camera) to VRAM. 
+                    When using this transfer mode, set the repeat bit, and write the number of data units (per scanline) to the word count register. 
+                    Capture works similar like HBlank DMA, however, the transfer is started when VCOUNT=2, 
+                    it is then repeated each scanline, and it gets stopped when VCOUNT=162.
+                    */
+                }
+            }
         }
 
         return enable;
@@ -220,7 +246,7 @@ namespace gbaemu
 
     bool DMA::conditionSatisfied() const
     {
-        uint16_t dispstat = memory.read16(0x04000004, nullptr);
+        uint16_t dispstat = memory.ioHandler.externalRead16(0x04000004);
         bool vBlank = dispstat & 1;
         bool hBlank = dispstat & 2;
 
@@ -236,8 +262,7 @@ namespace gbaemu
             case SPECIAL:
                 //TODO find out what to do
                 // The 'Special' setting (Start Timing=3) depends on the DMA channel: DMA0=Prohibited, DMA1/DMA2=Sound FIFO, DMA3=Video Capture
-                std::cout << "ERROR: DMA timing: special not yet supported" << std::endl;
-                break;
+                return false;
         }
 
         return true;
