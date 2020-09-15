@@ -44,18 +44,6 @@ namespace gbaemu::debugger
     bool JumpTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
     {
         return (prevPC != postPC) && (prevPC + 2 != postPC) && (prevPC + 4 != postPC);
-
-        /*
-        if (inst.isArm) {
-            return (inst.arm.cat == arm::BRANCH) ||
-                (inst.arm.cat == arm::BRANCH_XCHG);
-        } else {
-            return (inst.thumb.cat == thumb::COND_BRANCH) ||
-                (inst.thumb.cat == thumb::LONG_BRANCH_WITH_LINK) ||
-                (inst.thumb.cat == thumb::UNCONDITIONAL_BRANCH) ||
-                (inst.thumb.cat == thumb::BR_XCHG);
-        }
-         */
     }
 
     std::string JumpTrap::toString() const

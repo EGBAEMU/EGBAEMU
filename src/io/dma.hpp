@@ -135,6 +135,8 @@ namespace gbaemu
         bool conditionSatisfied() const;
         void fetchCount();
         bool checkForUserAbort();
+
+        static const char *countTypeToStr(AddrCntType updateKind);
     };
 
 } // namespace gbaemu

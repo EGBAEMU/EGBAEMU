@@ -80,6 +80,7 @@ namespace gbaemu
         [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
             return cpu->handleThumbLongBranchWithLink(thumbInst.params.long_branch_with_link.h, thumbInst.params.long_branch_with_link.offset);
         },
+        /*
         // Category: INVALID_CAT
         [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
             std::cout << "ERROR: trying to execute invalid THUMB instruction! PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
@@ -87,6 +88,7 @@ namespace gbaemu
             info.hasCausedException = true;
             return info;
         },
+        */
     };
 
     InstructionExecutionInfo CPU::handleThumbLongBranchWithLink(bool h, uint16_t offset)

@@ -6,6 +6,8 @@ halfword_transfer:
 
 t400:
         ; ARM 8: Store halfword
+        mov     r0, 0
+        str     r0, [mem]
         mvn     r0, 0
         strh    r0, [mem]
         lsr     r0, 16
@@ -156,6 +158,8 @@ f409:
 t410:
         ; ARM 8: Store writeback same register
         mov     r0, mem
+        mov     r1, 0
+        str     r1, [r0, 4]
         dw      0xE1E000B4  ; strh r0, [r0, 4]!
         add     r1, mem, 4
         cmp     r1, r0
@@ -177,6 +181,8 @@ f410:
 t411:
         ; ARM 8: Store writeback same register
         mov     r0, mem
+        mov     r1, 0
+        str     r1, [r0]
         dw      0xE0C000B4  ; strh r0, [r0], 4
         sub     r0, 4
         cmp     r0, mem

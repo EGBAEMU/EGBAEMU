@@ -59,13 +59,13 @@ namespace gbaemu
         /* pipeline */
         struct {
             struct {
-                uint32_t lastInstruction;
                 uint32_t instruction;
+                uint32_t lastInstruction;
             } fetch;
 
             struct {
-                Instruction instruction;
-                Instruction lastInstruction;
+                uint32_t instruction;
+                uint32_t lastInstruction;
             } decode;
         } pipeline = {0};
 

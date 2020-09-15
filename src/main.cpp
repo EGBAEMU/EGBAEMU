@@ -60,21 +60,24 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
             t = std::chrono::high_resolution_clock::now();
 
         uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
+        bool prevThumb = cpu.state.getFlag(gbaemu::cpsr_flags::THUMB_STATE);
         auto inst = cpu.state.pipeline.decode.instruction;
 
         if (cpu.step() == gbaemu::CPUExecutionInfoType::EXCEPTION) {
             std::cout << cpu.executionInfo.message << cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), 32) << std::endl;
+            std::cout << cpu.state.toString() << std::endl;
+            std::cout << cpu.state.printStack(DEBUG_STACK_PRINT_RANGE) << std::endl;
             break;
         }
 
         lcdController.tick();
 
+
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
- 
-        /*
-        if (prevPC != postPC)  {
+
+        if (prevPC != postPC) {
             history.collect(&cpu, prevPC);
-            charlie.check(prevPC, postPC, inst, cpu.state);
+            charlie.check(prevPC, postPC, prevThumb ? cpu.thumbDecoder.decode(inst) : cpu.armDecoder.decode(inst), cpu.state);
 
             if (stepMode) {
                 if (stepMode != preStepMode) {
@@ -95,7 +98,6 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
                 preStepMode = stepMode;
             }
         }
-         */
 
         if (j >= 1001) {
             double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
