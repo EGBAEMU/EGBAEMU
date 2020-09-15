@@ -208,7 +208,7 @@ namespace gbaemu
             fetchCount();
 
             if (condition == SPECIAL) {
-                std::cout << "ERROR: DMA" << channel << " timing: special not yet supported" << std::endl;
+                std::cout << "ERROR: DMA" << std::dec << static_cast<uint32_t>(channel) << " timing: special not yet supported" << std::endl;
 
                 //TODO init for special timing!
                 if (channel == DMA1 || channel == DMA2) {
