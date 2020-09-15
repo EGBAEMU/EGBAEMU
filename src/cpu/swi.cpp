@@ -775,7 +775,7 @@ namespace gbaemu
             uint32_t dataHeader = cpu->state.memory.read32(sourceAddr, &info, false);
             sourceAddr += 4;
 
-            uint32_t decompressedBits = ((dataHeader >> 8) & 0x00FFFFFF) * 8;
+            int32_t decompressedBits = ((dataHeader >> 8) & 0x00FFFFFF) * 8;
             //TODO do we need to add 1 for the correct size, else are 16bit data impossible and 0 bit data does not make sense
             const uint8_t dataSize = dataHeader & 0x0F;
 
@@ -899,7 +899,7 @@ namespace gbaemu
             sourceAddr += 4;
 
             const uint8_t compressedType = (dataHeader >> 4) & 0x0F;
-            uint32_t decompressedSize = (dataHeader >> 8) & 0x00FFFFFF;
+            int32_t decompressedSize = (dataHeader >> 8) & 0x00FFFFFF;
 
             // Value should be 3 for run-length decompression
             if (compressedType != 3) {
