@@ -11,6 +11,17 @@
 namespace gbaemu
 {
 
+    const char *DMA::countTypeToStr(AddrCntType updateKind)
+    {
+        switch (updateKind) {
+            STRINGIFY_CASE_ID(INCREMENT_RELOAD);
+            STRINGIFY_CASE_ID(INCREMENT);
+            STRINGIFY_CASE_ID(DECREMENT);
+            STRINGIFY_CASE_ID(FIXED);
+        }
+        return "";
+    }
+
     uint8_t DMA::read8FromReg(uint32_t offset)
     {
         return *(offset + reinterpret_cast<uint8_t *>(&regs));
@@ -44,9 +55,13 @@ namespace gbaemu
                 if (extractRegValues()) {
                     state = conditionSatisfied() ? STARTED : WAITING_PAUSED;
                     std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
-                    std::cout << "      Source Addr: 0x" << std::hex << srcAddr << std::endl;
-                    std::cout << "      Dest Addr:   0x" << std::hex << destAddr << std::endl;
+                    std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << countTypeToStr(srcCnt) << std::endl;
+                    std::cout << "      Dest Addr:   0x" << std::hex << destAddr << " Type: " << countTypeToStr(dstCnt) << std::endl;
                     std::cout << "      Words: 0x" << std::hex << count << std::endl;
+                    std::cout << "      Repeat: " << repeat << std::endl;
+                    std::cout << "      GamePak DRQ: " << gamePakDRQ << std::endl;
+                    std::cout << "      32 bit mode: " << width32Bit << std::endl;
+                    std::cout << "      IRQ on end: " << irqOnEnd << std::endl;
                 }
                 break;
 
