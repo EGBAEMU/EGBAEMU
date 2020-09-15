@@ -26,6 +26,11 @@ namespace gbaemu::lcd
         SDL_UpdateWindowSurface(window);
     }
 
+    WindowCanvas Window::getCanvas()
+    {
+        return WindowCanvas(surface);
+    }
+
     WindowCanvas Window::getCanvas() const
     {
         return WindowCanvas(surface);

@@ -59,11 +59,14 @@ namespace gbaemu
         const T SIGN_OFF = FRAC + INT;
         const ResultType factor = static_cast<ResultType>(static_cast<T>(1) << FRAC);
 
-        T bitValue = fp & ((static_cast<T>(1) << SIGN_OFF) - 1);
+        T bitValue = fp & ((static_cast<T>(1) << (SIGN_OFF + 1)) - 1);
         bool negative = (fp >> SIGN_OFF) & 1;
-        T compOffset = negative ? (static_cast<T>(1) << INT) : 0;
+        //T compOffset = negative ? (static_cast<T>(1) << INT) : 0;
 
-        return static_cast<ResultType>(bitValue) / factor - static_cast<ResultType>(compOffset);
+        if (negative)
+            bitValue = ~bitValue + 1;
+
+        return static_cast<ResultType>(bitValue) / factor;// - static_cast<ResultType>(compOffset);
     }
 
     template <class T, T Frac, T Int, class InType>
@@ -83,6 +86,12 @@ namespace gbaemu
     T clamp(const T &value, const T &mn, const T &mx)
     {
         return std::min(mx, std::max(mn, value));
+    }
+
+    template <class IntType>
+    IntType fastMod(IntType value, IntType upperBound)
+    {
+        return (0 <= value && value < upperBound) ? value : (value % upperBound);
     }
 } // namespace gbaemu
 
@@ -108,3 +117,5 @@ template uint32_t gbaemu::floatToFixed<uint32_t, 8, 19, double>(double);
 template float gbaemu::clamp<float>(const float &, const float &, const float &);
 template double gbaemu::clamp<double>(const double &, const double &, const double &);
 template int32_t gbaemu::clamp<int32_t>(const int32_t &, const int32_t &, const int32_t &);
+
+template int32_t gbaemu::fastMod<int32_t>(int32_t, int32_t);

@@ -119,7 +119,6 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
     }
 
     doRun = false;
-    lcdController.exitThread();
     // std::cout << jumpTrap.toString() << std::endl;
 }
 
@@ -150,16 +149,16 @@ int main(int argc, char **argv)
     canv.clear(0xFF365e7a);
     canv.endDraw();
     window.present();
+    gbaemu::lcd::WindowCanvas windowCanvas = window.getCanvas();
 
     /* intialize CPU and print game info */
     gbaemu::CPU cpu;
     cpu.state.memory.loadROM(reinterpret_cast<uint8_t *>(buf.data()), buf.size());
 
     /* initialize SDL and LCD */
-    gbaemu::lcd::LCDisplay display(0, 0, canv);
     std::mutex canDrawToScreenMutex;
     bool canDrawToScreen = false;
-    gbaemu::lcd::LCDController controller(display, &cpu, &canDrawToScreenMutex, &canDrawToScreen);
+    gbaemu::lcd::LCDController controller(windowCanvas, &cpu, &canDrawToScreenMutex, &canDrawToScreen);
 
     std::cout << "Game Title: ";
     for (uint32_t i = 0; i < 12; ++i) {
@@ -209,6 +208,7 @@ int main(int argc, char **argv)
     }
 
     doRun = false;
+    std::cout << "window closed" << std::endl;
 
     /* kill LCDController thread and wait */
     controller.exitThread();

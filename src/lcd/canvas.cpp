@@ -190,10 +190,11 @@ namespace gbaemu::lcd
                         canvX = canvX % getWidth();
                 }
 
-                if (0 <= spriteCoord[0] && spriteCoord[0] < srcWidth &&
-                    0 <= spriteCoord[1] && spriteCoord[1] < srcHeight) {
-                    int32_t sx = static_cast<int32_t>(spriteCoord[0]);
-                    int32_t sy = static_cast<int32_t>(spriteCoord[1]);
+                int32_t sx = static_cast<int32_t>(spriteCoord[0]);
+                int32_t sy = static_cast<int32_t>(spriteCoord[1]);
+
+                if (0 <= sx && sx < srcWidth &&
+                    0 <= sy && sy < srcHeight) {
                     PixelType srcColor = src[sy * srcStride + sx];
 
                     /* TODO: assumes PixelType = uint32_t */
@@ -236,7 +237,18 @@ namespace gbaemu::lcd
                 int32_t sy = spriteCoord[1];
 
                 /* assumes PixelType = uint32_t */
-                if (0 <= sx && sx < srcWidth && 0 <= sy && sy < srcHeight) {
+                if (!wrap) {
+                    if (0 <= sx && sx < srcWidth && 0 <= sy && sy < srcHeight) {
+                        PixelType color = src[sy * srcStride + sx];
+
+                        if (color & 0xFF000000) {
+                            destPixels[y * width + x] = color;
+                        }
+                    }
+                } else {
+                    sx = fastMod(sx, srcWidth);
+                    sy = fastMod(sy, srcHeight);
+                    
                     PixelType color = src[sy * srcStride + sx];
 
                     if (color & 0xFF000000) {

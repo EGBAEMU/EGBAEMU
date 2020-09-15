@@ -35,6 +35,7 @@ namespace gbaemu::lcd
         virtual void beginDraw() override;
         virtual void endDraw() override;
         PixelType *pixels() override;
+        const PixelType *pixels() const override;
     };
 } // namespace gbaemu::lcd
 

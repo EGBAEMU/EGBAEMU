@@ -43,6 +43,9 @@ namespace gbaemu
         return static_cast<SignT>(static_cast<SignT>(val) << (sizeof(SignT) * 8 - usedBits)) / ((static_cast<SignT>(1) << (sizeof(SignT) * 8 - usedBits)));
     }
 
+    template <class IntType>
+    IntType fastMod(IntType value, IntType upperBound);
+
 #define STRINGIFY(x) (#x)
 
 #define STRINGIFY_CASE_ID(x) \

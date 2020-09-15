@@ -24,4 +24,9 @@ namespace gbaemu::lcd
     {
         return reinterpret_cast<PixelType *>(surface->pixels);
     }
+
+    const WindowCanvas::PixelType *WindowCanvas::pixels() const
+    {
+        return reinterpret_cast<const PixelType *>(surface->pixels);
+    }
 } // namespace gbaemu::lcd

@@ -21,6 +21,7 @@ namespace gbaemu::lcd
         virtual void endDraw() = 0;
         /* returns a contiguous array of pixels */
         virtual PixelType *pixels() = 0;
+        virtual const PixelType *pixels() const = 0;
 
         int32_t getWidth() const;
         int32_t getHeight() const;
@@ -49,6 +50,11 @@ namespace gbaemu::lcd
         void endDraw() override {}
 
         PixelType *pixels() override
+        {
+            return pixs.data();
+        }
+
+        const PixelType *pixels() const override
         {
             return pixs.data();
         }

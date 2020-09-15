@@ -78,63 +78,49 @@ namespace gbaemu::lcd
 #include "endpacked.h"
 
     struct LCDColorPalette {
-        /* TODO: maybe this can be const */
         /* 256 entries */
-        uint16_t *bgPalette;
+        const uint16_t *bgPalette;
         /* 256 entries */
-        uint16_t *objPalette;
+        const uint16_t *objPalette;
 
-        static uint32_t toR8G8B8(uint16_t color);
-        uint32_t getBgColor(uint32_t index) const;
-        uint32_t getBgColor(uint32_t i1, uint32_t i2) const;
-        uint32_t getObjColor(uint32_t index) const;
-        uint32_t getObjColor(uint32_t i1, uint32_t i2) const;
-        uint32_t getBackdropColor() const;
+        static color_t toR8G8B8(uint16_t color);
+        /*
+            Under certain conditions the palette can be split up into 16 partitions of 16 colors. This is what
+            partition number and index refer to.
+         */
+        color_t getBgColor(uint32_t index) const;
+        color_t getBgColor(uint32_t paletteNumber, uint32_t index) const;
+        color_t getObjColor(uint32_t index) const;
+        color_t getObjColor(uint32_t paletteNumber, uint32_t index) const;
+        color_t getBackdropColor() const;
     };
 
-    class LCDisplay
-    {
+    class Layer {
       public:
-        MemoryCanvas<uint32_t> canvas;
-        int32_t targetX, targetY;
-        Canvas<uint32_t> &target;
-
-        LCDisplay(uint32_t x, uint32_t y, Canvas<uint32_t> &targ) : canvas(SCREEN_WIDTH, SCREEN_HEIGHT), targetX(x), targetY(y), target(targ) {}
-
-        int32_t stride() const
+        enum LayerId : int32_t
         {
-            return canvas.getWidth();
-        }
+            BG0, BG1, BG2, BG3,
+            OBJ0, OBJ1, OBJ2, OBJ3,
+            BD
+        };
 
-        void drawToTarget(int32_t scale = 1)
-        {
-            target.beginDraw();
+        /* Contains the final image of the layer. Has the same size as the display. */
+        MemoryCanvas<color_t> canvas;
+        /* What layer are we talking about? */
+        LayerId id;
+        bool enabled;
 
-            auto stride = target.getWidth();
-            auto dest = target.pixels();
+        /* The layer with the smallest order is the bottom most layer. */
+        int32_t order;
+        uint16_t priority;
+        bool asFirstTarget;
+        bool asSecondTarget;
 
-            auto src = canvas.pixels();
-            auto srcStride = canvas.getWidth();
-
-            for (int32_t y = 0; y < canvas.getHeight(); ++y)
-                for (int32_t x = 0; x < canvas.getWidth(); ++x) {
-                    auto color = src[y * srcStride + x];
-
-                    for (int32_t iy = 0; iy < scale; ++iy)
-                        for (int32_t ix = 0; ix < scale; ++ix)
-                            dest[(y * scale + iy + targetY) * stride + (x * scale + ix + targetX)] = color;
-                }
-
-            target.endDraw();
-        }
-
-        void clear()
-        {
-            canvas.clear(0xFF000000);
-        }
+        Layer(LayerId _id) : canvas(SCREEN_WIDTH, SCREEN_HEIGHT), id(_id), order(0), enabled(false) { }
     };
 
-    struct OBJLayer {
+    class OBJLayer : public Layer {
+      public:
         enum OBJShape : uint16_t {
             SQUARE = 0,
             HORIZONTAL,
@@ -155,26 +141,23 @@ namespace gbaemu::lcd
 
         uint32_t bgMode;
         /* depends on bg mode */
-        uint8_t *objTiles;
+        const uint8_t *objTiles;
         uint32_t areaSize;
         /* OAM region */
-        uint8_t *attributes;
-
-        uint32_t tempBuffer[64 * 64];
-
-        void setMode(uint8_t *vramBaseAddress, uint8_t *oamBaseAddress, uint32_t bgMode);
-        OBJAttribute *accessAttribute(uint32_t index);
-        OBJAttribute getAttribute(uint32_t index);
-        std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(uint32_t index);
-        void draw(LCDColorPalette &palette, bool use2dMapping, LCDisplay &display);
+        const uint8_t *attributes;
+      private:
+        OBJAttribute getAttribute(uint32_t index) const;
+        std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(uint32_t index) const;
+      public:
+        OBJLayer(LayerId layerId);
+        void setMode(const uint8_t *vramBaseAddress, const uint8_t *oamBaseAddress, uint32_t bgMode);
+        void draw(LCDColorPalette &palette, bool use2dMapping);
     };
 
-    struct Background {
-        /* BG0, BG1, BG2, BG3 */
-        int32_t id;
-        MemoryCanvas<uint32_t> canvas;
+    class Background : public Layer {
+      public:
+        MemoryCanvas<uint32_t> tempCanvas;
         /* settings */
-        bool enabled;
         bool useOtherFrameBuffer;
         bool mosaicEnabled;
         bool colorPalette256;
@@ -182,13 +165,15 @@ namespace gbaemu::lcd
         uint32_t width;
         uint32_t height;
         bool wrap;
-        int32_t priority;
         bool scInUse[4];
         uint32_t scCount;
         uint32_t scXOffset[4];
         uint32_t scYOffset[4];
         uint8_t *bgMapBase;
         uint8_t *tiles;
+
+        bool asFirstTarget;
+        bool asSecondTarget;
 
         /* general transformation of background in target display space */
         struct {
@@ -200,7 +185,10 @@ namespace gbaemu::lcd
         common::math::mat<3, 3> trans;
         common::math::mat<3, 3> invTrans;
 
-        Background(int32_t i) : id(i), canvas(1024, 1024), enabled(false) {}
+        Background(LayerId i) : Layer(i), tempCanvas(1024, 1024)
+        {
+            order = -(static_cast<int32_t>(i) * 2);
+        }
 
         void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory);
         void renderBG0(LCDColorPalette &palette);
@@ -208,11 +196,16 @@ namespace gbaemu::lcd
         void renderBG3(Memory &memory);
         void renderBG4(LCDColorPalette &palette, Memory &memory);
         void renderBG5(LCDColorPalette &palette, Memory &memory);
-        void drawToDisplay(LCDisplay &display);
+        void draw();
     };
 
     class LCDController
     {
+      private:
+        /* not copyable */
+        LCDController & operator=(const LCDController&) = delete;
+        LCDController(const LCDController&) = delete;
+        LCDController() = default;
       public:
         enum RenderControl {
             WAIT,
@@ -226,18 +219,42 @@ namespace gbaemu::lcd
         };
 
       private:
-        LCDisplay &display;
+        //LCDisplay &display;
         Memory &memory;
         InterruptHandler &irqHandler;
 
+        /* Describes the location and scale in the final canvas. */
+        struct
+        {
+            Canvas<color_t>& target;
+            int32_t x, y;
+            /*  */
+            int32_t xStep, yStep;
+        } display;
+
         LCDColorPalette palette;
+        LCDIORegs regsRef{0};
         LCDIORegs regs = {0};
-        std::array<std::unique_ptr<Background>, 4> backgrounds;
-        OBJLayer objLayer;
+
+        /* backdrop layer, BG0-BG4, OBJ0-OBJ4 */
+        std::array<std::shared_ptr<Background>, 4> backgroundLayers;
+        std::array<std::shared_ptr<Background>, 4> sortedBackgroundLayers;
+        std::array<std::shared_ptr<OBJLayer>, 4> objLayers;
+
+        std::array<std::shared_ptr<Layer>, 4 + 4> layers;
         /* special color effects, 0-3 ~ BG0-3, 4 OBJ, 5, Backdrop(?) */
-        int32_t firstTargetLayerID;
-        int32_t secondTargetLayerID;
         BLDCNT::ColorSpecialEffect colorSpecialEffect;
+
+        struct
+        {
+            uint32_t evy;
+        } brightnessEffect;
+
+        struct
+        {
+            uint32_t eva;
+            uint32_t evb;
+        } alphaEffect;
 
         /* rendering is done in a separate thread */
         RenderControl renderControl;
@@ -269,20 +286,26 @@ namespace gbaemu::lcd
 
         uint8_t read8FromReg(uint32_t offset)
         {
-            return *(offset + reinterpret_cast<uint8_t *>(&regs));
+            return *(offset + reinterpret_cast<uint8_t *>(&regsRef));
         }
         void write8ToReg(uint32_t offset, uint8_t value)
         {
-            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+            *(offset + reinterpret_cast<uint8_t *>(&regsRef)) = value;
         }
 
+        void setupLayers();
+        void sortLayers();
         void onHBlank();
         void onVBlank();
+        void copyLayer(const Canvas<color_t>& src);
+        void drawToTarget();
         void render();
         void renderLoop();
 
       public:
-        LCDController(LCDisplay &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) : display(disp), memory(cpu->state.memory), irqHandler(cpu->irqHandler), canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw)
+        LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) :
+            display{disp, 0, 0, 3, 3}, memory(cpu->state.memory), irqHandler(cpu->irqHandler),
+            canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw)
         {
             counters.cycle = 0;
             counters.vCount = 0;
@@ -291,14 +314,13 @@ namespace gbaemu::lcd
             memory.ioHandler.registerIOMappedDevice(
                 IO_Mapped(
                     static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET),
-                    static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET) + sizeof(regs) - 1,
+                    static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET) + sizeof(regsRef) - 1,
                     std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),
                     std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
                     std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),
                     std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
 
-            for (int32_t i = 0; i < 4; ++i)
-                backgrounds[i] = std::make_unique<Background>(i);
+            setupLayers();
 
             renderControl = WAIT;
             renderThread = std::make_unique<std::thread>(&LCDController::renderLoop, this);
