@@ -235,18 +235,18 @@ namespace gbaemu::lcd
             /* This value might be trash, depending on the mode. */
             uint16_t paletteNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PALETTE_NUMBER_MASK, OBJ_ATTRIBUTE::PALETTE_NUMBER_OFFSET);
             uint32_t tilesPerRow = useColor256 ? 16 : 32;
+            size_t bytesPerTile = useColor256 ? 64 : 32;
 
             for (uint32_t tileY = 0; tileY < height / 8; ++tileY) {
                 for (uint32_t tileX = 0; tileX < width / 8; ++tileX) {
                     /* This is where our tile data lies. */
                     const void *tilePtr;
-                    size_t bytesPerTile = useColor256 ? 64 : 32;
                     size_t tileIndex;
 
                     if (use2dMapping)
                         tileIndex = tileNumber + tileX + tileY * tilesPerRow;
                     else
-                        tileIndex = tileNumber + tileX + (tileY * (width / 8));
+                        tileIndex = tileNumber + tileX + tileY * (width / 8);
 
                     tilePtr = objTiles + tileIndex * bytesPerTile;
 
@@ -259,8 +259,6 @@ namespace gbaemu::lcd
                             for (uint32_t px = 0; px < 8; ++px) {
                                 uint32_t paletteIndex = (row & (0xF << (px * 4))) >> (px * 4);
                                 color_t color = palette.getObjColor(paletteNumber, paletteIndex);
-
-                                BREAK(color == TRANSPARENT && paletteIndex != 0);
 
                                 tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = color;
                             }
