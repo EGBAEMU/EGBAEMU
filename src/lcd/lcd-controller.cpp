@@ -1058,16 +1058,16 @@ namespace gbaemu::lcd
         }
 
         /* update stat */
-        uint16_t stat = le(regs.DISPSTAT);
+        uint16_t stat = le(regsRef.DISPSTAT);
         stat = bitSet(stat, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t>(counters.vBlanking));
         stat = bitSet(stat, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t>(counters.hBlanking));
         //stat = bitSet(stat, DISPSTAT::VCOUNT_SETTING_MASK, DISPSTAT::VCOUNT_SETTING_OFFSET, counters.vCount);
-        regs.DISPSTAT = le(stat);
+        regsRef.DISPSTAT = le(stat);
 
         /* update vcount */
-        uint16_t vcount = le(regs.VCOUNT);
+        uint16_t vcount = le(regsRef.VCOUNT);
         vcount = bitSet(vcount, VCOUNT::CURRENT_SCANLINE_MASK, VCOUNT::CURRENT_SCANLINE_OFFSET, counters.vCount);
-        regs.VCOUNT = le(vcount);
+        regsRef.VCOUNT = le(vcount);
 
         ++counters.cycle;
 
