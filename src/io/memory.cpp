@@ -387,6 +387,7 @@ namespace gbaemu
                     return noBackupMedia;
                 }
             case OUT_OF_ROM:
+            case EEPROM_REGION:
             case EXT_ROM1_:
             case EXT_ROM1:
             case EXT_ROM2_:
@@ -433,6 +434,7 @@ namespace gbaemu
                     return wasteMem;
                 }
             case OUT_OF_ROM:
+            case EEPROM_REGION:
             case EXT_ROM1_:
             case EXT_ROM1:
             case EXT_ROM2_:
