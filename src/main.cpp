@@ -47,9 +47,9 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
     gbaemu::debugger::MemoryChangeTrap bp3(0x03007FFC, 0, &dummyStepMode);
     //gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x08000338, &stepMode);
 
-    charlie.registerTrap(bp1);
-    charlie.registerTrap(bp2);
-    charlie.registerTrap(bp3);
+    //charlie.registerTrap(bp1);
+    //charlie.registerTrap(bp2);
+    //charlie.registerTrap(bp3);
 
     std::chrono::high_resolution_clock::time_point t;
 
@@ -153,7 +153,7 @@ int main(int argc, char **argv)
 
     /* intialize CPU and print game info */
     gbaemu::CPU cpu;
-    cpu.state.memory.loadROM(reinterpret_cast<uint8_t *>(buf.data()), buf.size());
+    cpu.state.memory.loadROM("save.file", reinterpret_cast<uint8_t *>(buf.data()), buf.size());
 
     /* initialize SDL and LCD */
     std::mutex canDrawToScreenMutex;
