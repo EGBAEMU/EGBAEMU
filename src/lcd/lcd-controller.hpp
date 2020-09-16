@@ -190,6 +190,11 @@ namespace gbaemu::lcd
             order = -(static_cast<int32_t>(i) * 2);
         }
 
+        ~Background()
+        {
+            std::cout << "~Background()" << std::endl;
+        }
+
         void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory);
         void renderBG0(LCDColorPalette &palette);
         void renderBG2(LCDColorPalette &palette);

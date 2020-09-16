@@ -75,7 +75,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
-        if (prevPC != postPC) {
+        if (prevPC != postPC && false) {
             history.collect(&cpu, prevPC);
             charlie.check(prevPC, postPC, prevThumb ? cpu.thumbDecoder.decode(inst) : cpu.armDecoder.decode(inst), cpu.state);
 

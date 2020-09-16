@@ -546,8 +546,8 @@ namespace gbaemu::lcd
                 uint32_t tileNumber = entry & 0x3FF;
                 uint32_t paletteNumber = (entry >> 12) & 0xF;
 
-                int32_t tileX = scXOffset[scIndex] + (mapIndex % 32);
-                int32_t tileY = scYOffset[scIndex] + (mapIndex / 32);
+                int32_t tileX = scXOffset[scIndex] / 8 + (mapIndex % 32);
+                int32_t tileY = scYOffset[scIndex] / 8 + (mapIndex / 32);
 
                 /* TODO: flipping */
                 bool hFlip = (entry >> 10) & 1;
