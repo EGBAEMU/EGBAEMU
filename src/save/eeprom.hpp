@@ -37,7 +37,7 @@ namespace gbaemu::save
         {
             bool isNewFile = !std::ifstream(path).good();
 
-            saveFile = std::fstream(path, std::ios::binary | std::ios::in | std::ios::out);
+            saveFile.open(path, std::ios::binary | std::ios::in | std::ios::out);
             success = saveFile.is_open();
 
             if (success && isNewFile) {
