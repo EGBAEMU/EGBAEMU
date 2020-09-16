@@ -42,10 +42,10 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
     bool preStepMode = false;
     bool dummyStepMode = false;
     //THUMB memory mirroring ROM?
-    gbaemu::debugger::AddressTrap bp1(0x0800169A, &stepMode);
+    gbaemu::debugger::AddressTrap bp1(0x08001118, &stepMode);
     gbaemu::debugger::ExecutionRegionTrap bp2(gbaemu::Memory::MemoryRegion::IWRAM, &stepMode);
     gbaemu::debugger::MemoryChangeTrap bp3(0x03007FFC, 0, &dummyStepMode);
-    //gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x08000338, &stepMode);
+    gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x08000338, &stepMode);
 
     //charlie.registerTrap(bp1);
     //charlie.registerTrap(bp2);

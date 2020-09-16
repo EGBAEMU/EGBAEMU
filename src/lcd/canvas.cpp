@@ -215,10 +215,10 @@ namespace gbaemu::lcd
 
     template <class PixelType>
     void Canvas<PixelType>::drawSprite(const PixelType *src, int32_t srcWidth, int32_t srcHeight, int32_t srcStride,
-                                       const common::math::vec<2>& origin,
-                                       const common::math::vec<2>& d,
-                                       const common::math::vec<2>& dm,
-                                       const common::math::vec<2>& screenRef,
+                                       const common::math::vec<2> &origin,
+                                       const common::math::vec<2> &d,
+                                       const common::math::vec<2> &dm,
+                                       const common::math::vec<2> &screenRef,
                                        bool wrap)
     {
         /* TODO: Implement wrapping. */
@@ -248,7 +248,7 @@ namespace gbaemu::lcd
                 } else {
                     sx = fastMod(sx, srcWidth);
                     sy = fastMod(sy, srcHeight);
-                    
+
                     PixelType color = src[sy * srcStride + sx];
 
                     if (color & 0xFF000000) {
@@ -260,7 +260,7 @@ namespace gbaemu::lcd
             }
 
             spriteCoordScanLine += dm;
-        }        
+        }
     }
 
     template class Canvas<uint32_t>;

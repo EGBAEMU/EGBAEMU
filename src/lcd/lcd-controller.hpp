@@ -6,6 +6,7 @@
 #include "io/interrupts.hpp"
 #include "io/io_regs.hpp"
 #include "io/memory.hpp"
+#include "logging.hpp"
 #include "math/mat.hpp"
 
 #include "defs.hpp"
@@ -95,12 +96,18 @@ namespace gbaemu::lcd
         color_t getBackdropColor() const;
     };
 
-    class Layer {
+    class Layer
+    {
       public:
-        enum LayerId : int32_t
-        {
-            BG0, BG1, BG2, BG3,
-            OBJ0, OBJ1, OBJ2, OBJ3,
+        enum LayerId : int32_t {
+            BG0,
+            BG1,
+            BG2,
+            BG3,
+            OBJ0,
+            OBJ1,
+            OBJ2,
+            OBJ3,
             BD
         };
 
@@ -116,10 +123,11 @@ namespace gbaemu::lcd
         bool asFirstTarget;
         bool asSecondTarget;
 
-        Layer(LayerId _id) : canvas(SCREEN_WIDTH, SCREEN_HEIGHT), id(_id), order(0), enabled(false) { }
+        Layer(LayerId _id) : canvas(SCREEN_WIDTH, SCREEN_HEIGHT), id(_id), order(0), enabled(false) {}
     };
 
-    class OBJLayer : public Layer {
+    class OBJLayer : public Layer
+    {
       public:
         enum OBJShape : uint16_t {
             SQUARE = 0,
@@ -145,16 +153,19 @@ namespace gbaemu::lcd
         uint32_t areaSize;
         /* OAM region */
         const uint8_t *attributes;
+
       private:
         OBJAttribute getAttribute(uint32_t index) const;
         std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(uint32_t index) const;
+
       public:
         OBJLayer(LayerId layerId);
         void setMode(const uint8_t *vramBaseAddress, const uint8_t *oamBaseAddress, uint32_t bgMode);
         void draw(LCDColorPalette &palette, bool use2dMapping);
     };
 
-    class Background : public Layer {
+    class Background : public Layer
+    {
       public:
         MemoryCanvas<uint32_t> tempCanvas;
         /* settings */
@@ -192,7 +203,7 @@ namespace gbaemu::lcd
 
         ~Background()
         {
-            std::cout << "~Background()" << std::endl;
+            LOG_LCD(std::cout << "~Background()" << std::endl;);
         }
 
         void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory);
@@ -208,9 +219,10 @@ namespace gbaemu::lcd
     {
       private:
         /* not copyable */
-        LCDController & operator=(const LCDController&) = delete;
-        LCDController(const LCDController&) = delete;
+        LCDController &operator=(const LCDController &) = delete;
+        LCDController(const LCDController &) = delete;
         LCDController() = default;
+
       public:
         enum RenderControl {
             WAIT,
@@ -231,7 +243,7 @@ namespace gbaemu::lcd
         /* Describes the location and scale in the final canvas. */
         struct
         {
-            Canvas<color_t>& target;
+            Canvas<color_t> &target;
             int32_t x, y;
             /*  */
             int32_t xStep, yStep;
@@ -302,15 +314,14 @@ namespace gbaemu::lcd
         void sortLayers();
         void onHBlank();
         void onVBlank();
-        void copyLayer(const Canvas<color_t>& src);
+        void copyLayer(const Canvas<color_t> &src);
         void drawToTarget();
         void render();
         void renderLoop();
 
       public:
-        LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) :
-            display{disp, 0, 0, 3, 3}, memory(cpu->state.memory), irqHandler(cpu->irqHandler),
-            canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw)
+        LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) : display{disp, 0, 0, 3, 3}, memory(cpu->state.memory), irqHandler(cpu->irqHandler),
+                                                                                                        canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw)
         {
             counters.cycle = 0;
             counters.vCount = 0;

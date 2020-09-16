@@ -261,8 +261,7 @@ namespace gbaemu
             wram = GBA_ALLOC_MEM_REG(WRAM);
             GBA_MEM_CLEAR(wram, WRAM);
             iwram = GBA_ALLOC_MEM_REG(IWRAM);
-            //GBA_MEM_CLEAR(iwram, IWRAM);
-            GBA_MEM_CLEAR_VALUE(iwram, IWRAM, 1);
+            GBA_MEM_CLEAR(iwram, IWRAM);
             //io_regs = GBA_ALLOC_MEM_REG(IO_REGS);
             //GBA_MEM_CLEAR(io_regs, IO_REGS);
             bg_obj_ram = GBA_ALLOC_MEM_REG(BG_OBJ_RAM);

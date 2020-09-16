@@ -5,6 +5,7 @@
 #include "cpu.hpp"
 #include "cpu_state.hpp"
 #include "lcd/lcd-controller.hpp"
+#include "logging.hpp"
 #include "math/math3d.hpp"
 #include "regs.hpp"
 #include "swi.hpp"
@@ -57,7 +58,7 @@ namespace gbaemu
         InstructionExecutionInfo softReset(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: softReset not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: softReset not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -65,7 +66,7 @@ namespace gbaemu
         InstructionExecutionInfo registerRamReset(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: registerRamReset not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: registerRamReset not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -73,7 +74,7 @@ namespace gbaemu
         InstructionExecutionInfo stop(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: stop not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: stop not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -152,7 +153,7 @@ namespace gbaemu
         static InstructionExecutionInfo _div(uint32_t *const *const currentRegs, int32_t numerator, int32_t denominator)
         {
             if (denominator == 0) {
-                std::cout << "WARNING: game attempted division by 0!" << std::endl;
+                LOG_SWI(std::cout << "WARNING: game attempted division by 0!" << std::endl;);
 
                 // Return something and pray that the game stops attempting suicide
                 *currentRegs[regs::R0_OFFSET] = (numerator < 0) ? -1 : 1;
@@ -226,10 +227,10 @@ namespace gbaemu
         InstructionExecutionInfo arcTan(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
-            
+
             uint32_t &r0 = cpu->state.accessReg(regs::R0_OFFSET);
-            uint32_t& r1 = cpu->state.accessReg(regs::R1_OFFSET);
-            uint32_t& r2 = cpu->state.accessReg(regs::R2_OFFSET);
+            uint32_t &r1 = cpu->state.accessReg(regs::R1_OFFSET);
+            uint32_t &r2 = cpu->state.accessReg(regs::R2_OFFSET);
 
             int32_t i = r0;
             int32_t a = -((i * i) >> 14);
@@ -241,14 +242,14 @@ namespace gbaemu
             b = ((b * a) >> 14) + 0x3651;
             b = ((b * a) >> 14) + 0xA2F9;
             r0 = (i * b) >> 16;
-            
+
             if (a)
                 r1 = a;
-            
+
             if (b)
                 r2 = b;
 
-            std::cout << "WARNING: arcTan called, return format probably wrong!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: arcTan called, return format probably wrong!" << std::endl;);
 
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
@@ -276,7 +277,7 @@ namespace gbaemu
             // Transform to integer interval [0, 0xFFFF]
             r0 = static_cast<uint32_t>(static_cast<uint16_t>((res * 0x0FFFF) / (2 * M_PI)));
 
-            std::cout << "WARNING: arcTan2 called, return format probably wrong!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: arcTan2 called, return format probably wrong!" << std::endl;);
 
             //TODO proper time calculation
             InstructionExecutionInfo info{0};
@@ -298,50 +299,6 @@ namespace gbaemu
         */
         InstructionExecutionInfo cpuFastSet(CPU *cpu)
         {
-            /*
-            std::cout << "WARNING: cpuFastSet called, which doesnt has sanity checks nor proper mirroring handling!\n";
-
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
-            //TODO proper time calculation
-            InstructionExecutionInfo info{0};
-
-            const auto currentRegs = cpu->state.getCurrentRegs();
-            //TODO we need to rewrite this code for memory access calculations or calculate it manually!
-            Memory::MemoryRegion memReg;
-            //TODO maybe sanity checks for memReg?
-            //TODO what about mirroring?
-            uint8_t *sourceAddr = cpu->state.memory.resolveAddr(*currentRegs[regs::R0_OFFSET], &info, memReg);
-            uint8_t *destAddr = cpu->state.memory.resolveAddr(*currentRegs[regs::R1_OFFSET], &info, memReg);
-            uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
-
-            // as we do more than 4 byte accesses this is no more safe and we need to exit now!
-            if (info.hasCausedException) {
-                return info;
-            }
-
-            uint32_t length = length_mode & 0x001FFFFF;
-            uint32_t rest = length % 8;
-            // ceiling to multiple of 8
-            if (rest) {
-                length += 8 - rest;
-            }
-            // convert from word(32 bit) count to byte count
-            length <<= 2;
-
-            bool fixedMode = length_mode & (1 << 24);
-            if (fixedMode) {
-                // Fill with value pointed to by r0
-                uint32_t value = *reinterpret_cast<uint32_t *>(sourceAddr);
-                uint32_t *destPtr = reinterpret_cast<uint32_t *>(destAddr);
-                uint32_t *endPtr = destPtr + length / sizeof(*destPtr);
-                std::fill(destPtr, endPtr, value);
-            } else {
-                // Normal memcpy behaviour
-                std::memcpy(destAddr, sourceAddr, length);
-            }
-
-            return info;
-            */
             return callBiosCodeSWIHandler(cpu);
         }
         /*
@@ -357,53 +314,6 @@ namespace gbaemu
         */
         InstructionExecutionInfo cpuSet(CPU *cpu)
         {
-            /*
-            std::cout << "WARNING: cpuSet called, which doesnt has sanity checks nor proper mirroring handling!\n";
-
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
-            const auto currentRegs = cpu->state.getCurrentRegs();
-            //TODO proper time calculation
-            InstructionExecutionInfo info{0};
-
-            //TODO we need to rewrite this code for memory access calculations or calculate it manually!
-            Memory::MemoryRegion memReg;
-            //TODO maybe sanity checks for memReg?
-            //TODO what about mirroring?
-            uint8_t *sourceAddr = cpu->state.memory.resolveAddr(*currentRegs[regs::R0_OFFSET], &info, memReg);
-            uint8_t *destAddr = cpu->state.memory.resolveAddr(*currentRegs[regs::R1_OFFSET], &info, memReg);
-            uint32_t length_mode = *currentRegs[regs::R2_OFFSET];
-
-            // as we do more than 4 byte accesses this is no more safe and we need to exit now!
-            if (info.hasCausedException) {
-                return info;
-            }
-
-            uint32_t length = length_mode & 0x001FFFFF;
-            bool fixedMode = length_mode & (1 << 24);
-            bool dataSize32bit = length_mode & (1 << 26);
-
-            length <<= dataSize32bit ? 2 : 1;
-
-            if (fixedMode) {
-                // Fill with value pointed to by r0
-                if (dataSize32bit) {
-                    uint32_t value = *reinterpret_cast<uint32_t *>(sourceAddr);
-                    uint32_t *destPtr = reinterpret_cast<uint32_t *>(destAddr);
-                    uint32_t *endPtr = destPtr + length / sizeof(*destPtr);
-                    std::fill(destPtr, endPtr, value);
-                } else {
-                    uint16_t value = *reinterpret_cast<uint16_t *>(sourceAddr);
-                    uint16_t *destPtr = reinterpret_cast<uint16_t *>(destAddr);
-                    uint16_t *endPtr = destPtr + length / sizeof(*destPtr);
-                    std::fill(destPtr, endPtr, value);
-                }
-            } else {
-                // Normal memcpy behaviour
-                std::memcpy(destAddr, sourceAddr, length);
-            }
-
-            return info;
-            */
             return callBiosCodeSWIHandler(cpu);
         }
 
@@ -688,7 +598,7 @@ namespace gbaemu
 
             // Value should be 3 for run-length decompression
             if (compressedType != 1) {
-                std::cerr << "ERROR: Invalid call of LZ77UnComp!" << std::endl;
+                LOG_SWI(std::cout << "ERROR: Invalid call of LZ77UnComp!" << std::endl;);
                 return info;
             }
 
@@ -788,14 +698,14 @@ namespace gbaemu
 
             // data size should be a multiple of 4
             if (dataSize % 4) {
-                std::cerr << "WARNING: huffman decompression data is not a multiple of 4 bit! PLS try to add 1 to the dataSize." << std::endl;
+                LOG_SWI(std::cout << "WARNING: huffman decompression data is not a multiple of 4 bit! PLS try to add 1 to the dataSize." << std::endl;);
             }
 
             const uint8_t compressedType = (dataHeader >> 4) & 0x0F;
 
             // Value should be 2 for huffman
             if (compressedType != 2) {
-                std::cerr << "ERROR: Invalid call of huffUnComp!" << std::endl;
+                LOG_SWI(std::cout << "ERROR: Invalid call of huffUnComp!" << std::endl;);
                 return info;
             }
 
@@ -816,7 +726,7 @@ namespace gbaemu
 
             //TODO do we need to fix things if 32 % dataSize != 0?
             if (32 % dataSize) {
-                std::cerr << "WARNING: decompressed huffman data might be misaligned, if not pls remove this warning and if so, well FML!" << std::endl;
+                LOG_SWI(std::cout << "WARNING: decompressed huffman data might be misaligned, if not pls remove this warning and if so, well FML!" << std::endl;);
             }
 
             bool firstWriteDone = false;
@@ -910,7 +820,7 @@ namespace gbaemu
 
             // Value should be 3 for run-length decompression
             if (compressedType != 3) {
-                std::cerr << "ERROR: Invalid call of rlUnComp!" << std::endl;
+                LOG_SWI(std::cout << "ERROR: Invalid call of rlUnComp!" << std::endl;);
                 return info;
             }
 
@@ -923,7 +833,7 @@ namespace gbaemu
                 uint8_t decompressedDataLength = (flagData & 0x7F) + (compressed ? 3 : 1);
 
                 if (decompressedSize < decompressedDataLength) {
-                    std::cerr << "ERROR: underflow in rlUnComp!" << std::endl;
+                    LOG_SWI(std::cout << "ERROR: underflow in rlUnComp!" << std::endl;);
                     return info;
                 }
                 decompressedSize -= decompressedDataLength;
@@ -1023,7 +933,7 @@ namespace gbaemu
         InstructionExecutionInfo soundBiasChange(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: soundBiasChange not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: soundBiasChange not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1031,7 +941,7 @@ namespace gbaemu
         InstructionExecutionInfo soundDriverInit(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: soundDriverInit not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: soundDriverInit not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1039,7 +949,7 @@ namespace gbaemu
         InstructionExecutionInfo soundDriverMode(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: soundDriverMode not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: soundDriverMode not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1047,7 +957,7 @@ namespace gbaemu
         InstructionExecutionInfo soundDriverMain(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: soundDirverMain not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: soundDirverMain not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1055,7 +965,7 @@ namespace gbaemu
         InstructionExecutionInfo soundDriverVSync(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: soundDirverVSync not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: soundDirverVSync not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1063,7 +973,7 @@ namespace gbaemu
         InstructionExecutionInfo soundChannelClear(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: soundChannelClear not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: soundChannelClear not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1071,7 +981,7 @@ namespace gbaemu
         InstructionExecutionInfo MIDIKey2Freq(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: MIDIKey2Freq not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: MIDIKey2Freq not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1079,7 +989,7 @@ namespace gbaemu
         InstructionExecutionInfo musicPlayerOpen(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: musicPlayerOpen not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: musicPlayerOpen not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1087,7 +997,7 @@ namespace gbaemu
         InstructionExecutionInfo musicPlayerStart(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: musicPlayerStart not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: musicPlayerStart not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1095,7 +1005,7 @@ namespace gbaemu
         InstructionExecutionInfo musicPlayerStop(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: musicPlayerStop not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: musicPlayerStop not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1103,7 +1013,7 @@ namespace gbaemu
         InstructionExecutionInfo musicPlayerContinue(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: musicPlayerContinue not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: musicPlayerContinue not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1111,7 +1021,7 @@ namespace gbaemu
         InstructionExecutionInfo musicPlayerFadeOut(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: musicPlayerFadeOut not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: musicPlayerFadeOut not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1119,7 +1029,7 @@ namespace gbaemu
         InstructionExecutionInfo multiBoot(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: multiBoot not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: multiBoot not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1127,7 +1037,7 @@ namespace gbaemu
         InstructionExecutionInfo hardReset(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: hardReset not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: hardReset not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1135,7 +1045,7 @@ namespace gbaemu
         InstructionExecutionInfo customHalt(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: customHalt not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: customHalt not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1143,7 +1053,7 @@ namespace gbaemu
         InstructionExecutionInfo soundDriverVSyncOff(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: sourdDriverVSyncOff not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: sourdDriverVSyncOff not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1151,7 +1061,7 @@ namespace gbaemu
         InstructionExecutionInfo soundDriverVSyncOn(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: soundDriverVSyncOn not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: soundDriverVSyncOn not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;
@@ -1159,7 +1069,7 @@ namespace gbaemu
         InstructionExecutionInfo getJumpList(CPU *cpu)
         {
             //TODO implement
-            std::cout << "WARNING: getJumpList not yet implemented!" << std::endl;
+            LOG_SWI(std::cout << "WARNING: getJumpList not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             InstructionExecutionInfo info{0};
             return info;

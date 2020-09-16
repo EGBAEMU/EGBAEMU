@@ -1,6 +1,7 @@
 #include "timer.hpp"
 #include "cpu/cpu.hpp"
 #include "interrupts.hpp"
+#include "logging.hpp"
 
 #include <functional>
 #include <iostream>
@@ -95,11 +96,12 @@ namespace gbaemu
                 countUpTiming = id != 0 && (controlReg & TIMER_TIMING_MASK);
                 irq = controlReg & TIMER_IRQ_EN_MASK;
 
-                std::cout << "INFO: Enabled TIMER" << std::dec << static_cast<uint32_t>(id) << std::endl;
-                std::cout << "      Prescale: /" << std::dec << static_cast<uint32_t>(prescale) << std::endl;
-                std::cout << "      Count only up on prev Timer overflow: " << countUpTiming << std::endl;
-                std::cout << "      IRQ enable: " << irq << std::endl;
-                std::cout << "      Counter Value: 0x" << std::hex << static_cast<uint32_t>(counter) << std::endl;
+                LOG_TIM(
+                    std::cout << "INFO: Enabled TIMER" << std::dec << static_cast<uint32_t>(id) << std::endl;
+                    std::cout << "      Prescale: /" << std::dec << static_cast<uint32_t>(prescale) << std::endl;
+                    std::cout << "      Count only up on prev Timer overflow: " << countUpTiming << std::endl;
+                    std::cout << "      IRQ enable: " << irq << std::endl;
+                    std::cout << "      Counter Value: 0x" << std::hex << static_cast<uint32_t>(counter) << std::endl;);
             }
         }
 

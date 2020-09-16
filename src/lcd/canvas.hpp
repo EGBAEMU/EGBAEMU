@@ -32,10 +32,10 @@ namespace gbaemu::lcd
         void drawSprite(const PixelType *src, int32_t srcWidth, int32_t srcHeight, int32_t srcStride,
                         const common::math::mat<3, 3> &trans, const common::math::mat<3, 3> &invTrans, bool wrap = false);
         void drawSprite(const PixelType *src, int32_t srcWidth, int32_t srcHeight, int32_t srcStride,
-                        const common::math::vec<2>& origin,
-                        const common::math::vec<2>& d,
-                        const common::math::vec<2>& dm,
-                        const common::math::vec<2>& screenRef,
+                        const common::math::vec<2> &origin,
+                        const common::math::vec<2> &d,
+                        const common::math::vec<2> &dm,
+                        const common::math::vec<2> &screenRef,
                         bool wrap = false);
     };
 

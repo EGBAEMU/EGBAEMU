@@ -1,6 +1,7 @@
 #include "interrupts.hpp"
 #include "cpu/cpu.hpp"
 #include "cpu/regs.hpp"
+#include "logging.hpp"
 #include "memory.hpp"
 #include "util.hpp"
 
@@ -22,7 +23,7 @@ namespace gbaemu
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
             regsMutex.unlock();
         } else {
-            std::cout << "WARNING: internal write to non IRQ request registers!" << std::endl;
+            LOG_IRQ(std::cout << "WARNING: internal write to non IRQ request registers!" << std::endl;);
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
         }
     }
