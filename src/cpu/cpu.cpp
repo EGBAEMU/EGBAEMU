@@ -146,7 +146,7 @@ namespace gbaemu
             */
         bool negative = (resultValue) & (static_cast<uint64_t>(1) << 31);
         bool zero = (resultValue & 0x0FFFFFFFF) == 0;
-        bool overflow = msbOp1 == msbOp2 && (negative ^ msbOp1);
+        bool overflow = msbOp1 == msbOp2 && (negative != msbOp1);
         bool carry = resultValue & (static_cast<uint64_t>(1) << 32);
 
         if (nFlag)
@@ -159,7 +159,7 @@ namespace gbaemu
             state.setFlag(cpsr_flags::V_FLAG, overflow);
 
         if (cFlag) {
-            state.setFlag(cpsr_flags::C_FLAG, carry ^ invertCarry);
+            state.setFlag(cpsr_flags::C_FLAG, carry != invertCarry);
         }
     }
 
