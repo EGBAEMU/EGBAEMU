@@ -55,7 +55,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 
     lcdController.updateReferences();
 
-    for (uint32_t i = 0, j = 0; doRun; ++i, ++j) {
+    for (uint32_t j = 0; doRun; ++j) {
         if (j == 1)
             t = std::chrono::high_resolution_clock::now();
 

@@ -80,8 +80,8 @@ namespace gbaemu::save
         uint8_t data;
         switch (state) {
             case READ:
-                data = buffer & 0x1;
-                buffer >>= 1;
+                data = (buffer >> 63) & 0x1;
+                buffer <<= 1;
                 ++counter;
                 if (counter == 64) {
                     state = IDLE;
