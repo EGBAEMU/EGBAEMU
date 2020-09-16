@@ -549,39 +549,32 @@ namespace gbaemu::lcd
                 int32_t tileX = scXOffset[scIndex] / 8 + (mapIndex % 32);
                 int32_t tileY = scYOffset[scIndex] / 8 + (mapIndex / 32);
 
+                int32_t offX = colorPalette256 ? scXOffset[scIndex] : 0;
+                int32_t offY = colorPalette256 ? scYOffset[scIndex] : 0;
+
                 /* TODO: flipping */
                 bool hFlip = (entry >> 10) & 1;
                 bool vFlip = (entry >> 11) & 1;
 
-                if (colorPalette256) {
-                    uint8_t *tile = tiles + (tileNumber * 64);
+                size_t tileByteSize = colorPalette256 ? 64 : 32;
+                const uint8_t *tilePtr = tiles + tileNumber * tileByteSize;
 
-                    for (uint32_t ty = 0; ty < 8; ++ty) {
-                        uint32_t srcTy = vFlip ? (7 - ty) : ty;
+                for (uint32_t ty = 0; ty < 8; ++ty) {
+                    uint32_t srcTy = vFlip ? (7 - ty) : ty;
+                    uint32_t row = reinterpret_cast<const uint32_t *>(tilePtr)[srcTy];
 
-                        for (uint32_t tx = 0; tx < 8; ++tx) {
-                            uint32_t srcTx = hFlip ? (7 - tx) : tx;
-                            uint8_t colorIndex = tile[srcTy * 8 + srcTx];
-                            color_t color = palette.getBgColor(colorIndex);
-                            pixels[(tileY * 8 + scYOffset[scIndex] + ty) * stride + (tileX * 8 + scXOffset[scIndex] + tx)] = color;
+                    for (uint32_t tx = 0; tx < 8; ++tx) {
+                        uint32_t srcTx = hFlip ? (7 - tx) : tx;
+                        color_t color;
+
+                        if (!colorPalette256) {
+                            uint32_t paletteIndex = (row & (0xF << (srcTx * 4))) >> (srcTx * 4);
+                            color = palette.getBgColor(paletteNumber, paletteIndex);
+                        } else {
+                            color = palette.getBgColor(tilePtr[srcTy * 8 + srcTx]);
                         }
-                    }
-                } else {
-                    uint32_t *tile = reinterpret_cast<uint32_t *>(tiles + (tileNumber * 32));
 
-                    for (uint32_t ty = 0; ty < 8; ++ty) {
-                        uint32_t srcTy = vFlip ? (7 - ty) : ty;
-                        uint32_t row = tile[srcTy];
-
-                        for (uint32_t tx = 0; tx < 8; ++tx) {
-                            uint32_t srcTx = hFlip ? (7 - tx) : tx;
-
-                            /* TODO: order correct? */
-                            auto paletteIndex = (row & (0b1111 << (srcTx * 4))) >> (srcTx * 4);
-                            color_t color = palette.getBgColor(paletteNumber, paletteIndex);
-
-                            pixels[(tileY * 8 + ty) * stride + (tileX * 8 + tx)] = color;
-                        }
+                        pixels[(tileY * 8 + offY + ty) * stride + (tileX * 8 + offX + tx)] = color;
                     }
                 }
             }
