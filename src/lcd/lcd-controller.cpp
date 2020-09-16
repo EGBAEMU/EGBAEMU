@@ -240,10 +240,13 @@ namespace gbaemu::lcd
                     const void *tilePtr;
                     size_t tileIndex;
 
+                    uint32_t flippedTileX = hFlip ? (width / 8 - 1 - tileX) : tileX;
+                    uint32_t flippedTileY = vFlip ? (height / 8 - 1 - tileY) : tileY;
+
                     if (use2dMapping)
-                        tileIndex = tileNumber + tileX + tileY * tilesPerRow;
+                        tileIndex = tileNumber + flippedTileX + flippedTileY * tilesPerRow;
                     else
-                        tileIndex = tileNumber + tileX + tileY * (width / 8);
+                        tileIndex = tileNumber + flippedTileX + flippedTileY * (width / 8);
 
                     tilePtr = objTiles + tileIndex * bytesPerTile;
 
@@ -251,10 +254,13 @@ namespace gbaemu::lcd
                         const uint32_t *tile = reinterpret_cast<const uint32_t *>(tilePtr);
 
                         for (uint32_t py = 0; py < 8; ++py) {
-                            uint32_t row = tile[py];
+                            uint32_t ty = vFlip ? (7 - py) : py;
+                            uint32_t row = tile[ty];
 
                             for (uint32_t px = 0; px < 8; ++px) {
-                                uint32_t paletteIndex = (row & (0xF << (px * 4))) >> (px * 4);
+                                uint32_t tx = hFlip ? (7 - px) : px;
+
+                                uint32_t paletteIndex = (row & (0xF << (tx * 4))) >> (tx * 4);
                                 color_t color = palette.getObjColor(paletteNumber, paletteIndex);
 
                                 tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = color;
@@ -264,8 +270,11 @@ namespace gbaemu::lcd
                         const uint8_t *tile = reinterpret_cast<const uint8_t *>(tilePtr);
 
                         for (uint32_t py = 0; py < 8; ++py) {
+                            uint32_t ty = vFlip ? (7 - py) : py;
+
                             for (uint32_t px = 0; px < 8; ++px) {
-                                color_t color = palette.getObjColor(tile[py * 8 + px]);
+                                uint32_t tx = hFlip ? (7 - px) : px;
+                                color_t color = palette.getObjColor(tile[ty * 8 + tx]);
                                 tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = color;
                             }
                         }

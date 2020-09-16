@@ -65,7 +65,7 @@ namespace gbaemu
                                                            uint8_t index = thumbInst.params.software_interrupt.comment;
                                                            if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
                                                                if (index != 5 && index != 0x2B)
-                                                                   std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
+                                                                   //std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
                                                                return swi::biosCallHandler[index](cpu);
                                                            } else {
                                                                std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
