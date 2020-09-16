@@ -83,7 +83,10 @@ namespace gbaemu::save
                 data = buffer & 0x1;
                 buffer >>= 1;
                 ++counter;
-                state = counter == 64 ? IDLE : READ;
+                if (counter  == 64) {
+                    state = IDLE;
+                    std::cout << "EEPROM: read done!" << std::endl;
+                }
                 break;
 
             case READ_WASTE:
