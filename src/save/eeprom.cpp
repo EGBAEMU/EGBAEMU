@@ -17,9 +17,11 @@ namespace gbaemu::save
                 counter = 0;
                 buffer |= data & 0x1;
                 if (buffer == 0b11) {
-                    state = READ;
+                    state = READ_RECV_ADDR;
+                    std::cout << "EEPROM: read request detected!" << std::endl;
                 } else if (buffer == 0b10) {
-                    state = WRITE;
+                    state = WRITE_RECV_ADDR;
+                    std::cout << "EEPROM: write request detected!" << std::endl;
                 } else {
                     // Invalid request!
                     std::cout << "ERROR: invalid EEPROM request!" << std::endl;
@@ -38,6 +40,7 @@ namespace gbaemu::save
                     buffer = 0;
                     counter = 0;
                     state = static_cast<EEPROM_State>(state + 1);
+                    std::cout << "EEPROM: received address!" << std::endl;
                 }
                 break;
 
@@ -62,6 +65,7 @@ namespace gbaemu::save
                 saveFile.seekp(saveFile.beg + addr * 64);
                 //TODO endianess or make save states device dependent?
                 saveFile << buffer;
+                std::cout << "EEPROM: write done!" << std::endl;
                 break;
 
             default:
@@ -74,7 +78,6 @@ namespace gbaemu::save
     uint8_t EEPROM::read()
     {
         uint8_t data;
-        //TODO
         switch (state) {
             case READ:
                 data = buffer & 0x1;
@@ -84,6 +87,13 @@ namespace gbaemu::save
                 break;
 
             case READ_WASTE:
+                ++counter;
+                if (counter == 4) {
+                    state = READ;
+                    counter = 0;
+                }
+                break;
+
             default:
                 break;
         }
