@@ -1,6 +1,6 @@
 #include "lcd-controller.hpp"
+#include "util.hpp"
 
-#include <util.hpp>
 #include <algorithm>
 
 /*
