@@ -49,7 +49,7 @@ namespace gbaemu::save
                 // Seek read pointer to wanted position
                 saveFile.seekg(saveFile.beg + addr * 64);
                 //TODO endianess or make save states device dependent?
-                saveFile >> buffer;
+                saveFile.read(reinterpret_cast<char*>(&buffer), sizeof(buffer));
                 break;
 
             case WRITE:
@@ -64,7 +64,7 @@ namespace gbaemu::save
                 // Seek write pointer to wanted position
                 saveFile.seekp(saveFile.beg + addr * 64);
                 //TODO endianess or make save states device dependent?
-                saveFile << buffer;
+                saveFile.write(reinterpret_cast<char *>(&buffer), sizeof(buffer));
                 std::cout << "EEPROM: write done!" << std::endl;
                 break;
 
