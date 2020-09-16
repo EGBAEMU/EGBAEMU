@@ -3,6 +3,7 @@
 
 #include "decode/inst.hpp"
 #include "io/io_regs.hpp"
+#include "save/eeprom.hpp"
 #include <cstdint>
 
 namespace gbaemu
@@ -64,7 +65,8 @@ namespace gbaemu
             EXT_ROM3_ = 0x0D,
             EXT_SRAM = 0x0E,
             EXT_SRAM_ = 0x0F,
-            OUT_OF_ROM = 0x42 // Virtual memory region to indicate access outside of the ROM!
+            OUT_OF_ROM = 0x42,   // Virtual memory region to indicate access outside of the ROM!
+            EEPROM_REGION = 0x43 // Virtual memory region to signal EEPROM usage
         };
 
         enum MemoryRegionOffset : uint32_t {
@@ -249,6 +251,7 @@ namespace gbaemu
 
       public:
         IO_Handler ioHandler;
+        save::EEPROM *eeprom;
 
         //TODO are there conventions about inital memory values?
         Memory()
@@ -269,6 +272,7 @@ namespace gbaemu
             oam = GBA_ALLOC_MEM_REG(OAM);
             GBA_MEM_CLEAR(oam, OAM);
             rom = nullptr;
+            eeprom = nullptr;
             romSize = 0;
         }
 
@@ -281,10 +285,15 @@ namespace gbaemu
             delete[] bg_obj_ram;
             delete[] vram;
             delete[] oam;
-            if (ext_sram)
+            if (ext_sram) {
                 delete[] ext_sram;
-            if (romSize)
+            }
+            if (romSize) {
                 delete[] rom;
+            }
+            if (eeprom) {
+                delete[] eeprom;
+            }
 
             //bios = nullptr;
             wram = nullptr;
@@ -295,15 +304,20 @@ namespace gbaemu
             oam = nullptr;
             ext_sram = nullptr;
             rom = nullptr;
+            eeprom = nullptr;
         }
 
         Memory(const Memory &) = delete;
         Memory &operator=(const Memory &) = delete;
 
-        void loadROM(const uint8_t *rom, size_t romSize)
+        void loadROM(const char *eepromFilePath, const uint8_t *rom, size_t romSize)
         {
             if (this->romSize) {
                 delete[] this->rom;
+            }
+            if (this->eeprom) {
+                delete[] this->eeprom;
+                this->eeprom = nullptr;
             }
             this->romSize = romSize;
             this->rom = new uint8_t[this->romSize];
@@ -312,6 +326,12 @@ namespace gbaemu
             // TODO reset stats
             scanROMForBackupID();
             biosReadState = BIOS_AFTER_STARTUP;
+
+            if (backupType == EEPROM_V) {
+                bool loadSuccessful;
+                //TODO how to find out the eeprom size???
+                this->eeprom = new save::EEPROM(eepromFilePath, loadSuccessful /*, romSize >= 0x01000000 ? 14 : 6*/);
+            }
         }
 
         constexpr size_t getBiosSize() const
@@ -325,8 +345,8 @@ namespace gbaemu
         }
 
         uint8_t read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false) const;
-        uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false) const;
-        uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false) const;
+        uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
+        uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
         void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq = false);
         void write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo, bool seq = false);
         void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo, bool seq = false);

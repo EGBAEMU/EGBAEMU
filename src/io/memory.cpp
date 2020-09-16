@@ -32,6 +32,8 @@ namespace gbaemu
             return readOutOfROM(addr);
         } else if (memReg == IO_REGS) {
             return ioHandler.externalRead8(addr);
+        } else if (memReg == EEPROM_REGION) {
+            return eeprom->read();
         } else {
             return src[0];
         }
@@ -51,7 +53,7 @@ namespace gbaemu
     Reads from forcibly aligned address "addr AND (NOT 3)", and does then rotate the data as "ROR (addr AND 3)*8". That effect is internally used by LDRB and LDRH opcodes (which do then mask-out the unused bits).
     The SWP opcode works like a combination of LDR and STR, that means, it does read-rotated, but does write-unrotated.
     */
-    uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction) const
+    uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction, bool dmaRequest) const
     {
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(1);
 
@@ -61,7 +63,7 @@ namespace gbaemu
 
         MemoryRegion memReg;
 
-        const uint8_t* src = resolveAddr(alignedAddr, execInfo, memReg);
+        const uint8_t *src = resolveAddr(alignedAddr, execInfo, memReg);
         if (readInstruction && memReg == BIOS && alignedAddr < getBiosSize()) {
             // For instructions we are allowed to read from bios
             src = customBiosCode + alignedAddr;
@@ -70,13 +72,19 @@ namespace gbaemu
             return readOutOfROM(addr);
         } else if (memReg == IO_REGS) {
             return ioHandler.externalRead16(alignedAddr);
+        } else if (memReg == EEPROM_REGION) {
+            if (dmaRequest) {
+                return static_cast<uint16_t>(eeprom->read());
+            } else {
+                return 0x1;
+            }
         } else {
             return (static_cast<uint16_t>(src[0]) << 0) |
                    (static_cast<uint16_t>(src[1]) << 8);
         }
     }
 
-    uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction) const
+    uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction, bool dmaRequest) const
     {
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(3);
 
@@ -91,10 +99,17 @@ namespace gbaemu
             // For instructions we are allowed to read from bios
             src = customBiosCode + alignedAddr;
         }
+
         if (memReg == OUT_OF_ROM) {
             return readOutOfROM(addr);
         } else if (memReg == IO_REGS) {
             return ioHandler.externalRead32(alignedAddr);
+        } else if (memReg == EEPROM_REGION) {
+            if (dmaRequest) {
+                return static_cast<uint32_t>(eeprom->read());
+            } else {
+                return 0x1;
+            }
         } else {
             return (static_cast<uint32_t>(src[0]) << 0) |
                    (static_cast<uint32_t>(src[1]) << 8) |
@@ -119,6 +134,8 @@ namespace gbaemu
             }
         } else if (memReg == IO_REGS) {
             ioHandler.externalWrite8(addr, value);
+        } else if (memReg == EEPROM_REGION) {
+            eeprom->write(value);
         } else {
 
             //TODO is this legit?
@@ -182,6 +199,8 @@ namespace gbaemu
             }
         } else if (memReg == IO_REGS) {
             ioHandler.externalWrite16(addr, value);
+        } else if (memReg == EEPROM_REGION) {
+            eeprom->write(value);
         } else {
             dst[0] = value & 0x0FF;
             dst[1] = (value >> 8) & 0x0FF;
@@ -205,6 +224,8 @@ namespace gbaemu
             }
         } else if (memReg == IO_REGS) {
             ioHandler.externalWrite32(addr, value);
+        } else if (memReg == EEPROM_REGION) {
+            eeprom->write(value);
         } else {
             dst[0] = value & 0x0FF;
             dst[1] = (value >> 8) & 0x0FF;
@@ -286,12 +307,33 @@ namespace gbaemu
                 break;
             }
 
+            // EXT_ROM3_ maps everything from D000000h-DFFFFFFh. Here the EEPROM may reside! Thus we need special handling for that
+            case EXT_ROM3_: {
+
+                if (backupType == EEPROM_V) {
+                    // The address internal to EXT3
+                    uint32_t internalAddress = addr & 0x00FFFFFF;
+
+                    // On carts with 16MB or smaller ROM, eeprom can be alternately
+                    // accessed anywhere at D000000h-DFFFFFFh.
+                    //  => So basically the whole EXT3 now can be used for the EEPROM
+                    if (getRomSize() <= 0x01000000) {
+                        memReg = EEPROM_REGION;
+                        return internalAddress;
+                        // In all other cases the EEPROM can be accessed from DFFFF00h..DFFFFFFh.
+                    } else if (internalAddress >= 0x00FFFF00) {
+                        memReg = EEPROM_REGION;
+                        return internalAddress & 0x000000FF;
+                    }
+                }
+
+                // Else fall through and handle the address as part of the ROM
+            }
+            case EXT_ROM3:
             case EXT_ROM1_:
             case EXT_ROM1:
             case EXT_ROM2_:
-            case EXT_ROM2:
-            case EXT_ROM3:
-            case EXT_ROM3_: {
+            case EXT_ROM2: {
                 //TODO proper ROM mirroring... cause this is shady AF
                 /*
                 uint32_t romSizeLog2 = getRomSize();
@@ -304,7 +346,7 @@ namespace gbaemu
                 romSizeLog2 |= romSizeLog2 >> 16;
                 romSizeLog2++;
                 */
-                uint32_t romOffset = ((addr & 0x00FFFFFF)/* & (romSizeLog2 - 1)*/);
+                uint32_t romOffset = ((addr & 0x00FFFFFF) /* & (romSizeLog2 - 1)*/);
                 if (romOffset >= getRomSize()) {
                     std::cout << "ERROR: trying to access rom out of bounds! Addr: 0x" << std::hex << addr << std::endl;
                     // Indicate out of ROM!!!
@@ -312,7 +354,6 @@ namespace gbaemu
                 }
                 return romOffset + EXT_ROM_OFFSET;
             }
-
             // IO is not mirrored
             case IO_REGS:
             default:
@@ -352,6 +393,7 @@ namespace gbaemu
                     return noBackupMedia;
                 }
             case OUT_OF_ROM:
+            case EEPROM_REGION:
             case EXT_ROM1_:
             case EXT_ROM1:
             case EXT_ROM2_:
@@ -398,6 +440,7 @@ namespace gbaemu
                     return wasteMem;
                 }
             case OUT_OF_ROM:
+            case EEPROM_REGION:
             case EXT_ROM1_:
             case EXT_ROM1:
             case EXT_ROM2_:

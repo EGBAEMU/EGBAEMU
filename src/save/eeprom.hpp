@@ -28,15 +28,21 @@ namespace gbaemu::save
         uint64_t buffer;
         uint16_t addr;
 
-        const uint8_t busWidth;
-
         std::fstream saveFile;
 
       public:
-        EEPROM(const char* path, bool &success, uint8_t busWidth = 6) : busWidth(busWidth) {
+        const uint8_t busWidth;
+
+        EEPROM(const char *path, bool &success, uint8_t busWidth = 6) : busWidth(busWidth)
+        {
             bool isNewFile = !std::ifstream(path).good();
 
-            saveFile = std::fstream(path, std::ios::binary | std::ios::in | std::ios::out);
+            if (isNewFile) {
+                std::ofstream out(path, std::ios::binary);
+                out.close();
+            }
+
+            saveFile.open(path, std::ios::binary | std::ios::in | std::ios::out);
             success = saveFile.is_open();
 
             if (success && isNewFile) {
@@ -44,11 +50,11 @@ namespace gbaemu::save
                 const auto prevWidth = saveFile.width();
                 const auto prevFill = saveFile.fill();
                 // Set fill character
-                saveFile.fill(0x00);
+                saveFile.fill(0xFF);
                 // Set target file size
-                saveFile.width(1 << busWidth);
+                saveFile.width((1 << busWidth) * 64);
                 // Write single fill char -> rest will be filled automagically
-                saveFile << 0x00;
+                saveFile << static_cast<char>(0xFF);
 
                 // Restore default settings
                 saveFile.fill(prevFill);
@@ -56,7 +62,8 @@ namespace gbaemu::save
             }
         }
 
-        ~EEPROM() {
+        ~EEPROM()
+        {
             if (saveFile.is_open())
                 saveFile.close();
         }
