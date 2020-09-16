@@ -73,7 +73,11 @@ namespace gbaemu
         } else if (memReg == IO_REGS) {
             return ioHandler.externalRead16(alignedAddr);
         } else if (memReg == EEPROM_REGION) {
-            return static_cast<uint16_t>(eeprom->read());
+            if (dmaRequest) {
+                return static_cast<uint16_t>(eeprom->read());
+            } else {
+                return 0x1;
+            }
         } else {
             return (static_cast<uint16_t>(src[0]) << 0) |
                    (static_cast<uint16_t>(src[1]) << 8);
@@ -101,7 +105,12 @@ namespace gbaemu
         } else if (memReg == IO_REGS) {
             return ioHandler.externalRead32(alignedAddr);
         } else if (memReg == EEPROM_REGION) {
-            return static_cast<uint32_t>(eeprom->read());
+            if (dmaRequest) {
+                return static_cast<uint32_t>(eeprom->read());
+            } else {
+                return 0x1;
+            }
+            
         } else {
             return (static_cast<uint32_t>(src[0]) << 0) |
                    (static_cast<uint32_t>(src[1]) << 8) |
