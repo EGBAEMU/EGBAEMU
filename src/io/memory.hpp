@@ -285,10 +285,15 @@ namespace gbaemu
             delete[] bg_obj_ram;
             delete[] vram;
             delete[] oam;
-            if (ext_sram)
+            if (ext_sram) {
                 delete[] ext_sram;
-            if (romSize)
+            }
+            if (romSize) {
                 delete[] rom;
+            }
+            if (eeprom) {
+                delete[] eeprom;
+            }
 
             //bios = nullptr;
             wram = nullptr;
@@ -299,6 +304,7 @@ namespace gbaemu
             oam = nullptr;
             ext_sram = nullptr;
             rom = nullptr;
+            eeprom = nullptr;
         }
 
         Memory(const Memory &) = delete;
@@ -324,7 +330,7 @@ namespace gbaemu
             if (backupType == EEPROM_V) {
                 bool loadSuccessful;
                 //TODO how to find out the eeprom size???
-                this->eeprom = new save::EEPROM(eepromFilePath, loadSuccessful/*, romSize >= 0x01000000 ? 14 : 6*/);
+                this->eeprom = new save::EEPROM(eepromFilePath, loadSuccessful /*, romSize >= 0x01000000 ? 14 : 6*/);
             }
         }
 

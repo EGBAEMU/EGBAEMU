@@ -27,13 +27,14 @@ namespace gbaemu::save
         uint32_t counter;
         uint64_t buffer;
         uint16_t addr;
-        
+
         std::fstream saveFile;
 
       public:
         const uint8_t busWidth;
 
-        EEPROM(const char* path, bool &success, uint8_t busWidth = 6) : busWidth(busWidth) {
+        EEPROM(const char *path, bool &success, uint8_t busWidth = 6) : busWidth(busWidth)
+        {
             bool isNewFile = !std::ifstream(path).good();
 
             saveFile = std::fstream(path, std::ios::binary | std::ios::in | std::ios::out);
@@ -56,7 +57,8 @@ namespace gbaemu::save
             }
         }
 
-        ~EEPROM() {
+        ~EEPROM()
+        {
             if (saveFile.is_open())
                 saveFile.close();
         }

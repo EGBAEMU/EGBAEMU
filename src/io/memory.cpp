@@ -110,7 +110,6 @@ namespace gbaemu
             } else {
                 return 0x1;
             }
-            
         } else {
             return (static_cast<uint32_t>(src[0]) << 0) |
                    (static_cast<uint32_t>(src[1]) << 8) |
