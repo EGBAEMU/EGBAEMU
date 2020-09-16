@@ -491,11 +491,11 @@ namespace gbaemu
                 break;
             case RSC:
                 resultValue = static_cast<int64_t>(shifterOperand) - static_cast<int64_t>(rnValue) - (carry ? 0 : 1);
-                rnValue = (-rnValue) & 0x0FFFFFFFF;
+                rnValue = (-rnValue - (carry ? 0 : 1)) & 0x0FFFFFFFF;
                 break;
             case SBC:
                 resultValue = static_cast<int64_t>(rnValue) - static_cast<int64_t>(shifterOperand) - (carry ? 0 : 1);
-                shifterOperand = (-shifterOperand) & 0x0FFFFFFFF;
+                shifterOperand = (-shifterOperand - (carry ? 0 : 1)) & 0x0FFFFFFFF;
                 break;
             case CMP:
             case SUB:
