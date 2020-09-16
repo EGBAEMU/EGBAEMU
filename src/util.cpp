@@ -108,11 +108,13 @@ template double gbaemu::fixedToFloat<uint32_t, 8, 19>(uint32_t);
 template float gbaemu::fixedToFloat<uint32_t, 8, 19, float>(uint32_t);
 template double gbaemu::fixedToFloat<uint16_t, 8, 7>(uint16_t);
 template float gbaemu::fixedToFloat<uint16_t, 8, 7, float>(uint16_t);
+template double gbaemu::fixedToFloat<uint16_t, 14, 1, double>(uint16_t);
 
 template uint16_t gbaemu::floatToFixed<uint16_t, 8, 7, float>(float);
 template uint16_t gbaemu::floatToFixed<uint16_t, 8, 7, double>(double);
 template uint32_t gbaemu::floatToFixed<uint32_t, 8, 19, float>(float);
 template uint32_t gbaemu::floatToFixed<uint32_t, 8, 19, double>(double);
+template uint16_t gbaemu::floatToFixed<uint16_t, 14, 1, double>(double);
 
 template float gbaemu::clamp<float>(const float &, const float &, const float &);
 template double gbaemu::clamp<double>(const double &, const double &, const double &);

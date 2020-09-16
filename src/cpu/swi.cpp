@@ -158,6 +158,10 @@ namespace gbaemu
                 *currentRegs[regs::R0_OFFSET] = (numerator < 0) ? -1 : 1;
                 *currentRegs[regs::R1_OFFSET] = static_cast<uint32_t>(numerator);
                 *currentRegs[regs::R3_OFFSET] = 1;
+            } else if (numerator == 0x80000000 && denominator == 0xFFFFFFFF) {
+                *currentRegs[regs::R0_OFFSET] = 0x80000000;
+                *currentRegs[regs::R1_OFFSET] = 0;
+                *currentRegs[regs::R3_OFFSET] = 0x80000000;
             } else {
                 int32_t div = numerator / denominator;
 
@@ -222,24 +226,27 @@ namespace gbaemu
         InstructionExecutionInfo arcTan(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            
             uint32_t &r0 = cpu->state.accessReg(regs::R0_OFFSET);
-            double convertedFP = convertFromQ1_14ToFP(static_cast<uint16_t>(r0 & 0x0000FFFF));
-            convertedFP = std::atan(convertedFP);
-            bool negative = false;
-            if (convertedFP < 0) {
-                negative = true;
-                convertedFP = -convertedFP;
-            }
+            uint32_t& r1 = cpu->state.accessReg(regs::R1_OFFSET);
+            uint32_t& r2 = cpu->state.accessReg(regs::R2_OFFSET);
 
-            // Upscale for conversion to fixed point
-            convertedFP *= (1 << 14);
-            // recreate fixed point format 16bit (1bit sign, 1bit integral part, 14bit decimal part)
-            uint16_t fixedPntPart = (negative ? 0x8000 : 0x0000) | (static_cast<uint16_t>(convertedFP) & 0x7FFF);
-
-            //TODO is there an interval reduction: -PI/2<THETA/<PI/2" in a range of C000h-4000h
-            //TODO Q1.14 would probably be in a range of 0x0000-0x7FFF
-            //TODO we probably need to fix this :/
-            r0 = fixedPntPart;
+            int32_t i = r0;
+            int32_t a = -((i * i) >> 14);
+            int32_t b = ((0xA9 * a) >> 14) + 0x390;
+            b = ((b * a) >> 14) + 0x91C;
+            b = ((b * a) >> 14) + 0xFB6;
+            b = ((b * a) >> 14) + 0x16AA;
+            b = ((b * a) >> 14) + 0x2081;
+            b = ((b * a) >> 14) + 0x3651;
+            b = ((b * a) >> 14) + 0xA2F9;
+            r0 = (i * b) >> 16;
+            
+            if (a)
+                r1 = a;
+            
+            if (b)
+                r2 = b;
 
             std::cout << "WARNING: arcTan called, return format probably wrong!" << std::endl;
 
