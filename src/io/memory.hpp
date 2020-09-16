@@ -339,8 +339,8 @@ namespace gbaemu
         }
 
         uint8_t read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false) const;
-        uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false) const;
-        uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false) const;
+        uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
+        uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
         void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq = false);
         void write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo, bool seq = false);
         void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo, bool seq = false);

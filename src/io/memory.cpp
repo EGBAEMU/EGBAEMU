@@ -53,7 +53,7 @@ namespace gbaemu
     Reads from forcibly aligned address "addr AND (NOT 3)", and does then rotate the data as "ROR (addr AND 3)*8". That effect is internally used by LDRB and LDRH opcodes (which do then mask-out the unused bits).
     The SWP opcode works like a combination of LDR and STR, that means, it does read-rotated, but does write-unrotated.
     */
-    uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction) const
+    uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction, bool dmaRequest) const
     {
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(1);
 
@@ -80,7 +80,7 @@ namespace gbaemu
         }
     }
 
-    uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction) const
+    uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction, bool dmaRequest) const
     {
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(3);
 
