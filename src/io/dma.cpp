@@ -54,6 +54,7 @@ namespace gbaemu
             case IDLE:
                 if (extractRegValues()) {
                     state = conditionSatisfied() ? STARTED : WAITING_PAUSED;
+                    /*
                     std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
                     std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << countTypeToStr(srcCnt) << std::endl;
                     std::cout << "      Dest Addr:   0x" << std::hex << destAddr << " Type: " << countTypeToStr(dstCnt) << std::endl;
@@ -62,6 +63,7 @@ namespace gbaemu
                     std::cout << "      GamePak DRQ: " << gamePakDRQ << std::endl;
                     std::cout << "      32 bit mode: " << width32Bit << std::endl;
                     std::cout << "      IRQ on end: " << irqOnEnd << std::endl;
+                     */
                 }
                 break;
 
