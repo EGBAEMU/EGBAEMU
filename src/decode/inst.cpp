@@ -147,8 +147,7 @@ namespace gbaemu
                     Carry flag is the MSB of the out shifted values! -> bit amount - 1
                     */
                     // ensure a value in range of [0, 32]
-                    uint8_t restOf32 = amount % 32;
-                    amount = (amount > 32 ? (restOf32 ? restOf32 : 32) : amount);
+                    amount = amount > 32 ? 32 : amount;
                     uint64_t carry = (static_cast<uint64_t>((extendedVal >> (amount - 1)) & 0x1) << 32);
                     return (static_cast<uint64_t>(static_cast<int64_t>(extendedVal << 32) / (static_cast<int64_t>(1) << amount)) >> 32) | carry;
                 }
