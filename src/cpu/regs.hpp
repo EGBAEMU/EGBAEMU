@@ -80,7 +80,6 @@ namespace gbaemu
         static const uint32_t Z_FLAG = 30;
         static const uint32_t C_FLAG = 29;
         static const uint32_t V_FLAG = 28;
-        static const uint32_t Q_FLAG = 27;
         static const uint32_t IRQ_DISABLE = 7;
         static const uint32_t FIQ_DISABLE = 6;
         static const uint32_t THUMB_STATE = 5;
