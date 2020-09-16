@@ -487,25 +487,25 @@ namespace gbaemu
                 break;
             case RSB:
                 resultValue = static_cast<int64_t>(shifterOperand) - static_cast<int64_t>(rnValue);
-                rnValue = (-rnValue) & 0x0FFFFFFFF;
+                rnValue = (rnValue >> 31) & 1 ? 0 : static_cast<uint32_t>(1) << 31;
                 break;
             case RSC:
                 resultValue = static_cast<int64_t>(shifterOperand) - static_cast<int64_t>(rnValue) - (carry ? 0 : 1);
-                rnValue = (-rnValue - (carry ? 0 : 1)) & 0x0FFFFFFFF;
+                rnValue = ((rnValue - (carry ? 0 : 1)) >> 31) & 1 ? 0 : static_cast<uint32_t>(1) << 31;
                 break;
             case SBC:
                 resultValue = static_cast<int64_t>(rnValue) - static_cast<int64_t>(shifterOperand) - (carry ? 0 : 1);
-                shifterOperand = (-shifterOperand - (carry ? 0 : 1)) & 0x0FFFFFFFF;
+                shifterOperand = ((shifterOperand - (carry ? 0 : 1)) >> 31) & 1 ? 0 : static_cast<uint32_t>(1) << 31;
                 break;
             case CMP:
             case SUB:
             case SUB_SHORT_IMM:
                 resultValue = static_cast<int64_t>(rnValue) - static_cast<int64_t>(shifterOperand);
-                shifterOperand = (-shifterOperand) & 0x0FFFFFFFF;
+                shifterOperand = (shifterOperand >> 31) & 1 ? 0 : static_cast<uint32_t>(1) << 31;
                 break;
             case NEG:
                 resultValue = -static_cast<int64_t>(rnValue);
-                shifterOperand = (-rnValue) & 0x0FFFFFFFF;
+                shifterOperand = (rnValue >> 31) & 1 ? 0 : static_cast<uint32_t>(1) << 31;
                 rnValue = 0;
                 break;
 
