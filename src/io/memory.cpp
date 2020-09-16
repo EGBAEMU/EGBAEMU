@@ -192,7 +192,6 @@ namespace gbaemu
         } else if (memReg == IO_REGS) {
             ioHandler.externalWrite16(addr, value);
         } else if (memReg == EEPROM_REGION) {
-            std::cout << "EEPROM: Request write 16 to " << addr << " - " << value << std::endl;
             eeprom->write(value);
         } else {
             dst[0] = value & 0x0FF;
@@ -218,7 +217,6 @@ namespace gbaemu
         } else if (memReg == IO_REGS) {
             ioHandler.externalWrite32(addr, value);
         } else if (memReg == EEPROM_REGION) {
-            std::cout << "EEPROM: Request write 32 to " << addr << " - " << value << std::endl;
             eeprom->write(value);
         } else {
             dst[0] = value & 0x0FF;
