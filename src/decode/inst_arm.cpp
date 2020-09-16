@@ -480,9 +480,9 @@ namespace gbaemu
                     instruction.id = InstructionID::STRB;
                 }
 
-            } else if ((lastInst & MASK_UNDEFINED) == VAL_UNDEFINED) {
-                std::cerr << "WARNING: Undefined instruction: " << std::hex << lastInst << std::endl;
-            } else if ((lastInst & MASK_BLOCK_DATA_TRANSF) == VAL_BLOCK_DATA_TRANSF) {
+            }/* else if ((lastInst & MASK_UNDEFINED) == VAL_UNDEFINED) {
+                std::cout << "WARNING: Undefined instruction: " << std::hex << lastInst << std::endl;
+            }*/ else if ((lastInst & MASK_BLOCK_DATA_TRANSF) == VAL_BLOCK_DATA_TRANSF) {
 
                 instruction.cat = ARMInstructionCategory::BLOCK_DATA_TRANSF;
 
@@ -521,26 +521,19 @@ namespace gbaemu
 
                 instruction.id = InstructionID::B;
 
-            } else if ((lastInst & MASK_COPROC_DATA_TRANSF) == VAL_COPROC_DATA_TRANSF) {
-                //TODO
+            }/* else if ((lastInst & MASK_COPROC_DATA_TRANSF) == VAL_COPROC_DATA_TRANSF) {
+                // Unused
             } else if ((lastInst & MASK_COPROC_OP) == VAL_COPROC_OP) {
-                //TODO
+                // Unused
             } else if ((lastInst & MASK_COPROC_REG_TRANSF) == VAL_COPROC_REG_TRANSF) {
-                //TODO
-            } else if ((lastInst & MASK_SOFTWARE_INTERRUPT) == VAL_SOFTWARE_INTERRUPT) {
+                // Unused
+            }*/ else if ((lastInst & MASK_SOFTWARE_INTERRUPT) == VAL_SOFTWARE_INTERRUPT) {
 
                 instruction.cat = ARMInstructionCategory::SOFTWARE_INTERRUPT;
 
                 instruction.id = InstructionID::SWI;
                 instruction.params.software_interrupt.comment = lastInst & 0x00FFFFFF;
-            } else {
-                //std::cerr << "ERROR: Could not decode instruction: " << std::hex << lastInst << std::endl;
             }
-
-            //if (instruction.id != InstructionID::SWI && instruction.id != InstructionID::INVALID)
-            //    std::cout << instructionIDToString(instruction.id) << std::endl;
-
-            //std::cout << instruction.toString() << std::endl;
 
             return Instruction::fromARM(instruction);
         }

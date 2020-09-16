@@ -22,14 +22,14 @@ namespace gbaemu
     template <class T>
     T bmap(bool b);
 
-    template <class T, T FRAC, T INT, class ResultType=double>
+    template <class T, T FRAC, T INT, class ResultType = double>
     ResultType fixedToFloat(T fp);
 
-    template <class T, T Frac, T Int, class InType=double>
+    template <class T, T Frac, T Int, class InType = double>
     T floatToFixed(InType f);
 
     template <class T>
-    T clamp(const T& value, const T& mn, const T& mx);
+    T clamp(const T &value, const T &mn, const T &mx);
 
     template <class SignT, class T>
     SignT signExt(T val, uint8_t usedBits)
@@ -52,9 +52,10 @@ namespace gbaemu
     case x:                  \
         return (#x)
 
-    #define BREAK(cond) if (cond) { asm("int $3"); }
+#define BREAK(cond)    \
+    if (cond) {        \
+        asm("int $3"); \
+    }
 } // namespace gbaemu
-
-
 
 #endif /* UTIL_HPP */

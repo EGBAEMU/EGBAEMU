@@ -1,4 +1,5 @@
 #include "eeprom.hpp"
+#include "logging.hpp"
 
 #include <iostream>
 
@@ -18,13 +19,13 @@ namespace gbaemu::save
                 buffer |= data & 0x1;
                 if (buffer == 0b11) {
                     state = READ_RECV_ADDR;
-                    std::cout << "EEPROM: read request detected!" << std::endl;
+                    LOG_SAVE(std::cout << "EEPROM: read request detected!" << std::endl;);
                 } else if (buffer == 0b10) {
                     state = WRITE_RECV_ADDR;
-                    std::cout << "EEPROM: write request detected!" << std::endl;
+                    LOG_SAVE(std::cout << "EEPROM: write request detected!" << std::endl;);
                 } else {
                     // Invalid request!
-                    std::cout << "ERROR: invalid EEPROM request!" << std::endl;
+                    LOG_SAVE(std::cout << "ERROR: invalid EEPROM request!" << std::endl;);
                     state = IDLE;
                 }
                 buffer = 0;
@@ -40,7 +41,7 @@ namespace gbaemu::save
                     buffer = 0;
                     counter = 0;
                     state = static_cast<EEPROM_State>(state + 1);
-                    std::cout << "EEPROM: received address!" << std::endl;
+                    LOG_SAVE(std::cout << "EEPROM: received address!" << std::endl;);
                 }
                 break;
 
@@ -49,7 +50,7 @@ namespace gbaemu::save
                 // Seek read pointer to wanted position
                 saveFile.seekg(saveFile.beg + addr * 64);
                 //TODO endianess or make save states device dependent?
-                saveFile.read(reinterpret_cast<char*>(&buffer), sizeof(buffer));
+                saveFile.read(reinterpret_cast<char *>(&buffer), sizeof(buffer));
                 break;
 
             case WRITE:
@@ -65,7 +66,7 @@ namespace gbaemu::save
                 saveFile.seekp(saveFile.beg + addr * 64);
                 //TODO endianess or make save states device dependent?
                 saveFile.write(reinterpret_cast<char *>(&buffer), sizeof(buffer));
-                std::cout << "EEPROM: write done!" << std::endl;
+                LOG_SAVE(std::cout << "EEPROM: write done!" << std::endl;);
                 break;
 
             default:
@@ -85,7 +86,7 @@ namespace gbaemu::save
                 ++counter;
                 if (counter == 64) {
                     state = IDLE;
-                    std::cout << "EEPROM: read done!" << std::endl;
+                    LOG_SAVE(std::cout << "EEPROM: read done!" << std::endl;);
                 }
                 break;
 

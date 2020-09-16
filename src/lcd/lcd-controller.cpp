@@ -1,4 +1,5 @@
 #include "lcd-controller.hpp"
+#include "logging.hpp"
 #include "util.hpp"
 
 #include <algorithm>
@@ -14,10 +15,6 @@
 
     The drawing order and which layers should be drawn can be configured. Top layers can be alpha-blended with layers below.
     Brightness of the top layer can also be configured. The OBJ layer contains all the sprites (called OBJs).
-
-
-
-
  */
 
 namespace gbaemu::lcd
@@ -84,14 +81,11 @@ namespace gbaemu::lcd
 
         return std::make_tuple<common::math::vec<2>, common::math::vec<2>>(
             common::math::vec<2>{
-                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[index       * 4 + 3])),
-                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[(index + 2) * 4 + 3]))
-            },
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[index * 4 + 3])),
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[(index + 2) * 4 + 3]))},
             common::math::vec<2>{
                 fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[(index + 1) * 4 + 3])),
-                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[(index + 3) * 4 + 3]))
-            }
-        );
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[(index + 3) * 4 + 3]))});
     }
 
     OBJLayer::OBJLayer(LayerId layerId) : Layer(layerId)
@@ -105,11 +99,14 @@ namespace gbaemu::lcd
         bgMode = mode;
 
         switch (bgMode) {
-            case 0: case 1: case 2:
+            case 0:
+            case 1:
+            case 2:
                 objTiles = vramBaseAddress + 0x10000;
                 areaSize = 32 * 1024;
                 break;
-            case 3: case 4: 
+            case 3:
+            case 4:
                 objTiles = vramBaseAddress + 0x14000;
                 areaSize = 16 * 1024;
                 break;
@@ -278,7 +275,7 @@ namespace gbaemu::lcd
 
             /* get parameters */
             common::math::vec<2> d{1, 0}, dm{0, 1};
-            bool doubleSized =  useRotScale && bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::DOUBLE_SIZE_MASK, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET);
+            bool doubleSized = useRotScale && bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::DOUBLE_SIZE_MASK, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET);
 
             if (useRotScale) {
                 uint16_t index = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::ROT_SCALE_PARAM_MASK, OBJ_ATTRIBUTE::ROT_SCALE_PARAM_OFFSET);
@@ -290,8 +287,7 @@ namespace gbaemu::lcd
 
             common::math::vec<2> origin{
                 static_cast<real_t>(width) / 2,
-                static_cast<real_t>(height) / 2
-            };
+                static_cast<real_t>(height) / 2};
 
 #ifdef DEBUG_DRAW_SPRITE_BOUNDS
             {
@@ -325,8 +321,7 @@ namespace gbaemu::lcd
 
             common::math::vec<2> screenRef{
                 static_cast<real_t>(xOff + width / 2),
-                static_cast<real_t>(yOff + height / 2)
-            };
+                static_cast<real_t>(yOff + height / 2)};
 
             if (doubleSized) {
                 screenRef[0] = static_cast<real_t>(xOff + width);
@@ -340,7 +335,7 @@ namespace gbaemu::lcd
 
             /* 0 = highest priority */
             canvas.drawSprite(tempBuffer.data(), width, height, 64,
-                origin, d, dm, screenRef);
+                              origin, d, dm, screenRef);
         }
     }
 
@@ -379,7 +374,7 @@ namespace gbaemu::lcd
                 default:
                     width = 0;
                     height = 0;
-                    std::cout << "WARNING: Invalid screen size!\n";
+                    LOG_LCD(std::cout << "WARNING: Invalid screen size!\n";);
                     break;
             }
         } else if (bgMode == 3) {
@@ -644,8 +639,6 @@ namespace gbaemu::lcd
 
         const uint8_t *srcPixels = reinterpret_cast<const uint8_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET + fbOff, nullptr, memReg));
 
-        //std::cout << std::hex << (void *)srcPixels << "\n";
-
         for (int32_t y = 0; y < 160; ++y) {
             for (int32_t x = 0; x < 240; ++x) {
                 uint16_t color = srcPixels[y * 240 + x];
@@ -687,7 +680,7 @@ namespace gbaemu::lcd
         canvas.clear(TRANSPARENT);
         const common::math::vec<2> screenRef{0, 0};
         canvas.drawSprite(tempCanvas.pixels(), width, height, tempCanvas.getWidth(),
-            step.origin, step.d, step.dm, screenRef, wrap);
+                          step.origin, step.d, step.dm, screenRef, wrap);
     }
 
     /*
@@ -717,12 +710,12 @@ namespace gbaemu::lcd
     {
         sortedBackgroundLayers = backgroundLayers;
         std::sort(sortedBackgroundLayers.begin(), sortedBackgroundLayers.end(),
-            [](const std::shared_ptr<Layer>& l1, const std::shared_ptr<Layer>& l2) -> bool {
-                if (l1->priority != l2->priority)
-                    return l1->priority > l2->priority;
-                else
-                    return l1->id > l2->id;
-            });
+                  [](const std::shared_ptr<Layer> &l1, const std::shared_ptr<Layer> &l2) -> bool {
+                      if (l1->priority != l2->priority)
+                          return l1->priority > l2->priority;
+                      else
+                          return l1->id > l2->id;
+                  });
 
         uint32_t layerIndex = 0;
         uint32_t sortedIndex = 0;
@@ -751,7 +744,7 @@ namespace gbaemu::lcd
         const uint8_t *oamBase = memory.resolveAddr(Memory::OAM_OFFSET, nullptr, region);
 
         /* obj layer */
-        for (const auto& layer : objLayers)
+        for (const auto &layer : objLayers)
             layer->setMode(vramBase, oamBase, bgMode);
 
         /* Which background layers are enabled to begin with? */
@@ -781,7 +774,7 @@ namespace gbaemu::lcd
         } else if (bgMode == 5) {
             backgroundLayers[2]->loadSettings(5, 2, regs, memory);
         } else {
-            std::cout << "WARNING: unsupported bg mode " << bgMode << "\n";
+            LOG_LCD(std::cout << "WARNING: unsupported bg mode " << bgMode << "\n";);
         }
 
         /* load special color effects */
@@ -798,7 +791,7 @@ namespace gbaemu::lcd
     {
     }
 
-    void LCDController::copyLayer(const Canvas<color_t>& src)
+    void LCDController::copyLayer(const Canvas<color_t> &src)
     {
         auto dstPixels = display.target.pixels();
         auto dstStride = display.target.getWidth();
@@ -943,7 +936,7 @@ namespace gbaemu::lcd
                 break;
 
             default:
-                std::cout << "WARNING: Unsupported background mode " << std::dec << bgMode << "!\n";
+                LOG_LCD(std::cout << "WARNING: Unsupported background mode " << std::dec << bgMode << "!\n";);
                 break;
         }
 
@@ -1070,11 +1063,11 @@ namespace gbaemu::lcd
         if (!renderThread->joinable())
             return;
 
-        std::cout << "Waiting for render thread to exit." << std::endl;
+        LOG_LCD(std::cout << "Waiting for render thread to exit." << std::endl;);
         renderControlMutex.lock();
         renderControl = EXIT;
         renderControlMutex.unlock();
         renderThread->join();
-        std::cout << "Render thread exited." << std::endl;
+        LOG_LCD(std::cout << "Render thread exited." << std::endl;);
     }
 } // namespace gbaemu::lcd

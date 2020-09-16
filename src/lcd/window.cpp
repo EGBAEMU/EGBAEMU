@@ -1,4 +1,5 @@
 #include "window.hpp"
+#include "logging.hpp"
 
 #include <iostream>
 
@@ -16,7 +17,7 @@ namespace gbaemu::lcd
 
     Window::~Window()
     {
-        std::cout << "destroying window" << std::endl;
+        LOG_LCD(std::cout << "destroying window" << std::endl;);
         SDL_DestroyWindow(window);
         SDL_Quit();
     }

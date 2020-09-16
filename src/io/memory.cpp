@@ -1,7 +1,8 @@
 #include "memory.hpp"
-
 #include "lcd/lcd-controller.hpp"
+#include "logging.hpp"
 #include "util.hpp"
+
 #include <cstring>
 #include <iostream>
 
@@ -128,7 +129,7 @@ namespace gbaemu
         auto dst = resolveAddr(addr, execInfo, memReg);
 
         if (memReg == OUT_OF_ROM) {
-            std::cout << "CRITICAL ERROR: trying to write8 ROM + outside of its bounds!" << std::endl;
+            LOG_MEM(std::cout << "CRITICAL ERROR: trying to write8 ROM + outside of its bounds!" << std::endl;);
             if (execInfo != nullptr) {
                 execInfo->hasCausedException = true;
             }
@@ -193,7 +194,7 @@ namespace gbaemu
         auto dst = resolveAddr(addr, execInfo, memReg);
 
         if (memReg == OUT_OF_ROM) {
-            std::cout << "CRITICAL ERROR: trying to write16 ROM + outside of its bounds!" << std::endl;
+            LOG_MEM(std::cout << "CRITICAL ERROR: trying to write16 ROM + outside of its bounds!" << std::endl;);
             if (execInfo != nullptr) {
                 execInfo->hasCausedException = true;
             }
@@ -218,7 +219,7 @@ namespace gbaemu
         MemoryRegion memReg;
         auto dst = resolveAddr(addr, execInfo, memReg);
         if (memReg == OUT_OF_ROM) {
-            std::cout << "CRITICAL ERROR: trying to write32 ROM + outside of its bounds!" << std::endl;
+            LOG_MEM(std::cout << "CRITICAL ERROR: trying to write32 ROM + outside of its bounds!" << std::endl;);
             if (execInfo != nullptr) {
                 execInfo->hasCausedException = true;
             }
@@ -348,7 +349,7 @@ namespace gbaemu
                 */
                 uint32_t romOffset = ((addr & 0x00FFFFFF) /* & (romSizeLog2 - 1)*/);
                 if (romOffset >= getRomSize()) {
-                    std::cout << "ERROR: trying to access rom out of bounds! Addr: 0x" << std::hex << addr << std::endl;
+                    LOG_MEM(std::cout << "ERROR: trying to access rom out of bounds! Addr: 0x" << std::hex << addr << std::endl;);
                     // Indicate out of ROM!!!
                     memReg = OUT_OF_ROM;
                 }
@@ -403,18 +404,19 @@ namespace gbaemu
             case BIOS:
                 return BIOS_READ[biosReadState];
             case IO_REGS:
-                if (addr >= IO_REGS_LIMIT) {
-                    std::cout << "ERROR: read invalid io reg address: 0x" << std::hex << addr << std::endl;
-                }
+                LOG_MEM(
+                    if (addr >= IO_REGS_LIMIT) {
+                        std::cout << "ERROR: read invalid io reg address: 0x" << std::hex << addr << std::endl;
+                    });
                 return zeroMem;
         }
 
         // invalid address!
-        std::cout << "ERROR: trying to access invalid memory address: " << std::hex << addr << std::endl;
+        LOG_MEM(std::cout << "ERROR: trying to access invalid memory address: " << std::hex << addr << std::endl;);
         if (execInfo != nullptr) {
             execInfo->hasCausedException = true;
         } else {
-            std::cout << "CRITICAL ERROR: could indicate that an exception has been caused!" << std::endl;
+            LOG_MEM(std::cout << "CRITICAL ERROR: could indicate that an exception has been caused!" << std::endl;);
         }
         return zeroMem;
     }
@@ -448,22 +450,23 @@ namespace gbaemu
             case EXT_ROM3_:
                 COMBINE_MEM_ADDR_(addr, EXT_ROM3, EXT_ROM, rom);
             case BIOS:
-                std::cout << "ERROR: trying to write bios mem: 0x" << std::hex << addr << std::endl;
+                LOG_MEM(std::cout << "ERROR: trying to write bios mem: 0x" << std::hex << addr << std::endl;);
                 // Read only!
                 return wasteMem;
             case IO_REGS:
-                if (addr >= IO_REGS_LIMIT) {
-                    std::cout << "ERROR: write invalid io reg address: 0x" << std::hex << addr << std::endl;
-                }
+                LOG_MEM(
+                    if (addr >= IO_REGS_LIMIT) {
+                        std::cout << "ERROR: write invalid io reg address: 0x" << std::hex << addr << std::endl;
+                    });
                 return wasteMem;
         }
 
         // invalid address!
-        std::cout << "ERROR: trying to access invalid memory address: " << std::hex << addr << std::endl;
+        LOG_MEM(std::cout << "ERROR: trying to access invalid memory address: " << std::hex << addr << std::endl;);
         if (execInfo != nullptr) {
             execInfo->hasCausedException = true;
         } else {
-            std::cout << "CRITICAL ERROR: could indicate that an exception has been caused!" << std::endl;
+            LOG_MEM(std::cout << "CRITICAL ERROR: could indicate that an exception has been caused!" << std::endl;);
         }
         return wasteMem;
     }

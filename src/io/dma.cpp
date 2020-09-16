@@ -2,6 +2,7 @@
 #include "dma.hpp"
 #include "cpu/cpu.hpp"
 #include "interrupts.hpp"
+#include "logging.hpp"
 #include "memory.hpp"
 #include "util.hpp"
 
@@ -54,14 +55,15 @@ namespace gbaemu
             case IDLE:
                 if (extractRegValues()) {
                     state = conditionSatisfied() ? STARTED : WAITING_PAUSED;
-                    std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
-                    std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << countTypeToStr(srcCnt) << std::endl;
-                    std::cout << "      Dest Addr:   0x" << std::hex << destAddr << " Type: " << countTypeToStr(dstCnt) << std::endl;
-                    std::cout << "      Words: 0x" << std::hex << count << std::endl;
-                    std::cout << "      Repeat: " << repeat << std::endl;
-                    std::cout << "      GamePak DRQ: " << gamePakDRQ << std::endl;
-                    std::cout << "      32 bit mode: " << width32Bit << std::endl;
-                    std::cout << "      IRQ on end: " << irqOnEnd << std::endl;
+                    LOG_DMA(
+                        std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
+                        std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << countTypeToStr(srcCnt) << std::endl;
+                        std::cout << "      Dest Addr:   0x" << std::hex << destAddr << " Type: " << countTypeToStr(dstCnt) << std::endl;
+                        std::cout << "      Words: 0x" << std::hex << count << std::endl;
+                        std::cout << "      Repeat: " << repeat << std::endl;
+                        std::cout << "      GamePak DRQ: " << gamePakDRQ << std::endl;
+                        std::cout << "      32 bit mode: " << width32Bit << std::endl;
+                        std::cout << "      IRQ on end: " << irqOnEnd << std::endl;);
                 }
                 break;
 
@@ -208,7 +210,7 @@ namespace gbaemu
             fetchCount();
 
             if (condition == SPECIAL) {
-                std::cout << "ERROR: DMA" << std::dec << static_cast<uint32_t>(channel) << " timing: special not yet supported" << std::endl;
+                LOG_DMA(std::cout << "ERROR: DMA" << std::dec << static_cast<uint32_t>(channel) << " timing: special not yet supported" << std::endl;);
 
                 //TODO init for special timing!
                 if (channel == DMA1 || channel == DMA2) {

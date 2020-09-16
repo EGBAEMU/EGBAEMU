@@ -1,4 +1,5 @@
 #include "io_regs.hpp"
+#include "logging.hpp"
 
 #include <iostream>
 
@@ -31,7 +32,7 @@ namespace gbaemu
             return devIt->externalRead8(addr - devIt->lowerBound);
         } else {
             //TODO how to handle not found?
-            std::cout << "WARNING: externalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;
+            LOG_MEM(std::cout << "WARNING: externalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
             return 0x0000;
         }
     }
@@ -51,7 +52,7 @@ namespace gbaemu
             devIt->externalWrite8(addr - devIt->lowerBound, value);
         } else {
             //TODO how to handle not found? probably just ignore...
-            std::cout << "WARNING: externalWrite: no io handler registered for address: 0x" << std::hex << addr << std::endl;
+            LOG_MEM(std::cout << "WARNING: externalWrite: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
         }
     }
     void IO_Handler::externalWrite16(uint32_t addr, uint16_t value)
@@ -74,7 +75,7 @@ namespace gbaemu
             return devIt->internalRead8(addr - devIt->lowerBound);
         } else {
             //TODO how to handle not found?
-            std::cout << "WARNING: internalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;
+            LOG_MEM(std::cout << "WARNING: internalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
             return 0x0000;
         }
     }
@@ -94,7 +95,7 @@ namespace gbaemu
             devIt->internalWrite8(addr - devIt->lowerBound, value);
         } else {
             //TODO how to handle not found? probably just ignore...
-            std::cout << "WARNING: internalWrite: no io handler registered for address: 0x" << std::hex << addr << std::endl;
+            LOG_MEM(std::cout << "WARNING: internalWrite: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
         }
     }
     void IO_Handler::internalWrite16(uint32_t addr, uint16_t value)
