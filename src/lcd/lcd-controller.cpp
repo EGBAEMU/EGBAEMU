@@ -839,7 +839,8 @@ namespace gbaemu::lcd
         for (int32_t y = 0; y < SCREEN_HEIGHT; ++y) {
             for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
                 int32_t coord = y * SCREEN_WIDTH + x;
-                color_t firstColor, secondColor, finalColor = 0xFF000000;
+                color_t firstColor, secondColor;
+                color_t finalColor = palette.getBackdropColor();
 
 #if RENDERER_ENABLE_COLOR_EFFECTS
 #error "Color effect rendering is not implemented."
@@ -883,8 +884,6 @@ namespace gbaemu::lcd
                 }
 
 #else
-                finalColor = palette.getBackdropColor();
-
                 for (int32_t i = 0; i < layers.size(); ++i) {
                     if (layers[i]->enabled) {
                         color_t color = layers[i]->canvas.pixels()[y * SCREEN_WIDTH + x];
@@ -895,6 +894,7 @@ namespace gbaemu::lcd
                 }
 #endif
 
+                /* upscaling */
                 for (int32_t ty = 0; ty < display.yStep; ++ty)
                     for (int32_t tx = 0; tx < display.xStep; ++tx)
                         dst[(display.yStep * y + ty) * w + (display.xStep * x + tx)] = finalColor;
