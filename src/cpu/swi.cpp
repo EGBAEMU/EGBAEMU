@@ -164,16 +164,12 @@ namespace gbaemu
                 *currentRegs[regs::R1_OFFSET] = 0;
                 *currentRegs[regs::R3_OFFSET] = 0x80000000;
             } else {
+                /* The standard way to do it. */
                 div_t result = std::div(numerator, denominator);
 
-                //int32_t div = numerator / denominator;
-
-                *currentRegs[regs::R0_OFFSET] =  result.quot; //static_cast<uint32_t>(div);
-                // manually calculate remainder, because % isn't well defined for signed numbers across different platforms
-                *currentRegs[regs::R1_OFFSET] =  result.rem; //static_cast<uint32_t>(numerator - denominator * div);
-                *currentRegs[regs::R3_OFFSET] =  std::abs(result.quot); //static_cast<uint32_t>(div < 0 ? -div : div);
-
-                //std::cout << std::dec << result.quot << ' ' << result.rem << ' ' << std::abs(result.quot) << std::endl;
+                *currentRegs[regs::R0_OFFSET] =  result.quot;
+                *currentRegs[regs::R1_OFFSET] =  result.rem;
+                *currentRegs[regs::R3_OFFSET] =  std::abs(result.quot);
             }
 
             //TODO proper time calculation
@@ -478,11 +474,6 @@ namespace gbaemu
                 c *= sy;
                 d *= sy;
 
-                std::cout << orgSx << ' ' << orgSy << ' ' << orgTheta << '\n'
-                    << sx << ' ' << sy << ' ' << theta << "=>\n"
-                    << a << ' ' << b << ' ' << c << ' ' << d << std::endl;
-
-                //uint32_t destOff = i * diff * 4;
                 m.write16(destAddr,            floatToFixed<uint16_t, 8, 7>(a), &info, i != 0);
                 m.write16(destAddr + diff,     floatToFixed<uint16_t, 8, 7>(b), &info, true);
                 m.write16(destAddr + diff * 2, floatToFixed<uint16_t, 8, 7>(c), &info, true);

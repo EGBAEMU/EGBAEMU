@@ -77,7 +77,6 @@
     } while (0)
 #endif
 
-#define DEBUG_SWI
 #ifdef DEBUG_SWI
 #define LOG_SWI(body) \
     do {              \
