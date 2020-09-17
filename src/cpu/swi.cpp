@@ -458,10 +458,14 @@ namespace gbaemu
                 uint32_t srcOff = i * 8;
                 //float sx = m.read16(sourceAddr, &info, i != 0) / 256.f;
                 //float sy = m.read16(sourceAddr + 2, &info, true) / 256.f;
-                float theta = (m.read16(sourceAddr + 4, &info, true) >> 8) / 128.f * M_PI;
+                uint16_t orgTheta = m.read16(sourceAddr + 4, &info, true);
+                uint16_t orgSx = m.read16(sourceAddr, &info, i != 0);
+                uint16_t orgSy = m.read16(sourceAddr + 2, &info, i != 0);
 
-                common::math::real_t sx = fixedToFloat<uint16_t, 8, 7>(m.read16(sourceAddr, &info, i != 0));
-                common::math::real_t sy = fixedToFloat<uint16_t, 8, 7>(m.read16(sourceAddr + 2, &info, i != 0));
+                float theta = (orgTheta >> 8) / 128.f * M_PI;
+
+                common::math::real_t sx = fixedToFloat<uint16_t, 8, 7>(orgSx);
+                common::math::real_t sy = fixedToFloat<uint16_t, 8, 7>(orgSy);
 
                 sourceAddr += 8;
 
@@ -474,7 +478,9 @@ namespace gbaemu
                 c *= sy;
                 d *= sy;
 
-                //std::cout << a << ' ' << b << ' ' << c << ' ' << d << std::endl;
+                std::cout << orgSx << ' ' << orgSy << ' ' << orgTheta << '\n'
+                    << sx << ' ' << sy << ' ' << theta << "=>\n"
+                    << a << ' ' << b << ' ' << c << ' ' << d << std::endl;
 
                 //uint32_t destOff = i * diff * 4;
                 m.write16(destAddr,            floatToFixed<uint16_t, 8, 7>(a), &info, i != 0);
