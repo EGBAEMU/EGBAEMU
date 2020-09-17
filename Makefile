@@ -5,7 +5,7 @@ BUILDDIR := build
 MSC_BUILDDIR := msc_build
 
 CC := g++
-CCFLAGS := -std=c++17 -g -ffast-math -Wall -I$(SRC)
+CCFLAGS := -std=c++17 -g --fast-math $(CPERFFLAGS) -ffast-math -Wall -I$(SRC)
 ifeq ($(OS),Windows_NT)
   LDFLAGS := -lmingw32 -lSDL2main -lSDL2 -pthread
 else
