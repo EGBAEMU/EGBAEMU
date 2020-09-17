@@ -1,4 +1,5 @@
 #include "cpu.hpp"
+#include "logging.hpp"
 #include "swi.hpp"
 #include "util.hpp"
 
@@ -81,8 +82,9 @@ namespace gbaemu
                                                          */
                                                      uint8_t index = armInst.params.software_interrupt.comment >> 16;
                                                      if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
-                                                         if (index != 5 && index != 0x2B)
-                                                             //std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
+                                                         if (index != 5 && index != 0x2B) {
+                                                             LOG_SWI(std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;);
+                                                         }
                                                          return swi::biosCallHandler[index](cpu);
                                                      } else {
                                                          std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
