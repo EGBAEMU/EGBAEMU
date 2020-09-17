@@ -72,7 +72,6 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 
         lcdController.tick();
 
-
         uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
 
         if (prevPC != postPC && false) {
@@ -124,24 +123,43 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 
 int main(int argc, char **argv)
 {
-    if (argc <= 2) {
+    if (argc <= 1) {
         std::cout << "please provide a ROM file\n";
         return 0;
     }
 
     /* read gba file */
     std::ifstream file(argv[1], std::ios::binary);
-    std::ifstream biosFile(argv[2], std::ios::binary);
 
-    if (!file.is_open() ||!biosFile.is_open()) {
-        std::cout << "could not open file\n";
+    if (!file.is_open()) {
+        std::cout << "could not open ROM file\n";
         return 0;
     }
 
     std::vector<char> buf(std::istreambuf_iterator<char>(file), {});
     file.close();
-    std::vector<char> biosBuf(std::istreambuf_iterator<char>(biosFile), {});
-    biosFile.close();
+
+    /* intialize CPU and print game info */
+    gbaemu::CPU cpu;
+
+    if (!cpu.state.memory.loadROM("save.file", reinterpret_cast<const uint8_t *>(buf.data()), buf.size())) {
+        std::cout << "could not open/create save file" << std::endl;
+        return 0;
+    }
+
+    if (argc >= 2) {
+        std::ifstream biosFile(argv[2], std::ios::binary);
+
+        if (!biosFile.is_open()) {
+            std::cout << "could not open BIOS file\n";
+            return 0;
+        }
+
+        std::vector<char> biosBuf(std::istreambuf_iterator<char>(biosFile), {});
+        biosFile.close();
+
+        cpu.state.memory.loadExternalBios(reinterpret_cast<const uint8_t *>(biosBuf.data()), biosBuf.size());
+    }
 
     /* signal and window stuff */
     std::signal(SIGINT, handleSignal);
@@ -153,11 +171,6 @@ int main(int argc, char **argv)
     canv.endDraw();
     window.present();
     gbaemu::lcd::WindowCanvas windowCanvas = window.getCanvas();
-
-    /* intialize CPU and print game info */
-    gbaemu::CPU cpu;
-    cpu.state.memory.loadROM("save.file", reinterpret_cast<const uint8_t *>(buf.data()), buf.size());
-    cpu.state.memory.loadExternalBios(reinterpret_cast<const uint8_t *>(biosBuf.data()), biosBuf.size());
 
     /* initialize SDL and LCD */
     std::mutex canDrawToScreenMutex;

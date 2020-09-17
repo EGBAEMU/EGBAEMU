@@ -246,7 +246,7 @@ namespace gbaemu
             0x03, 0x00, 0xa0, 0xe3,
             0x00, 0x00, 0x2b, 0xef,
             0x0f, 0x50, 0xbd, 0xe8,
-            0x00, 0xf0, 0x5e, 0xe2};
+            0x04, 0xf0, 0x5e, 0xe2};
 
         BackupID backupType;
         BiosReadState biosReadState;
@@ -315,7 +315,7 @@ namespace gbaemu
         Memory(const Memory &) = delete;
         Memory &operator=(const Memory &) = delete;
 
-        void loadROM(const char *eepromFilePath, const uint8_t *rom, size_t romSize)
+        bool loadROM(const char *eepromFilePath, const uint8_t *rom, size_t romSize)
         {
             if (this->romSize) {
                 delete[] this->rom;
@@ -336,14 +336,17 @@ namespace gbaemu
                 bool loadSuccessful;
                 //TODO how to find out the eeprom size???
                 this->eeprom = new save::EEPROM(eepromFilePath, loadSuccessful /*, romSize >= 0x01000000 ? 14 : 6*/);
+                return loadSuccessful;
             }
+
+            return true;
         }
 
         void loadExternalBios(const uint8_t *bios, size_t biosSize)
         {
             if (biosSize) {
                 externalBiosSize = biosSize;
-                uint8_t* newBios = new uint8_t[biosSize];
+                uint8_t *newBios = new uint8_t[biosSize];
                 std::copy_n(bios, biosSize, newBios);
                 this->bios = newBios;
             }
@@ -352,6 +355,11 @@ namespace gbaemu
         size_t getBiosSize() const
         {
             return externalBiosSize ? externalBiosSize : sizeof(customBiosCode) / sizeof(customBiosCode[0]);
+        }
+
+        bool usesExternalBios() const
+        {
+            return externalBiosSize;
         }
 
         size_t getRomSize() const
@@ -382,7 +390,7 @@ namespace gbaemu
       private:
         void scanROMForBackupID();
         uint32_t readOutOfROM(uint32_t addr) const;
-    };
+    }; // namespace gbaemu
 } // namespace gbaemu
 
 #endif /* MEMORY_HPP */
