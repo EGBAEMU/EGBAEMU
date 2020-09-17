@@ -5,7 +5,7 @@ BUILDDIR := build
 MSC_BUILDDIR := msc_build
 
 CC := g++
-CCFLAGS := -std=c++17 -g -ffast-math -Wall -I$(SRC)
+CCFLAGS := -std=c++17 -ffast-math -Wall -I$(SRC)
 ifeq ($(OS),Windows_NT)
   LDFLAGS := -lmingw32 -lSDL2main -lSDL2 -pthread
 else
@@ -19,9 +19,14 @@ srcs := $(call rwildcard,$(SRC),*.cpp)
 objs = $(patsubst %, $(BUILDDIR)/%,$(srcs:.cpp=.o))
 deps = $(patsubst %, $(BUILDDIR)/%,$(srcs:.cpp=.d))
 
-.PHONY: all clean gbaemu windows CMakeLists.txt
+.PHONY: all clean gbaemu windows CMakeLists.txt release debug
 
-all: gbaemu
+all: release
+
+debug: CCFLAGS += -g
+debug: gbaemu
+release: CCFLAGS += -Ofast
+release: gbaemu
 
 gbaemu: $(objs)
 	@mkdir -p $(OUT)
