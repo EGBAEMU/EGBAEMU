@@ -197,17 +197,17 @@ int main(int argc, char **argv)
             gameController.processSDLEvent(event);
 
             if (event.type == SDL_KEYDOWN) {
-                static int32_t objHightlightIndex = 0;
+                static int32_t debugCanvasIndex = 0;
 
                 if (event.key.keysym.sym == SDLK_KP_PLUS) {
-                    ++objHightlightIndex;
-                    std::cout << "OBJ hightlight index: " << std::dec << objHightlightIndex << std::endl;
+                    debugCanvasIndex = ((uint32_t)debugCanvasIndex + 1) % 4;
+                    std::cout << "OBJ hightlight index: " << std::dec << debugCanvasIndex << std::endl;
                 } else if (event.key.keysym.sym == SDLK_KP_MINUS) {
-                    --objHightlightIndex;
-                    std::cout << "OBJ hightlight index: " << std::dec << objHightlightIndex << std::endl;
+                    debugCanvasIndex = ((uint32_t)debugCanvasIndex - 1) % 4;
+                    std::cout << "OBJ hightlight index: " << std::dec << debugCanvasIndex << std::endl;
                 }
 
-                controller.objHightlightSetIndex(objHightlightIndex);
+                controller.objSetDebugCanvas(debugCanvasIndex);
             }
         }
 

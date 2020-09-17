@@ -279,4 +279,6 @@ namespace gbaemu::lcd
 #define RENDERER_HIGHTLIGHT_OBJ 0
 #define OBJ_HIGHLIGHT_COLOR 0xFF00FF00
 
+#define RENDERER_OBJ_ENABLE_DEBUG_CANVAS 1
+
 #endif /* DEFS_HPP */

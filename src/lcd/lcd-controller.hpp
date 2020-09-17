@@ -159,8 +159,12 @@ namespace gbaemu::lcd
       private:
         OBJAttribute getAttribute(uint32_t index) const;
         std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(uint32_t index) const;
-
       public:
+
+#if RENDERER_OBJ_ENABLE_DEBUG_CANVAS == 1
+        MemoryCanvas<color_t> debugCanvas;
+#endif
+      
         OBJLayer(LayerId layerId);
         void setMode(const uint8_t *vramBaseAddress, const uint8_t *oamBaseAddress, uint32_t bgMode);
         void draw(LCDColorPalette &palette, bool use2dMapping);
@@ -296,7 +300,12 @@ namespace gbaemu::lcd
 
             bool hBlanking;
             bool vBlanking;
+
+            uint64_t tickCount = 0;
+            uint64_t renderCount = 0;
         } counters;
+
+        int32_t objDebugCanvasIndex = 0;
 
         void blendBackgrounds();
 
@@ -350,6 +359,7 @@ namespace gbaemu::lcd
 
         std::string getLayerStatus() const;
         void objHightlightSetIndex(int32_t index);
+        void objSetDebugCanvas(int32_t i);
     };
 
 } // namespace gbaemu::lcd

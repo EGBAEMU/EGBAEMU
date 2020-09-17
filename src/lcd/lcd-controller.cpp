@@ -121,6 +121,9 @@ namespace gbaemu::lcd
     }
 
     OBJLayer::OBJLayer(LayerId layerId) : Layer(layerId)
+#if RENDERER_OBJ_ENABLE_DEBUG_CANVAS == 1
+    , debugCanvas(512, 512)
+#endif
     {
         order = -(static_cast<int32_t>(layerId) * 2 + 1);
         enabled = true;
@@ -153,6 +156,11 @@ namespace gbaemu::lcd
         std::array<color_t, 64 * 64> tempBuffer;
 
         canvas.clear(TRANSPARENT);
+
+#if RENDERER_OBJ_ENABLE_DEBUG_CANVAS == 1
+        int32_t locationX = 0;
+        int32_t locationY = 0;
+#endif
 
         for (int32_t i = 127; i >= 0; --i) {
             OBJAttribute attr = getAttribute(i);
@@ -392,6 +400,20 @@ namespace gbaemu::lcd
                 for (int32_t y = 0; y < height; y += SPRITE_GRID_SPACING)
                     for (int32_t x = 0; x < width; ++x)
                         tempBuffer[y * 64 + x] = color;
+            }
+#endif
+
+#if RENDERER_OBJ_ENABLE_DEBUG_CANVAS == 1
+            {
+                locationX = (i % 32) * 8;
+                locationY = (i / 32) * 8;
+
+                for (int32_t y = 0; y < height; ++y) {
+                    for (int32_t x = 0; x < width; ++x) {
+                        color_t color = tempBuffer[y * 64 + x];
+                        debugCanvas.pixels()[(y + locationY) * debugCanvas.getWidth() + (x + locationX)] = color;
+                    }
+                }
             }
 #endif
 
@@ -1083,6 +1105,8 @@ namespace gbaemu::lcd
 
     void LCDController::render()
     {
+        ++counters.renderCount;
+
         uint32_t bgMode = le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
         /* clear with brackdrop color */
         color_t clearColor = palette.getBackdropColor();
@@ -1152,6 +1176,32 @@ namespace gbaemu::lcd
         if (i % 100 == 0)
             std::cout << getLayerStatus() << std::endl;
          */
+
+#if RENDERER_OBJ_ENABLE_DEBUG_CANVAS == 1
+        {
+            //static int i = 0;
+
+            int32_t locX = SCREEN_WIDTH * display.xStep;
+            int32_t locY = 0;
+
+            display.target.beginDraw();
+
+            int32_t i = objDebugCanvasIndex;
+            std::cout << std::dec << objDebugCanvasIndex << std::endl;
+
+            for (int32_t y = 0; y < objLayers[i]->debugCanvas.getHeight(); ++y) {
+                for (int32_t x = 0; x < objLayers[i]->debugCanvas.getWidth(); ++x) {
+                    color_t color = objLayers[i]->debugCanvas.pixels()[y * objLayers[i]->debugCanvas.getWidth() + x];
+                    display.target.pixels()[(y + locY) * display.target.getWidth() + (x + locX)] = color;
+                }
+            }
+
+            display.target.endDraw();
+
+            if (counters.renderCount % 10 == 0)
+                i = (i + 1) % 4;
+        }
+#endif
     }
 
     void LCDController::renderLoop()
@@ -1198,6 +1248,8 @@ namespace gbaemu::lcd
     {
         static bool irqTriggeredV = false;
         static bool irqTriggeredH = false;
+
+        ++counters.tickCount;
 
         bool result = false;
         uint32_t vState = counters.cycle % 280896;
@@ -1294,5 +1346,10 @@ namespace gbaemu::lcd
     {
         for (auto& l : objLayers)
             l->hightlightObjIndex = index;
+    }
+
+    void LCDController::objSetDebugCanvas(int32_t i)
+    {
+        objDebugCanvasIndex = i;
     }
 } // namespace gbaemu::lcd
