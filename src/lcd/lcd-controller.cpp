@@ -81,13 +81,38 @@ namespace gbaemu::lcd
     {
         const uint16_t *uints = reinterpret_cast<const uint16_t *>(attributes);
 
+        /*
+            4*4 16bit ints
+            group[0].a0
+            group[0].a1
+            group[0].a2
+            group[0].a
+            group[0].a0
+            group[0].a1
+            group[0].a2
+            group[0].b
+            group[0].a0
+            group[0].a1
+            group[0].a2
+            group[0].c
+            group[0].a0
+            group[0].a1
+            group[0].a2
+            group[0].d
+        
+        
+        
+         */
+
+        uint32_t group = index * 4 * 4;
+
         return std::make_tuple<common::math::vec<2>, common::math::vec<2>>(
             common::math::vec<2>{
-                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[index * 4 + 3])),
-                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[(index + 2) * 4 + 3]))},
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[group +      3])),
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[group + 8  + 3]))},
             common::math::vec<2>{
-                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[(index + 1) * 4 + 3])),
-                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[(index + 3) * 4 + 3]))});
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[group + 4  + 3])),
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[group + 12 + 3]))});
     }
 
     OBJLayer::OBJLayer(LayerId layerId) : Layer(layerId)
@@ -151,7 +176,9 @@ namespace gbaemu::lcd
             bool useColor256 = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::COLOR_PALETTE_MASK, OBJ_ATTRIBUTE::COLOR_PALETTE_OFFSET);
 
             int32_t yOff = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::Y_COORD_MASK, OBJ_ATTRIBUTE::Y_COORD_OFFSET);
-            int32_t xOff = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::X_COORD_MASK, OBJ_ATTRIBUTE::X_COORD_OFFSET);
+            int32_t xOff = signExt<int32_t, uint16_t, 9>(bitGet<uint16_t>(attr.attribute[1],
+                                                                          OBJ_ATTRIBUTE::X_COORD_MASK,
+                                                                          OBJ_ATTRIBUTE::X_COORD_OFFSET));
 
             OBJShape shape = static_cast<OBJShape>(bitGet<uint16_t>(attr.attribute[0],
                                                                     OBJ_ATTRIBUTE::OBJ_SHAPE_MASK, OBJ_ATTRIBUTE::OBJ_SHAPE_OFFSET));
@@ -265,7 +292,14 @@ namespace gbaemu::lcd
                                 uint32_t paletteIndex = (row & (0xF << (tx * 4))) >> (tx * 4);
                                 color_t color = palette.getObjColor(paletteNumber, paletteIndex);
 
+#if RENDERER_HIGHTLIGHT_OBJ == 0
                                 tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = color;
+#else
+                                if (i == hightlightObjIndex)
+                                    tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = OBJ_HIGHLIGHT_COLOR;
+                                else
+                                    tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = color;
+#endif
                             }
                         }
                     } else {
@@ -277,7 +311,15 @@ namespace gbaemu::lcd
                             for (uint32_t px = 0; px < 8; ++px) {
                                 uint32_t tx = hFlip ? (7 - px) : px;
                                 color_t color = palette.getObjColor(tile[ty * 8 + tx]);
+
+#if RENDERER_HIGHTLIGHT_OBJ == 0
                                 tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = color;
+#else
+                                if (i == hightlightObjIndex)
+                                    tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = OBJ_HIGHLIGHT_COLOR;
+                                else
+                                    tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = color;
+#endif
                             }
                         }
                     }
@@ -289,13 +331,14 @@ namespace gbaemu::lcd
             bool doubleSized = useRotScale && bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::DOUBLE_SIZE_MASK, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET);
 
             if (useRotScale) {
-                uint16_t index = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::ROT_SCALE_PARAM_MASK, OBJ_ATTRIBUTE::ROT_SCALE_PARAM_OFFSET);
+                uint16_t index = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::ROT_SCALE_PARAM_MASK, OBJ_ATTRIBUTE::ROT_SCALE_PARAM_OFFSET);
                 auto result = getRotScaleParameters(index);
 
                 d = std::get<0>(result);
                 dm = std::get<1>(result);
 
                 /* TODO: d, dm are often 0 in SMA, but those are invalid values */
+                /*
                 if (d[0] == 0 && d[1] == 0) {
                     d[0] = 1;
                     d[1] = 0;
@@ -305,6 +348,9 @@ namespace gbaemu::lcd
                     dm[0] = 0;
                     dm[1] = 1;
                 }
+                 */
+
+                //std::cout << d << ' ' << dm << std::endl;
             }
 
             common::math::vec<2> origin{
@@ -1227,5 +1273,11 @@ namespace gbaemu::lcd
         }
 
         return ss.str();
+    }
+
+    void LCDController::objHightlightSetIndex(int32_t index)
+    {
+        for (auto& l : objLayers)
+            l->hightlightObjIndex = index;
     }
 } // namespace gbaemu::lcd
