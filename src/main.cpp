@@ -147,7 +147,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    if (argc >= 2) {
+    if (argc > 2) {
         std::ifstream biosFile(argv[2], std::ios::binary);
 
         if (!biosFile.is_open()) {
