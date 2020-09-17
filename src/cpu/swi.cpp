@@ -431,10 +431,10 @@ namespace gbaemu
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
-            uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
-            uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
-            uint32_t iterationCount = *currentRegs[regs::R2_OFFSET];
-            uint32_t diff = *currentRegs[regs::R2_OFFSET];
+            const uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
+            const uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
+            const uint32_t iterationCount = *currentRegs[regs::R2_OFFSET];
+            const uint32_t diff = *currentRegs[regs::R3_OFFSET];
 
             auto &m = cpu->state.memory;
             //TODO do those read & writes count as non sequential?
@@ -447,23 +447,22 @@ namespace gbaemu
                 float sy = m.read16(srcOff + sourceAddr + 2, &info, true) / 256.f;
                 float theta = (m.read16(srcOff + sourceAddr + 4, &info, true) >> 8) / 128.f * M_PI;
 
-                common::math::mat<3, 3> scale{
-                    {sx, 0, 0},
-                    {0, sy, 0},
-                    {0, 0, 1}};
+                common::math::real_t a, b, c, d;
+                a = d = cosf(theta);
+                b = c = sinf(theta);
+                // Scale
+                a *= sx;
+                b *= -sx;
+                c *= sy;
+                d *= sy;
 
-                common::math::mat<3, 3> rotation{
-                    {std::cos(theta), -std::sin(theta), 0},
-                    {std::sin(theta), std::cos(theta), 0},
-                    {0, 0, 1}};
+                std::cout << a << ' ' << b << ' ' << c << ' ' << d << std::endl;
 
-                auto r = scale * rotation;
-
-                uint32_t destOff = diff * 4;
-                m.write16(destOff + destAddr, r[0][0] * 256, &info, i != 0);
-                m.write16(destOff + destAddr + diff, r[0][1] * 256, &info, true);
-                m.write16(destOff + destAddr + diff * 2, r[1][0] * 256, &info, true);
-                m.write16(destOff + destAddr + diff * 3, r[1][1] * 256, &info, true);
+                uint32_t destOff = i * diff * 4;
+                m.write16(destAddr + destOff,            floatToFixed<uint16_t, 8, 7>(a), &info, i != 0);
+                m.write16(destAddr + destOff + diff,     floatToFixed<uint16_t, 8, 7>(b), &info, true);
+                m.write16(destAddr + destOff + diff * 2, floatToFixed<uint16_t, 8, 7>(c), &info, true);
+                m.write16(destAddr + destOff + diff * 3, floatToFixed<uint16_t, 8, 7>(d), &info, true);
             }
 
             return info;

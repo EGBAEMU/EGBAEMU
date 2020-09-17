@@ -275,4 +275,6 @@ namespace gbaemu::lcd
 
 #define RENDERER_ENABLE_COLOR_EFFECTS 1
 
+#define RENDERER_DECOMPOSE_LAYERS 0
+
 #endif /* DEFS_HPP */

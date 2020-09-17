@@ -1079,9 +1079,11 @@ namespace gbaemu::lcd
         objLayers[2]->draw(palette, use2dMapping);
         objLayers[3]->draw(palette, use2dMapping);
 
+#if RENDERER_DECOMPOSE_LAYERS == 1
+        drawLayers();
+#else
         drawToTarget();
-        //drawLayers();
-
+#endif
         /*
         static int i = 0;
 
