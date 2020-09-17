@@ -416,7 +416,7 @@ namespace gbaemu
         if (execInfo != nullptr) {
             execInfo->hasCausedException = true;
         } else {
-            LOG_MEM(std::cout << "CRITICAL ERROR: could indicate that an exception has been caused!" << std::endl;);
+            LOG_MEM(std::cout << "CRITICAL ERROR: could not indicate that an exception has been caused!" << std::endl;);
         }
         return zeroMem;
     }
@@ -466,7 +466,7 @@ namespace gbaemu
         if (execInfo != nullptr) {
             execInfo->hasCausedException = true;
         } else {
-            LOG_MEM(std::cout << "CRITICAL ERROR: could indicate that an exception has been caused!" << std::endl;);
+            LOG_MEM(std::cout << "CRITICAL ERROR: could not indicate that an exception has been caused!" << std::endl;);
         }
         return wasteMem;
     }
