@@ -925,8 +925,8 @@ namespace gbaemu::lcd
         for (int32_t y = 0; y < SCREEN_HEIGHT; ++y) {
             for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
                 int32_t coord = y * SCREEN_WIDTH + x;
-                color_t topColor = 0xFF7F7F7F,
-                        bottomColor = 0xFF000000,
+                color_t topColor = backdropColor,
+                        bottomColor = backdropColor,
                         finalColor = backdropColor;
 
 #if (RENDERER_ENABLE_COLOR_EFFECTS == 1)
@@ -944,33 +944,37 @@ namespace gbaemu::lcd
                     color_t color = layers[i]->canvas.pixels()[coord];
 
                     /* transparent, ignore */
-                    if (!(color & 0xFF000000))
-                        continue;
+                    //if (!(color & 0xFF000000))
+                    //    continue;
 
-                    topColor = color;
-                    topLayer = i;
-                    topSelectedAsTarget = layers[i]->asFirstTarget;
+                    if (color & 0xFF000000) {
+                        topColor = color;
+                        topLayer = i;
+                        topSelectedAsTarget = layers[i]->asFirstTarget;
 
-                    break;
+                        break;
+                    }
                 }
 
-                for (int32_t i = layers.size() - 1;  i >= 0; -- i) {
-                    if (!layers[i]->enabled || i == topLayer)
-                        continue;
+                if (colorSpecialEffect != BLDCNT::None) {
+                    for (int32_t i = layers.size() - 1;  i >= 0; -- i) {
+                        if (!layers[i]->enabled || i == topLayer)
+                            continue;
 
-                    color_t color = layers[i]->canvas.pixels()[coord];
+                        color_t color = layers[i]->canvas.pixels()[coord];
 
-                    /* transparent, ignore */
-                    if (!(color & 0xFF000000) || i == topLayer)
-                        continue;
+                        /* transparent, ignore */
+                        if (!(color & 0xFF000000) || i == topLayer)
+                            continue;
 
-                    bottomColor = color;
-                    bottomSelectedAsTarget = layers[i]->asSecondTarget;
-                    
-                    break;
+                        bottomColor = color;
+                        bottomSelectedAsTarget = layers[i]->asSecondTarget;
+                        
+                        break;
+                    }
                 }
 
-                if (topSelectedAsTarget) {
+                if (topSelectedAsTarget && colorSpecialEffect != BLDCNT::None) {
                     switch (colorSpecialEffect) {
                         case BLDCNT::ColorSpecialEffect::None:
                             //just the top layer
@@ -991,7 +995,7 @@ namespace gbaemu::lcd
                             //finalColor = topColor - topColor * brightnessEffect.evy;
 
                             color_t scaledEvy = colScale(topColor, brightnessEffect.evy);
-                            finalColor = colAdd(topColor, scaledEvy);
+                            finalColor = colSub(topColor, scaledEvy);
 
                             //finalColor = topColor;
 

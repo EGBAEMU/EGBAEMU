@@ -24,7 +24,7 @@ namespace gbaemu::lcd
         for (uint32_t i = 0; i < 4; ++i) {
             color_t ca = (a >> (i * 8)) & 0xFF;
             color_t cb = (b >> (i * 8)) & 0xFF;
-            color_t cs = std::max(ca + cb, 0xFFu);
+            color_t cs = std::min(ca + cb, 0xFFu);
 
             result |= (cs << (i * 8));
         }
@@ -56,7 +56,7 @@ namespace gbaemu::lcd
         color_t result = 0;
 
         for (uint32_t i = 0; i < 4; ++i) {
-            color_t ca = (a >> (i * 8)) & 0xFF;
+            color_t ca = std::min(a >> (i * 8), 255u);
             color_t cs = (ca * scalar) / 16;
 
             result |= (cs << (i * 8));
@@ -276,7 +276,7 @@ namespace gbaemu::lcd
 #define RENDERER_ENABLE_COLOR_EFFECTS 1
 #define RENDERER_DECOMPOSE_LAYERS 0
 
-#define RENDERER_HIGHTLIGHT_OBJ 1
+#define RENDERER_HIGHTLIGHT_OBJ 0
 #define OBJ_HIGHLIGHT_COLOR 0xFF00FF00
 
 #endif /* DEFS_HPP */
