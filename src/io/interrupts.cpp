@@ -123,7 +123,7 @@ namespace gbaemu
             // Save the current CPSR register value into SPSR_irq
             *(cpu->state.getModeRegs(CPUState::IRQ)[regs::SPSR_OFFSET]) = cpu->state.accessReg(regs::CPSR_OFFSET);
             // Save PC to LR_irq
-            *(cpu->state.getModeRegs(CPUState::IRQ)[regs::LR_OFFSET]) = cpu->state.getCurrentPC();
+            *(cpu->state.getModeRegs(CPUState::IRQ)[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + 4;
 
             // Change instruction mode to arm
             cpu->state.decoder = &cpu->armDecoder;

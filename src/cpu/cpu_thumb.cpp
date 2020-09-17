@@ -62,7 +62,7 @@ namespace gbaemu
                                                          //TODO is switching needed?
                                                          Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
                                                          In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
-                                                         */
+                                                         *//*
                                                            uint8_t index = thumbInst.params.software_interrupt.comment;
                                                            if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
                                                                if (index != 5 && index != 0x2B) {
@@ -72,7 +72,8 @@ namespace gbaemu
                                                            } else {
                                                                std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
                                                            }
-                                                           return InstructionExecutionInfo{0};
+                                                           return InstructionExecutionInfo{0};*/
+                                                           return swi::callBiosCodeSWIHandler(cpu);
         },
         // Category: UNCONDITIONAL_BRANCH
         [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {

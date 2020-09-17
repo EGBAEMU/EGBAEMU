@@ -124,21 +124,24 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
 
 int main(int argc, char **argv)
 {
-    if (argc <= 1) {
+    if (argc <= 2) {
         std::cout << "please provide a ROM file\n";
         return 0;
     }
 
     /* read gba file */
     std::ifstream file(argv[1], std::ios::binary);
+    std::ifstream biosFile(argv[2], std::ios::binary);
 
-    if (!file.is_open()) {
+    if (!file.is_open() ||!biosFile.is_open()) {
         std::cout << "could not open file\n";
         return 0;
     }
 
     std::vector<char> buf(std::istreambuf_iterator<char>(file), {});
     file.close();
+    std::vector<char> biosBuf(std::istreambuf_iterator<char>(biosFile), {});
+    biosFile.close();
 
     /* signal and window stuff */
     std::signal(SIGINT, handleSignal);
@@ -153,7 +156,8 @@ int main(int argc, char **argv)
 
     /* intialize CPU and print game info */
     gbaemu::CPU cpu;
-    cpu.state.memory.loadROM("save.file", reinterpret_cast<uint8_t *>(buf.data()), buf.size());
+    cpu.state.memory.loadROM("save.file", reinterpret_cast<const uint8_t *>(buf.data()), buf.size());
+    cpu.state.memory.loadExternalBios(reinterpret_cast<const uint8_t *>(biosBuf.data()), biosBuf.size());
 
     /* initialize SDL and LCD */
     std::mutex canDrawToScreenMutex;

@@ -110,7 +110,6 @@ namespace gbaemu
         static constexpr uint32_t BIOS_SWI_HANDLER_OFFSET = 0x08;
 
       private:
-        //uint8_t *bios;
         uint8_t *wram;
         uint8_t *iwram;
         //uint8_t *io_regs;
@@ -118,9 +117,12 @@ namespace gbaemu
         uint8_t *vram;
         uint8_t *oam;
 
-        uint8_t *ext_sram = nullptr;
-        uint8_t *rom = nullptr;
-        size_t romSize = 0;
+        uint8_t *ext_sram;
+        uint8_t *rom;
+        size_t romSize;
+
+        const uint8_t *bios;
+        size_t externalBiosSize;
 
         static const constexpr uint8_t BIOS_READ_AFTER_STARTUP[] = {0x00, 0xF0, 0x29, 0xE1};
         static const constexpr uint8_t BIOS_READ_AFTER_SWI[] = {0x04, 0x20, 0xA0, 0xE3};
@@ -256,8 +258,6 @@ namespace gbaemu
         //TODO are there conventions about inital memory values?
         Memory()
         {
-            //bios = GBA_ALLOC_MEM_REG(BIOS);
-            //GBA_MEM_CLEAR(bios, BIOS);
             wram = GBA_ALLOC_MEM_REG(WRAM);
             GBA_MEM_CLEAR(wram, WRAM);
             iwram = GBA_ALLOC_MEM_REG(IWRAM);
@@ -272,12 +272,19 @@ namespace gbaemu
             GBA_MEM_CLEAR(oam, OAM);
             rom = nullptr;
             eeprom = nullptr;
+            ext_sram = nullptr;
+            bios = customBiosCode;
+            externalBiosSize = 0;
             romSize = 0;
         }
 
         ~Memory()
         {
-            //delete[] bios;
+            if (externalBiosSize) {
+                delete[] bios;
+                externalBiosSize = 0;
+                bios = customBiosCode;
+            }
             delete[] wram;
             delete[] iwram;
             //delete[] io_regs;
@@ -294,7 +301,6 @@ namespace gbaemu
                 delete[] eeprom;
             }
 
-            //bios = nullptr;
             wram = nullptr;
             iwram = nullptr;
             //io_regs = nullptr;
@@ -333,9 +339,19 @@ namespace gbaemu
             }
         }
 
-        constexpr size_t getBiosSize() const
+        void loadExternalBios(const uint8_t *bios, size_t biosSize)
         {
-            return sizeof(customBiosCode) / sizeof(customBiosCode[0]);
+            if (biosSize) {
+                externalBiosSize = biosSize;
+                uint8_t* newBios = new uint8_t[biosSize];
+                std::copy_n(bios, biosSize, newBios);
+                this->bios = newBios;
+            }
+        }
+
+        size_t getBiosSize() const
+        {
+            return externalBiosSize ? externalBiosSize : sizeof(customBiosCode) / sizeof(customBiosCode[0]);
         }
 
         size_t getRomSize() const
@@ -343,7 +359,7 @@ namespace gbaemu
             return romSize;
         }
 
-        uint8_t read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false) const;
+        uint8_t read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false) const;
         uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
         uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
         void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq = false);
