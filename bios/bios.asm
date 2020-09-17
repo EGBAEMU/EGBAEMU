@@ -11,7 +11,7 @@ b swiHandler    ; 0x08
 b irqHandler    ; 0x18
 .word 0         ; 0x1C
 
-include 'swiHandler.asm'
 include 'irqHandler.asm'
+include 'swiHandler.asm'
 
 ; Can be assembled with FASMARM: https://arm.flatassembler.net/

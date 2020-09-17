@@ -141,8 +141,6 @@ namespace gbaemu
             // Flush the pipeline
             cpu->initPipeline();
 
-            cpu->state.memory.setBiosReadState(Memory::BiosReadState::BIOS_DURING_IRQ);
-
             // After irq we need to execute at least one instruction before another irq may be handled!
             needsOneIdleCycle = true;
 

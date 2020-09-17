@@ -407,7 +407,7 @@ namespace gbaemu
             case EXT_ROM3_:
                 COMBINE_MEM_ADDR_(addr, EXT_ROM3, EXT_ROM, rom);
             case BIOS:
-                return BIOS_READ[biosReadState];
+                return biosState;
             case IO_REGS:
                 LOG_MEM(
                     if (addr >= IO_REGS_LIMIT) {

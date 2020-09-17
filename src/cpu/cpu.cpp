@@ -51,15 +51,20 @@ namespace gbaemu
 
         bool thumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
 
-        //TODO we only need to fetch 16 bit for thumb mode!
+        uint32_t pc = state.accessReg(regs::PC_OFFSET);
+
         //TODO we might need this info? (where nullptr is currently)
         if (thumbMode) {
-            //TODO check this
-            /* pc is at [27:1] */
-            state.pipeline.fetch.instruction = state.memory.read16(state.accessReg(regs::PC_OFFSET) + 4, nullptr, false, true);
+            pc += 4;
+            state.pipeline.fetch.instruction = state.memory.read16(pc, nullptr, false, true);
         } else {
-            /* pc is at [27:2] */
-            state.pipeline.fetch.instruction = state.memory.read32(state.accessReg(regs::PC_OFFSET) + 8, nullptr, false, true);
+            pc += 8;
+            state.pipeline.fetch.instruction = state.memory.read32(pc, nullptr, false, true);
+
+            // auto update bios state if we are currently executing inside bios!
+            if (pc < state.memory.getBiosSize()) {
+                state.memory.setBiosState(state.pipeline.fetch.instruction);
+            }
         }
     }
 
