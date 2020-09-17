@@ -4,9 +4,9 @@
 #ifndef DEFS_HPP
 #define DEFS_HPP
 
+#include <algorithm>
 #include <cassert>
 #include <math/mat.hpp>
-
 
 namespace gbaemu::lcd
 {
