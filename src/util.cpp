@@ -66,7 +66,7 @@ namespace gbaemu
         if (negative)
             bitValue = ~bitValue + 1;
 
-        return static_cast<ResultType>(bitValue) / factor;// - static_cast<ResultType>(compOffset);
+        return static_cast<ResultType>(bitValue) / (negative ? -factor : factor);
     }
 
     template <class T, T Frac, T Int, class InType>

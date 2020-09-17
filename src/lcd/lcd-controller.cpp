@@ -106,13 +106,18 @@ namespace gbaemu::lcd
 
         uint32_t group = index * 4 * 4;
 
+        uint16_t a = le(uints[group +      3]);
+        uint16_t c = le(uints[group + 8  + 3]);
+        uint16_t b = le(uints[group + 4  + 3]);
+        uint16_t d = le(uints[group + 12 + 3]);
+
         return std::make_tuple<common::math::vec<2>, common::math::vec<2>>(
             common::math::vec<2>{
-                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[group +      3])),
-                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[group + 8  + 3]))},
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(a),
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(c)},
             common::math::vec<2>{
-                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[group + 4  + 3])),
-                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(le(uints[group + 12 + 3]))});
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(b),
+                fixedToFloat<uint16_t, 8, 7, common::math::real_t>(d)});
     }
 
     OBJLayer::OBJLayer(LayerId layerId) : Layer(layerId)
@@ -272,6 +277,9 @@ namespace gbaemu::lcd
                     uint32_t flippedTileX = hFlip ? (width / 8 - 1 - tileX) : tileX;
                     uint32_t flippedTileY = vFlip ? (height / 8 - 1 - tileY) : tileY;
 
+                    uint32_t tilePosX = tileX * 8;
+                    uint32_t tilePosY = tileY * 8;
+
                     if (use2dMapping)
                         tileIndex = tileNumber + flippedTileX + flippedTileY * tilesPerRow;
                     else
@@ -293,12 +301,12 @@ namespace gbaemu::lcd
                                 color_t color = palette.getObjColor(paletteNumber, paletteIndex);
 
 #if RENDERER_HIGHTLIGHT_OBJ == 0
-                                tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = color;
+                                tempBuffer[(tilePosY + py) * 64 + (tilePosX + px)] = color;
 #else
                                 if (i == hightlightObjIndex)
-                                    tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = OBJ_HIGHLIGHT_COLOR;
+                                    tempBuffer[(tilePosY + py) * 64 + (tilePosX + px)] = OBJ_HIGHLIGHT_COLOR;
                                 else
-                                    tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = color;
+                                    tempBuffer[(tilePosY + py) * 64 + (tilePosX + px)] = color;
 #endif
                             }
                         }
@@ -313,12 +321,12 @@ namespace gbaemu::lcd
                                 color_t color = palette.getObjColor(tile[ty * 8 + tx]);
 
 #if RENDERER_HIGHTLIGHT_OBJ == 0
-                                tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = color;
+                                tempBuffer[(tilePosY + py) * 64 + (tilePosX + px)] = color;
 #else
                                 if (i == hightlightObjIndex)
-                                    tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = OBJ_HIGHLIGHT_COLOR;
+                                    tempBuffer[(tilePosY + py) * 64 + (tilePosX + px)] = OBJ_HIGHLIGHT_COLOR;
                                 else
-                                    tempBuffer[(tileY * 8 + py) * 64 + (tileX * 8 + px)] = color;
+                                    tempBuffer[(tilePosY + py) * 64 + (tilePosX + px)] = color;
 #endif
                             }
                         }
@@ -386,6 +394,9 @@ namespace gbaemu::lcd
                         tempBuffer[y * 64 + x] = color;
             }
 #endif
+
+            if (yOff + height * (doubleSized ? 2 : 1) > 256)
+                yOff -= 256;
 
             common::math::vec<2> screenRef{
                 static_cast<real_t>(xOff + width / 2),

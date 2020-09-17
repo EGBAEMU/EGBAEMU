@@ -23,7 +23,7 @@ deps = $(patsubst %, $(BUILDDIR)/%,$(srcs:.cpp=.d))
 
 all: release
 
-debug: CCFLAGS += -g
+debug: CCFLAGS += -g -Ofast
 debug: gbaemu
 release: CCFLAGS += -Ofast
 release: gbaemu

@@ -383,6 +383,15 @@ namespace gbaemu
                 float sy = m.read16(off + sourceAddr + 14, &info, true) / 256.f;
                 float theta = (m.read32(sourceAddr + 16, &info, true) >> 8) / 128.f * M_PI;
 
+                /*
+                common::math::real_t ox = fixedToFloat<uint32_t, 8, 19>(m.read32(off + sourceAddr,     &info, true));
+                common::math::real_t oy = fixedToFloat<uint32_t, 8, 19>(m.read32(off + sourceAddr + 4, &info, true));
+                common::math::real_t cx = static_cast<common::math::real_t>(m.read16(off + sourceAddr + 8, &info, true));
+                common::math::real_t cy = static_cast<common::math::real_t>(m.read16(off + sourceAddr + 10, &info, true));
+                common::math::real_t sx = fixedToFloat<uint16_t, 8, 7>(m.read16(off + sourceAddr + 12, &info, true));
+                common::math::real_t sy = fixedToFloat<uint16_t, 8, 7>(m.read16(off + sourceAddr + 14, &info, true));
+                 */
+
                 /* F* THIS. This is taken from mgba. */
                 common::math::real_t a, b, c, d, rx, ry;
                 a = d = cosf(theta);
@@ -447,9 +456,13 @@ namespace gbaemu
 
             for (uint32_t i = 0; i < iterationCount; ++i) {
                 uint32_t srcOff = i * 8;
-                float sx = m.read16(sourceAddr, &info, i != 0) / 256.f;
-                float sy = m.read16(sourceAddr + 2, &info, true) / 256.f;
+                //float sx = m.read16(sourceAddr, &info, i != 0) / 256.f;
+                //float sy = m.read16(sourceAddr + 2, &info, true) / 256.f;
                 float theta = (m.read16(sourceAddr + 4, &info, true) >> 8) / 128.f * M_PI;
+
+                common::math::real_t sx = fixedToFloat<uint16_t, 8, 7>(m.read16(sourceAddr, &info, i != 0));
+                common::math::real_t sy = fixedToFloat<uint16_t, 8, 7>(m.read16(sourceAddr + 2, &info, i != 0));
+
                 sourceAddr += 8;
 
                 common::math::real_t a, b, c, d;
