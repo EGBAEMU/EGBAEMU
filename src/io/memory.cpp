@@ -20,14 +20,19 @@ namespace gbaemu
         return ((addr >> 1) & 0xFFFF) | ((((addr + 2) >> 1) & 0xFFFF) << 16);
     }
 
-    uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq) const
+    uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction) const
     {
         if (execInfo != nullptr) {
             execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(addr, sizeof(uint8_t)) : cyclesForVirtualAddrNonSeq(addr, sizeof(uint8_t));
         }
 
         MemoryRegion memReg;
-        const auto src = resolveAddr(addr, execInfo, memReg);
+        const uint8_t* src = resolveAddr(addr, execInfo, memReg);
+
+        if (readInstruction && memReg == BIOS && addr < getBiosSize()) {
+            // For instructions we are allowed to read from bios
+            src = bios + addr;
+        }
 
         if (memReg == OUT_OF_ROM) {
             return readOutOfROM(addr);
@@ -67,7 +72,7 @@ namespace gbaemu
         const uint8_t *src = resolveAddr(alignedAddr, execInfo, memReg);
         if (readInstruction && memReg == BIOS && alignedAddr < getBiosSize()) {
             // For instructions we are allowed to read from bios
-            src = customBiosCode + alignedAddr;
+            src = bios + alignedAddr;
         }
         if (memReg == OUT_OF_ROM) {
             return readOutOfROM(addr);
@@ -98,7 +103,7 @@ namespace gbaemu
 
         if (readInstruction && memReg == BIOS && alignedAddr < getBiosSize()) {
             // For instructions we are allowed to read from bios
-            src = customBiosCode + alignedAddr;
+            src = bios + alignedAddr;
         }
 
         if (memReg == OUT_OF_ROM) {
@@ -402,7 +407,7 @@ namespace gbaemu
             case EXT_ROM3_:
                 COMBINE_MEM_ADDR_(addr, EXT_ROM3, EXT_ROM, rom);
             case BIOS:
-                return BIOS_READ[biosReadState];
+                return biosState;
             case IO_REGS:
                 LOG_MEM(
                     if (addr >= IO_REGS_LIMIT) {

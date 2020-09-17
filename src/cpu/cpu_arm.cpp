@@ -74,22 +74,21 @@ namespace gbaemu
         // Category: BRANCH
         [](arm::ARMInstruction &armInst, CPU *cpu) { return cpu->handleBranch(armInst.params.branch.l, armInst.params.branch.offset); },
         // Category: SOFTWARE_INTERRUPT
-        [](arm::ARMInstruction &armInst, CPU *cpu) { /*
-                                                         SWIs can be called from both within THUMB and ARM mode. In ARM mode, only the upper 8bit of the 24bit comment field are interpreted.
-                                                         //TODO is switching needed?
-                                                         Each time when calling a BIOS function 4 words (SPSR, R11, R12, R14) are saved on Supervisor stack (_svc). Once it has saved that data, the SWI handler switches into System mode, so that all further stack operations are using user stack.
-                                                         In some cases the BIOS may allow interrupts to be executed from inside of the SWI procedure. If so, and if the interrupt handler calls further SWIs, then care should be taken that the Supervisor Stack does not overflow.
-                                                         */
-                                                     uint8_t index = armInst.params.software_interrupt.comment >> 16;
-                                                     if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
-                                                         if (index != 5 && index != 0x2B) {
-                                                             LOG_SWI(std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;);
-                                                         }
-                                                         return swi::biosCallHandler[index](cpu);
-                                                     } else {
-                                                         std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
-                                                     }
-                                                     return InstructionExecutionInfo{0};
+        [](arm::ARMInstruction &armInst, CPU *cpu) {
+            if (cpu->state.memory.usesExternalBios()) {
+                return swi::callBiosCodeSWIHandler(cpu);
+            } else {
+                uint8_t index = armInst.params.software_interrupt.comment >> 16;
+                if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
+                    if (index != 5 && index != 0x2B) {
+                        LOG_SWI(std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;);
+                    }
+                    return swi::biosCallHandler[index](cpu);
+                } else {
+                    std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
+                }
+                return InstructionExecutionInfo{0};
+            }
         },
         /*
         // Category: INVALID_CAT
@@ -259,12 +258,12 @@ namespace gbaemu
         info.cycleCount = 1;
 
         if (b) {
-            uint8_t memVal = state.memory.read8(memAddr, &info);
+            uint8_t memVal = state.memory.read8(memAddr, &info, false, state.getCurrentPC() < state.memory.getBiosSize());
             state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF), &info);
             *currentRegs[rd] = static_cast<uint32_t>(memVal);
         } else {
             // LDR part
-            uint32_t alignedWord = state.memory.read32(memAddr, &info);
+            uint32_t alignedWord = state.memory.read32(memAddr, &info, false, state.getCurrentPC() < state.memory.getBiosSize());
             alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memAddr & 0x03) * 8, false, false) & 0xFFFFFFFF;
             *currentRegs[rd] = alignedWord;
 
@@ -643,7 +642,7 @@ namespace gbaemu
 
                 if (load) {
                     if (currentIdx == regs::PC_OFFSET) {
-                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, &info, nonSeqAccDone);
+                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, &info, nonSeqAccDone, state.getCurrentPC() < state.memory.getBiosSize());
                         // Special case for pipeline refill
                         info.additionalProgCyclesN = 1;
                         info.additionalProgCyclesS = 1;
@@ -658,7 +657,7 @@ namespace gbaemu
                             *currentRegs[regs::CPSR_OFFSET] = *state.getCurrentRegs()[regs::SPSR_OFFSET];
                         }
                     } else {
-                        *currentRegs[currentIdx] = state.memory.read32(address, &info, nonSeqAccDone);
+                        *currentRegs[currentIdx] = state.memory.read32(address, &info, nonSeqAccDone, state.getCurrentPC() < state.memory.getBiosSize());
                     }
                 } else {
                     // Shady hack to make edge case treatment easier
@@ -817,7 +816,7 @@ namespace gbaemu
         /* transfer */
         if (load) {
             if (byte) {
-                *currentRegs[rd] = state.memory.read8(memoryAddress, &info);
+                *currentRegs[rd] = state.memory.read8(memoryAddress, &info, false, state.getCurrentPC() < state.memory.getBiosSize());
             } else {
                 // More edge case:
                 /*
@@ -827,8 +826,7 @@ namespace gbaemu
                 However, by isolating lower bits this may be used to read a halfword from memory. 
                 (Above applies to little endian mode, as used in GBA.)
                 */
-
-                uint32_t alignedWord = state.memory.read32(memoryAddress, &info);
+                uint32_t alignedWord = state.memory.read32(memoryAddress, &info, false, state.getCurrentPC() < state.memory.getBiosSize());
                 alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
                 *currentRegs[rd] = alignedWord;
             }
@@ -932,16 +930,16 @@ namespace gbaemu
                 // Handle misaligned address
                 if (sign && memoryAddress & 1) {
                     // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]         ;sign-expand BYTE value
-                    readData = state.memory.read8(memoryAddress, &info);
+                    readData = state.memory.read8(memoryAddress, &info, false, state.getCurrentPC() < state.memory.getBiosSize());
                     transferSize = 8;
                 } else {
                     // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
                     // LDRH with ROR (see LDR with non word aligned)
-                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &info));
+                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &info, false, state.getCurrentPC() < state.memory.getBiosSize()));
                     readData = shifts::shift(readData, shifts::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
                 }
             } else {
-                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &info));
+                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &info, false, state.getCurrentPC() < state.memory.getBiosSize()));
             }
 
             if (sign) {

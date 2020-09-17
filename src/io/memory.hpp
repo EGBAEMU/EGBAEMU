@@ -110,7 +110,6 @@ namespace gbaemu
         static constexpr uint32_t BIOS_SWI_HANDLER_OFFSET = 0x08;
 
       private:
-        //uint8_t *bios;
         uint8_t *wram;
         uint8_t *iwram;
         //uint8_t *io_regs;
@@ -118,9 +117,13 @@ namespace gbaemu
         uint8_t *vram;
         uint8_t *oam;
 
-        uint8_t *ext_sram = nullptr;
-        uint8_t *rom = nullptr;
-        size_t romSize = 0;
+        uint8_t *ext_sram;
+        uint8_t *rom;
+        size_t romSize;
+
+        const uint8_t *bios;
+        size_t externalBiosSize;
+        uint8_t biosState[4];
 
         static const constexpr uint8_t BIOS_READ_AFTER_STARTUP[] = {0x00, 0xF0, 0x29, 0xE1};
         static const constexpr uint8_t BIOS_READ_AFTER_SWI[] = {0x04, 0x20, 0xA0, 0xE3};
@@ -146,37 +149,41 @@ namespace gbaemu
         static const constexpr uint8_t customBiosCode[] = {
             0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00,
-            0x04, 0x00, 0x00, 0xea,
+            0x0a, 0x00, 0x00, 0xea,
             0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00,
-            0x53, 0x00, 0x00, 0xea,
+            0x00, 0x00, 0x00, 0xea,
             0x00, 0x00, 0x00, 0x00,
+            0x0f, 0x50, 0x2d, 0xe9,
+            0x01, 0x03, 0xa0, 0xe3,
+            0x00, 0xe0, 0x8f, 0xe2,
+            0x04, 0xf0, 0x10, 0xe5,
+            0x0f, 0x50, 0xbd, 0xe8,
+            0x04, 0xf0, 0x5e, 0xe2,
             0x00, 0x58, 0x2d, 0xe9,
-            0x00, 0xc0, 0x4f, 0xe1,
-            0x04, 0xc0, 0x2d, 0xe5,
-            0x02, 0xb0, 0x5e, 0xe5,
-            0x80, 0xc0, 0x0c, 0xe2,
-            0x1f, 0xc0, 0x8c, 0xe3,
-            0x0c, 0xf0, 0x21, 0xe1,
+            0x02, 0xc0, 0x5e, 0xe5,
+            0x00, 0xb0, 0x4f, 0xe1,
+            0x04, 0xb0, 0x2d, 0xe5,
+            0x80, 0xb0, 0x0b, 0xe2,
+            0x1f, 0xb0, 0x8b, 0xe3,
+            0x0b, 0xf0, 0x21, 0xe1,
             0x04, 0xe0, 0x2d, 0xe5,
-            0x5c, 0xe0, 0xa0, 0xe3,
-            0x0b, 0x00, 0x5b, 0xe3,
-            0xe8, 0xc0, 0xa0, 0x03,
+            0x74, 0xe0, 0xa0, 0xe3,
+            0x0b, 0x00, 0x5c, 0xe3,
+            0xf8, 0xb0, 0xa0, 0x03,
             0x01, 0x00, 0x00, 0x0a,
-            0x0c, 0x00, 0x5b, 0xe3,
-            0x84, 0xc0, 0xa0, 0x03,
-            0x1c, 0xff, 0x2f, 0x01,
+            0x0c, 0x00, 0x5c, 0xe3,
+            0x94, 0xb0, 0xa0, 0x03,
+            0x1b, 0xff, 0x2f, 0x01,
             0x04, 0xe0, 0x9d, 0xe4,
             0x93, 0xf0, 0x21, 0xe3,
-            0x00, 0xb0, 0xa0, 0xe1,
-            0x01, 0x00, 0xa0, 0xe3,
-            0x00, 0x00, 0x2b, 0xef,
-            0x0b, 0x00, 0xa0, 0xe1,
             0x04, 0xc0, 0x9d, 0xe4,
             0x0c, 0xf0, 0x69, 0xe1,
             0x00, 0x58, 0xbd, 0xe8,
             0x0e, 0xf0, 0xb0, 0xe1,
+            0x00, 0x00, 0x00, 0x00,
+            0x04, 0x20, 0xa0, 0xe3,
             0xf8, 0x47, 0x2d, 0xe9,
             0x02, 0x36, 0xa0, 0xe3,
             0x01, 0x30, 0x43, 0xe2,
@@ -234,20 +241,9 @@ namespace gbaemu
             0x04, 0x30, 0x81, 0xe4,
             0x01, 0x20, 0x52, 0xe2,
             0xfc, 0xff, 0xff, 0xca,
-            0x0f, 0x80, 0xbd, 0xe8,
-            0x0f, 0x50, 0x2d, 0xe9,
-            0x02, 0x00, 0xa0, 0xe3,
-            0x00, 0x00, 0x2b, 0xef,
-            0x01, 0x03, 0xa0, 0xe3,
-            0x00, 0xe0, 0x8f, 0xe2,
-            0x04, 0xf0, 0x10, 0xe5,
-            0x03, 0x00, 0xa0, 0xe3,
-            0x00, 0x00, 0x2b, 0xef,
-            0x0f, 0x50, 0xbd, 0xe8,
-            0x00, 0xf0, 0x5e, 0xe2};
+            0x0f, 0x80, 0xbd, 0xe8};
 
         BackupID backupType;
-        BiosReadState biosReadState;
 
       public:
         IO_Handler ioHandler;
@@ -256,8 +252,6 @@ namespace gbaemu
         //TODO are there conventions about inital memory values?
         Memory()
         {
-            //bios = GBA_ALLOC_MEM_REG(BIOS);
-            //GBA_MEM_CLEAR(bios, BIOS);
             wram = GBA_ALLOC_MEM_REG(WRAM);
             GBA_MEM_CLEAR(wram, WRAM);
             iwram = GBA_ALLOC_MEM_REG(IWRAM);
@@ -272,12 +266,19 @@ namespace gbaemu
             GBA_MEM_CLEAR(oam, OAM);
             rom = nullptr;
             eeprom = nullptr;
+            ext_sram = nullptr;
+            bios = customBiosCode;
+            externalBiosSize = 0;
             romSize = 0;
         }
 
         ~Memory()
         {
-            //delete[] bios;
+            if (externalBiosSize) {
+                delete[] bios;
+                externalBiosSize = 0;
+                bios = customBiosCode;
+            }
             delete[] wram;
             delete[] iwram;
             //delete[] io_regs;
@@ -294,7 +295,6 @@ namespace gbaemu
                 delete[] eeprom;
             }
 
-            //bios = nullptr;
             wram = nullptr;
             iwram = nullptr;
             //io_regs = nullptr;
@@ -309,7 +309,7 @@ namespace gbaemu
         Memory(const Memory &) = delete;
         Memory &operator=(const Memory &) = delete;
 
-        void loadROM(const char *eepromFilePath, const uint8_t *rom, size_t romSize)
+        bool loadROM(const char *eepromFilePath, const uint8_t *rom, size_t romSize)
         {
             if (this->romSize) {
                 delete[] this->rom;
@@ -324,18 +324,36 @@ namespace gbaemu
 
             // TODO reset stats
             scanROMForBackupID();
-            biosReadState = BIOS_AFTER_STARTUP;
+            setBiosReadState(BIOS_AFTER_STARTUP);
 
             if (backupType == EEPROM_V) {
                 bool loadSuccessful;
                 //TODO how to find out the eeprom size???
                 this->eeprom = new save::EEPROM(eepromFilePath, loadSuccessful /*, romSize >= 0x01000000 ? 14 : 6*/);
+                return loadSuccessful;
+            }
+
+            return true;
+        }
+
+        void loadExternalBios(const uint8_t *bios, size_t biosSize)
+        {
+            if (biosSize) {
+                externalBiosSize = biosSize;
+                uint8_t *newBios = new uint8_t[biosSize];
+                std::copy_n(bios, biosSize, newBios);
+                this->bios = newBios;
             }
         }
 
-        constexpr size_t getBiosSize() const
+        size_t getBiosSize() const
         {
-            return sizeof(customBiosCode) / sizeof(customBiosCode[0]);
+            return externalBiosSize ? externalBiosSize : sizeof(customBiosCode) / sizeof(customBiosCode[0]);
+        }
+
+        bool usesExternalBios() const
+        {
+            return externalBiosSize;
         }
 
         size_t getRomSize() const
@@ -343,7 +361,7 @@ namespace gbaemu
             return romSize;
         }
 
-        uint8_t read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false) const;
+        uint8_t read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false) const;
         uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
         uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
         void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq = false);
@@ -360,13 +378,24 @@ namespace gbaemu
 
         void setBiosReadState(BiosReadState readState)
         {
-            biosReadState = readState;
+            biosState[0] = BIOS_READ[readState][0];
+            biosState[1] = BIOS_READ[readState][1];
+            biosState[2] = BIOS_READ[readState][2];
+            biosState[3] = BIOS_READ[readState][3];
+        }
+
+        void setBiosState(uint32_t inst)
+        {
+            biosState[0] = inst & 0x0FF;
+            biosState[1] = (inst >> 8) & 0x0FF;
+            biosState[2] = (inst >> 16) & 0x0FF;
+            biosState[3] = (inst >> 24) & 0x0FF;
         }
 
       private:
         void scanROMForBackupID();
         uint32_t readOutOfROM(uint32_t addr) const;
-    };
+    }; // namespace gbaemu
 } // namespace gbaemu
 
 #endif /* MEMORY_HPP */
