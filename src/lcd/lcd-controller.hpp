@@ -154,6 +154,8 @@ namespace gbaemu::lcd
         /* OAM region */
         const uint8_t *attributes;
 
+        int32_t hightlightObjIndex = 0;
+
       private:
         OBJAttribute getAttribute(uint32_t index) const;
         std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(uint32_t index) const;
@@ -347,6 +349,7 @@ namespace gbaemu::lcd
         void exitThread();
 
         std::string getLayerStatus() const;
+        void objHightlightSetIndex(int32_t index);
     };
 
 } // namespace gbaemu::lcd
