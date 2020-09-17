@@ -456,8 +456,6 @@ namespace gbaemu
                 c *= sy;
                 d *= sy;
 
-                std::cout << a << ' ' << b << ' ' << c << ' ' << d << std::endl;
-
                 uint32_t destOff = i * diff * 4;
                 m.write16(destAddr + destOff,            floatToFixed<uint16_t, 8, 7>(a), &info, i != 0);
                 m.write16(destAddr + destOff + diff,     floatToFixed<uint16_t, 8, 7>(b), &info, true);
