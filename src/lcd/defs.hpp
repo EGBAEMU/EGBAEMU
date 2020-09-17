@@ -4,7 +4,9 @@
 #ifndef DEFS_HPP
 #define DEFS_HPP
 
+#include <cassert>
 #include <math/mat.hpp>
+
 
 namespace gbaemu::lcd
 {
@@ -13,6 +15,55 @@ namespace gbaemu::lcd
     static const constexpr color_t TRANSPARENT = 0x00000000,
                                    BLACK = 0xFF000000,
                                    WHITE = 0xFFFFFFFF;
+
+    /* channel wise color addition */
+    static color_t colAdd(color_t a, color_t b)
+    {
+        color_t result = 0;
+
+        for (uint32_t i = 0; i < 4; ++i) {
+            color_t ca = (a >> (i * 8)) & 0xFF;
+            color_t cb = (b >> (i * 8)) & 0xFF;
+            color_t cs = std::max(ca + cb, 0xFFu);
+
+            result |= (cs << (i * 8));
+        }
+
+        return result;
+    }
+
+    /* channel wise color subtraction */
+    static color_t colSub(color_t a, color_t b)
+    {
+        color_t result = 0;
+
+        for (uint32_t i = 0; i < 4; ++i) {
+            color_t ca = (a >> (i * 8)) & 0xFF;
+            color_t cb = (b >> (i * 8)) & 0xFF;
+            color_t cs = (cb > ca) ? 0 : (ca - cb);
+
+            result |= (cs << (i * 8));
+        }
+
+        return result;
+    }
+
+    /* channel wise color scale */
+    static color_t colScale(color_t a, uint32_t scalar)
+    {
+        assert(scalar <= 16);
+
+        color_t result = 0;
+
+        for (uint32_t i = 0; i < 4; ++i) {
+            color_t ca = (a >> (i * 8)) & 0xFF;
+            color_t cs = (ca * scalar) / 16;
+
+            result |= (cs << (i * 8));
+        }
+
+        return result;
+    }
 
     /* This type is also used to represent 5-5-5 bit colors. */
     typedef uint16_t color16_t;
@@ -93,33 +144,17 @@ namespace gbaemu::lcd
 
     namespace BLDCNT
     {
-        static const constexpr uint16_t BG0_TARGET_PIXEL1_OFFSET = 0,
-                                        BG1_TARGET_PIXEL1_OFFSET = 1,
-                                        BG2_TARGET_PIXEL1_OFFSET = 2,
-                                        BG3_TARGET_PIXEL1_OFFSET = 3,
-                                        OBJ_TARGET_PIXEL1_OFFSET = 4,
-                                        BD_TARGET_PIXEL1_OFFSET = 5,
-                                        COLOR_SPECIAL_FX_OFFSET = 6,
-                                        BG0_TARGET_PIXEL2_OFFSET = 8,
-                                        BG1_TARGET_PIXEL2_OFFSET = 9,
-                                        BG2_TARGET_PIXEL2_OFFSET = 10,
-                                        BG3_TARGET_PIXEL2_OFFSET = 11,
-                                        OBJ_TARGET_PIXEL2_OFFSET = 12,
-                                        BD_TARGET_PIXEL2_OFFSET = 13;
+        static uint16_t BG_FIRST_TARGET_OFFSET(uint16_t i) { return i; }
+        static uint16_t BG_SECOND_TARGET_OFFSET(uint16_t i) { return i + 8; }
 
-        static const constexpr uint16_t BG0_TARGET_PIXEL1_MASK = 1 << BG0_TARGET_PIXEL1_OFFSET,
-                                        BG1_TARGET_PIXEL1_MASK = 1 << BG1_TARGET_PIXEL1_OFFSET,
-                                        BG2_TARGET_PIXEL1_MASK = 1 << BG2_TARGET_PIXEL1_OFFSET,
-                                        BG3_TARGET_PIXEL1_MASK = 1 << BG3_TARGET_PIXEL1_OFFSET,
-                                        OBJ_TARGET_PIXEL1_MASK = 1 << OBJ_TARGET_PIXEL1_OFFSET,
-                                        BD_TARGET_PIXEL1_MASK = 1 << BD_TARGET_PIXEL1_OFFSET,
-                                        COLOR_SPECIAL_FX_MASK = 3 << COLOR_SPECIAL_FX_OFFSET,
-                                        BG0_TARGET_PIXEL2_MASK = 1 << BG0_TARGET_PIXEL2_OFFSET,
-                                        BG1_TARGET_PIXEL2_MASK = 1 << BG1_TARGET_PIXEL2_OFFSET,
-                                        BG2_TARGET_PIXEL2_MASK = 1 << BG2_TARGET_PIXEL2_OFFSET,
-                                        BG3_TARGET_PIXEL2_MASK = 1 << BG3_TARGET_PIXEL2_OFFSET,
-                                        OBJ_TARGET_PIXEL2_MASK = 1 << OBJ_TARGET_PIXEL2_OFFSET,
-                                        BD_TARGET_PIXEL2_MASK = 1 << BD_TARGET_PIXEL2_OFFSET;
+        static const constexpr uint16_t OBJ_FIRST_TARGET_OFFSET = 4,
+                                        BD_FIRST_TARGET_OFFSET = 5,
+                                        COLOR_SPECIAL_FX_OFFSET = 6,
+                                        OBJ_SECOND_TARGET_OFFSET = 12,
+                                        BD_SECOND_TARGET_OFFSET = 13;
+
+        static const constexpr uint16_t TARGET_MASK = 1,
+                                        COLOR_SPECIAL_FX_MASK = 3;
 
         enum ColorSpecialEffect : uint16_t {
             None = 0,
@@ -238,6 +273,6 @@ namespace gbaemu::lcd
 #endif
 #endif
 
-/* #define RENDERER_ENABLE_COLOR_EFFECTS 1 */
+#define RENDERER_ENABLE_COLOR_EFFECTS 1
 
 #endif /* DEFS_HPP */

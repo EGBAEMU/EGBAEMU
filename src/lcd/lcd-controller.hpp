@@ -183,9 +183,6 @@ namespace gbaemu::lcd
         uint8_t *bgMapBase;
         uint8_t *tiles;
 
-        bool asFirstTarget;
-        bool asSecondTarget;
-
         /* general transformation of background in target display space */
         struct {
             common::math::vec<2> d;
@@ -316,6 +313,7 @@ namespace gbaemu::lcd
         void onVBlank();
         void copyLayer(const Canvas<color_t> &src);
         void drawToTarget();
+        void drawLayers();
         void render();
         void renderLoop();
 
@@ -347,6 +345,8 @@ namespace gbaemu::lcd
         void updateReferences();
         bool tick();
         void exitThread();
+
+        std::string getLayerStatus() const;
     };
 
 } // namespace gbaemu::lcd

@@ -3,6 +3,8 @@
 #include "util.hpp"
 
 #include <algorithm>
+#include <cassert>
+#include <sstream>
 
 /*
     There are 4 background layers.
@@ -292,6 +294,17 @@ namespace gbaemu::lcd
 
                 d = std::get<0>(result);
                 dm = std::get<1>(result);
+
+                /* TODO: d, dm are often 0 in SMA, but those are invalid values */
+                if (d[0] == 0 && d[1] == 0) {
+                    d[0] = 1;
+                    d[1] = 0;
+                }
+
+                if (dm[0] == 0 && dm[1] == 0) {
+                    dm[0] = 0;
+                    dm[1] = 1;
+                }
             }
 
             common::math::vec<2> origin{
@@ -788,10 +801,37 @@ namespace gbaemu::lcd
 
         /* load special color effects */
         uint16_t bldcnt = le(regs.BLDCNT);
+        uint16_t bldAlpha = le(regs.BLDALPHA);
+        uint16_t bldy = le(regs.BLDY);
 
         /* what actual special effect is used? */
         colorSpecialEffect = static_cast<BLDCNT::ColorSpecialEffect>(
             bitGet(bldcnt, BLDCNT::COLOR_SPECIAL_FX_MASK, BLDCNT::COLOR_SPECIAL_FX_OFFSET));
+
+        switch (colorSpecialEffect) {
+            case BLDCNT::BrightnessIncrease: case BLDCNT::BrightnessDecrease:
+                /* 0/16, 1/16, 2/16, ..., 16/16, 16/16, ..., 16/16 */
+                brightnessEffect.evy = std::min(16, bldy & 0x1F);
+                break;
+            case BLDCNT::AlphaBlending:
+                alphaEffect.eva = std::min(16, bldAlpha & 0x1F);
+                alphaEffect.evb = std::min(16, (bldAlpha >> 8) & 0x1F);
+                break;
+        }
+
+        for (int32_t i = 0; i < 4; ++i) {
+            backgroundLayers[i]->asFirstTarget = bitGet(bldcnt, BLDCNT::TARGET_MASK, BLDCNT::BG_FIRST_TARGET_OFFSET(i));
+            backgroundLayers[i]->asSecondTarget = bitGet(bldcnt, BLDCNT::TARGET_MASK, BLDCNT::BG_SECOND_TARGET_OFFSET(i));
+        }
+
+        /* all equal */
+        objLayers[0]->asFirstTarget = bitGet(bldcnt, BLDCNT::TARGET_MASK, BLDCNT::OBJ_FIRST_TARGET_OFFSET);
+        objLayers[0]->asSecondTarget = bitGet(bldcnt, BLDCNT::TARGET_MASK, BLDCNT::OBJ_SECOND_TARGET_OFFSET);
+
+        for (int32_t i = 1; i < 4; ++i) {
+            objLayers[i]->asFirstTarget = objLayers[i - 1]->asFirstTarget;
+            objLayers[i]->asSecondTarget = objLayers[i - 1]->asSecondTarget;
+        }
 
         sortLayers();
     }
@@ -829,68 +869,151 @@ namespace gbaemu::lcd
         auto w = display.target.getWidth();
         display.target.beginDraw();
 
+        color_t backdropColor = palette.getBackdropColor();
+
+        bool firstTargetEnabled = colorSpecialEffect == BLDCNT::AlphaBlending ||
+                              colorSpecialEffect == BLDCNT::BrightnessIncrease ||
+                              colorSpecialEffect == BLDCNT::BrightnessDecrease;
+        bool secondTargetEnabled = colorSpecialEffect == BLDCNT::AlphaBlending;
+
         for (int32_t y = 0; y < SCREEN_HEIGHT; ++y) {
             for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
                 int32_t coord = y * SCREEN_WIDTH + x;
-                color_t firstColor, secondColor;
-                color_t finalColor = palette.getBackdropColor();
+                color_t topColor = 0xFF7F7F7F,
+                        bottomColor = 0xFF000000,
+                        finalColor = backdropColor;
 
-#if RENDERER_ENABLE_COLOR_EFFECTS
-#error "Color effect rendering is not implemented."
-                color_t firstPixel, secondPixels;
+#if (RENDERER_ENABLE_COLOR_EFFECTS == 1)
 
-                for (int32_t i = 0; i < 4; ++i) {
-                    if (i <= 3) {
-                        if (backgrounds[i]->enabled && backgrounds[i]->asFirstTarget)
-                            firstPixel = backgrounds[i]->canvas.pixels()[coord];
-                    } else if (i == 4 && objLayer.asFirstTarget) {
-                        firstPixel = objLayer.layers[i]->pixels()[coord];
-                    } else if (asFirstTarget) {
-                        firstPixel = palette.getBackdropColor();
-                    }
+                int32_t topLayer = -1;
 
-                    if (i <= 3) {
-                        if (backgrounds[i]->enabled && backgrounds[i]->asSecondTarget)
-                            secondPixel = backgrounds[i]->canvas.pixels()[coord];
-                    } else if (i == 4 && objLayer.asSecondTarget) {
-                        secondPixel = objLayer.layers[i]->pixels()[coord];
-                    } else if (asSecondTarget) {
-                        secondPixel = palette.getBackdropColor();
-                    }
+                bool topSelectedAsTarget = false;
+                bool bottomSelectedAsTarget = false;
+
+                /* select top color */
+                for (int32_t i = layers.size() - 1; i >= 0; --i) {
+                    if (!layers[i]->enabled)
+                        continue;
+                    
+                    color_t color = layers[i]->canvas.pixels()[coord];
+
+                    /* transparent, ignore */
+                    if (!(color & 0xFF000000))
+                        continue;
+
+                    topColor = color;
+                    topLayer = i;
+                    topSelectedAsTarget = layers[i]->asFirstTarget;
+
+                    break;
                 }
 
-                switch (colorSpecialEffect) {
-                    case BLDCNT::ColorSpecialEffect::None:
-                        finalColor = firstPixel;
-                        break;
-                    case BLDCNT::ColorSpecialEffect::BrightnessIncrease:
-                        finalColor = firstPixel + (31 - firstPixel) * brightnessEffect.evy;
-                        break;
-                    case BLDCNT::ColorSpecialEffect::BrightnessDecrease:
-                        finalColor = firstPixel - firstPixel * brightnessEffect.evy;
-                        break;
-                    case BLDCNT::ColorSpecialEffect::AlphaBlending:
-                        finalColor = std::min<color_t>(31, firstPixel * alphaEffect.eva + secondPixel * alphaEffect.evb);
-                        break;
-                    default:
-                        break;
+                for (int32_t i = layers.size() - 1;  i >= 0; -- i) {
+                    if (!layers[i]->enabled || i == topLayer)
+                        continue;
+
+                    color_t color = layers[i]->canvas.pixels()[coord];
+
+                    /* transparent, ignore */
+                    if (!(color & 0xFF000000) || i == topLayer)
+                        continue;
+
+                    bottomColor = color;
+                    bottomSelectedAsTarget = layers[i]->asSecondTarget;
+                    
+                    break;
+                }
+
+                if (topSelectedAsTarget) {
+                    switch (colorSpecialEffect) {
+                        case BLDCNT::ColorSpecialEffect::None:
+                            //just the top layer
+                            finalColor = topColor;
+                            break;
+                        case BLDCNT::ColorSpecialEffect::BrightnessIncrease: {
+                            //finalColor = topColor + (255 - topColor) * brightnessEffect.evy;
+
+                            color_t inverted = colSub(0xFFFFFFFF, topColor);
+                            color_t scaledEvy = colScale(inverted, brightnessEffect.evy);
+                            finalColor = colAdd(topColor, scaledEvy);
+
+                            //finalColor = topColor;
+
+                            break;
+                        }
+                        case BLDCNT::ColorSpecialEffect::BrightnessDecrease: {
+                            //finalColor = topColor - topColor * brightnessEffect.evy;
+
+                            color_t scaledEvy = colScale(topColor, brightnessEffect.evy);
+                            finalColor = colAdd(topColor, scaledEvy);
+
+                            //finalColor = topColor;
+
+                            break;
+                        }
+                        case BLDCNT::ColorSpecialEffect::AlphaBlending: {
+                            //finalColor = std::min<color_t>(31, topColor * alphaEffect.eva + bottomColor * alphaEffect.evb);
+
+                            finalColor = 0;
+
+                            for (uint32_t i = 0; i < 4; ++i) {
+                                color_t top = (topColor >> (i * 8)) & 0xFF;
+                                color_t bot = (bottomColor >> (i * 8)) & 0xFF;
+                                color_t chan = std::min(255u, top * alphaEffect.eva / 16 + bot * alphaEffect.evb / 16);
+                                finalColor |= chan << (i * 8);
+                            }
+
+                            //finalColor = topColor;
+
+                            break;
+                        }
+                        default:
+                            finalColor = topColor;
+                            break;
+                    }
+                } else {
+                    finalColor = topColor;
                 }
 
 #else
-                for (int32_t i = 0; i < layers.size(); ++i) {
-                    if (layers[i]->enabled) {
-                        color_t color = layers[i]->canvas.pixels()[y * SCREEN_WIDTH + x];
+                /* just use the top non transparent pixel */
+                for (int32_t i = layers.size() - 1; i >= 0; --i) {
+                    if (!layers[i]->enabled)
+                        continue;
 
-                        if (color & 0xFF000000)
-                            finalColor = color;
+                    color_t color = layers[i]->canvas.pixels()[coord];
+
+                    if (color & 0xFF000000) {
+                        finalColor = color;
+                        break;
                     }
                 }
+
 #endif
 
                 /* upscaling */
                 for (int32_t ty = 0; ty < display.yStep; ++ty)
                     for (int32_t tx = 0; tx < display.xStep; ++tx)
                         dst[(display.yStep * y + ty) * w + (display.xStep * x + tx)] = finalColor;
+            }
+        }
+
+        display.target.endDraw();
+    }
+
+    void LCDController::drawLayers()
+    {
+        display.target.beginDraw();
+
+        for (int32_t i = 0; i < layers.size(); ++i) {
+            int32_t xOff = (i % 2) * SCREEN_WIDTH;
+            int32_t yOff = (i / 2) * SCREEN_HEIGHT;
+
+            for (int32_t y = 0; y < SCREEN_HEIGHT; ++y) {
+                for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+                    color_t color = layers[i]->canvas.pixels()[y * SCREEN_WIDTH + x];
+                    display.target.pixels()[(y + yOff) * display.target.getWidth() + (x + xOff)] = color;
+                }
             }
         }
 
@@ -957,6 +1080,15 @@ namespace gbaemu::lcd
         objLayers[3]->draw(palette, use2dMapping);
 
         drawToTarget();
+        //drawLayers();
+
+        /*
+        static int i = 0;
+
+        ++i;
+        if (i % 100 == 0)
+            std::cout << getLayerStatus() << std::endl;
+         */
     }
 
     void LCDController::renderLoop()
@@ -1078,5 +1210,20 @@ namespace gbaemu::lcd
         renderControlMutex.unlock();
         renderThread->join();
         LOG_LCD(std::cout << "Render thread exited." << std::endl;);
+    }
+
+    std::string LCDController::getLayerStatus() const
+    {
+        std::stringstream ss;
+
+        for (int32_t i = 0; i < layers.size(); ++i) {
+            ss << "==== layer " << i << " ====\n";
+            ss << "enabled: " << (layers[i]->enabled ? "true" : "false") << '\n';
+            ss << "first target: " << (layers[i]->asFirstTarget ? "true" : "false") << '\n';
+            ss << "second target: " << (layers[i]->asSecondTarget ? "true" : "false") << '\n';
+            ss << "priority: " << layers[i]->priority << '\n';
+        }
+
+        return ss.str();
     }
 } // namespace gbaemu::lcd
