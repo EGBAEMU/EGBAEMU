@@ -164,16 +164,12 @@ namespace gbaemu
                 *currentRegs[regs::R1_OFFSET] = 0;
                 *currentRegs[regs::R3_OFFSET] = 0x80000000;
             } else {
+                /* The standard way to do it. */
                 div_t result = std::div(numerator, denominator);
 
-                //int32_t div = numerator / denominator;
-
-                *currentRegs[regs::R0_OFFSET] =  result.quot; //static_cast<uint32_t>(div);
-                // manually calculate remainder, because % isn't well defined for signed numbers across different platforms
-                *currentRegs[regs::R1_OFFSET] =  result.rem; //static_cast<uint32_t>(numerator - denominator * div);
-                *currentRegs[regs::R3_OFFSET] =  std::abs(result.quot); //static_cast<uint32_t>(div < 0 ? -div : div);
-
-                //std::cout << std::dec << result.quot << ' ' << result.rem << ' ' << std::abs(result.quot) << std::endl;
+                *currentRegs[regs::R0_OFFSET] =  result.quot;
+                *currentRegs[regs::R1_OFFSET] =  result.rem;
+                *currentRegs[regs::R3_OFFSET] =  std::abs(result.quot);
             }
 
             //TODO proper time calculation
@@ -383,6 +379,15 @@ namespace gbaemu
                 float sy = m.read16(off + sourceAddr + 14, &info, true) / 256.f;
                 float theta = (m.read32(sourceAddr + 16, &info, true) >> 8) / 128.f * M_PI;
 
+                /*
+                common::math::real_t ox = fixedToFloat<uint32_t, 8, 19>(m.read32(off + sourceAddr,     &info, true));
+                common::math::real_t oy = fixedToFloat<uint32_t, 8, 19>(m.read32(off + sourceAddr + 4, &info, true));
+                common::math::real_t cx = static_cast<common::math::real_t>(m.read16(off + sourceAddr + 8, &info, true));
+                common::math::real_t cy = static_cast<common::math::real_t>(m.read16(off + sourceAddr + 10, &info, true));
+                common::math::real_t sx = fixedToFloat<uint16_t, 8, 7>(m.read16(off + sourceAddr + 12, &info, true));
+                common::math::real_t sy = fixedToFloat<uint16_t, 8, 7>(m.read16(off + sourceAddr + 14, &info, true));
+                 */
+
                 /* F* THIS. This is taken from mgba. */
                 common::math::real_t a, b, c, d, rx, ry;
                 a = d = cosf(theta);
@@ -447,9 +452,17 @@ namespace gbaemu
 
             for (uint32_t i = 0; i < iterationCount; ++i) {
                 uint32_t srcOff = i * 8;
-                float sx = m.read16(sourceAddr, &info, i != 0) / 256.f;
-                float sy = m.read16(sourceAddr + 2, &info, true) / 256.f;
-                float theta = (m.read16(sourceAddr + 4, &info, true) >> 8) / 128.f * M_PI;
+                //float sx = m.read16(sourceAddr, &info, i != 0) / 256.f;
+                //float sy = m.read16(sourceAddr + 2, &info, true) / 256.f;
+                uint16_t orgTheta = m.read16(sourceAddr + 4, &info, true);
+                uint16_t orgSx = m.read16(sourceAddr, &info, i != 0);
+                uint16_t orgSy = m.read16(sourceAddr + 2, &info, i != 0);
+
+                float theta = (orgTheta >> 8) / 128.f * M_PI;
+
+                common::math::real_t sx = fixedToFloat<uint16_t, 8, 7>(orgSx);
+                common::math::real_t sy = fixedToFloat<uint16_t, 8, 7>(orgSy);
+
                 sourceAddr += 8;
 
                 common::math::real_t a, b, c, d;
@@ -461,9 +474,6 @@ namespace gbaemu
                 c *= sy;
                 d *= sy;
 
-                //std::cout << a << ' ' << b << ' ' << c << ' ' << d << std::endl;
-
-                //uint32_t destOff = i * diff * 4;
                 m.write16(destAddr,            floatToFixed<uint16_t, 8, 7>(a), &info, i != 0);
                 m.write16(destAddr + diff,     floatToFixed<uint16_t, 8, 7>(b), &info, true);
                 m.write16(destAddr + diff * 2, floatToFixed<uint16_t, 8, 7>(c), &info, true);
