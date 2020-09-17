@@ -195,6 +195,20 @@ int main(int argc, char **argv)
                 break;
 
             gameController.processSDLEvent(event);
+
+            if (event.type == SDL_KEYDOWN) {
+                static int32_t objHightlightIndex = 0;
+
+                if (event.key.keysym.sym == SDLK_KP_PLUS) {
+                    ++objHightlightIndex;
+                    std::cout << "OBJ hightlight index: " << std::dec << objHightlightIndex << std::endl;
+                } else if (event.key.keysym.sym == SDLK_KP_MINUS) {
+                    --objHightlightIndex;
+                    std::cout << "OBJ hightlight index: " << std::dec << objHightlightIndex << std::endl;
+                }
+
+                controller.objHightlightSetIndex(objHightlightIndex);
+            }
         }
 
         if (canDrawToScreenMutex.try_lock()) {

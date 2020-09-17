@@ -164,12 +164,16 @@ namespace gbaemu
                 *currentRegs[regs::R1_OFFSET] = 0;
                 *currentRegs[regs::R3_OFFSET] = 0x80000000;
             } else {
-                int32_t div = numerator / denominator;
+                div_t result = std::div(numerator, denominator);
 
-                *currentRegs[regs::R0_OFFSET] = static_cast<uint32_t>(div);
+                //int32_t div = numerator / denominator;
+
+                *currentRegs[regs::R0_OFFSET] =  result.quot; //static_cast<uint32_t>(div);
                 // manually calculate remainder, because % isn't well defined for signed numbers across different platforms
-                *currentRegs[regs::R1_OFFSET] = static_cast<uint32_t>(numerator - denominator * div);
-                *currentRegs[regs::R3_OFFSET] = static_cast<uint32_t>(div < 0 ? -div : div);
+                *currentRegs[regs::R1_OFFSET] =  result.rem; //static_cast<uint32_t>(numerator - denominator * div);
+                *currentRegs[regs::R3_OFFSET] =  std::abs(result.quot); //static_cast<uint32_t>(div < 0 ? -div : div);
+
+                //std::cout << std::dec << result.quot << ' ' << result.rem << ' ' << std::abs(result.quot) << std::endl;
             }
 
             //TODO proper time calculation
@@ -431,10 +435,10 @@ namespace gbaemu
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
-            const uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
-            const uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
+            uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
+            uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
             const uint32_t iterationCount = *currentRegs[regs::R2_OFFSET];
-            const uint32_t diff = *currentRegs[regs::R3_OFFSET];
+            uint32_t diff = *currentRegs[regs::R3_OFFSET];
 
             auto &m = cpu->state.memory;
             //TODO do those read & writes count as non sequential?
@@ -443,9 +447,10 @@ namespace gbaemu
 
             for (uint32_t i = 0; i < iterationCount; ++i) {
                 uint32_t srcOff = i * 8;
-                float sx = m.read16(srcOff + sourceAddr, &info, i != 0) / 256.f;
-                float sy = m.read16(srcOff + sourceAddr + 2, &info, true) / 256.f;
-                float theta = (m.read16(srcOff + sourceAddr + 4, &info, true) >> 8) / 128.f * M_PI;
+                float sx = m.read16(sourceAddr, &info, i != 0) / 256.f;
+                float sy = m.read16(sourceAddr + 2, &info, true) / 256.f;
+                float theta = (m.read16(sourceAddr + 4, &info, true) >> 8) / 128.f * M_PI;
+                sourceAddr += 8;
 
                 common::math::real_t a, b, c, d;
                 a = d = cosf(theta);
@@ -456,11 +461,14 @@ namespace gbaemu
                 c *= sy;
                 d *= sy;
 
-                uint32_t destOff = i * diff * 4;
-                m.write16(destAddr + destOff,            floatToFixed<uint16_t, 8, 7>(a), &info, i != 0);
-                m.write16(destAddr + destOff + diff,     floatToFixed<uint16_t, 8, 7>(b), &info, true);
-                m.write16(destAddr + destOff + diff * 2, floatToFixed<uint16_t, 8, 7>(c), &info, true);
-                m.write16(destAddr + destOff + diff * 3, floatToFixed<uint16_t, 8, 7>(d), &info, true);
+                //std::cout << a << ' ' << b << ' ' << c << ' ' << d << std::endl;
+
+                //uint32_t destOff = i * diff * 4;
+                m.write16(destAddr,            floatToFixed<uint16_t, 8, 7>(a), &info, i != 0);
+                m.write16(destAddr + diff,     floatToFixed<uint16_t, 8, 7>(b), &info, true);
+                m.write16(destAddr + diff * 2, floatToFixed<uint16_t, 8, 7>(c), &info, true);
+                m.write16(destAddr + diff * 3, floatToFixed<uint16_t, 8, 7>(d), &info, true);
+                destAddr += diff * 4;
             }
 
             return info;
