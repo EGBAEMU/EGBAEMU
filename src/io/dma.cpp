@@ -31,7 +31,6 @@ namespace gbaemu
     void DMA::write8ToReg(uint32_t offset, uint8_t value)
     {
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
-        //std::cout << "DMA" << std::dec << static_cast<uint32_t>(channel) << ": write to offset: 0x" << std::hex << offset << " value: 0x" << std::hex << static_cast<uint32_t>(value) << std::endl;
     }
 
     DMA::DMA(DMAChannel channel, CPU *cpu) : channel(channel), state(IDLE), memory(cpu->state.memory), irqHandler(cpu->irqHandler)
@@ -73,10 +72,10 @@ namespace gbaemu
                 }
 
                 //TODO reload only after condition is satisfied???
-                //TODO is the src address kept?
-
                 if (dstCnt == INCREMENT_RELOAD) {
-                    destAddr = le(regs.destAddr);
+                    destAddr = le(regs.destAddr) & (channel == DMA3 ? 0xFFFFFFF : 0x07FFFFFF);
+                    //TODO is the src address kept?
+                    // srcAddr = le(regs.srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);
                 }
 
                 fetchCount();
