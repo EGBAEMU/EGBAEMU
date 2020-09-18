@@ -1,9 +1,9 @@
 #ifndef EEPROM_HPP
 #define EEPROM_HPP
 
+#include "save_file.hpp"
+
 #include <cstdint>
-#include <fstream>
-#include <string>
 
 namespace gbaemu::save
 {
@@ -28,7 +28,7 @@ namespace gbaemu::save
         uint64_t buffer;
         uint16_t addr;
 
-        std::fstream saveFile;
+        SaveFile saveFile;
 
       public:
         const uint8_t busWidth;
@@ -38,41 +38,9 @@ namespace gbaemu::save
             state = IDLE;
         }
 
-        EEPROM(const char *path, bool &success, uint8_t busWidth = 6) : busWidth(busWidth)
+        EEPROM(const char *path, bool &success, uint8_t busWidth = 6) : busWidth(busWidth), saveFile(path, success, (1 << busWidth) * 64)
         {
             reset();
-
-            bool isNewFile = !std::ifstream(path).good();
-
-            if (isNewFile) {
-                std::ofstream out(path, std::ios::binary);
-                out.close();
-            }
-
-            saveFile.open(path, std::ios::binary | std::ios::in | std::ios::out);
-            success = saveFile.is_open();
-
-            if (success && isNewFile) {
-                // Fill with needed size!
-                const auto prevWidth = saveFile.width();
-                const auto prevFill = saveFile.fill();
-                // Set fill character
-                saveFile.fill(static_cast<char>(0xFF));
-                // Set target file size
-                saveFile.width((1 << busWidth) * 64);
-                // Write single fill char -> rest will be filled automagically
-                saveFile << static_cast<char>(0xFF);
-
-                // Restore default settings
-                saveFile.fill(prevFill);
-                saveFile.width(prevWidth);
-            }
-        }
-
-        ~EEPROM()
-        {
-            if (saveFile.is_open())
-                saveFile.close();
         }
 
         void write(uint8_t data);

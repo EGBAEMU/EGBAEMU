@@ -47,10 +47,8 @@ namespace gbaemu::save
 
             case READ_RECV_ADDR_ACK:
                 state = READ_WASTE;
-                // Seek read pointer to wanted position
-                saveFile.seekg(saveFile.beg + addr * 64);
                 //TODO endianess or make save states device dependent?
-                saveFile.read(reinterpret_cast<char *>(&buffer), sizeof(buffer));
+                saveFile.read(addr * 64, reinterpret_cast<char *>(&buffer), sizeof(buffer));
                 break;
 
             case WRITE:
@@ -62,10 +60,8 @@ namespace gbaemu::save
 
             case WRITE_ACK:
                 state = IDLE;
-                // Seek write pointer to wanted position
-                saveFile.seekp(saveFile.beg + addr * 64);
                 //TODO endianess or make save states device dependent?
-                saveFile.write(reinterpret_cast<char *>(&buffer), sizeof(buffer));
+                saveFile.write(addr * 64, reinterpret_cast<char *>(&buffer), sizeof(buffer));
                 LOG_SAVE(std::cout << "EEPROM: write done!" << std::endl;);
                 break;
 
