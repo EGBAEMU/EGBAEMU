@@ -1,9 +1,9 @@
 #include "debugger.hpp"
+#include <future>
 #include <iomanip>
 #include <iostream>
-#include <sstream>
 #include <iterator>
-#include <future>
+#include <sstream>
 
 namespace gbaemu::debugger
 {
@@ -166,7 +166,7 @@ namespace gbaemu::debugger
 
     /* DebugCLI */
 
-    void DebugCLI::executeInput(const std::string& line)
+    void DebugCLI::executeInput(const std::string &line)
     {
         std::istringstream iss(line);
         std::vector<std::string> words((std::istream_iterator<std::string>(iss)),
@@ -175,7 +175,7 @@ namespace gbaemu::debugger
         if (words.size() == 0)
             return;
 
-        if (words[0] == "continue" || words[0] == "con") {
+        if (words[0] == "continue" || words[0] == "con" || words[0] == "c") {
             if (state == HALTED) {
                 std::cout << "DebugCLI: CPU is an unrecoverable state and cannot continue running." << std::endl;
                 return;
@@ -187,7 +187,7 @@ namespace gbaemu::debugger
             return;
         }
 
-        if (words[0] == "break") {
+        if (words[0] == "break" || words[0] == "b") {
             if (words.size() == 1) {
                 state = STOPPED;
                 return;
@@ -196,7 +196,17 @@ namespace gbaemu::debugger
             address_t where = std::stoul(words[1], nullptr, 16);
 
             breakpoints.insert(where);
-            std::cout << "DebugCLI: Added breakpoint at " << std::hex << where << std::endl;
+            std::cout << "DebugCLI: Added breakpoint at 0x" << std::hex << where << std::endl;
+
+            return;
+        }
+
+        if (words[0] == "listbreak" || words[0] == "lb") {
+            std::cout << "DebugCLI: Breakpoints: " << std::endl;
+
+            for (const auto &bp : breakpoints) {
+                std::cout << "    0x" << std::hex << bp << std::endl;
+            }
 
             return;
         }
@@ -211,7 +221,7 @@ namespace gbaemu::debugger
 
             if (result != breakpoints.end()) {
                 breakpoints.erase(*result);
-                std::cout << "DebugCLI: Removed breakpoint " << std::hex << where << std::endl;
+                std::cout << "DebugCLI: Removed breakpoint 0x" << std::hex << where << std::endl;
             } else {
                 std::cout << "DebugCLI: No such breakpoint." << std::endl;
             }
@@ -227,7 +237,7 @@ namespace gbaemu::debugger
 
             address_t where = std::stoul(words[1], nullptr, 16);
             cpu.state.memory.memWatch.watchAddress(where, MemWatch::Condition{0, true, true, false, false});
-            std::cout << "DebugCLI: Added watchpoint " << std::hex << where << std::endl;
+            std::cout << "DebugCLI: Added watchpoint 0x" << std::hex << where << std::endl;
 
             return;
         }
@@ -240,12 +250,12 @@ namespace gbaemu::debugger
 
             address_t where = std::stoul(words[1], nullptr, 16);
             cpu.state.memory.memWatch.unwatchAddress(where);
-            std::cout << "DebugCLI: Watchpoint " << std::hex << where << " removed." << std::endl;                
+            std::cout << "DebugCLI: Watchpoint 0x" << std::hex << where << " removed." << std::endl;                
 
             return;
         }
 
-        if (words[0] == "disas") {
+        if (words[0] == "disas" || words[0] == "dis") {
             address_t where = cpu.state.accessReg(regs::PC_OFFSET);
             uint32_t howMuch = 16;
 
@@ -259,8 +269,8 @@ namespace gbaemu::debugger
 
             return;
         }
-        
-        if (words[0] == "regs") {
+
+        if (words[0] == "regs" || words[0] == "r") {
             std::cout << cpu.state.toString() << std::endl;
             return;
         }
@@ -275,8 +285,20 @@ namespace gbaemu::debugger
             return;
         }
 
-        if (words[0] == "help") {
+        if (words[0] == "step" || words[0] == "s") {
+            exe1Step = true;
+            state = RUNNING;
+            return;
+        }
 
+        if (words[0] == "reset") {
+            cpu.reset();
+            cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
+            cpu.initPipeline();
+            return;
+        }
+
+        if (words[0] == "help" || words[0] == "h") {
         }
 
         std::cout << "DebugCLI: Invalid command!" << std::endl;
@@ -309,29 +331,32 @@ namespace gbaemu::debugger
         address_t pc = cpu.state.accessReg(regs::PC_OFFSET);
         //BREAK(pc == 0x0807c4e6);
 
-        if (state == RUNNING && triggeredWatchpoint) {
-            if (pc != prevPC) {
-                prevPC = pc;
+        if (pc != prevPC) {
+            if (state == RUNNING) {
+                if (state == RUNNING && triggeredWatchpoint) {
+                    std::tuple<address_t, MemWatch::Condition, uint32_t, bool, uint32_t> wp = triggeredWatchpoint.value();
+                    triggeredWatchpoint = std::optional<std::tuple<address_t, MemWatch::Condition, uint32_t, bool, uint32_t>>();
+                    address_t addr = std::get<0>(wp);
 
-                std::tuple<address_t, MemWatch::Condition, uint32_t, bool, uint32_t> wp = triggeredWatchpoint.value();
-                triggeredWatchpoint = std::optional<std::tuple<address_t, MemWatch::Condition, uint32_t, bool, uint32_t>>();
-                address_t addr = std::get<0>(wp);
+                    cpuExecutionMutex.lock();
+                    std::cout << "DebugCLI: watchpoint " << std::hex << addr << " reached" << std::endl;
+                    state = STOPPED;
+                    cpuExecutionMutex.unlock();
+                }
 
-                cpuExecutionMutex.lock();
-                std::cout << "DebugCLI: watchpoint " << std::hex << addr << " reached" << std::endl;
-                state = STOPPED;
-                cpuExecutionMutex.unlock();
-            }
-        }
-
-        if (state == RUNNING && breakpoints.find(pc) != breakpoints.end()) {
-            if (pc != prevPC) {
-                prevPC = pc;
-
-                cpuExecutionMutex.lock();
-                std::cout << "DebugCLI: breakpoint " << std::hex << pc << " reached" << std::endl;
-                state = STOPPED;
-                cpuExecutionMutex.unlock();
+                if (exe1Step) {
+                    cpuExecutionMutex.lock();
+                    std::cout << "DebugCLI: step executed" << std::endl;
+                    state = STOPPED;
+                    exe1Step = false;
+                    cpuExecutionMutex.unlock();
+                }
+                if (breakpoints.find(pc) != breakpoints.end()) {
+                    cpuExecutionMutex.lock();
+                    std::cout << "DebugCLI: breakpoint 0x" << std::hex << pc << " reached" << std::endl;
+                    state = STOPPED;
+                    cpuExecutionMutex.unlock();
+                }
             }
         }
 
@@ -343,7 +368,7 @@ namespace gbaemu::debugger
         return state;
     }
 
-    void DebugCLI::passCommand(const std::string& line)
+    void DebugCLI::passCommand(const std::string &line)
     {
         cpuExecutionMutex.lock();
         executeInput(line);

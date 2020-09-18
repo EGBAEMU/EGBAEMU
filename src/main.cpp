@@ -12,7 +12,6 @@
 #include "lcd/window.hpp"
 
 #include "input/keyboard_control.hpp"
-#include "io/keypad.hpp"
 
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5
@@ -172,8 +171,7 @@ int main(int argc, char **argv)
 
     std::cout << "Max legit ROM address: 0x" << std::hex << (gbaemu::Memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize() - 1) << std::endl;
 
-    gbaemu::Keypad keypad(&cpu);
-    gbaemu::keyboard::KeyboardController gameController(keypad);
+    gbaemu::keyboard::KeyboardController gameController(cpu.keypad);
 
     gbaemu::debugger::DebugCLI debugCLI(cpu);
 

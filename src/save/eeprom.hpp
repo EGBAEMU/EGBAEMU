@@ -23,7 +23,7 @@ namespace gbaemu::save
             WRITE,
             WRITE_ACK
         };
-        EEPROM_State state = IDLE;
+        EEPROM_State state;
         uint32_t counter;
         uint64_t buffer;
         uint16_t addr;
@@ -33,8 +33,15 @@ namespace gbaemu::save
       public:
         const uint8_t busWidth;
 
+        void reset()
+        {
+            state = IDLE;
+        }
+
         EEPROM(const char *path, bool &success, uint8_t busWidth = 6) : busWidth(busWidth)
         {
+            reset();
+
             bool isNewFile = !std::ifstream(path).good();
 
             if (isNewFile) {

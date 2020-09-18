@@ -6,6 +6,7 @@
 #include "decode/inst_thumb.hpp"
 #include "io/dma.hpp"
 #include "io/interrupts.hpp"
+#include "io/keypad.hpp"
 #include "io/timer.hpp"
 #include "regs.hpp"
 
@@ -13,26 +14,22 @@
 
 namespace gbaemu
 {
-    enum CPUExecutionInfoType
-    {
+    enum CPUExecutionInfoType {
         NORMAL,
         WARNING,
         EXCEPTION
     };
 
-    struct CPUExecutionInfo
-    {
+    struct CPUExecutionInfo {
         CPUExecutionInfoType infoType;
         std::string message;
 
         CPUExecutionInfo() : infoType(NORMAL), message("Everything's good")
         {
-            
         }
 
-        CPUExecutionInfo(CPUExecutionInfoType info, const std::string& msg) : infoType(info), message(msg)
+        CPUExecutionInfo(CPUExecutionInfoType info, const std::string &msg) : infoType(info), message(msg)
         {
-
         }
     };
 
@@ -52,11 +49,14 @@ namespace gbaemu
         TimerGroup timerGroup;
 
         InterruptHandler irqHandler;
+        Keypad keypad;
 
         /* If an error has occured more information can be found here. */
         CPUExecutionInfo executionInfo;
 
         CPU();
+
+        void reset();
 
         void initPipeline();
         void fetch();

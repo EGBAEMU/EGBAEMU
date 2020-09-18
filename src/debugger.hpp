@@ -176,6 +176,8 @@ namespace gbaemu::debugger
         bool inputBlocking;
         bool acceptNewInput = true;
 
+        bool exe1Step = false;
+
         address_t prevPC;
 
         std::mutex cpuExecutionMutex;

@@ -91,7 +91,7 @@ namespace gbaemu
             uint32_t destAddr;
             uint16_t count;
             uint16_t cntReg;
-        } PACKED regs = {0};
+        } PACKED regs;
 #include "endpacked.h"
 
         enum AddrCntType : uint8_t {
@@ -128,6 +128,8 @@ namespace gbaemu
         DMA(DMAChannel channel, CPU *cpu);
 
         InstructionExecutionInfo step();
+
+        void reset();
 
       private:
         bool extractRegValues();

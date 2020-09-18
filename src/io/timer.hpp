@@ -43,7 +43,7 @@ namespace gbaemu
             struct TimerRegs {
                 uint16_t reload;
                 uint16_t control;
-            } PACKED regs = {0};
+            } PACKED regs;
 #include "endpacked.h"
 
             Memory &memory;
@@ -51,10 +51,10 @@ namespace gbaemu
             Timer *const nextTimer;
             const uint8_t id;
 
-            uint16_t counter = 0;
+            uint16_t counter;
             uint16_t preCounter;
             uint16_t prescale;
-            bool active = false;
+            bool active;
             bool countUpTiming;
             bool irq;
 
@@ -62,6 +62,8 @@ namespace gbaemu
             void step();
 
             Timer(Memory &memory, InterruptHandler &irqHandler, uint8_t id, Timer *nextTimer);
+
+            void reset();
 
           private:
             uint8_t read8FromReg(uint32_t offset);
@@ -84,6 +86,14 @@ namespace gbaemu
             tim1.step();
             tim2.step();
             tim3.step();
+        }
+
+        void reset()
+        {
+            tim0.reset();
+            tim1.reset();
+            tim2.reset();
+            tim3.reset();
         }
 
         TimerGroup(CPU *cpu);

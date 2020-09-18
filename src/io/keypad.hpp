@@ -26,7 +26,7 @@ namespace gbaemu
         struct KeypadRegister {
             uint16_t keyStatus;
             uint16_t keyIRQCnt;
-        } PACKED regs = {0};
+        } PACKED regs;
 #include "endpacked.h"
 
         uint8_t read8FromReg(uint32_t offset);
@@ -48,10 +48,12 @@ namespace gbaemu
             BUTTON_R,
         };
 
-        static const uint8_t KEY_IRQ_EN_OFFSET = 14;
-        static const uint8_t KEY_IRQ_COND_OFFSET = 15;
+        static const constexpr uint8_t KEY_IRQ_EN_OFFSET = 14;
+        static const constexpr uint8_t KEY_IRQ_COND_OFFSET = 15;
 
         void setKeyInputState(bool released, KeyInput key);
+
+        void reset();
 
       private:
         void checkIRQConditions(uint16_t keyinputReg);

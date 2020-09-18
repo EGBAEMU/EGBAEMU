@@ -3,11 +3,19 @@
 #include "interrupts.hpp"
 #include "logging.hpp"
 
+#include <algorithm>
 #include <functional>
 #include <iostream>
 
 namespace gbaemu
 {
+    void TimerGroup::Timer::reset()
+    {
+        std::fill_n(reinterpret_cast<char*>(&regs), sizeof(regs), 0);
+        counter = 0;
+        active = false;
+    }
+
     uint8_t TimerGroup::Timer::read8FromReg(uint32_t offset)
     {
         if (offset >= offsetof(TimerRegs, control))
@@ -35,6 +43,7 @@ namespace gbaemu
 
     TimerGroup::Timer::Timer(Memory &memory, InterruptHandler &irqHandler, uint8_t id, Timer *nextTimer) : memory(memory), irqHandler(irqHandler), nextTimer(nextTimer), id(id)
     {
+        reset();
         memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
                 TIMER_REGS_BASE_OFFSET + sizeof(regs) * id,

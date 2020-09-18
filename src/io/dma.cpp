@@ -6,11 +6,17 @@
 #include "memory.hpp"
 #include "util.hpp"
 
+#include <algorithm>
 #include <functional>
 #include <iostream>
 
 namespace gbaemu
 {
+    void DMA::reset()
+    {
+        state = IDLE;
+        std::fill_n(reinterpret_cast<char*>(&regs), sizeof(regs), 0);
+    }
 
     const char *DMA::countTypeToStr(AddrCntType updateKind)
     {
@@ -33,8 +39,9 @@ namespace gbaemu
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
     }
 
-    DMA::DMA(DMAChannel channel, CPU *cpu) : channel(channel), state(IDLE), memory(cpu->state.memory), irqHandler(cpu->irqHandler)
+    DMA::DMA(DMAChannel channel, CPU *cpu) : channel(channel), memory(cpu->state.memory), irqHandler(cpu->irqHandler)
     {
+        reset();
         memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
                 DMA_BASE_ADDRESSES[channel],

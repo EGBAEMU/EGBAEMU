@@ -5,30 +5,9 @@
 
 namespace gbaemu
 {
-    CPU::CPU() : dma0(DMA::DMA0, this), dma1(DMA::DMA1, this), dma2(DMA::DMA2, this), dma3(DMA::DMA3, this), timerGroup(this), irqHandler(this)
+    CPU::CPU() : dma0(DMA::DMA0, this), dma1(DMA::DMA1, this), dma2(DMA::DMA2, this), dma3(DMA::DMA3, this), timerGroup(this), irqHandler(this), keypad(this)
     {
-        state.decoder = &armDecoder;
-
-        /*
-            Default memory usage at 03007FXX (and mirrored to 03FFFFXX)
-              Addr.    Size Expl.
-              3007FFCh 4    Pointer to user IRQ handler (32bit ARM code)
-              3007FF8h 2    Interrupt Check Flag (for IntrWait/VBlankIntrWait functions)
-              3007FF4h 4    Allocated Area
-              3007FF0h 4    Pointer to Sound Buffer
-              3007FE0h 16   Allocated Area
-              3007FA0h 64   Default area for SP_svc Supervisor Stack (4 words/time)
-              3007F00h 160  Default area for SP_irq Interrupt Stack (6 words/time)
-            Memory below 7F00h is free for User Stack and user data. The three stack pointers are initially initialized at the TOP of the respective areas:
-              SP_svc=03007FE0h
-              SP_irq=03007FA0h
-              SP_usr=03007F00h
-            The user may redefine these addresses and move stacks into other locations, however, the addresses for system data at 7FE0h-7FFFh are fixed.
-            */
-        // Set default SP values
-        *state.getModeRegs(CPUState::CPUMode::UserMode)[regs::SP_OFFSET] = 0x03007F00;
-        *state.getModeRegs(CPUState::CPUMode::IRQ)[regs::SP_OFFSET] = 0x3007FA0;
-        *state.getModeRegs(CPUState::CPUMode::SupervisorMode)[regs::SP_OFFSET] = 0x03007FE0;
+        reset();
     }
 
     void CPU::initPipeline()
@@ -216,10 +195,10 @@ namespace gbaemu
         // Add 1S cycle needed to fetch a instruction if not other requested
         // Handle wait cycles!
         if (!info.noDefaultSCycle) {
-            info.cycleCount += state.memory.cyclesForVirtualAddrSeq(postPc, prevThumbMode ? sizeof(uint16_t) : sizeof(uint32_t));
+            info.cycleCount += state.memory.cyclesForVirtualAddrSeq(memReg, prevThumbMode ? sizeof(uint16_t) : sizeof(uint32_t));
         }
-        info.cycleCount += state.memory.cyclesForVirtualAddrNonSeq(postPc, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * info.additionalProgCyclesN;
-        info.cycleCount += state.memory.cyclesForVirtualAddrSeq(postPc, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * info.additionalProgCyclesS;
+        info.cycleCount += state.memory.cyclesForVirtualAddrNonSeq(memReg, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * info.additionalProgCyclesN;
+        info.cycleCount += state.memory.cyclesForVirtualAddrSeq(memReg, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * info.additionalProgCyclesS;
 
         // Change from arm mode to thumb mode or vice versa
         if (prevThumbMode != postThumbMode) {
@@ -304,5 +283,39 @@ namespace gbaemu
         }
 
         return info;
+    }
+
+    void CPU::reset()
+    {
+        state.reset();
+        dma0.reset();
+        dma1.reset();
+        dma2.reset();
+        dma3.reset();
+        timerGroup.reset();
+        irqHandler.reset();
+        keypad.reset();
+
+        state.decoder = &armDecoder;
+        /*
+            Default memory usage at 03007FXX (and mirrored to 03FFFFXX)
+              Addr.    Size Expl.
+              3007FFCh 4    Pointer to user IRQ handler (32bit ARM code)
+              3007FF8h 2    Interrupt Check Flag (for IntrWait/VBlankIntrWait functions)
+              3007FF4h 4    Allocated Area
+              3007FF0h 4    Pointer to Sound Buffer
+              3007FE0h 16   Allocated Area
+              3007FA0h 64   Default area for SP_svc Supervisor Stack (4 words/time)
+              3007F00h 160  Default area for SP_irq Interrupt Stack (6 words/time)
+            Memory below 7F00h is free for User Stack and user data. The three stack pointers are initially initialized at the TOP of the respective areas:
+              SP_svc=03007FE0h
+              SP_irq=03007FA0h
+              SP_usr=03007F00h
+            The user may redefine these addresses and move stacks into other locations, however, the addresses for system data at 7FE0h-7FFFh are fixed.
+            */
+        // Set default SP values
+        *state.getModeRegs(CPUState::CPUMode::UserMode)[regs::SP_OFFSET] = 0x03007F00;
+        *state.getModeRegs(CPUState::CPUMode::IRQ)[regs::SP_OFFSET] = 0x3007FA0;
+        *state.getModeRegs(CPUState::CPUMode::SupervisorMode)[regs::SP_OFFSET] = 0x03007FE0;
     }
 } // namespace gbaemu
