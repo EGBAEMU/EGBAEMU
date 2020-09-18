@@ -22,12 +22,12 @@ namespace gbaemu
 
     uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction) const
     {
-        if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(addr, sizeof(uint8_t)) : cyclesForVirtualAddrNonSeq(addr, sizeof(uint8_t));
-        }
-
         MemoryRegion memReg;
-        const uint8_t* src = resolveAddr(addr, execInfo, memReg);
+        const uint8_t *src = resolveAddr(addr, execInfo, memReg);
+
+        if (execInfo != nullptr) {
+            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(uint8_t)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(uint8_t));
+        }
 
         if (readInstruction && memReg == BIOS && addr < getBiosSize()) {
             // For instructions we are allowed to read from bios
@@ -63,13 +63,14 @@ namespace gbaemu
     {
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(1);
 
-        if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(alignedAddr, sizeof(uint16_t)) : cyclesForVirtualAddrNonSeq(alignedAddr, sizeof(uint16_t));
-        }
-
         MemoryRegion memReg;
 
         const uint8_t *src = resolveAddr(alignedAddr, execInfo, memReg);
+
+        if (execInfo != nullptr) {
+            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(uint16_t)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(uint16_t));
+        }
+
         if (readInstruction && memReg == BIOS && alignedAddr < getBiosSize()) {
             // For instructions we are allowed to read from bios
             src = bios + alignedAddr;
@@ -94,12 +95,12 @@ namespace gbaemu
     {
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(3);
 
-        if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(alignedAddr, sizeof(uint32_t)) : cyclesForVirtualAddrNonSeq(alignedAddr, sizeof(uint32_t));
-        }
-
         MemoryRegion memReg;
         const uint8_t *src = resolveAddr(alignedAddr, execInfo, memReg);
+
+        if (execInfo != nullptr) {
+            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(uint32_t)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(uint32_t));
+        }
 
         if (readInstruction && memReg == BIOS && alignedAddr < getBiosSize()) {
             // For instructions we are allowed to read from bios
@@ -126,12 +127,12 @@ namespace gbaemu
 
     void Memory::write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq)
     {
-        if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(addr, sizeof(value)) : cyclesForVirtualAddrNonSeq(addr, sizeof(value));
-        }
-
         MemoryRegion memReg;
         auto dst = resolveAddr(addr, execInfo, memReg);
+
+        if (execInfo != nullptr) {
+            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(value)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(value));
+        }
 
         if (memReg == OUT_OF_ROM) {
             LOG_MEM(std::cout << "CRITICAL ERROR: trying to write8 ROM + outside of its bounds!" << std::endl;);
@@ -191,12 +192,12 @@ namespace gbaemu
     {
         addr = addr & ~static_cast<uint32_t>(1);
 
-        if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(addr, sizeof(value)) : cyclesForVirtualAddrNonSeq(addr, sizeof(value));
-        }
-
         MemoryRegion memReg;
         auto dst = resolveAddr(addr, execInfo, memReg);
+
+        if (execInfo != nullptr) {
+            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(value)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(value));
+        }
 
         if (memReg == OUT_OF_ROM) {
             LOG_MEM(std::cout << "CRITICAL ERROR: trying to write16 ROM + outside of its bounds!" << std::endl;);
@@ -217,12 +218,13 @@ namespace gbaemu
     {
         addr = addr & ~static_cast<uint32_t>(3);
 
-        if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(addr, sizeof(value)) : cyclesForVirtualAddrNonSeq(addr, sizeof(value));
-        }
-
         MemoryRegion memReg;
         auto dst = resolveAddr(addr, execInfo, memReg);
+
+        if (execInfo != nullptr) {
+            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(value)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(value));
+        }
+
         if (memReg == OUT_OF_ROM) {
             LOG_MEM(std::cout << "CRITICAL ERROR: trying to write32 ROM + outside of its bounds!" << std::endl;);
             if (execInfo != nullptr) {
@@ -476,11 +478,8 @@ namespace gbaemu
         return wasteMem;
     }
 
-    uint8_t Memory::cyclesForVirtualAddrNonSeq(uint32_t address, uint8_t bytesToRead) const
+    uint8_t Memory::cyclesForVirtualAddrNonSeq(MemoryRegion memoryRegion, uint8_t bytesToRead) const
     {
-        MemoryRegion memoryRegion;
-        normalizeAddress(address, memoryRegion);
-
         switch (memoryRegion) {
             case WRAM: {
                 // bytesToRead + 1 for ceiling
@@ -542,11 +541,8 @@ namespace gbaemu
         return 1;
     }
 
-    uint8_t Memory::cyclesForVirtualAddrSeq(uint32_t address, uint8_t bytesToRead) const
+    uint8_t Memory::cyclesForVirtualAddrSeq(MemoryRegion memoryRegion, uint8_t bytesToRead) const
     {
-        MemoryRegion memoryRegion;
-        normalizeAddress(address, memoryRegion);
-
         switch (memoryRegion) {
             case WRAM: {
                 // bytesToRead + 1 for ceiling

@@ -25,7 +25,7 @@ namespace gbaemu::save
                     LOG_SAVE(std::cout << "EEPROM: write request detected!" << std::endl;);
                 } else {
                     // Invalid request!
-                    LOG_SAVE(std::cout << "ERROR: invalid EEPROM request!" << std::endl;);
+                    std::cout << "ERROR: invalid EEPROM request!" << std::endl;
                     state = IDLE;
                 }
                 buffer = 0;
