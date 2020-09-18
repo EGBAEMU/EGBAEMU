@@ -175,7 +175,7 @@ namespace gbaemu::debugger
         if (words.size() == 0)
             return;
 
-        if (words[0] == "continue" || words[0] == "con") {
+        if (words[0] == "continue" || words[0] == "con" || words[0] == "c") {
             if (state == HALTED) {
                 std::cout << "DebugCLI: CPU is an unrecoverable state and cannot continue running." << std::endl;
                 return;
@@ -187,7 +187,7 @@ namespace gbaemu::debugger
             return;
         }
 
-        if (words[0] == "break") {
+        if (words[0] == "break" || words[0] == "b") {
             if (words.size() == 1) {
                 state = STOPPED;
                 return;
@@ -196,7 +196,17 @@ namespace gbaemu::debugger
             address_t where = std::stoul(words[1], nullptr, 16);
 
             breakpoints.insert(where);
-            std::cout << "DebugCLI: Added breakpoint at " << std::hex << where << std::endl;
+            std::cout << "DebugCLI: Added breakpoint at 0x" << std::hex << where << std::endl;
+
+            return;
+        }
+
+        if (words[0] == "listbreak" || words[0] == "lb") {
+            std::cout << "DebugCLI: Breakpoints: " << std::endl;
+
+            for (const auto& bp : breakpoints) {
+                std::cout << "    0x" << std::hex << bp << std::endl;
+            }
 
             return;
         }
@@ -213,7 +223,7 @@ namespace gbaemu::debugger
 
             if (result != breakpoints.end()) {
                 breakpoints.erase(*result);
-                std::cout << "DebugCLI: Removed breakpoint " << std::hex << where << std::endl;
+                std::cout << "DebugCLI: Removed breakpoint 0x" << std::hex << where << std::endl;
             } else {
                 std::cout << "DebugCLI: No such breakpoint." << std::endl;
             }
@@ -230,7 +240,7 @@ namespace gbaemu::debugger
             address_t where = std::stoul(words[1], nullptr, 16);
 
             watchpoints.insert(where);
-            std::cout << "DebugCLI: Added watchpoint " << std::hex << where << std::endl;
+            std::cout << "DebugCLI: Added watchpoint 0x" << std::hex << where << std::endl;
 
             return;
         }
@@ -248,7 +258,7 @@ namespace gbaemu::debugger
                 std::cout << "DebugCLI: No such watchpoint." << std::endl;
             } else {
                 watchpoints.erase(result);
-                std::cout << "DebugCLI: Watchpoint " << std::hex << where << " removed." << std::endl;
+                std::cout << "DebugCLI: Watchpoint 0x" << std::hex << where << " removed." << std::endl;
             }
 
             return;
@@ -274,13 +284,13 @@ namespace gbaemu::debugger
             return;
         }
 
-        if (words[0] == "step") {
+        if (words[0] == "step" || words[0] == "s") {
             exe1Step = true;
             state = RUNNING;
             return;
         }
 
-        if (words[0] == "help") {
+        if (words[0] == "help" || words[0] == "h") {
         }
 
         std::cout << "DebugCLI: Invalid command!" << std::endl;
@@ -316,7 +326,7 @@ namespace gbaemu::debugger
                 }
                 if (breakpoints.find(pc) != breakpoints.end()) {
                     cpuExecutionMutex.lock();
-                    std::cout << "DebugCLI: breakpoint " << std::hex << pc << " reached" << std::endl;
+                    std::cout << "DebugCLI: breakpoint 0x" << std::hex << pc << " reached" << std::endl;
                     state = STOPPED;
                     cpuExecutionMutex.unlock();
                 }
