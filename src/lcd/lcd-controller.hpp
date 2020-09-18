@@ -306,7 +306,17 @@ namespace gbaemu::lcd
         }
         void write8ToReg(uint32_t offset, uint8_t value)
         {
-            uint8_t mask = (offset == offsetof(LCDIORegs, BGCNT) + 1 || offset == offsetof(LCDIORegs, BGCNT) + sizeof(regsRef.BGCNT[0]) + 1) ? 0xDF : 0xFF;
+            uint8_t mask = 0xFF;
+
+            if (offset == offsetof(LCDIORegs, BGCNT) + 1 || offset == offsetof(LCDIORegs, BGCNT) + sizeof(regsRef.BGCNT[0]) + 1) {
+                mask = 0xDF;
+            } else if (offset >= offsetof(LCDIORegs, WININ) && offset < offsetof(LCDIORegs, MOSAIC)) {
+                mask = 0x3F;
+            } else if (offset == offsetof(LCDIORegs, BLDCNT) + 1) {
+                mask = 0x3F;
+            } else if ((offset & ~1) == offsetof(LCDIORegs, BLDALPHA)) {
+                mask = 0x1F;
+            }
             *(offset + reinterpret_cast<uint8_t *>(&regsRef)) = value & mask;
         }
 
