@@ -10,7 +10,7 @@ namespace gbaemu
 {
     uint8_t TimerGroup::Timer::read8FromReg(uint32_t offset)
     {
-        if (offset >= 2)
+        if (offset >= offsetof(TimerRegs, control))
             return *(offset + reinterpret_cast<uint8_t *>(&regs));
         else {
             return (counter >> (offset ? 8 : 0)) & 0x0FF;
