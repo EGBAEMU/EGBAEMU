@@ -29,7 +29,7 @@ static void handleSignal(int signum)
     }
 }
 
-static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
+static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController, gbaemu::debugger::DebugCLI& debugCLI)
 {
 
     gbaemu::debugger::ExecutionHistory history(100);
@@ -59,53 +59,12 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
         if (j == 1)
             t = std::chrono::high_resolution_clock::now();
 
-        uint32_t prevPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
-        bool prevThumb = cpu.state.getFlag(gbaemu::cpsr_flags::THUMB_STATE);
-        auto inst = cpu.state.pipeline.decode.instruction;
-
-        if (cpu.step() == gbaemu::CPUExecutionInfoType::EXCEPTION) {
-            std::cout << cpu.executionInfo.message << cpu.state.disas(cpu.state.accessReg(gbaemu::regs::PC_OFFSET), 32) << std::endl;
-            std::cout << cpu.state.toString() << std::endl;
-            std::cout << cpu.state.printStack(DEBUG_STACK_PRINT_RANGE) << std::endl;
-            break;
-        }
-
+        debugCLI.step();
         lcdController.tick();
-
-        uint32_t postPC = cpu.state.accessReg(gbaemu::regs::PC_OFFSET);
-
-        if (prevPC != postPC && false) {
-            history.collect(&cpu, prevPC);
-            charlie.check(prevPC, postPC, prevThumb ? cpu.thumbDecoder.decode(inst) : cpu.armDecoder.decode(inst), cpu.state);
-
-            if (stepMode) {
-                if (stepMode != preStepMode) {
-                    std::cout << "=========== Execution History ==========" << std::endl;
-                    history.dumpHistory(&cpu);
-                    std::cout << "========================================" << std::endl;
-                }
-
-                std::cout << "IRQ Handler: 0x" << std::hex << cpu.state.memory.read32(0x03007FFC, nullptr, false, true) << std::endl;
-                std::cout << cpu.state.disas(cpu.state.memory.read32(0x03007FFC, nullptr, false, true), DISAS_CMD_RANGE) << std::endl;
-                std::cout << "press enter to continue\n";
-                std::cin.get();
-
-                std::cout << "========================================================================\n";
-                std::cout << cpu.state.disas(postPC, DISAS_CMD_RANGE);
-                std::cout << cpu.state.toString() << '\n';
-                std::cout << cpu.state.printStack(DEBUG_STACK_PRINT_RANGE) << '\n';
-                preStepMode = stepMode;
-            }
-        }
 
         if (j >= 1001) {
             double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
-            /*
-                dt = us * 1000
-                us for a single instruction = dt / 1000
-
-            */
-
+            /* dt = us * 1000, us for a single instruction = dt / 1000 */
             double mhz = (1000000 / (dt / 1000)) / 1000000;
 
             /*
@@ -118,7 +77,21 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
     }
 
     doRun = false;
-    // std::cout << jumpTrap.toString() << std::endl;
+}
+
+static void CLILoop(gbaemu::debugger::DebugCLI& debugCLI) {
+    while (doRun) {
+        std::string line;
+        std::cout << "> ";
+        std::getline(std::cin, line);
+
+        if (line == "quit")
+            break;
+
+        debugCLI.passCommand(line);
+    }
+
+    doRun = false;
 }
 
 int main(int argc, char **argv)
@@ -158,6 +131,7 @@ int main(int argc, char **argv)
         std::vector<char> biosBuf(std::istreambuf_iterator<char>(biosFile), {});
         biosFile.close();
 
+        std::cout << "INFO: Using external bios " << argv[2] << std::endl;
         cpu.state.memory.loadExternalBios(reinterpret_cast<const uint8_t *>(biosBuf.data()), biosBuf.size());
     }
 
@@ -201,8 +175,13 @@ int main(int argc, char **argv)
     gbaemu::Keypad keypad(&cpu);
     gbaemu::keyboard::KeyboardController gameController(keypad);
 
+    gbaemu::debugger::DebugCLI debugCLI(cpu);
+
     std::cout << "INFO: Launching CPU thread" << std::endl;
-    std::thread cpuThread(cpuLoop, std::ref(cpu), std::ref(controller));
+    std::thread cpuThread(cpuLoop, std::ref(cpu), std::ref(controller), std::ref(debugCLI));
+
+    std::cout << "INFO: Launching CLI thread" << std::endl;
+    std::thread cliThread(CLILoop, std::ref(debugCLI));
 
     while (doRun) {
         SDL_Event event;
@@ -245,6 +224,8 @@ int main(int argc, char **argv)
     controller.exitThread();
     /* wait for cpu thread to exit */
     cpuThread.join();
+    /* When CLI is attached only quit command will exit the program! */
+    cliThread.join();
 
     return 0;
 }

@@ -3,8 +3,12 @@
 
 #include "cpu/cpu.hpp"
 #include "cpu/cpu_state.hpp"
+#include <cassert>
 #include <cstring>
 #include <vector>
+#include <memory>
+#include <set>
+#include <mutex>
 
 namespace gbaemu::debugger
 {
@@ -126,9 +130,14 @@ namespace gbaemu::debugger
         bool *stepMode;
         uint32_t minPcOffset;
         uint32_t prevMemValue;
+        size_t bitSize;
 
       public:
-        MemoryChangeTrap(uint32_t memAddr, uint32_t minPcOffset, bool *stepMode, uint32_t initialMemValue = 0) : memAddr(memAddr), stepMode(stepMode), minPcOffset(minPcOffset), prevMemValue(initialMemValue) {}
+        MemoryChangeTrap(uint32_t memAddr, uint32_t minPcOffset, bool *stepMode, uint32_t initialMemValue = 0, size_t _bitSize = 32) :
+            memAddr(memAddr), stepMode(stepMode), minPcOffset(minPcOffset), prevMemValue(initialMemValue), bitSize(_bitSize)
+        {
+            assert(bitSize == 8 || bitSize == 16 || bitSize == 32);
+        }
 
         void trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
         bool satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
@@ -146,6 +155,43 @@ namespace gbaemu::debugger
       public:
         void registerTrap(Trap &t);
         void check(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state);
+    };
+
+    typedef uint32_t address_t;
+    static const constexpr address_t INVALID_ADDRESS = 0xFFFFFFFF;
+
+    class DebugCLI
+    {
+    public:
+        enum State {
+            RUNNING,
+            STOPPED,
+            HALTED
+        };
+    private:
+        CPU& cpu;
+        State state;
+        /* if true, step() waits for input */
+        bool inputBlocking;
+        bool acceptNewInput = true;
+
+        address_t prevPC;
+
+        std::mutex cpuExecutionMutex;
+        uint64_t stepCount;
+
+        void executeInput(const std::string& line);
+    public:
+        /* for code */
+        std::set<address_t> breakpoints;
+        /* for memory */
+        std::set<address_t> watchpoints;
+    public:
+        DebugCLI(CPU& cpuRef);
+        void step();
+        /* These can be called from external threads. */
+        State getState() const;
+        void passCommand(const std::string& line);
     };
 } // namespace gbaemu::debugger
 
