@@ -290,6 +290,13 @@ namespace gbaemu::debugger
             return;
         }
 
+        if (words[0] == "reset") {
+            cpu.reset();
+            cpu.state.accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
+            cpu.initPipeline();
+            return;
+        }
+
         if (words[0] == "help" || words[0] == "h") {
         }
 
