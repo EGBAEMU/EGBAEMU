@@ -2,6 +2,8 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <iterator>
+#include <future>
 
 namespace gbaemu::debugger
 {
@@ -72,13 +74,38 @@ namespace gbaemu::debugger
     void MemoryChangeTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
     {
         *stepMode = true;
-        prevMemValue = state.memory.read32(memAddr, nullptr);
+
+        uint32_t value;
+
+        switch (bitSize) {
+            case 8:
+                value = state.memory.read8(memAddr, nullptr);
+            case 16:
+                value = state.memory.read16(memAddr, nullptr);
+            case 32:
+                value = state.memory.read32(memAddr, nullptr);
+        }
+
+        prevMemValue = value;
         std::cout << "INFO memory trap triggered of addr: 0x" << std::hex << memAddr << " new Value: 0x" << std::hex << prevMemValue << " at PC: 0x" << std::hex << prevPC << std::endl;
     }
 
     bool MemoryChangeTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
     {
-        return minPcOffset < postPC && state.memory.read32(memAddr, nullptr) != prevMemValue;
+        uint32_t value;
+
+        switch (bitSize) {
+            case 8:
+                value = state.memory.read8(memAddr, nullptr);
+            case 16:
+                value = state.memory.read16(memAddr, nullptr);
+            case 32:
+                value = state.memory.read32(memAddr, nullptr);
+            default:
+                return false;
+        }
+
+        return minPcOffset < postPC && value != prevMemValue;
     }
 
     void AddressTrapTimesX::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
@@ -135,5 +162,170 @@ namespace gbaemu::debugger
         for (auto trap : traps)
             if (trap->satisfied(prevPC, postPC, inst, state))
                 trap->trigger(prevPC, postPC, inst, state);
+    }
+
+    /* DebugCLI */
+
+    void DebugCLI::executeInput(const std::string& line)
+    {
+        std::istringstream iss(line);
+        std::vector<std::string> words((std::istream_iterator<std::string>(iss)),
+                                       std::istream_iterator<std::string>());
+
+        if (words.size() == 0)
+            return;
+
+        if (words[0] == "continue" || words[0] == "con") {
+            if (state == HALTED) {
+                std::cout << "DebugCLI: CPU is an unrecoverable state and cannot continue running." << std::endl;
+                return;
+            }
+
+            std::cout << "DebugCLI: continuing..." << std::endl;
+            state = RUNNING;
+
+            return;
+        }
+
+        if (words[0] == "break") {
+            if (words.size() == 1) {
+                state = STOPPED;
+                return;
+            }
+
+            address_t where = std::stoul(words[1], nullptr, 16);
+
+            breakpoints.insert(where);
+            std::cout << "DebugCLI: Added breakpoint at " << std::hex << where << std::endl;
+
+            return;
+        }
+
+        if (words[0] == "unbreak") {
+            if (words.size() < 2) {
+                std::cout << "DebugCLI: Missing address of breakpoint to remove." << std::endl;
+                return;
+            }
+
+            address_t where = std::stoul(words[1], nullptr, 16);
+
+            auto result = breakpoints.find(where);
+
+            if (result != breakpoints.end()) {
+                breakpoints.erase(*result);
+                std::cout << "DebugCLI: Removed breakpoint " << std::hex << where << std::endl;
+            } else {
+                std::cout << "DebugCLI: No such breakpoint." << std::endl;
+            }
+
+            return;
+        }
+
+        if (words[0] == "watch") {
+            if (words.size() < 2) {
+                std::cout << "DebugCLI: Missing address for watchpoint." << std::endl;
+                return;
+            }
+
+            address_t where = std::stoul(words[1], nullptr, 16);
+
+            watchpoints.insert(where);
+            std::cout << "DebugCLI: Added watchpoint " << std::hex << where << std::endl;
+
+            return;
+        }
+
+        if (words[0] == "unwatch") {
+            if (words.size() < 2) {
+                std::cout << "DebugCLI: Missing address for watchpoint to remove." << std::endl;
+                return;
+            }
+
+            address_t where = std::stoul(words[1], nullptr, 16);
+            auto result = watchpoints.find(where);
+
+            if (result == watchpoints.end()) {
+                std::cout << "DebugCLI: No such watchpoint." << std::endl;
+            } else {
+                watchpoints.erase(result);
+                std::cout << "DebugCLI: Watchpoint " << std::hex << where << " removed." << std::endl;                
+            }
+
+            return;
+        }
+
+        if (words[0] == "disas") {
+            address_t where = cpu.state.accessReg(regs::PC_OFFSET);
+            uint32_t howMuch = 16;
+
+            if (words.size() >= 2)
+                where = std::stoul(words[1], nullptr, 16);
+
+            if (words.size() >= 3)
+                howMuch = std::stoul(words[1]);
+
+            std::cout << cpu.state.disas(where, howMuch) << std::endl;
+
+            return;
+        }
+        
+        if (words[0] == "regs") {
+            std::cout << cpu.state.toString() << std::endl;
+            return;
+        }
+
+        if (words[0] == "help") {
+
+        }
+
+        std::cout << "DebugCLI: Invalid command!" << std::endl;
+    }
+
+    DebugCLI::DebugCLI(CPU& cpuRef) : cpu(cpuRef)
+    {
+        state = RUNNING;
+    }
+
+    void DebugCLI::step()
+    {
+        if (state == STOPPED)
+            return;
+
+        /* The CPU is stopped so we need the user something to do. */
+        if (state == RUNNING) {
+            cpuExecutionMutex.lock();
+            cpu.step();
+            cpuExecutionMutex.unlock();
+        }
+
+        address_t pc = cpu.state.accessReg(regs::PC_OFFSET);
+
+        if (state == RUNNING && breakpoints.find(pc) != breakpoints.end()) {
+            if (pc != prevPC) {
+                prevPC = pc;
+
+                cpuExecutionMutex.lock();
+                std::cout << "DebugCLI: breakpoint " << std::hex << pc << " reached" << std::endl;
+                state = STOPPED;
+                breakpoints.erase(pc);
+                cpuExecutionMutex.unlock();
+            } else {
+                std::cout << "skipping breakpount" << std::endl;
+            }
+        }
+
+        prevPC = pc;
+    }
+
+    DebugCLI::State DebugCLI::getState() const
+    {
+        return state;
+    }
+
+    void DebugCLI::passCommand(const std::string& line)
+    {
+        cpuExecutionMutex.lock();
+        executeInput(line);
+        cpuExecutionMutex.unlock();
     }
 } // namespace gbaemu::debugger

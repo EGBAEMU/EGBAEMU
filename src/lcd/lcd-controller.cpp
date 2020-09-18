@@ -434,6 +434,8 @@ namespace gbaemu::lcd
                 origin, d, dm, screenRef);
              */
 
+            //BREAK(std::abs(d[0]) > 10 || std::abs(d[1]) > 10 || std::abs(dm[0]) > 10 || std::abs(dm[1]) > 10);
+
             /* 0 = highest priority */
             canvas.drawSprite(tempBuffer.data(), width, height, 64,
                               origin, d, dm, screenRef);
@@ -1187,7 +1189,6 @@ namespace gbaemu::lcd
             display.target.beginDraw();
 
             int32_t i = objDebugCanvasIndex;
-            std::cout << std::dec << objDebugCanvasIndex << std::endl;
 
             for (int32_t y = 0; y < objLayers[i]->debugCanvas.getHeight(); ++y) {
                 for (int32_t x = 0; x < objLayers[i]->debugCanvas.getWidth(); ++x) {
