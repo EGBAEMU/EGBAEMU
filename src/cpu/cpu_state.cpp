@@ -2,16 +2,28 @@
 
 #include "regs.hpp"
 #include "util.hpp"
+
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
 
 namespace gbaemu
 {
 
     CPUState::CPUState()
     {
+        reset();
+    }
+
+    void CPUState::reset() {
+        std::fill_n(reinterpret_cast<char*>(&regs), sizeof(regs), 0);
+        std::fill_n(reinterpret_cast<char*>(&pipeline), sizeof(pipeline), 0);
+
         // Ensure that system mode is also set in CPSR register!
         regs.CPSR = 0b11111;
+        mode = SystemMode;
+
+        memory.reset();
     }
 
     const char *CPUState::cpuModeToString() const

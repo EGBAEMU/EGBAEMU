@@ -112,7 +112,6 @@ namespace gbaemu
       private:
         uint8_t *wram;
         uint8_t *iwram;
-        //uint8_t *io_regs;
         uint8_t *bg_obj_ram;
         uint8_t *vram;
         uint8_t *oam;
@@ -124,6 +123,8 @@ namespace gbaemu
         const uint8_t *bios;
         size_t externalBiosSize;
         uint8_t biosState[4];
+
+        BackupID backupType;
 
         static const constexpr uint8_t BIOS_READ_AFTER_STARTUP[] = {0x00, 0xF0, 0x29, 0xE1};
         static const constexpr uint8_t BIOS_READ_AFTER_SWI[] = {0x04, 0x20, 0xA0, 0xE3};
@@ -243,33 +244,41 @@ namespace gbaemu
             0xfc, 0xff, 0xff, 0xca,
             0x0f, 0x80, 0xbd, 0xe8};
 
-        BackupID backupType;
-
       public:
         IO_Handler ioHandler;
         save::EEPROM *eeprom;
 
-        //TODO are there conventions about inital memory values?
         Memory()
         {
             wram = GBA_ALLOC_MEM_REG(WRAM);
-            GBA_MEM_CLEAR(wram, WRAM);
             iwram = GBA_ALLOC_MEM_REG(IWRAM);
-            GBA_MEM_CLEAR(iwram, IWRAM);
-            //io_regs = GBA_ALLOC_MEM_REG(IO_REGS);
-            //GBA_MEM_CLEAR(io_regs, IO_REGS);
             bg_obj_ram = GBA_ALLOC_MEM_REG(BG_OBJ_RAM);
-            GBA_MEM_CLEAR(bg_obj_ram, BG_OBJ_RAM);
             vram = GBA_ALLOC_MEM_REG(VRAM);
-            GBA_MEM_CLEAR(vram, VRAM);
             oam = GBA_ALLOC_MEM_REG(OAM);
-            GBA_MEM_CLEAR(oam, OAM);
             rom = nullptr;
             eeprom = nullptr;
             ext_sram = nullptr;
             bios = customBiosCode;
             externalBiosSize = 0;
             romSize = 0;
+            backupType = NO_BACKUP;
+
+            reset();
+        }
+
+        void reset()
+        {
+            GBA_MEM_CLEAR(oam, OAM);
+            GBA_MEM_CLEAR(vram, VRAM);
+            GBA_MEM_CLEAR(bg_obj_ram, BG_OBJ_RAM);
+            GBA_MEM_CLEAR(iwram, IWRAM);
+            GBA_MEM_CLEAR(wram, WRAM);
+
+            if (eeprom) {
+                eeprom->reset();
+            }
+
+            setBiosReadState(BIOS_AFTER_STARTUP);
         }
 
         ~Memory()
@@ -281,7 +290,6 @@ namespace gbaemu
             }
             delete[] wram;
             delete[] iwram;
-            //delete[] io_regs;
             delete[] bg_obj_ram;
             delete[] vram;
             delete[] oam;
@@ -297,7 +305,6 @@ namespace gbaemu
 
             wram = nullptr;
             iwram = nullptr;
-            //io_regs = nullptr;
             bg_obj_ram = nullptr;
             vram = nullptr;
             oam = nullptr;
@@ -322,9 +329,8 @@ namespace gbaemu
             this->rom = new uint8_t[this->romSize];
             std::copy_n(rom, romSize, this->rom);
 
-            // TODO reset stats
+            reset();
             scanROMForBackupID();
-            setBiosReadState(BIOS_AFTER_STARTUP);
 
             if (backupType == EEPROM_V) {
                 bool loadSuccessful;
@@ -339,6 +345,9 @@ namespace gbaemu
         void loadExternalBios(const uint8_t *bios, size_t biosSize)
         {
             if (biosSize) {
+                if (externalBiosSize) {
+                    delete[] this->bios;
+                }
                 externalBiosSize = biosSize;
                 uint8_t *newBios = new uint8_t[biosSize];
                 std::copy_n(bios, biosSize, newBios);

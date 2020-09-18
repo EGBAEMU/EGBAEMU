@@ -73,9 +73,9 @@ namespace gbaemu
             uint16_t waitStateCnt;
             uint16_t _;
             uint16_t irqMasterEnable;
-        } PACKED regs = {0};
+        } PACKED regs;
 #include "endpacked.h"
-        bool needsOneIdleCycle = false;
+        bool needsOneIdleCycle;
         /* protects regs */
         std::mutex regsMutex;
 
@@ -98,10 +98,13 @@ namespace gbaemu
 
         bool checkForHaltCondition(uint32_t mask);
 
+        void reset();
+
       private:
         bool isInterruptMasterSet() const;
 
         bool isCPSRInterruptSet() const;
+
         //bool isCPSRFastInterruptSet() const;
     };
 

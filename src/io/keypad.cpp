@@ -6,11 +6,17 @@
 #include "interrupts.hpp"
 #include "util.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 
 namespace gbaemu
 {
+    void Keypad::reset()
+    {
+        std::fill_n(reinterpret_cast<char*>(&regs), sizeof(regs), 0);
+        regs.keyStatus = 0xFFFF;
+    }
 
     uint8_t Keypad::read8FromReg(uint32_t offset)
     {
@@ -23,7 +29,7 @@ namespace gbaemu
 
     Keypad::Keypad(CPU *cpu) : irqHandler(cpu->irqHandler)
     {
-        regs.keyStatus = 0xFFFF;
+        reset();
         cpu->state.memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
                 KEYPAD_REG_BASE_ADDR,
@@ -36,8 +42,6 @@ namespace gbaemu
 
     void Keypad::setKeyInputState(bool released, KeyInput key)
     {
-        //std::cout << std::dec << key << (released ? " released" : "pressed") << '\n';
-
         uint16_t currentValue = le(regs.keyStatus);
         currentValue = (currentValue & ~(static_cast<uint16_t>(1) << key)) | (released ? (static_cast<uint16_t>(1) << key) : 0);
         regs.keyStatus = le(currentValue);

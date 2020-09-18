@@ -5,6 +5,8 @@
 #include "memory.hpp"
 #include "util.hpp"
 
+#include <algorithm>
+#include <functional>
 #include <iostream>
 
 namespace gbaemu
@@ -39,8 +41,16 @@ namespace gbaemu
         }
     }
 
+    void InterruptHandler::reset()
+    {
+        std::fill_n(reinterpret_cast<char*>(&regs), sizeof(regs), 0);
+
+        needsOneIdleCycle = false;
+    }
+
     InterruptHandler::InterruptHandler(CPU *cpu) : cpu(cpu)
     {
+        reset();
         cpu->state.memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
                 INTERRUPT_CONTROL_REG_ADDR,
