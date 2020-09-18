@@ -224,6 +224,37 @@ namespace gbaemu::lcd
                                         PRIORITY_MASK = 3,
                                         PALETTE_NUMBER_MASK = 0xF;
     } // namespace OBJ_ATTRIBUTE
+
+    namespace WINDOW
+    {
+        static const constexpr uint16_t LOWER_COORD_OFFSET = 0,
+                                        UPPER_COORD_OFFSET = 8;
+
+        static const constexpr uint16_t LOWER_COORD_MASK = 0xFF,
+                                        UPPER_COORD_MASK = 0xFF;
+    } /* namespace WINDOW */
+
+    namespace WININOUT
+    {
+        /*
+            0-3 => BG0-BG3
+            4 => OBJ
+         */
+        static uint16_t WIN0_ENABLED_OFFSET(uint32_t index)
+        {
+            return index;
+        }
+
+        static uint16_t WIN1_ENABLED_OFFSET(uint32_t index)
+        {
+            return index + 8;
+        }
+
+        static const constexpr uint16_t WIN0_ENABLE_CSFX_OFFSET = 5, /* color special effect */
+                                        WIN1_ENABLE_CSFX_OFFSET = 13;
+
+        static const constexpr uint16_t ENABLE_MASK = 1;
+    } /* namespace WININOUT */
 } /* namespace gbaemu::lcd */
 
 #ifdef DEBUG

@@ -5,9 +5,71 @@
 
 #include <cstring>
 #include <iostream>
+#include <sstream>
 
 namespace gbaemu
 {
+    void MemWatch::registerTrigger(const std::function<void(address_t, Condition, uint32_t, bool, uint32_t)>& trig)
+    {
+        trigger = trig;
+    }
+
+    void MemWatch::watchAddress(address_t addr, const Condition& cond)
+    {
+        addresses.insert(addr);
+        conditions[addr] = cond;
+    }
+
+    void MemWatch::unwatchAddress(address_t addr)
+    {
+        addresses.erase(addr);
+        conditions.erase(addr);
+    }
+
+    bool MemWatch::isAddressWatched(address_t addr) const noexcept
+    {
+        return trigger && (addresses.find(addr) != addresses.end());
+    }
+
+    void MemWatch::addressCheckTrigger(address_t addr, uint32_t currValue) const
+    {
+        auto cond = conditions.find(addr)->second;
+
+        if (!cond.onRead)
+            return;
+
+        if (!cond.onValueEqual || cond.value == currValue)
+            trigger(addr, cond, currValue, false, 0);
+    }
+
+    void MemWatch::addressCheckTrigger(address_t addr, uint32_t currValue, uint32_t newValue) const
+    {
+        auto cond = conditions.find(addr)->second;
+
+        if (!cond.onWrite)
+            return;
+
+        if ((!cond.onValueEqual || cond.value == currValue) ||
+            (!cond.onValueChanged || currValue != newValue))
+            trigger(addr, cond, currValue, true, newValue);
+    }
+
+    std::string MemWatch::getWatchPointInfo() const
+    {
+        std::stringstream ss;
+
+        for (address_t addr : addresses) {
+            auto cond = conditions.find(addr)->second;
+            
+            ss << std::hex << addr << " ["
+                << (cond.onRead ? "r" : "")
+                << (cond.onRead ? "w" : "")
+                << "] " << '\n';
+        }
+
+        return ss.str();
+    }
+
     uint32_t Memory::readOutOfROM(uint32_t addr) const
     {
         /*
@@ -34,15 +96,22 @@ namespace gbaemu
             src = bios + addr;
         }
 
+        uint8_t currValue;
+
         if (memReg == OUT_OF_ROM) {
-            return readOutOfROM(addr);
+            currValue = readOutOfROM(addr);
         } else if (memReg == IO_REGS) {
-            return ioHandler.externalRead8(addr);
+            currValue = ioHandler.externalRead8(addr);
         } else if (memReg == EEPROM_REGION) {
-            return eeprom->read();
+            currValue = eeprom->read();
         } else {
-            return src[0];
+            currValue = src[0];
         }
+
+        if (memWatch.isAddressWatched(addr))
+            memWatch.addressCheckTrigger(addr, currValue);
+
+        return currValue;
     }
 
     /*
@@ -75,20 +144,28 @@ namespace gbaemu
             // For instructions we are allowed to read from bios
             src = bios + alignedAddr;
         }
+
+        uint16_t currValue;
+
         if (memReg == OUT_OF_ROM) {
-            return readOutOfROM(addr);
+            currValue = readOutOfROM(addr);
         } else if (memReg == IO_REGS) {
-            return ioHandler.externalRead16(alignedAddr);
+            currValue = ioHandler.externalRead16(alignedAddr);
         } else if (memReg == EEPROM_REGION) {
             if (dmaRequest) {
-                return static_cast<uint16_t>(eeprom->read());
+                currValue = static_cast<uint16_t>(eeprom->read());
             } else {
-                return 0x1;
+                currValue = 0x1;
             }
         } else {
-            return (static_cast<uint16_t>(src[0]) << 0) |
+            currValue = (static_cast<uint16_t>(src[0]) << 0) |
                    (static_cast<uint16_t>(src[1]) << 8);
         }
+
+        if (memWatch.isAddressWatched(addr))
+            memWatch.addressCheckTrigger(addr, currValue);
+
+        return currValue;
     }
 
     uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction, bool dmaRequest) const
@@ -107,22 +184,29 @@ namespace gbaemu
             src = bios + alignedAddr;
         }
 
+        uint32_t currValue;
+
         if (memReg == OUT_OF_ROM) {
-            return readOutOfROM(addr);
+            currValue = readOutOfROM(addr);
         } else if (memReg == IO_REGS) {
-            return ioHandler.externalRead32(alignedAddr);
+            currValue = ioHandler.externalRead32(alignedAddr);
         } else if (memReg == EEPROM_REGION) {
             if (dmaRequest) {
-                return static_cast<uint32_t>(eeprom->read());
+                currValue = static_cast<uint32_t>(eeprom->read());
             } else {
-                return 0x1;
+                currValue = 0x1;
             }
         } else {
-            return (static_cast<uint32_t>(src[0]) << 0) |
+            currValue = (static_cast<uint32_t>(src[0]) << 0) |
                    (static_cast<uint32_t>(src[1]) << 8) |
                    (static_cast<uint32_t>(src[2]) << 16) |
                    (static_cast<uint32_t>(src[3]) << 24);
         }
+
+        if (memWatch.isAddressWatched(addr))
+            memWatch.addressCheckTrigger(addr, currValue);
+
+        return currValue;
     }
 
     void Memory::write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq)
@@ -209,6 +293,11 @@ namespace gbaemu
         } else if (memReg == EEPROM_REGION) {
             eeprom->write(value);
         } else {
+            if (memWatch.isAddressWatched(addr)) {
+                uint32_t currValue = le<uint16_t>(*reinterpret_cast<const uint16_t *>(dst));
+                memWatch.addressCheckTrigger(addr, currValue, value);
+            }
+
             dst[0] = value & 0x0FF;
             dst[1] = (value >> 8) & 0x0FF;
         }
@@ -235,6 +324,11 @@ namespace gbaemu
         } else if (memReg == EEPROM_REGION) {
             eeprom->write(value);
         } else {
+            if (memWatch.isAddressWatched(addr)) {
+                uint32_t currValue = le<uint32_t>(*reinterpret_cast<const uint32_t *>(dst));
+                memWatch.addressCheckTrigger(addr, currValue, value);
+            }
+
             dst[0] = value & 0x0FF;
             dst[1] = (value >> 8) & 0x0FF;
             dst[2] = (value >> 16) & 0x0FF;

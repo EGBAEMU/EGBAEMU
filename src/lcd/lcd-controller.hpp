@@ -331,6 +331,7 @@ namespace gbaemu::lcd
 
         void setupLayers();
         void sortLayers();
+        void loadWindowSettings();
         void onHBlank();
         void onVBlank();
         void copyLayer(const Canvas<color_t> &src);

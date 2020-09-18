@@ -212,12 +212,10 @@ namespace gbaemu::debugger
         }
 
         if (words[0] == "unbreak") {
-            if (words.size() < 2) {
-                std::cout << "DebugCLI: Missing address of breakpoint to remove." << std::endl;
-                return;
-            }
+            address_t where = cpu.state.accessReg(regs::PC_OFFSET);
 
-            address_t where = std::stoul(words[1], nullptr, 16);
+            if (words.size() == 2)
+                where = std::stoul(words[1], nullptr, 16);
 
             auto result = breakpoints.find(where);
 
@@ -238,8 +236,7 @@ namespace gbaemu::debugger
             }
 
             address_t where = std::stoul(words[1], nullptr, 16);
-
-            watchpoints.insert(where);
+            cpu.state.memory.memWatch.watchAddress(where, MemWatch::Condition{0, true, true, false, false});
             std::cout << "DebugCLI: Added watchpoint 0x" << std::hex << where << std::endl;
 
             return;
@@ -252,14 +249,8 @@ namespace gbaemu::debugger
             }
 
             address_t where = std::stoul(words[1], nullptr, 16);
-            auto result = watchpoints.find(where);
-
-            if (result == watchpoints.end()) {
-                std::cout << "DebugCLI: No such watchpoint." << std::endl;
-            } else {
-                watchpoints.erase(result);
-                std::cout << "DebugCLI: Watchpoint 0x" << std::hex << where << " removed." << std::endl;
-            }
+            cpu.state.memory.memWatch.unwatchAddress(where);
+            std::cout << "DebugCLI: Watchpoint 0x" << std::hex << where << " removed." << std::endl;                
 
             return;
         }
@@ -284,6 +275,16 @@ namespace gbaemu::debugger
             return;
         }
 
+        if (words[0] == "breakpoints" || words[0] == "bps") {
+            std::cout << getBreakpointInfo() << std::endl;
+            return;
+        }
+
+        if (words[0] == "watchpoints" || words[0] == "wps") {
+            std::cout << cpu.state.memory.memWatch.getWatchPointInfo() << std::endl;
+            return;
+        }
+
         if (words[0] == "step" || words[0] == "s") {
             exe1Step = true;
             state = RUNNING;
@@ -305,7 +306,14 @@ namespace gbaemu::debugger
 
     DebugCLI::DebugCLI(CPU& cpuRef) : cpu(cpuRef)
     {
-        state = RUNNING;
+        state = STOPPED;
+
+        cpu.state.memory.memWatch.registerTrigger([&](address_t addr, const MemWatch::Condition& cond,
+                uint32_t oldValue, bool onWrite, uint32_t newValue) {
+                    std::tuple<address_t, MemWatch::Condition, uint32_t, bool, uint32_t> val =
+                        std::make_tuple(addr, cond, oldValue, onWrite, newValue);
+                    triggeredWatchpoint = std::optional(val);
+                });
     }
 
     void DebugCLI::step()
@@ -321,9 +329,21 @@ namespace gbaemu::debugger
         }
 
         address_t pc = cpu.state.accessReg(regs::PC_OFFSET);
+        //BREAK(pc == 0x0807c4e6);
 
         if (pc != prevPC) {
             if (state == RUNNING) {
+                if (state == RUNNING && triggeredWatchpoint) {
+                    std::tuple<address_t, MemWatch::Condition, uint32_t, bool, uint32_t> wp = triggeredWatchpoint.value();
+                    triggeredWatchpoint = std::optional<std::tuple<address_t, MemWatch::Condition, uint32_t, bool, uint32_t>>();
+                    address_t addr = std::get<0>(wp);
+
+                    cpuExecutionMutex.lock();
+                    std::cout << "DebugCLI: watchpoint " << std::hex << addr << " reached" << std::endl;
+                    state = STOPPED;
+                    cpuExecutionMutex.unlock();
+                }
+
                 if (exe1Step) {
                     cpuExecutionMutex.lock();
                     std::cout << "DebugCLI: step executed" << std::endl;
@@ -353,5 +373,16 @@ namespace gbaemu::debugger
         cpuExecutionMutex.lock();
         executeInput(line);
         cpuExecutionMutex.unlock();
+    }
+
+    std::string DebugCLI::getBreakpointInfo() const
+    {
+        std::stringstream ss;
+        ss << std::hex;
+
+        for (address_t addr : breakpoints)
+            ss << addr << '\n';
+
+        return ss.str();
     }
 } // namespace gbaemu::debugger

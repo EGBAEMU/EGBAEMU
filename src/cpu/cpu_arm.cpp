@@ -505,7 +505,11 @@ namespace gbaemu
                 shifterOperand = (shifterOperand >> 31) & 1 ? 0 : static_cast<uint32_t>(1) << 31;
                 break;
             case NEG:
-                resultValue = -static_cast<int64_t>(rnValue);
+                /*
+                    ALARM, ALAAARM: NEG is not an ARM instruction, it only exists in thumb, where it uses
+                    only the second operand rs, rd (and therefore rn) is ignored!!!
+                 */
+                resultValue = -static_cast<int64_t>(shifterOperand);
                 shifterOperand = (rnValue >> 31) & 1 ? 0 : static_cast<uint32_t>(1) << 31;
                 rnValue = 0;
                 break;

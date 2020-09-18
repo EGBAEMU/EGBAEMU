@@ -5,9 +5,51 @@
 #include "io/io_regs.hpp"
 #include "save/eeprom.hpp"
 #include <cstdint>
+#include <functional>
+#include <map>
 
 namespace gbaemu
 {
+    typedef uint32_t address_t;
+
+    /*
+        A pointer to this class can be handed to Memory, which triggers a callback
+        if the condition is satisfied.
+     */
+    class MemWatch
+    {
+      public:
+        struct Condition
+        {
+            uint32_t value;
+            bool onRead;
+            bool onWrite;
+            bool onValueEqual;
+            bool onValueChanged;
+        };
+      private:
+        std::set<address_t> addresses;
+        std::map<address_t, Condition> conditions;
+
+        /* address, condition, currValue, on write?, newValue */
+        std::function<void(address_t, Condition, uint32_t, bool, uint32_t)> trigger;
+      public:
+        void registerTrigger(const std::function<void(address_t, Condition, uint32_t, bool, uint32_t)>& trig);
+
+        void watchAddress(address_t addr, const Condition& cond);
+        void unwatchAddress(address_t addr);
+
+        /* Watch and trigger are split up for performance reasons. */
+        bool isAddressWatched(address_t addr) const noexcept;
+        /* These functions crash if the function above does not return true. */
+        /* only for reading */
+        void addressCheckTrigger(address_t addr, uint32_t currValue) const;
+        /* only for writing */
+        void addressCheckTrigger(address_t addr, uint32_t currValue, uint32_t newValue) const;
+
+        std::string getWatchPointInfo() const;
+    };
+
     /*
     General Internal Memory
       00000000-00003FFF   BIOS - System ROM         (16 KBytes)
@@ -247,6 +289,8 @@ namespace gbaemu
       public:
         IO_Handler ioHandler;
         save::EEPROM *eeprom;
+        /* We are going to expose this directly becaus this cannot be in an invalid state and I don't have time. */
+        MemWatch memWatch;
 
         Memory()
         {

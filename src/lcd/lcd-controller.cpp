@@ -834,6 +834,29 @@ namespace gbaemu::lcd
         }
     }
 
+    void LCDController::loadWindowSettings()
+    {
+        struct Window
+        {
+            int32_t left, right, top, bottom;
+        };
+
+        Window win0, win1;
+
+        win0.right = bitGet(le(regs.WIN0H), WINDOW::LOWER_COORD_MASK, WINDOW::LOWER_COORD_OFFSET);
+        win0.left = bitGet(le(regs.WIN0H), WINDOW::UPPER_COORD_MASK, WINDOW::UPPER_COORD_OFFSET);
+        win0.bottom = bitGet(le(regs.WIN0V), WINDOW::LOWER_COORD_MASK, WINDOW::LOWER_COORD_OFFSET);
+        win0.top = bitGet(le(regs.WIN0V), WINDOW::UPPER_COORD_MASK, WINDOW::UPPER_COORD_OFFSET);
+
+        win1.right = bitGet(le(regs.WIN1H), WINDOW::LOWER_COORD_MASK, WINDOW::LOWER_COORD_OFFSET);
+        win1.left = bitGet(le(regs.WIN1H), WINDOW::UPPER_COORD_MASK, WINDOW::UPPER_COORD_OFFSET);
+        win1.bottom = bitGet(le(regs.WIN1V), WINDOW::LOWER_COORD_MASK, WINDOW::LOWER_COORD_OFFSET);
+        win1.top = bitGet(le(regs.WIN1V), WINDOW::UPPER_COORD_MASK, WINDOW::UPPER_COORD_OFFSET);
+
+
+
+    }
+
     void LCDController::onHBlank()
     {
         updateReferences();
