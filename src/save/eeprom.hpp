@@ -50,7 +50,7 @@ namespace gbaemu::save
                 const auto prevWidth = saveFile.width();
                 const auto prevFill = saveFile.fill();
                 // Set fill character
-                saveFile.fill(0xFF);
+                saveFile.fill(static_cast<char>(0xFF));
                 // Set target file size
                 saveFile.width((1 << busWidth) * 64);
                 // Write single fill char -> rest will be filled automagically

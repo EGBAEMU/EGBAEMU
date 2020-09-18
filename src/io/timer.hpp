@@ -51,10 +51,6 @@ namespace gbaemu
             Timer *const nextTimer;
             const uint8_t id;
 
-            //TODO the reload register is only loaded if active & reload was set at the same time!
-            bool writeToControl = false;
-            bool writeToReload = false;
-
             uint16_t counter = 0;
             uint16_t preCounter;
             uint16_t prescale;

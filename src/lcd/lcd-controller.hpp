@@ -254,7 +254,7 @@ namespace gbaemu::lcd
 
         LCDColorPalette palette;
         LCDIORegs regsRef{0};
-        LCDIORegs regs = {0};
+        LCDIORegs regs{0};
 
         /* backdrop layer, BG0-BG4, OBJ0-OBJ4 */
         std::array<std::shared_ptr<Background>, 4> backgroundLayers;
@@ -315,7 +315,18 @@ namespace gbaemu::lcd
         }
         void write8ToReg(uint32_t offset, uint8_t value)
         {
-            *(offset + reinterpret_cast<uint8_t *>(&regsRef)) = value;
+            uint8_t mask = 0xFF;
+
+            if (offset == offsetof(LCDIORegs, BGCNT) + 1 || offset == offsetof(LCDIORegs, BGCNT) + sizeof(regsRef.BGCNT[0]) + 1) {
+                mask = 0xDF;
+            } else if (offset >= offsetof(LCDIORegs, WININ) && offset < offsetof(LCDIORegs, MOSAIC)) {
+                mask = 0x3F;
+            } else if (offset == offsetof(LCDIORegs, BLDCNT) + 1) {
+                mask = 0x3F;
+            } else if ((offset & ~1) == offsetof(LCDIORegs, BLDALPHA)) {
+                mask = 0x1F;
+            }
+            *(offset + reinterpret_cast<uint8_t *>(&regsRef)) = value & mask;
         }
 
         void setupLayers();
