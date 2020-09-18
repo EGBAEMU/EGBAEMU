@@ -204,7 +204,7 @@ namespace gbaemu::debugger
         if (words[0] == "listbreak" || words[0] == "lb") {
             std::cout << "DebugCLI: Breakpoints: " << std::endl;
 
-            for (const auto& bp : breakpoints) {
+            for (const auto &bp : breakpoints) {
                 std::cout << "    0x" << std::hex << bp << std::endl;
             }
 
@@ -264,7 +264,7 @@ namespace gbaemu::debugger
             return;
         }
 
-        if (words[0] == "disas") {
+        if (words[0] == "disas" || words[0] == "dis") {
             address_t where = cpu.state.accessReg(regs::PC_OFFSET);
             uint32_t howMuch = 16;
 
@@ -279,7 +279,7 @@ namespace gbaemu::debugger
             return;
         }
 
-        if (words[0] == "regs") {
+        if (words[0] == "regs" || words[0] == "r") {
             std::cout << cpu.state.toString() << std::endl;
             return;
         }
