@@ -37,7 +37,7 @@ namespace gbaemu::save
                 buffer |= data & 0x1;
                 ++counter;
                 if (counter == busWidth) {
-                    addr = buffer;
+                    addr = static_cast<uint16_t>(buffer);
                     buffer = 0;
                     counter = 0;
                     state = static_cast<EEPROM_State>(state + 1);
@@ -78,7 +78,7 @@ namespace gbaemu::save
 
     uint8_t EEPROM::read()
     {
-        uint8_t data;
+        uint8_t data = 0;
         switch (state) {
             case READ:
                 data = (buffer >> 63) & 0x1;

@@ -522,6 +522,7 @@ namespace gbaemu
                 There are no special S cycles on this bus.
             */
             case OUT_OF_ROM:
+            case EEPROM_REGION:
             case EXT_ROM1_:
             case EXT_ROM2:
             case EXT_ROM2_:
@@ -587,6 +588,7 @@ namespace gbaemu
                 There are no special S cycles on this bus.
             */
             case OUT_OF_ROM:
+            case EEPROM_REGION:
             case EXT_ROM1_:
             case EXT_ROM2:
             case EXT_ROM2_:
