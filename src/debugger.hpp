@@ -9,6 +9,7 @@
 #include <memory>
 #include <set>
 #include <mutex>
+#include <optional>
 
 namespace gbaemu::debugger
 {
@@ -180,18 +181,20 @@ namespace gbaemu::debugger
         std::mutex cpuExecutionMutex;
         uint64_t stepCount;
 
+        std::optional<std::tuple<address_t, MemWatch::Condition, uint32_t, bool, uint32_t>> triggeredWatchpoint;
+
         void executeInput(const std::string& line);
-    public:
+
         /* for code */
         std::set<address_t> breakpoints;
-        /* for memory */
-        std::set<address_t> watchpoints;
     public:
         DebugCLI(CPU& cpuRef);
         void step();
         /* These can be called from external threads. */
         State getState() const;
         void passCommand(const std::string& line);
+
+        std::string getBreakpointInfo() const;
     };
 } // namespace gbaemu::debugger
 
