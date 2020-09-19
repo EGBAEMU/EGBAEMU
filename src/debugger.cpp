@@ -306,7 +306,7 @@ namespace gbaemu::debugger
 
     DebugCLI::DebugCLI(CPU& cpuRef) : cpu(cpuRef)
     {
-        state = STOPPED;
+        state = RUNNING;
 
         cpu.state.memory.memWatch.registerTrigger([&](address_t addr, const MemWatch::Condition& cond,
                 uint32_t oldValue, bool onWrite, uint32_t newValue) {
