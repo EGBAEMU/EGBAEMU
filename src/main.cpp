@@ -55,9 +55,6 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController,
     lcdController.updateReferences();
 
     for (uint32_t j = 0; doRun; ++j) {
-        if (j == 1)
-            t = std::chrono::high_resolution_clock::now();
-
         if (debugCLI.step()) {
             break;
         }
@@ -65,7 +62,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController,
 
         if (j >= 1001) {
             double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
-            /* dt = us * 1000, us for a single instruction = dt / 1000 */
+            // dt = us * 1000, us for a single instruction = dt / 1000
             double mhz = (1000000 / (dt / 1000)) / 1000000;
 
             /*
@@ -74,6 +71,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController,
              */
 
             j = 0;
+            t = std::chrono::high_resolution_clock::now();
         }
     }
 
