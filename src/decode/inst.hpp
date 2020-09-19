@@ -520,8 +520,10 @@ namespace gbaemu
     class Instruction
     {
       public:
-        arm::ARMInstruction arm;
-        thumb::ThumbInstruction thumb;
+        union {
+            arm::ARMInstruction arm;
+            thumb::ThumbInstruction thumb;
+        } inst;
         bool isArm = true;
 
       public:
@@ -537,7 +539,7 @@ namespace gbaemu
     class InstructionDecoder
     {
       public:
-        virtual Instruction decode(uint32_t inst) const = 0;
+        virtual void decode(uint32_t inst, Instruction &decodedInst) const = 0;
     };
 
 } // namespace gbaemu

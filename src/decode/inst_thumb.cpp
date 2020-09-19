@@ -119,7 +119,7 @@ namespace gbaemu
             return ss.str();
         }
 
-        Instruction ThumbInstructionDecoder::decode(uint32_t lastInst) const
+        void ThumbInstructionDecoder::decode(uint32_t lastInst, Instruction &decodedInst) const
         {
             ThumbInstruction instruction;
             instruction.id = InstructionID::INVALID;
@@ -486,7 +486,7 @@ namespace gbaemu
                 instruction.params.long_branch_with_link.offset = lastInst & 0x07FF;
             }
 
-            return Instruction::fromThumb(instruction);
+            decodedInst.setThumbInstruction(instruction);
         }
 
     } // namespace thumb

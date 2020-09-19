@@ -3,9 +3,9 @@
 #include "regs.hpp"
 #include "util.hpp"
 
+#include <algorithm>
 #include <iomanip>
 #include <sstream>
-#include <algorithm>
 
 namespace gbaemu
 {
@@ -15,9 +15,10 @@ namespace gbaemu
         reset();
     }
 
-    void CPUState::reset() {
-        std::fill_n(reinterpret_cast<char*>(&regs), sizeof(regs), 0);
-        std::fill_n(reinterpret_cast<char*>(&pipeline), sizeof(pipeline), 0);
+    void CPUState::reset()
+    {
+        std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
+        std::fill_n(reinterpret_cast<char *>(&pipeline), sizeof(pipeline), 0);
 
         // Ensure that system mode is also set in CPSR register!
         regs.CPSR = 0b11111;
@@ -178,7 +179,9 @@ namespace gbaemu
                 uint32_t b0 = bytes & 0x0FF;
                 uint32_t b1 = (bytes >> 8) & 0x0FF;
 
-                auto inst = decoder->decode(bytes).thumb;
+                Instruction decodedInst;
+                decoder->decode(bytes, decodedInst);
+                auto &inst = decodedInst.inst.thumb;
 
                 /* bytes */
                 ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << " [" << std::setw(4) << bytes << ']';
@@ -195,7 +198,9 @@ namespace gbaemu
                 uint32_t b2 = (bytes >> 16) & 0x0FF;
                 uint32_t b3 = (bytes >> 24) & 0x0FF;
 
-                auto inst = decoder->decode(bytes).arm;
+                Instruction decodedInst;
+                decoder->decode(bytes, decodedInst);
+                auto &inst = decodedInst.inst.arm;
 
                 /* bytes */
                 ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << std::setw(2) << b2 << ' ' << std::setw(2) << b3 << " [" << std::setw(8) << bytes << ']';

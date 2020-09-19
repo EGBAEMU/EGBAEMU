@@ -148,10 +148,12 @@ namespace gbaemu
 
     void CPU::execute()
     {
+        static Instruction inst;
+
         const uint32_t prevPc = state.getCurrentPC();
         const bool prevThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
 
-        Instruction inst(state.decoder->decode(state.pipeline.decode.lastInstruction));
+        state.decoder->decode(state.pipeline.decode.lastInstruction, inst);
         if (!inst.isValid()) {
             std::cout << "ERROR: Decoded instruction is invalid: [" << std::hex << state.pipeline.decode.lastInstruction << "] @ " << state.accessReg(regs::PC_OFFSET);
             cpuInfo.hasCausedException = true;
@@ -159,12 +161,12 @@ namespace gbaemu
         }
 
         if (inst.isArmInstruction()) {
-            arm::ARMInstruction &armInst = inst.arm;
+            arm::ARMInstruction &armInst = inst.inst.arm;
             if (conditionSatisfied(armInst.condition, state))
-                armExecuteHandler[inst.arm.cat](armInst, this);
+                armExecuteHandler[inst.inst.arm.cat](armInst, this);
         } else {
-            thumb::ThumbInstruction &thumbInst = inst.thumb;
-            thumbExecuteHandler[inst.thumb.cat](thumbInst, this);
+            thumb::ThumbInstruction &thumbInst = inst.inst.thumb;
+            thumbExecuteHandler[inst.inst.thumb.cat](thumbInst, this);
         }
 
         const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);

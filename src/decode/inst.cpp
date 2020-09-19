@@ -178,12 +178,12 @@ namespace gbaemu
 
     void Instruction::setArmInstruction(arm::ARMInstruction &armInstruction)
     {
-        arm = armInstruction;
+        inst.arm = armInstruction;
         isArm = true;
     }
     void Instruction::setThumbInstruction(thumb::ThumbInstruction &thumbInstruction)
     {
-        thumb = thumbInstruction;
+        inst.thumb = thumbInstruction;
         isArm = false;
     }
 
@@ -195,33 +195,17 @@ namespace gbaemu
     std::string Instruction::toString() const
     {
         if (isArm)
-            return arm.toString();
+            return inst.arm.toString();
         else
-            return thumb.toString();
+            return inst.thumb.toString();
     }
 
     bool Instruction::isValid() const
     {
         if (isArm)
-            return arm.cat != arm::INVALID_CAT && arm.id != INVALID;
+            return inst.arm.cat != arm::INVALID_CAT && inst.arm.id != INVALID;
         else
-            return thumb.cat != thumb::INVALID_CAT && thumb.id != INVALID;
-    }
-
-    Instruction Instruction::fromARM(arm::ARMInstruction &armInst)
-    {
-        Instruction result;
-        result.arm = armInst;
-        result.isArm = true;
-        return result;
-    }
-
-    Instruction Instruction::fromThumb(thumb::ThumbInstruction &thumbInst)
-    {
-        Instruction result;
-        result.thumb = thumbInst;
-        result.isArm = false;
-        return result;
+            return inst.thumb.cat != thumb::INVALID_CAT && inst.thumb.id != INVALID;
     }
 
     bool conditionSatisfied(ConditionOPCode condition, const CPUState &state)

@@ -197,7 +197,7 @@ namespace gbaemu
             return ss.str();
         }
 
-        Instruction ARMInstructionDecoder::decode(uint32_t lastInst) const
+        void ARMInstructionDecoder::decode(uint32_t lastInst, Instruction &decodedInst) const
         {
             ARMInstruction instruction;
 
@@ -535,7 +535,7 @@ namespace gbaemu
                 instruction.params.software_interrupt.comment = lastInst & 0x00FFFFFF;
             }
 
-            return Instruction::fromARM(instruction);
+            decodedInst.setArmInstruction(instruction);
         }
 
     } // namespace arm
