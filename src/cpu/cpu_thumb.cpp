@@ -479,16 +479,16 @@ namespace gbaemu
 
             case CMP: {
 
-                uint64_t result = static_cast<uint64_t>(rdValue) - static_cast<uint64_t>(rsValue);
+                uint64_t result = static_cast<int64_t>(rdValue) - static_cast<int64_t>(rsValue);
 
                 setFlags(result,
                          (rdValue >> 31) & 1,
-                         (rsValue >> 31) & 1,
+                         (rsValue >> 31) & 1 ? false : true,
                          true,
                          true,
                          true,
                          true,
-                         false);
+                         true);
                 break;
             }
 

@@ -414,7 +414,7 @@ namespace gbaemu
             CMP, CMN, TST, TEQ};
 
         static const std::set<InstructionID> invertCarry{
-            CMP, SUB, SBC, RSB, RSC, NEG};
+            CMP, SUB, SBC, RSB, RSC, NEG, SUB_SHORT_IMM};
 
         static const std::set<InstructionID> movSPSR{
             SUB, MVN, ADC, ADD, AND,
@@ -424,7 +424,6 @@ namespace gbaemu
         /* execute functions */
         switch (inst.id) {
             case ADC:
-                //TODO not sure how carry might affect the overflow flag!
                 resultValue = rnValue + shifterOperand + (carry ? 1 : 0);
                 break;
             case CMN:
