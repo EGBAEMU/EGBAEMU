@@ -316,15 +316,19 @@ namespace gbaemu::debugger
                 });
     }
 
-    void DebugCLI::step()
+    bool DebugCLI::step()
     {
         if (state == STOPPED)
-            return;
+            return false;
 
         /* The CPU is stopped so we need the user something to do. */
         if (state == RUNNING) {
             cpuExecutionMutex.lock();
-            cpu.step();
+            CPUExecutionInfoType executionInfo = cpu.step();
+            if (executionInfo != CPUExecutionInfoType::NORMAL) {
+                state = HALTED;
+                std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            }
             cpuExecutionMutex.unlock();
         }
 
@@ -360,6 +364,8 @@ namespace gbaemu::debugger
         }
 
         prevPC = pc;
+
+        return state == HALTED;
     }
 
     DebugCLI::State DebugCLI::getState() const

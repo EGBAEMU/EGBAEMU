@@ -58,7 +58,9 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController,
         if (j == 1)
             t = std::chrono::high_resolution_clock::now();
 
-        debugCLI.step();
+        if (debugCLI.step()) {
+            break;
+        }
         lcdController.tick();
 
         if (j >= 1001) {

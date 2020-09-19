@@ -191,7 +191,7 @@ namespace gbaemu::debugger
         std::set<address_t> breakpoints;
     public:
         DebugCLI(CPU& cpuRef);
-        void step();
+        bool step();
         /* These can be called from external threads. */
         State getState() const;
         void passCommand(const std::string& line);
