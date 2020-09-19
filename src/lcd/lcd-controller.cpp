@@ -1229,21 +1229,19 @@ namespace gbaemu::lcd
     void LCDController::renderLoop()
     {
         while (true) {
-            //canDrawToScreenMutex->lock();
             renderControlMutex.lock();
-
             bool exitLoop = (renderControl == EXIT);
             bool wait = (renderControl == WAIT);
             renderControl = WAIT;
+            renderControlMutex.unlock();
 
             if (wait) {
-                renderControlMutex.unlock();
                 continue;
             } else if (exitLoop) {
-                renderControlMutex.unlock();
                 break;
             }
 
+            onHBlank();
             render();
 
             /* Tell the window we are done, if it isn't ready it has to try next time. */
@@ -1255,7 +1253,6 @@ namespace gbaemu::lcd
                 Allow another call to render() only if render() has finished. If onHBlank() gets executed
                 while we are rendering we crash.
              */
-            renderControlMutex.unlock();
         }
     }
 
@@ -1309,7 +1306,6 @@ namespace gbaemu::lcd
             /* No blocking, otherwise we have gained nothing. */
 
             if (renderControlMutex.try_lock()) {
-                onHBlank();
                 renderControl = RUN;
                 renderControlMutex.unlock();
             }
