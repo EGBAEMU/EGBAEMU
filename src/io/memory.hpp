@@ -348,17 +348,17 @@ namespace gbaemu
             delete[] bg_obj_ram;
             delete[] vram;
             delete[] oam;
-            if (ext_sram) {
-                delete[] ext_sram;
-            }
             if (romSize) {
                 delete[] rom;
             }
+            if (ext_sram) {
+                delete ext_sram;
+            }
             if (eeprom) {
-                delete[] eeprom;
+                delete eeprom;
             }
             if (flash) {
-                delete[] flash;
+                delete flash;
             }
 
             wram = nullptr;
@@ -381,15 +381,15 @@ namespace gbaemu
                 delete[] this->rom;
             }
             if (this->eeprom) {
-                delete[] this->eeprom;
+                delete this->eeprom;
                 this->eeprom = nullptr;
             }
             if (this->flash) {
-                delete[] this->flash;
+                delete this->flash;
                 this->flash = nullptr;
             }
             if (this->ext_sram) {
-                delete[] this->ext_sram;
+                delete this->ext_sram;
                 this->ext_sram = nullptr;
             }
             this->romSize = romSize;
