@@ -859,8 +859,6 @@ namespace gbaemu::lcd
 
     void LCDController::onHBlank()
     {
-        updateReferences();
-
         /* copy registers, they cannot be modified when rendering */
         regs = regsRef;
 
