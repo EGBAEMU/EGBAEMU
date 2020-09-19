@@ -106,6 +106,8 @@ namespace gbaemu
             currValue = eeprom->read();
         } else if (memReg == FLASH_REGION) {
             currValue = flash->read(addr);
+        } else if (memReg == SRAM_REGION) {
+            ext_sram->read(addr & 0x00007FFF, reinterpret_cast<char *>(&currValue), 1);
         } else {
             currValue = src[0];
         }
@@ -132,6 +134,7 @@ namespace gbaemu
     */
     uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction, bool dmaRequest) const
     {
+        uint32_t unalignedPart = addr & 1;
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(1);
 
         MemoryRegion memReg;
@@ -160,7 +163,12 @@ namespace gbaemu
                 currValue = 0x1;
             }
         } else if (memReg == FLASH_REGION) {
-            currValue = flash->read(addr);
+            currValue = flash->read(addr | unalignedPart);
+            currValue |= (currValue << 8);
+        } else if (memReg == SRAM_REGION) {
+            uint8_t data;
+            ext_sram->read((addr | unalignedPart) & 0x00007FFF, reinterpret_cast<char *>(&data), 1);
+            currValue = data | (data << 8);
         } else {
             currValue = (static_cast<uint16_t>(src[0]) << 0) |
                         (static_cast<uint16_t>(src[1]) << 8);
@@ -174,6 +182,7 @@ namespace gbaemu
 
     uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction, bool dmaRequest) const
     {
+        uint32_t unalignedPart = addr & 3;
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(3);
 
         MemoryRegion memReg;
@@ -201,7 +210,12 @@ namespace gbaemu
                 currValue = 0x1;
             }
         } else if (memReg == FLASH_REGION) {
-            currValue = flash->read(addr);
+            currValue = flash->read(addr | unalignedPart);
+            currValue |= (currValue << 8) | (currValue << 16) | (currValue << 24);
+        } else if (memReg == SRAM_REGION) {
+            uint8_t data;
+            ext_sram->read((addr | unalignedPart) & 0x00007FFF, reinterpret_cast<char *>(&data), 1);
+            currValue = data | (data << 8) | (data << 16) | (data << 24);
         } else {
             currValue = (static_cast<uint32_t>(src[0]) << 0) |
                         (static_cast<uint32_t>(src[1]) << 8) |
@@ -235,6 +249,8 @@ namespace gbaemu
             eeprom->write(value);
         } else if (memReg == FLASH_REGION) {
             flash->write(addr, value);
+        } else if (memReg == SRAM_REGION) {
+            ext_sram->write(addr & 0x00007FFF, reinterpret_cast<const char *>(&value), 1);
         } else {
 
             //TODO is this legit?
@@ -281,6 +297,8 @@ namespace gbaemu
 
     void Memory::write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo, bool seq)
     {
+        uint32_t unalignedPart = addr & 1;
+
         addr = addr & ~static_cast<uint32_t>(1);
 
         MemoryRegion memReg;
@@ -300,7 +318,10 @@ namespace gbaemu
         } else if (memReg == EEPROM_REGION) {
             eeprom->write(value);
         } else if (memReg == FLASH_REGION) {
-            flash->write(addr, value);
+            flash->write(addr | unalignedPart, value >> (unalignedPart << 3));
+        } else if (memReg == SRAM_REGION) {
+            const uint8_t data = value >> (unalignedPart << 3);
+            ext_sram->write((addr | unalignedPart) & 0x00007FFF, reinterpret_cast<const char *>(&data), 1);
         } else {
             if (memWatch.isAddressWatched(addr)) {
                 uint32_t currValue = le<uint16_t>(*reinterpret_cast<const uint16_t *>(dst));
@@ -314,6 +335,7 @@ namespace gbaemu
 
     void Memory::write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo, bool seq)
     {
+        uint32_t unalignedPart = addr & 3;
         addr = addr & ~static_cast<uint32_t>(3);
 
         MemoryRegion memReg;
@@ -333,7 +355,10 @@ namespace gbaemu
         } else if (memReg == EEPROM_REGION) {
             eeprom->write(value);
         } else if (memReg == FLASH_REGION) {
-            flash->write(addr, value);
+            flash->write(addr | unalignedPart, value >> (unalignedPart << 3));
+        } else if (memReg == SRAM_REGION) {
+            const uint8_t data = value >> (unalignedPart << 3);
+            ext_sram->write((addr | unalignedPart) & 0x00007FFF, reinterpret_cast<const char *>(&data), 1);
         } else {
             if (memWatch.isAddressWatched(addr)) {
                 uint32_t currValue = le<uint32_t>(*reinterpret_cast<const uint32_t *>(dst));
@@ -422,6 +447,7 @@ namespace gbaemu
                 if (backupType == SRAM_V) {
                     // Handle 32K SRAM chips mirroring: (subtract 32K if >= 32K (last 32K block))
                     addr -= (addr >= (EXT_SRAM_OFFSET | (static_cast<uint32_t>(32) << 10)) ? (static_cast<uint32_t>(32) << 10) : 0);
+                    memReg = SRAM_REGION;
                 } else if (backupType >= FLASH_V) {
                     memReg = FLASH_REGION;
                 }
@@ -512,14 +538,12 @@ namespace gbaemu
             COMBINE_MEM_ADDR(addr, BG_OBJ_RAM, bg_obj_ram);
             COMBINE_MEM_ADDR(addr, VRAM, vram);
             COMBINE_MEM_ADDR(addr, OAM, oam);
+            case SRAM_REGION:
             case FLASH_REGION:
             case EXT_SRAM:
             case EXT_SRAM_:
-                if (backupType != NO_BACKUP) {
-                    return (ext_sram + ((addr & EXT_SRAM_LIMIT) - EXT_SRAM_OFFSET));
-                } else {
-                    return noBackupMedia;
-                }
+                return noBackupMedia;
+
             case OUT_OF_ROM:
             case EEPROM_REGION:
             case EXT_ROM1_:
@@ -566,14 +590,12 @@ namespace gbaemu
             COMBINE_MEM_ADDR(addr, BG_OBJ_RAM, bg_obj_ram);
             COMBINE_MEM_ADDR(addr, VRAM, vram);
             COMBINE_MEM_ADDR(addr, OAM, oam);
+            case SRAM_REGION:
             case FLASH_REGION:
             case EXT_SRAM:
             case EXT_SRAM_:
-                if (backupType != NO_BACKUP) {
-                    return (ext_sram + ((addr & EXT_SRAM_LIMIT) - EXT_SRAM_OFFSET));
-                } else {
-                    return wasteMem;
-                }
+                return wasteMem;
+
             case OUT_OF_ROM:
             case EEPROM_REGION:
             case EXT_ROM1_:
@@ -659,6 +681,7 @@ namespace gbaemu
                 return accessTimes * 4 + accessTimes;
             }
             case FLASH_REGION:
+            case SRAM_REGION:
             case EXT_SRAM_:
             case EXT_SRAM:
                 // Only 8 bit bus -> accesTimes = bytesToRead
@@ -723,6 +746,7 @@ namespace gbaemu
                 return accessTimes * 2 + accessTimes;
             }
             case FLASH_REGION:
+            case SRAM_REGION:
             case EXT_SRAM_:
             case EXT_SRAM:
                 // Only 8 bit bus -> accesTimes = bytesToRead
@@ -736,10 +760,6 @@ namespace gbaemu
     {
         // reset backup type
         backupType = NO_BACKUP;
-
-        if (ext_sram)
-            delete[] ext_sram;
-        ext_sram = nullptr;
 
         /*
         ID Strings
@@ -777,10 +797,6 @@ namespace gbaemu
                         if (*currentParsingState[k] == '\0') {
                             std::cout << "INFO: Found backup id: " << parsingStrs[k] << std::endl;
                             backupType = static_cast<BackupID>(k + 1);
-
-                            // Allocate needed memory
-                            ext_sram = new uint8_t[backupSizes[k]];
-                            std::fill_n(ext_sram, backupSizes[k], 0);
                             return;
                         }
                     } else {

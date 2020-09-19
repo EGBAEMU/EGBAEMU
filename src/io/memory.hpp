@@ -111,7 +111,8 @@ namespace gbaemu
             EXT_SRAM_ = 0x0F,
             OUT_OF_ROM = 0x42,    // Virtual memory region to indicate access outside of the ROM!
             EEPROM_REGION = 0x43, // Virtual memory region to signal EEPROM usage
-            FLASH_REGION = 0x44   // Virtual memory region to signal flash usage
+            FLASH_REGION = 0x44,  // Virtual memory region to signal flash usage
+            SRAM_REGION = 0x45,   // Virtual memory region to signal sram usage
         };
 
         enum MemoryRegionOffset : uint32_t {
@@ -162,7 +163,6 @@ namespace gbaemu
         uint8_t *vram;
         uint8_t *oam;
 
-        uint8_t *ext_sram;
         uint8_t *rom;
         size_t romSize;
 
@@ -295,6 +295,7 @@ namespace gbaemu
         IO_Handler ioHandler;
         save::EEPROM *eeprom;
         save::FLASH *flash;
+        save::SaveFile *ext_sram;
         /* We are going to expose this directly becaus this cannot be in an invalid state and I don't have time. */
         MemWatch memWatch;
 
@@ -374,7 +375,7 @@ namespace gbaemu
         Memory(const Memory &) = delete;
         Memory &operator=(const Memory &) = delete;
 
-        bool loadROM(const char *eepromFilePath, const uint8_t *rom, size_t romSize)
+        bool loadROM(const char *saveFilePath, const uint8_t *rom, size_t romSize)
         {
             if (this->romSize) {
                 delete[] this->rom;
@@ -387,6 +388,10 @@ namespace gbaemu
                 delete[] this->flash;
                 this->flash = nullptr;
             }
+            if (this->ext_sram) {
+                delete[] this->ext_sram;
+                this->ext_sram = nullptr;
+            }
             this->romSize = romSize;
             this->rom = new uint8_t[this->romSize];
             std::copy_n(rom, romSize, this->rom);
@@ -394,18 +399,18 @@ namespace gbaemu
             reset();
             scanROMForBackupID();
 
-            if (backupType == EEPROM_V) {
-                bool loadSuccessful;
+            bool loadSuccessful = true;
+            if (backupType == SRAM_V) {
+                // Allocate needed memory
+                ext_sram = new save::SaveFile(saveFilePath, loadSuccessful, backupSizes[backupType]);
+            } else if (backupType == EEPROM_V) {
                 //TODO how to find out the eeprom size???
-                this->eeprom = new save::EEPROM(eepromFilePath, loadSuccessful /*, romSize >= 0x01000000 ? 14 : 6*/);
-                return loadSuccessful;
+                this->eeprom = new save::EEPROM(saveFilePath, loadSuccessful /*, romSize >= 0x01000000 ? 14 : 6*/);
             } else if (backupType >= FLASH_V) {
-                bool loadSuccessful;
-                this->flash = new save::FLASH(eepromFilePath, loadSuccessful, backupSizes[backupType]);
-                return loadSuccessful;
+                this->flash = new save::FLASH(saveFilePath, loadSuccessful, backupSizes[backupType]);
             }
 
-            return true;
+            return loadSuccessful;
         }
 
         void loadExternalBios(const uint8_t *bios, size_t biosSize)
