@@ -1,4 +1,7 @@
 #include "flash.hpp"
+#include "logging.hpp"
+
+#include <iostream>
 
 namespace gbaemu::save
 {
@@ -13,14 +16,17 @@ namespace gbaemu::save
 
             case READ_ID_1:
             case READ_ID_2:
-                //TODO which manufacturer to use?
                 state = static_cast<FLASH_State>(state + 1);
-                result = FLASH_ID_SST[lowerAddr & 1];
+                result = flashID[lowerAddr & 1];
+
+                LOG_SAVE(std::cout << "FLASH: read ID" << std::endl;);
                 break;
 
             case IDLE:
             default:
-                saveFile.read(lowerAddr + offsets64K * (64 << 10), reinterpret_cast<char *>(&result), sizeof(result));
+                saveFile.read(static_cast<uint32_t>(lowerAddr) + static_cast<uint32_t>(offsets64K) * static_cast<uint32_t>(64 << 10), reinterpret_cast<char *>(&result), sizeof(result));
+
+                LOG_SAVE(std::cout << "FLASH: read from: 0x" << std::hex << static_cast<uint32_t>(static_cast<uint32_t>(lowerAddr) + static_cast<uint32_t>(offsets64K) * static_cast<uint32_t>(64 << 10)) << std::endl;);
                 break;
         }
 
@@ -37,10 +43,14 @@ namespace gbaemu::save
                     if (data == FLASH_CMD_START) {
                         state = RECV_INIT;
                     } else if (data == FLASH_CMD_TERMINATE) {
-                        //TODO what to do on terminate command?
+                        state = IDLE;
+
+                        LOG_SAVE(std::cout << "FLASH: WARNING received terminate command" << std::endl;);
                     } else {
-                        //TODO error?
+                        LOG_SAVE(std::cout << "FLASH: protocol error #1" << std::endl;);
                     }
+                } else {
+                    LOG_SAVE(std::cout << "FLASH: protocol error #2" << std::endl;);
                 }
                 break;
 
@@ -48,7 +58,7 @@ namespace gbaemu::save
                 if (address == FLASH_CMD_SEQ2_ADDR && data == FLASH_CMD_INIT) {
                     state = RECV_CMD;
                 } else {
-                    //TODO error?
+                    LOG_SAVE(std::cout << "FLASH: protocol error #3" << std::endl;);
                 }
                 break;
 
@@ -64,12 +74,6 @@ namespace gbaemu::save
                             break;
 
                         case FLASH_CMD_WRITE:
-                            //TODO we need to differentiate between atmel & non atmel
-                            if (/*atmel*/ false) {
-                                count = 128;
-                            } else {
-                                count = 1;
-                            }
                             state = WRITE;
                             break;
 
@@ -78,11 +82,11 @@ namespace gbaemu::save
                             break;
 
                         default:
-                            //TODO error?
+                            LOG_SAVE(std::cout << "FLASH: protocol error #4" << std::endl;);
                             break;
                     }
                 } else {
-                    //TODO error?
+                    LOG_SAVE(std::cout << "FLASH: protocol error #5" << std::endl;);
                 }
                 break;
 
@@ -92,8 +96,10 @@ namespace gbaemu::save
                     if (data == FLASH_CMD_START) {
                         state = static_cast<FLASH_State>(state + 1);
                     } else {
-                        //TODO error?
+                        LOG_SAVE(std::cout << "FLASH: protocol error #6" << std::endl;);
                     }
+                } else {
+                    LOG_SAVE(std::cout << "FLASH: protocol error #7" << std::endl;);
                 }
                 break;
 
@@ -103,8 +109,10 @@ namespace gbaemu::save
                     if (data == FLASH_CMD_INIT) {
                         state = static_cast<FLASH_State>(state + 1);
                     } else {
-                        //TODO error?
+                        LOG_SAVE(std::cout << "FLASH: protocol error #8" << std::endl;);
                     }
+                } else {
+                    LOG_SAVE(std::cout << "FLASH: protocol error #9" << std::endl;);
                 }
                 break;
 
@@ -112,11 +120,15 @@ namespace gbaemu::save
                 if (data == FLASH_CMD_ERASE_CHIP) {
                     saveFile.eraseAll();
                     state = IDLE;
+
+                    LOG_SAVE(std::cout << "FLASH: erase chip" << std::endl;);
                 } else if (data == FLASH_CMD_ERASE_4K) {
-                    saveFile.erase(lowerAddr & 0x0F000 + offsets64K * (64 << 10), 1 << 12);
+                    saveFile.erase(static_cast<uint32_t>(lowerAddr & 0x0F000) + static_cast<uint32_t>(offsets64K) * static_cast<uint32_t>(64 << 10), 1 << 12);
                     state = IDLE;
+
+                    LOG_SAVE(std::cout << "FLASH: erase 4K block: 0x" << std::hex << static_cast<uint32_t>(lowerAddr >> 12) << std::endl;);
                 } else {
-                    //TODO error?
+                    LOG_SAVE(std::cout << "FLASH: protocol error #10" << std::endl;);
                 }
                 break;
 
@@ -124,7 +136,7 @@ namespace gbaemu::save
                 if (address == FLASH_CMD_SEQ1_ADDR && data == FLASH_CMD_TERMINATE) {
                     state = IDLE;
                 } else {
-                    //TODO error?
+                    LOG_SAVE(std::cout << "FLASH: protocol error #11" << std::endl;);
                 }
                 break;
 
@@ -132,16 +144,45 @@ namespace gbaemu::save
                 if (lowerAddr == static_cast<uint16_t>(0)) {
                     offsets64K = data;
                     state = IDLE;
+
+                    LOG_SAVE(std::cout << "FLASH: switch bank: 0x" << std::hex << static_cast<uint32_t>(data) << std::endl;);
                 } else {
-                    //TODO error?
+                    LOG_SAVE(std::cout << "FLASH: protocol error #12" << std::endl;);
                 }
                 break;
 
             case WRITE:
-                saveFile.write(lowerAddr + offsets64K * (64 << 10), reinterpret_cast<const char *>(&data), sizeof(data));
+                saveFile.write(static_cast<uint32_t>(lowerAddr) + static_cast<uint32_t>(offsets64K) * static_cast<uint32_t>(64 << 10), reinterpret_cast<const char *>(&data), sizeof(data));
+                state = IS_WRITE_ATMEL;
+
+                LOG_SAVE(std::cout << "FLASH: write to: 0x" << std::hex << (static_cast<uint32_t>(lowerAddr) + static_cast<uint32_t>(offsets64K) * static_cast<uint32_t>(64 << 10)) << std::endl;);
+                break;
+
+            case IS_WRITE_ATMEL:
+                if (address == FLASH_CMD_SEQ1_ADDR) {
+                    if (data == FLASH_CMD_START) {
+                        state = RECV_INIT;
+                    } else if (data == FLASH_CMD_TERMINATE) {
+                        state = IDLE;
+                    } else {
+                        LOG_SAVE(std::cout << "FLASH: protocol error #13" << std::endl;);
+                    }
+                } else {
+                    saveFile.write(static_cast<uint32_t>(lowerAddr) + static_cast<uint32_t>(offsets64K) * static_cast<uint32_t>(64 << 10), reinterpret_cast<const char *>(&data), sizeof(data));
+                    state = WRITE_ATMEL;
+                    count = 126;
+
+                    LOG_SAVE(std::cout << "FLASH: write ATMEL to: 0x" << std::hex << (static_cast<uint32_t>(lowerAddr) + static_cast<uint32_t>(offsets64K) * static_cast<uint32_t>(64 << 10)) << std::endl;);
+                }
+                break;
+
+            case WRITE_ATMEL:
+                saveFile.write(static_cast<uint32_t>(lowerAddr) + static_cast<uint32_t>(offsets64K) * static_cast<uint32_t>(64 << 10), reinterpret_cast<const char *>(&data), sizeof(data));
                 if (--count == 0) {
                     state = IDLE;
                 }
+
+                LOG_SAVE(std::cout << "FLASH: write ATMEL to: 0x" << std::hex << (static_cast<uint32_t>(lowerAddr) + static_cast<uint32_t>(offsets64K) * static_cast<uint32_t>(64 << 10)) << std::endl;);
                 break;
         }
     }

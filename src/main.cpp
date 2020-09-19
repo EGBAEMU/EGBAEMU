@@ -28,7 +28,7 @@ static void handleSignal(int signum)
     }
 }
 
-static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController, gbaemu::debugger::DebugCLI& debugCLI)
+static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController, gbaemu::debugger::DebugCLI &debugCLI)
 {
 
     gbaemu::debugger::ExecutionHistory history(100);
@@ -78,7 +78,8 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController,
     doRun = false;
 }
 
-static void CLILoop(gbaemu::debugger::DebugCLI& debugCLI) {
+static void CLILoop(gbaemu::debugger::DebugCLI &debugCLI)
+{
     while (doRun) {
         std::string line;
         std::cout << "> ";
@@ -114,7 +115,9 @@ int main(int argc, char **argv)
     /* intialize CPU and print game info */
     gbaemu::CPU cpu;
 
-    if (!cpu.state.memory.loadROM("save.file", reinterpret_cast<const uint8_t *>(buf.data()), buf.size())) {
+    std::string saveFileName(argv[1]);
+    saveFileName += ".sav";
+    if (!cpu.state.memory.loadROM(saveFileName.data(), reinterpret_cast<const uint8_t *>(buf.data()), buf.size())) {
         std::cout << "could not open/create save file" << std::endl;
         return 0;
     }

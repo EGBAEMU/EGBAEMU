@@ -16,14 +16,16 @@ namespace gbaemu::save
         success = file.is_open();
 
         if (success && isNewFile) {
-            erase(0, size);
+            eraseAll();
         }
     }
 
     SaveFile::~SaveFile()
     {
-        if (file.is_open())
+        if (file.is_open()) {
+            file.flush();
             file.close();
+        }
     }
 
     void SaveFile::fill(uint32_t offset, uint32_t size, char value)
@@ -44,6 +46,8 @@ namespace gbaemu::save
         // Restore default settings
         file.fill(prevFill);
         file.width(prevWidth);
+
+        file.flush();
     }
 
     void SaveFile::erase(uint32_t offset, uint32_t size)
@@ -61,6 +65,7 @@ namespace gbaemu::save
     {
         file.seekp(file.beg + offset);
         file.write(writeBuf, size);
+        file.flush();
     }
 
 } // namespace gbaemu::save

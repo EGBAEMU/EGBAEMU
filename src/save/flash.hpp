@@ -48,6 +48,8 @@ namespace gbaemu::save
             BANK_SW,
 
             WRITE,
+            IS_WRITE_ATMEL,
+            WRITE_ATMEL,
 
             //order is important
             READ_ID_1,
@@ -62,8 +64,11 @@ namespace gbaemu::save
         uint8_t offsets64K;
         uint8_t count;
 
+        const uint8_t *const flashID;
+
       public:
-        FLASH(const char *path, bool &success, uint32_t size) : saveFile(path, success, size)
+        //TODO flash might not be detected, if an different vendor was expected!
+        FLASH(const char *path, bool &success, uint32_t size) : saveFile(path, success, size), flashID(size > (64 << 10) ? FLASH_ID_MACRONIX_128K : FLASH_ID_MACRONIX_64K)
         {
             reset();
         }

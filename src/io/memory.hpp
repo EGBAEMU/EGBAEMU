@@ -4,6 +4,7 @@
 #include "decode/inst.hpp"
 #include "io/io_regs.hpp"
 #include "save/eeprom.hpp"
+#include "save/flash.hpp"
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -19,24 +20,25 @@ namespace gbaemu
     class MemWatch
     {
       public:
-        struct Condition
-        {
+        struct Condition {
             uint32_t value;
             bool onRead;
             bool onWrite;
             bool onValueEqual;
             bool onValueChanged;
         };
+
       private:
         std::set<address_t> addresses;
         std::map<address_t, Condition> conditions;
 
         /* address, condition, currValue, on write?, newValue */
         std::function<void(address_t, Condition, uint32_t, bool, uint32_t)> trigger;
-      public:
-        void registerTrigger(const std::function<void(address_t, Condition, uint32_t, bool, uint32_t)>& trig);
 
-        void watchAddress(address_t addr, const Condition& cond);
+      public:
+        void registerTrigger(const std::function<void(address_t, Condition, uint32_t, bool, uint32_t)> &trig);
+
+        void watchAddress(address_t addr, const Condition &cond);
         void unwatchAddress(address_t addr);
 
         /* Watch and trigger are split up for performance reasons. */
@@ -107,8 +109,9 @@ namespace gbaemu
             EXT_ROM3_ = 0x0D,
             EXT_SRAM = 0x0E,
             EXT_SRAM_ = 0x0F,
-            OUT_OF_ROM = 0x42,   // Virtual memory region to indicate access outside of the ROM!
-            EEPROM_REGION = 0x43 // Virtual memory region to signal EEPROM usage
+            OUT_OF_ROM = 0x42,    // Virtual memory region to indicate access outside of the ROM!
+            EEPROM_REGION = 0x43, // Virtual memory region to signal EEPROM usage
+            FLASH_REGION = 0x44   // Virtual memory region to signal flash usage
         };
 
         enum MemoryRegionOffset : uint32_t {
@@ -139,12 +142,13 @@ namespace gbaemu
         };
 
         enum BackupID : uint8_t {
-            EEPROM_V = 0, // 512 bytes or 8 KiB
-            SRAM_V,       // 32 KiB
-            FLASH_V,      // 64 KiB
-            FLASH512_V,   // 64 KiB
-            FLASH1M_V,    // 128 KiB
-            NO_BACKUP     // Not sure if this is allowed?
+            NO_BACKUP = 0, // Not sure if this is allowed?
+            EEPROM_V,      // 512 bytes or 8 KiB
+            SRAM_V,        // 32 KiB
+            // Order is important: no non flash type shall be below this line!
+            FLASH_V,    // 64 KiB
+            FLASH512_V, // 64 KiB
+            FLASH1M_V   // 128 KiB
         };
 
         // the offset within bios code
@@ -181,6 +185,7 @@ namespace gbaemu
 
         static const constexpr uint32_t backupSizes[] = {
             //TODO were do we know the exact size from???
+            0,                               // NO BACKUP TYPE
             /*EEPROM_V_SIZE = */ 8 << 10,    // 512 bytes or 8 KiB
             /*SRAM_V_SIZE = */ 32 << 10,     // 32 KiB
             /*FLASH_V_SIZE = */ 64 << 10,    // 64 KiB
@@ -289,6 +294,7 @@ namespace gbaemu
       public:
         IO_Handler ioHandler;
         save::EEPROM *eeprom;
+        save::FLASH *flash;
         /* We are going to expose this directly becaus this cannot be in an invalid state and I don't have time. */
         MemWatch memWatch;
 
@@ -301,6 +307,7 @@ namespace gbaemu
             oam = GBA_ALLOC_MEM_REG(OAM);
             rom = nullptr;
             eeprom = nullptr;
+            flash = nullptr;
             ext_sram = nullptr;
             bios = customBiosCode;
             externalBiosSize = 0;
@@ -320,6 +327,9 @@ namespace gbaemu
 
             if (eeprom) {
                 eeprom->reset();
+            }
+            if (flash) {
+                flash->reset();
             }
 
             setBiosReadState(BIOS_AFTER_STARTUP);
@@ -346,6 +356,9 @@ namespace gbaemu
             if (eeprom) {
                 delete[] eeprom;
             }
+            if (flash) {
+                delete[] flash;
+            }
 
             wram = nullptr;
             iwram = nullptr;
@@ -355,6 +368,7 @@ namespace gbaemu
             ext_sram = nullptr;
             rom = nullptr;
             eeprom = nullptr;
+            flash = nullptr;
         }
 
         Memory(const Memory &) = delete;
@@ -369,6 +383,10 @@ namespace gbaemu
                 delete[] this->eeprom;
                 this->eeprom = nullptr;
             }
+            if (this->flash) {
+                delete[] this->flash;
+                this->flash = nullptr;
+            }
             this->romSize = romSize;
             this->rom = new uint8_t[this->romSize];
             std::copy_n(rom, romSize, this->rom);
@@ -380,6 +398,10 @@ namespace gbaemu
                 bool loadSuccessful;
                 //TODO how to find out the eeprom size???
                 this->eeprom = new save::EEPROM(eepromFilePath, loadSuccessful /*, romSize >= 0x01000000 ? 14 : 6*/);
+                return loadSuccessful;
+            } else if (backupType >= FLASH_V) {
+                bool loadSuccessful;
+                this->flash = new save::FLASH(eepromFilePath, loadSuccessful, backupSizes[backupType]);
                 return loadSuccessful;
             }
 
@@ -423,7 +445,10 @@ namespace gbaemu
 
         // This is needed to handle memory mirroring
         const uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const;
+        const uint8_t *resolveAddrRef(uint32_t &addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const;
         uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg);
+        uint8_t *resolveAddrRef(uint32_t &addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg);
+        void normalizeAddressRef(uint32_t &addr, MemoryRegion &memReg) const;
         uint32_t normalizeAddress(uint32_t addr, MemoryRegion &memReg) const;
 
         uint8_t cyclesForVirtualAddrNonSeq(MemoryRegion memReg, uint8_t bytesToRead) const;

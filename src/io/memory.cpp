@@ -9,12 +9,12 @@
 
 namespace gbaemu
 {
-    void MemWatch::registerTrigger(const std::function<void(address_t, Condition, uint32_t, bool, uint32_t)>& trig)
+    void MemWatch::registerTrigger(const std::function<void(address_t, Condition, uint32_t, bool, uint32_t)> &trig)
     {
         trigger = trig;
     }
 
-    void MemWatch::watchAddress(address_t addr, const Condition& cond)
+    void MemWatch::watchAddress(address_t addr, const Condition &cond)
     {
         addresses.insert(addr);
         conditions[addr] = cond;
@@ -60,11 +60,11 @@ namespace gbaemu
 
         for (address_t addr : addresses) {
             auto cond = conditions.find(addr)->second;
-            
+
             ss << std::hex << addr << " ["
-                << (cond.onRead ? "r" : "")
-                << (cond.onRead ? "w" : "")
-                << "] " << '\n';
+               << (cond.onRead ? "r" : "")
+               << (cond.onRead ? "w" : "")
+               << "] " << '\n';
         }
 
         return ss.str();
@@ -85,7 +85,7 @@ namespace gbaemu
     uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction) const
     {
         MemoryRegion memReg;
-        const uint8_t *src = resolveAddr(addr, execInfo, memReg);
+        const uint8_t *src = resolveAddrRef(addr, execInfo, memReg);
 
         if (execInfo != nullptr) {
             execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(uint8_t)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(uint8_t));
@@ -104,6 +104,8 @@ namespace gbaemu
             currValue = ioHandler.externalRead8(addr);
         } else if (memReg == EEPROM_REGION) {
             currValue = eeprom->read();
+        } else if (memReg == FLASH_REGION) {
+            currValue = flash->read(addr);
         } else {
             currValue = src[0];
         }
@@ -134,7 +136,7 @@ namespace gbaemu
 
         MemoryRegion memReg;
 
-        const uint8_t *src = resolveAddr(alignedAddr, execInfo, memReg);
+        const uint8_t *src = resolveAddrRef(alignedAddr, execInfo, memReg);
 
         if (execInfo != nullptr) {
             execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(uint16_t)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(uint16_t));
@@ -157,9 +159,11 @@ namespace gbaemu
             } else {
                 currValue = 0x1;
             }
+        } else if (memReg == FLASH_REGION) {
+            currValue = flash->read(addr);
         } else {
             currValue = (static_cast<uint16_t>(src[0]) << 0) |
-                   (static_cast<uint16_t>(src[1]) << 8);
+                        (static_cast<uint16_t>(src[1]) << 8);
         }
 
         if (memWatch.isAddressWatched(addr))
@@ -173,7 +177,7 @@ namespace gbaemu
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(3);
 
         MemoryRegion memReg;
-        const uint8_t *src = resolveAddr(alignedAddr, execInfo, memReg);
+        const uint8_t *src = resolveAddrRef(alignedAddr, execInfo, memReg);
 
         if (execInfo != nullptr) {
             execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(uint32_t)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(uint32_t));
@@ -196,11 +200,13 @@ namespace gbaemu
             } else {
                 currValue = 0x1;
             }
+        } else if (memReg == FLASH_REGION) {
+            currValue = flash->read(addr);
         } else {
             currValue = (static_cast<uint32_t>(src[0]) << 0) |
-                   (static_cast<uint32_t>(src[1]) << 8) |
-                   (static_cast<uint32_t>(src[2]) << 16) |
-                   (static_cast<uint32_t>(src[3]) << 24);
+                        (static_cast<uint32_t>(src[1]) << 8) |
+                        (static_cast<uint32_t>(src[2]) << 16) |
+                        (static_cast<uint32_t>(src[3]) << 24);
         }
 
         if (memWatch.isAddressWatched(addr))
@@ -212,7 +218,7 @@ namespace gbaemu
     void Memory::write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq)
     {
         MemoryRegion memReg;
-        auto dst = resolveAddr(addr, execInfo, memReg);
+        auto dst = resolveAddrRef(addr, execInfo, memReg);
 
         if (execInfo != nullptr) {
             execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(value)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(value));
@@ -227,6 +233,8 @@ namespace gbaemu
             ioHandler.externalWrite8(addr, value);
         } else if (memReg == EEPROM_REGION) {
             eeprom->write(value);
+        } else if (memReg == FLASH_REGION) {
+            flash->write(addr, value);
         } else {
 
             //TODO is this legit?
@@ -247,8 +255,7 @@ namespace gbaemu
                     // Not in bitmap mode:
                     // 0x06010000-0x06017FFF ignored
                     // 0x06000000-0x0600FFFF as BG_OBJ_RAM
-                    uint32_t normalizedAddr = normalizeAddress(addr, memReg);
-                    if (normalizedAddr <= static_cast<uint32_t>(bitMapMode ? 0x0613FFFF : 0x0600FFFF)) {
+                    if (addr <= static_cast<uint32_t>(bitMapMode ? 0x0613FFFF : 0x0600FFFF)) {
                         // Reuse BG_OBJ_RAM code
                     } else {
                         // Else ignored
@@ -277,7 +284,7 @@ namespace gbaemu
         addr = addr & ~static_cast<uint32_t>(1);
 
         MemoryRegion memReg;
-        auto dst = resolveAddr(addr, execInfo, memReg);
+        auto dst = resolveAddrRef(addr, execInfo, memReg);
 
         if (execInfo != nullptr) {
             execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(value)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(value));
@@ -292,6 +299,8 @@ namespace gbaemu
             ioHandler.externalWrite16(addr, value);
         } else if (memReg == EEPROM_REGION) {
             eeprom->write(value);
+        } else if (memReg == FLASH_REGION) {
+            flash->write(addr, value);
         } else {
             if (memWatch.isAddressWatched(addr)) {
                 uint32_t currValue = le<uint16_t>(*reinterpret_cast<const uint16_t *>(dst));
@@ -308,7 +317,7 @@ namespace gbaemu
         addr = addr & ~static_cast<uint32_t>(3);
 
         MemoryRegion memReg;
-        auto dst = resolveAddr(addr, execInfo, memReg);
+        auto dst = resolveAddrRef(addr, execInfo, memReg);
 
         if (execInfo != nullptr) {
             execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(value)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(value));
@@ -323,6 +332,8 @@ namespace gbaemu
             ioHandler.externalWrite32(addr, value);
         } else if (memReg == EEPROM_REGION) {
             eeprom->write(value);
+        } else if (memReg == FLASH_REGION) {
+            flash->write(addr, value);
         } else {
             if (memWatch.isAddressWatched(addr)) {
                 uint32_t currValue = le<uint32_t>(*reinterpret_cast<const uint32_t *>(dst));
@@ -366,18 +377,24 @@ namespace gbaemu
     https://mgba.io/2014/12/28/classic-nes/
     */
 
-#define PATCH_MEM_ADDR(addr, x) \
-    case x:                     \
-        return (addr & x##_LIMIT)
+#define PATCH_MEM_ADDR(addr, x)    \
+    case x:                        \
+        addr = (addr & x##_LIMIT); \
+        break
 
     uint32_t Memory::normalizeAddress(uint32_t addr, MemoryRegion &memReg) const
+    {
+        normalizeAddressRef(addr, memReg);
+        return addr;
+    }
+
+    void Memory::normalizeAddressRef(uint32_t &addr, MemoryRegion &memReg) const
     {
         memReg = static_cast<MemoryRegion>((addr >> 24) & 0x0F);
 
         addr = addr & 0x0FFFFFFF;
 
         switch (memReg) {
-            //PATCH_MEM_ADDR(addr, BIOS);
             PATCH_MEM_ADDR(addr, WRAM);
             PATCH_MEM_ADDR(addr, IWRAM);
             PATCH_MEM_ADDR(addr, BG_OBJ_RAM);
@@ -405,6 +422,8 @@ namespace gbaemu
                 if (backupType == SRAM_V) {
                     // Handle 32K SRAM chips mirroring: (subtract 32K if >= 32K (last 32K block))
                     addr -= (addr >= (EXT_SRAM_OFFSET | (static_cast<uint32_t>(32) << 10)) ? (static_cast<uint32_t>(32) << 10) : 0);
+                } else if (backupType >= FLASH_V) {
+                    memReg = FLASH_REGION;
                 }
                 break;
             }
@@ -421,11 +440,11 @@ namespace gbaemu
                     //  => So basically the whole EXT3 now can be used for the EEPROM
                     if (getRomSize() <= 0x01000000) {
                         memReg = EEPROM_REGION;
-                        return internalAddress;
+                        addr = internalAddress;
                         // In all other cases the EEPROM can be accessed from DFFFF00h..DFFFFFFh.
                     } else if (internalAddress >= 0x00FFFF00) {
                         memReg = EEPROM_REGION;
-                        return internalAddress & 0x000000FF;
+                        addr = internalAddress & 0x000000FF;
                     }
                 }
 
@@ -454,15 +473,16 @@ namespace gbaemu
                     // Indicate out of ROM!!!
                     memReg = OUT_OF_ROM;
                 }
-                return romOffset + EXT_ROM_OFFSET;
+                addr = romOffset + EXT_ROM_OFFSET;
+                break;
             }
             // IO is not mirrored
             case IO_REGS:
+            // Bios is not mirrored
+            case BIOS:
             default:
                 break;
         }
-
-        return addr;
     }
 
 #define COMBINE_MEM_ADDR(addr, x, storage) \
@@ -476,9 +496,14 @@ namespace gbaemu
 
     const uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const
     {
+        return resolveAddrRef(addr, execInfo, memReg);
+    }
+
+    const uint8_t *Memory::resolveAddrRef(uint32_t &addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const
+    {
         static const uint8_t zeroMem[4] = {0};
 
-        addr = normalizeAddress(addr, memReg);
+        normalizeAddressRef(addr, memReg);
 
         switch (memReg) {
             //COMBINE_MEM_ADDR(addr, BIOS, bios);
@@ -487,6 +512,7 @@ namespace gbaemu
             COMBINE_MEM_ADDR(addr, BG_OBJ_RAM, bg_obj_ram);
             COMBINE_MEM_ADDR(addr, VRAM, vram);
             COMBINE_MEM_ADDR(addr, OAM, oam);
+            case FLASH_REGION:
             case EXT_SRAM:
             case EXT_SRAM_:
                 if (backupType != NO_BACKUP) {
@@ -524,9 +550,14 @@ namespace gbaemu
 
     uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg)
     {
+        return resolveAddrRef(addr, execInfo, memReg);
+    }
+
+    uint8_t *Memory::resolveAddrRef(uint32_t &addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg)
+    {
         static uint8_t wasteMem[4];
 
-        addr = normalizeAddress(addr, memReg);
+        normalizeAddressRef(addr, memReg);
 
         switch (memReg) {
             //COMBINE_MEM_ADDR(addr, BIOS, bios);
@@ -535,6 +566,7 @@ namespace gbaemu
             COMBINE_MEM_ADDR(addr, BG_OBJ_RAM, bg_obj_ram);
             COMBINE_MEM_ADDR(addr, VRAM, vram);
             COMBINE_MEM_ADDR(addr, OAM, oam);
+            case FLASH_REGION:
             case EXT_SRAM:
             case EXT_SRAM_:
                 if (backupType != NO_BACKUP) {
@@ -626,6 +658,7 @@ namespace gbaemu
                 uint8_t accessTimes = (bytesToRead + 1) / 2;
                 return accessTimes * 4 + accessTimes;
             }
+            case FLASH_REGION:
             case EXT_SRAM_:
             case EXT_SRAM:
                 // Only 8 bit bus -> accesTimes = bytesToRead
@@ -689,6 +722,7 @@ namespace gbaemu
                 uint8_t accessTimes = (bytesToRead + 1) / 2;
                 return accessTimes * 2 + accessTimes;
             }
+            case FLASH_REGION:
             case EXT_SRAM_:
             case EXT_SRAM:
                 // Only 8 bit bus -> accesTimes = bytesToRead
@@ -742,7 +776,7 @@ namespace gbaemu
                         // Is there a token to compare to left? if not we got a match!
                         if (*currentParsingState[k] == '\0') {
                             std::cout << "INFO: Found backup id: " << parsingStrs[k] << std::endl;
-                            backupType = static_cast<BackupID>(k);
+                            backupType = static_cast<BackupID>(k + 1);
 
                             // Allocate needed memory
                             ext_sram = new uint8_t[backupSizes[k]];
