@@ -50,9 +50,9 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController,
     //charlie.registerTrap(bp2);
     //charlie.registerTrap(bp3);
 
-    std::chrono::high_resolution_clock::time_point t;
-
     lcdController.updateReferences();
+
+    std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
 
     for (uint32_t j = 0; doRun; ++j) {
         if (debugCLI.step()) {
