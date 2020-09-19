@@ -13,8 +13,6 @@ namespace gbaemu
     instruction set
     http://www.ecs.csun.edu/~smirzaei/docs/ece425/arm7tdmi_instruction_set_reference.pdf
  */
-    struct InstructionExecutionException {
-    };
 
     struct InstructionExecutionInfo {
         /*
@@ -57,10 +55,6 @@ namespace gbaemu
         // Needed for infinite loops caused by branching to current PC value -> no PC change would otherwise be interpreted as normal instruction and execution continues at PC + 4
         bool forceBranch;
         bool hasCausedException;
-        InstructionExecutionException exception;
-
-        // DMA specific stuff
-        bool dmaExecutes;
 
         // CPU halting
         bool haltCPU;

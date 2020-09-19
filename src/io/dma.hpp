@@ -127,7 +127,7 @@ namespace gbaemu
       public:
         DMA(DMAChannel channel, CPU *cpu);
 
-        InstructionExecutionInfo step();
+        bool step(InstructionExecutionInfo &info);
 
         void reset();
 

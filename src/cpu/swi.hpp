@@ -10,7 +10,7 @@ namespace gbaemu
 
     namespace swi
     {
-        typedef InstructionExecutionInfo SWIHandler(CPU *);
+        typedef void SWIHandler(InstructionExecutionInfo &, CPU *);
 
         SWIHandler softReset;
         SWIHandler registerRamReset;

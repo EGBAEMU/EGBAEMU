@@ -9,104 +9,103 @@
 namespace gbaemu
 {
 
-    const std::function<InstructionExecutionInfo(arm::ARMInstruction &, CPU *)> CPU::armExecuteHandler[] = {
+    const std::function<void(InstructionExecutionInfo &, arm::ARMInstruction &, CPU *)> CPU::armExecuteHandler[] = {
         // Category: MUL_ACC
-        [](arm::ARMInstruction &armInst, CPU *cpu) { return cpu->handleMultAcc(armInst.params.mul_acc.a,
-                                                                               armInst.params.mul_acc.s,
-                                                                               armInst.params.mul_acc.rd,
-                                                                               armInst.params.mul_acc.rn,
-                                                                               armInst.params.mul_acc.rs,
-                                                                               armInst.params.mul_acc.rm); },
+        [](InstructionExecutionInfo &info, arm::ARMInstruction &armInst, CPU *cpu) { cpu->handleMultAcc(info,
+                                                                                                        armInst.params.mul_acc.a,
+                                                                                                        armInst.params.mul_acc.s,
+                                                                                                        armInst.params.mul_acc.rd,
+                                                                                                        armInst.params.mul_acc.rn,
+                                                                                                        armInst.params.mul_acc.rs,
+                                                                                                        armInst.params.mul_acc.rm); },
         // Category: MUL_ACC_LONG
-        [](arm::ARMInstruction &armInst, CPU *cpu) { return cpu->handleMultAccLong(armInst.params.mul_acc_long.u,
-                                                                                   armInst.params.mul_acc_long.a,
-                                                                                   armInst.params.mul_acc_long.s,
-                                                                                   armInst.params.mul_acc_long.rd_msw,
-                                                                                   armInst.params.mul_acc_long.rd_lsw,
-                                                                                   armInst.params.mul_acc_long.rs,
-                                                                                   armInst.params.mul_acc_long.rm); },
+        [](InstructionExecutionInfo &info, arm::ARMInstruction &armInst, CPU *cpu) { cpu->handleMultAccLong(info, armInst.params.mul_acc_long.u,
+                                                                                                            armInst.params.mul_acc_long.a,
+                                                                                                            armInst.params.mul_acc_long.s,
+                                                                                                            armInst.params.mul_acc_long.rd_msw,
+                                                                                                            armInst.params.mul_acc_long.rd_lsw,
+                                                                                                            armInst.params.mul_acc_long.rs,
+                                                                                                            armInst.params.mul_acc_long.rm); },
         // Category: BRANCH_XCHG
-        [](arm::ARMInstruction &armInst, CPU *cpu) { return cpu->handleBranchAndExchange(armInst.params.branch_xchg.rn); },
+        [](InstructionExecutionInfo &info, arm::ARMInstruction &armInst, CPU *cpu) { cpu->handleBranchAndExchange(info, armInst.params.branch_xchg.rn); },
         // Category: DATA_SWP
-        [](arm::ARMInstruction &armInst, CPU *cpu) { return cpu->handleDataSwp(armInst.params.data_swp.b,
-                                                                               armInst.params.data_swp.rn,
-                                                                               armInst.params.data_swp.rd,
-                                                                               armInst.params.data_swp.rm); },
+        [](InstructionExecutionInfo &info, arm::ARMInstruction &armInst, CPU *cpu) { cpu->handleDataSwp(info,
+                                                                                                        armInst.params.data_swp.b,
+                                                                                                        armInst.params.data_swp.rn,
+                                                                                                        armInst.params.data_swp.rd,
+                                                                                                        armInst.params.data_swp.rm); },
         // Category: HW_TRANSF_REG_OFF
-        [](arm::ARMInstruction &armInst, CPU *cpu) { return cpu->execHalfwordDataTransferImmRegSignedTransfer(
-                                                         armInst.params.hw_transf_reg_off.p,
-                                                         armInst.params.hw_transf_reg_off.u,
-                                                         armInst.params.hw_transf_reg_off.l,
-                                                         armInst.params.hw_transf_reg_off.w,
-                                                         false,
-                                                         armInst.params.hw_transf_reg_off.rn,
-                                                         armInst.params.hw_transf_reg_off.rd,
-                                                         cpu->state.accessReg(armInst.params.hw_transf_reg_off.rm),
-                                                         16); },
+        [](InstructionExecutionInfo &info, arm::ARMInstruction &armInst, CPU *cpu) { cpu->execHalfwordDataTransferImmRegSignedTransfer(
+                                                                                         info,
+                                                                                         armInst.params.hw_transf_reg_off.p,
+                                                                                         armInst.params.hw_transf_reg_off.u,
+                                                                                         armInst.params.hw_transf_reg_off.l,
+                                                                                         armInst.params.hw_transf_reg_off.w,
+                                                                                         false,
+                                                                                         armInst.params.hw_transf_reg_off.rn,
+                                                                                         armInst.params.hw_transf_reg_off.rd,
+                                                                                         cpu->state.accessReg(armInst.params.hw_transf_reg_off.rm),
+                                                                                         16); },
         // Category: HW_TRANSF_IMM_OFF
-        [](arm::ARMInstruction &armInst, CPU *cpu) { return cpu->execHalfwordDataTransferImmRegSignedTransfer(
-                                                         armInst.params.hw_transf_imm_off.p,
-                                                         armInst.params.hw_transf_imm_off.u,
-                                                         armInst.params.hw_transf_imm_off.l,
-                                                         armInst.params.hw_transf_imm_off.w,
-                                                         false,
-                                                         armInst.params.hw_transf_imm_off.rn,
-                                                         armInst.params.hw_transf_imm_off.rd,
-                                                         armInst.params.hw_transf_imm_off.offset,
-                                                         16); },
+        [](InstructionExecutionInfo &info, arm::ARMInstruction &armInst, CPU *cpu) { cpu->execHalfwordDataTransferImmRegSignedTransfer(
+                                                                                         info,
+                                                                                         armInst.params.hw_transf_imm_off.p,
+                                                                                         armInst.params.hw_transf_imm_off.u,
+                                                                                         armInst.params.hw_transf_imm_off.l,
+                                                                                         armInst.params.hw_transf_imm_off.w,
+                                                                                         false,
+                                                                                         armInst.params.hw_transf_imm_off.rn,
+                                                                                         armInst.params.hw_transf_imm_off.rd,
+                                                                                         armInst.params.hw_transf_imm_off.offset,
+                                                                                         16); },
         // Category: SIGN_TRANSF
-        [](arm::ARMInstruction &armInst, CPU *cpu) { return cpu->execHalfwordDataTransferImmRegSignedTransfer(
-                                                         armInst.params.sign_transf.p,
-                                                         armInst.params.sign_transf.u,
-                                                         armInst.params.sign_transf.l,
-                                                         armInst.params.sign_transf.w,
-                                                         true,
-                                                         armInst.params.sign_transf.rn,
-                                                         armInst.params.sign_transf.rd,
-                                                         armInst.params.sign_transf.b ? armInst.params.sign_transf.addrMode : cpu->state.accessReg(armInst.params.sign_transf.addrMode & 0x0F),
-                                                         armInst.params.sign_transf.h ? 16 : 8); },
+        [](InstructionExecutionInfo &info, arm::ARMInstruction &armInst, CPU *cpu) { cpu->execHalfwordDataTransferImmRegSignedTransfer(
+                                                                                         info,
+                                                                                         armInst.params.sign_transf.p,
+                                                                                         armInst.params.sign_transf.u,
+                                                                                         armInst.params.sign_transf.l,
+                                                                                         armInst.params.sign_transf.w,
+                                                                                         true,
+                                                                                         armInst.params.sign_transf.rn,
+                                                                                         armInst.params.sign_transf.rd,
+                                                                                         armInst.params.sign_transf.b ? armInst.params.sign_transf.addrMode : cpu->state.accessReg(armInst.params.sign_transf.addrMode & 0x0F),
+                                                                                         armInst.params.sign_transf.h ? 16 : 8); },
         // Category: DATA_PROC_PSR_TRANSF
-        [](arm::ARMInstruction &armInst, CPU *cpu) { return cpu->execDataProc(armInst); },
+        [](InstructionExecutionInfo &info, arm::ARMInstruction &armInst, CPU *cpu) { cpu->execDataProc(info, armInst); },
         // Category: LS_REG_UBYTE
-        [](arm::ARMInstruction &armInst, CPU *cpu) { return cpu->execLoadStoreRegUByte(armInst); },
+        [](InstructionExecutionInfo &info, arm::ARMInstruction &armInst, CPU *cpu) { cpu->execLoadStoreRegUByte(info, armInst); },
         // Category: BLOCK_DATA_TRANSF
-        [](arm::ARMInstruction &armInst, CPU *cpu) { return cpu->execDataBlockTransfer(armInst); },
+        [](InstructionExecutionInfo &info, arm::ARMInstruction &armInst, CPU *cpu) { cpu->execDataBlockTransfer(info, armInst); },
         // Category: BRANCH
-        [](arm::ARMInstruction &armInst, CPU *cpu) { return cpu->handleBranch(armInst.params.branch.l, armInst.params.branch.offset); },
+        [](InstructionExecutionInfo &info, arm::ARMInstruction &armInst, CPU *cpu) { cpu->handleBranch(info, armInst.params.branch.l, armInst.params.branch.offset); },
         // Category: SOFTWARE_INTERRUPT
-        [](arm::ARMInstruction &armInst, CPU *cpu) {
+        [](InstructionExecutionInfo &info, arm::ARMInstruction &armInst, CPU *cpu) {
             if (cpu->state.memory.usesExternalBios()) {
-                return swi::callBiosCodeSWIHandler(cpu);
+                swi::callBiosCodeSWIHandler(info, cpu);
             } else {
                 uint8_t index = armInst.params.software_interrupt.comment >> 16;
                 if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
                     if (index != 5 && index != 0x2B) {
                         LOG_SWI(std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;);
                     }
-                    return swi::biosCallHandler[index](cpu);
+                    swi::biosCallHandler[index](info, cpu);
                 } else {
                     std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
                 }
-                return InstructionExecutionInfo{0};
             }
         },
         /*
         // Category: INVALID_CAT
-        [](arm::ARMInstruction &armInst, CPU *cpu) {
+        [](InstructionExecutionInfo &info, arm::ARMInstruction &armInst, CPU *cpu) {
             std::cout << "ERROR: trying to execute invalid ARM instruction! PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
-            InstructionExecutionInfo info{0};
             info.hasCausedException = true;
-            return info;
         },
         */
     };
 
-    InstructionExecutionInfo CPU::handleMultAcc(bool a, bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm)
+    void CPU::handleMultAcc(InstructionExecutionInfo &info, bool a, bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm)
     {
         // Check given restrictions
-        if (rd == rm) {
-            //std::cout << "ERROR: MUL/MLA destination register may not be the same as the first operand!" << std::endl;
-        }
         if (rd == regs::PC_OFFSET || rn == regs::PC_OFFSET || rs == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
             std::cout << "ERROR: MUL/MLA PC register may not be involved in calculations!" << std::endl;
         }
@@ -139,11 +138,10 @@ namespace gbaemu
         }
 
         /*
-            Execution Time: 1S+mI for MUL, and 1S+(m+1)I for MLA.
-            Whereas 'm' depends on whether/how many most significant bits of Rs are all zero or all one.
-            That is m=1 for Bit 31-8, m=2 for Bit 31-16, m=3 for Bit 31-24, and m=4 otherwise.
-            */
-        InstructionExecutionInfo info{0};
+        Execution Time: 1S+mI for MUL, and 1S+(m+1)I for MLA.
+        Whereas 'm' depends on whether/how many most significant bits of Rs are all zero or all one.
+        That is m=1 for Bit 31-8, m=2 for Bit 31-16, m=3 for Bit 31-24, and m=4 otherwise.
+        */
         // bool a decides if it is a MLAL instruction or MULL
         info.cycleCount = (a ? 1 : 0);
 
@@ -156,11 +154,9 @@ namespace gbaemu
         } else {
             info.cycleCount += 4;
         }
-
-        return info;
     }
 
-    InstructionExecutionInfo CPU::handleMultAccLong(bool signMul, bool a, bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm)
+    void CPU::handleMultAccLong(InstructionExecutionInfo &info, bool signMul, bool a, bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm)
     {
         if (rd_lsw == rd_msw || rd_lsw == rm || rd_msw == rm) {
             std::cout << "ERROR: SMULL/SMLAL/UMULL/UMLAL lo, high & rm registers may not be the same!" << std::endl;
@@ -219,12 +215,11 @@ namespace gbaemu
         }
 
         /*
-            Execution Time: 1S+(m+1)I for MULL, and 1S+(m+2)I for MLAL.
-            Whereas 'm' depends on whether/how many most significant bits of Rs are "all zero" (UMULL/UMLAL)
-            or "all zero or all one" (SMULL,SMLAL).
-            That is m=1 for Bit31-8, m=2 for Bit31-16, m=3 for Bit31-24, and m=4 otherwise.
-            */
-        InstructionExecutionInfo info{0};
+        Execution Time: 1S+(m+1)I for MULL, and 1S+(m+2)I for MLAL.
+        Whereas 'm' depends on whether/how many most significant bits of Rs are "all zero" (UMULL/UMLAL)
+        or "all zero or all one" (SMULL,SMLAL).
+        That is m=1 for Bit31-8, m=2 for Bit31-16, m=3 for Bit31-24, and m=4 otherwise.
+        */
         // bool a decides if it is a MLAL instruction or MULL
         info.cycleCount = (a ? 2 : 1);
 
@@ -237,11 +232,9 @@ namespace gbaemu
         } else {
             info.cycleCount += 4;
         }
-
-        return info;
     }
 
-    InstructionExecutionInfo CPU::handleDataSwp(bool b, uint8_t rn, uint8_t rd, uint8_t rm)
+    void CPU::handleDataSwp(InstructionExecutionInfo &info, bool b, uint8_t rn, uint8_t rd, uint8_t rm)
     {
         //TODO maybe replace by LDR followed by STR?
 
@@ -254,7 +247,7 @@ namespace gbaemu
         uint32_t memAddr = *currentRegs[rn];
 
         // Execution Time: 1S+2N+1I. That is, 2N data cycles (added through Memory class), 1S code cycle, plus 1I(initial value)
-        InstructionExecutionInfo info{0};
+
         info.cycleCount = 1;
 
         if (b) {
@@ -270,12 +263,10 @@ namespace gbaemu
             // STR part
             state.memory.write32(memAddr, newMemVal, &info);
         }
-
-        return info;
     }
 
     // Executes instructions belonging to the branch subsection
-    InstructionExecutionInfo CPU::handleBranch(bool link, int32_t offset)
+    void CPU::handleBranch(InstructionExecutionInfo &info, bool link, int32_t offset)
     {
         uint32_t pc = state.getCurrentPC();
 
@@ -292,18 +283,16 @@ namespace gbaemu
         state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(pc) + 8 + offset);
 
         // Execution Time: 2S + 1N
-        InstructionExecutionInfo info{0};
+
         info.additionalProgCyclesN = 1;
         info.additionalProgCyclesS = 1;
 
         // This is a branch instruction so we need to consider self branches!
         info.forceBranch = true;
-
-        return info;
     }
 
     // Executes instructions belonging to the branch and execute subsection
-    InstructionExecutionInfo CPU::handleBranchAndExchange(uint8_t rn)
+    void CPU::handleBranchAndExchange(InstructionExecutionInfo &info, uint8_t rn)
     {
         auto currentRegs = state.getCurrentRegs();
 
@@ -320,18 +309,16 @@ namespace gbaemu
         state.accessReg(regs::PC_OFFSET) = rnValue & 0xFFFFFFFE;
 
         // Execution Time: 2S + 1N
-        InstructionExecutionInfo info{0};
+
         info.additionalProgCyclesN = 1;
         info.additionalProgCyclesS = 1;
 
         // This is a branch instruction so we need to consider self branches!
         info.forceBranch = true;
-
-        return info;
     }
 
     /* ALU functions */
-    InstructionExecutionInfo CPU::execDataProc(arm::ARMInstruction &inst, bool thumb)
+    void CPU::execDataProc(InstructionExecutionInfo &info, arm::ARMInstruction &inst, bool thumb)
     {
 
         bool carry = state.getFlag(cpsr_flags::C_FLAG);
@@ -545,7 +532,6 @@ namespace gbaemu
         if (dontUpdateRD.find(inst.id) == dontUpdateRD.end())
             state.accessReg(inst.params.data_proc_psr_transf.rd) = static_cast<uint32_t>(resultValue);
 
-        InstructionExecutionInfo info{0};
         bool destPC = inst.params.data_proc_psr_transf.rd == regs::PC_OFFSET;
 
         if (destPC) {
@@ -555,11 +541,9 @@ namespace gbaemu
         if (shiftByReg) {
             info.cycleCount += 1;
         }
-
-        return info;
     }
 
-    InstructionExecutionInfo CPU::execDataBlockTransfer(arm::ARMInstruction &inst, bool thumb)
+    void CPU::execDataBlockTransfer(InstructionExecutionInfo &info, arm::ARMInstruction &inst, bool thumb)
     {
         auto currentRegs = state.getCurrentRegs();
 
@@ -581,7 +565,7 @@ namespace gbaemu
         // Execution Time:
         // For normal LDM, nS+1N+1I. For LDM PC, (n+1)S+2N+1I.
         // For STM (n-1)S+2N. Where n is the number of words transferred.
-        InstructionExecutionInfo info{0};
+
         if (load) {
             // handle +1I
             info.cycleCount = 1;
@@ -702,11 +686,9 @@ namespace gbaemu
         } else if (writeback) {
             *currentRegs[rn] = address;
         }
-
-        return info;
     }
 
-    InstructionExecutionInfo CPU::execLoadStoreRegUByte(const arm::ARMInstruction &inst, bool thumb)
+    void CPU::execLoadStoreRegUByte(InstructionExecutionInfo &info, const arm::ARMInstruction &inst, bool thumb)
     {
         /*
                 Opcode Format
@@ -765,7 +747,7 @@ namespace gbaemu
         uint32_t offset;
 
         // Execution Time: For normal LDR: 1S+1N+1I. For LDR PC: 2S+2N+1I. For STR: 2N.
-        InstructionExecutionInfo info{0};
+
         if (load) {
             // 1 I for beeing complex
             info.cycleCount = 1;
@@ -847,12 +829,10 @@ namespace gbaemu
 
         if ((!pre || writeback) && (!load || rn != rd))
             *currentRegs[rn] = memoryAddress;
-
-        return info;
     }
 
-    InstructionExecutionInfo CPU::execHalfwordDataTransferImmRegSignedTransfer(bool pre, bool up, bool load, bool writeback, bool sign,
-                                                                               uint8_t rn, uint8_t rd, uint32_t offset, uint8_t transferSize, bool thumb)
+    void CPU::execHalfwordDataTransferImmRegSignedTransfer(InstructionExecutionInfo &info, bool pre, bool up, bool load, bool writeback, bool sign,
+                                                           uint8_t rn, uint8_t rd, uint32_t offset, uint8_t transferSize, bool thumb)
     {
         /*
                 Bit    Expl.
@@ -892,7 +872,7 @@ namespace gbaemu
              */
 
         //Execution Time: For Normal LDR, 1S+1N+1I. For LDR PC, 2S+2N+1I. For STRH 2N
-        InstructionExecutionInfo info{0};
+
         // both instructions have a + 1I for being complex
         if (load) {
             // 1N is handled by Memory class & 1S is handled globally
@@ -966,7 +946,5 @@ namespace gbaemu
 
             state.accessReg(rn) = memoryAddress;
         }
-
-        return info;
     }
 } // namespace gbaemu

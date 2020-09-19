@@ -329,7 +329,6 @@ namespace gbaemu::debugger
         }
 
         address_t pc = cpu.state.accessReg(regs::PC_OFFSET);
-        //BREAK(pc == 0x0807c4e6);
 
         if (pc != prevPC) {
             if (state == RUNNING) {

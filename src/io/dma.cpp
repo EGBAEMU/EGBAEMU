@@ -15,7 +15,7 @@ namespace gbaemu
     void DMA::reset()
     {
         state = IDLE;
-        std::fill_n(reinterpret_cast<char*>(&regs), sizeof(regs), 0);
+        std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
     }
 
     const char *DMA::countTypeToStr(AddrCntType updateKind)
@@ -52,9 +52,9 @@ namespace gbaemu
                 std::bind(&DMA::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
     }
 
-    InstructionExecutionInfo DMA::step()
+    bool DMA::step(InstructionExecutionInfo &info)
     {
-        InstructionExecutionInfo info{0};
+        bool letCpuExecute = true;
 
         // FSM actions
         switch (state) {
@@ -103,7 +103,7 @@ namespace gbaemu
                 if (checkForUserAbort()) {
                     break;
                 }
-                info.dmaExecutes = true;
+                letCpuExecute = false;
 
                 state = SEQ_COPY;
 
@@ -127,7 +127,7 @@ namespace gbaemu
                 if (checkForUserAbort()) {
                     break;
                 }
-                info.dmaExecutes = true;
+                letCpuExecute = false;
 
                 if (count == 0) {
                     state = DONE;
@@ -167,7 +167,7 @@ namespace gbaemu
             }
         }
 
-        return info;
+        return letCpuExecute;
     }
 
     bool DMA::checkForUserAbort()

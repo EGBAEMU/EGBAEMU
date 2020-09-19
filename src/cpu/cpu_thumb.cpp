@@ -9,94 +9,89 @@
 namespace gbaemu
 {
 
-    const std::function<InstructionExecutionInfo(thumb::ThumbInstruction &, CPU *)> CPU::thumbExecuteHandler[] = {
+    const std::function<void(InstructionExecutionInfo &, thumb::ThumbInstruction &, CPU *)> CPU::thumbExecuteHandler[] = {
         // Category: MOV_SHIFT
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbMoveShiftedReg(thumbInst.id, thumbInst.params.mov_shift.rs, thumbInst.params.mov_shift.rd, thumbInst.params.mov_shift.offset); },
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbMoveShiftedReg(info, thumbInst.id, thumbInst.params.mov_shift.rs, thumbInst.params.mov_shift.rd, thumbInst.params.mov_shift.offset); },
         // Category: ADD_SUB
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbAddSubtract(thumbInst.id, thumbInst.params.add_sub.rd, thumbInst.params.add_sub.rs, thumbInst.params.add_sub.rn_offset); },
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbAddSubtract(info, thumbInst.id, thumbInst.params.add_sub.rd, thumbInst.params.add_sub.rs, thumbInst.params.add_sub.rn_offset); },
         // Category: MOV_CMP_ADD_SUB_IMM
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            return cpu->handleThumbMovCmpAddSubImm(thumbInst.id, thumbInst.params.mov_cmp_add_sub_imm.rd, thumbInst.params.mov_cmp_add_sub_imm.offset);
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            cpu->handleThumbMovCmpAddSubImm(info, thumbInst.id, thumbInst.params.mov_cmp_add_sub_imm.rd, thumbInst.params.mov_cmp_add_sub_imm.offset);
         },
         // Category: ALU_OP
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            return cpu->handleThumbALUops(thumbInst.id, thumbInst.params.alu_op.rs, thumbInst.params.alu_op.rd);
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            cpu->handleThumbALUops(info, thumbInst.id, thumbInst.params.alu_op.rs, thumbInst.params.alu_op.rd);
         },
         // Category: BR_XCHG
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            return cpu->handleThumbBranchXCHG(thumbInst.id, thumbInst.params.br_xchg.rd, thumbInst.params.br_xchg.rs);
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            cpu->handleThumbBranchXCHG(info, thumbInst.id, thumbInst.params.br_xchg.rd, thumbInst.params.br_xchg.rs);
         },
         // Category: PC_LD
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbLoadStore(thumbInst); },
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbLoadStore(info, thumbInst); },
         // Category: LD_ST_REL_OFF
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbLoadStore(thumbInst); },
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbLoadStore(info, thumbInst); },
         // Category: LD_ST_SIGN_EXT
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbLoadStoreSignHalfword(thumbInst); },
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbLoadStoreSignHalfword(info, thumbInst); },
         // Category: LD_ST_IMM_OFF
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbLoadStore(thumbInst); },
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbLoadStore(info, thumbInst); },
         // Category: LD_ST_HW
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbLoadStoreSignHalfword(thumbInst); },
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbLoadStoreSignHalfword(info, thumbInst); },
         // Category: LD_ST_REL_SP
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbLoadStore(thumbInst); },
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbLoadStore(info, thumbInst); },
         // Category: LOAD_ADDR
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { return cpu->handleThumbRelAddr(thumbInst.params.load_addr.sp, thumbInst.params.load_addr.offset, thumbInst.params.load_addr.rd); },
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbRelAddr(info, thumbInst.params.load_addr.sp, thumbInst.params.load_addr.offset, thumbInst.params.load_addr.rd); },
         // Category: ADD_OFFSET_TO_STACK_PTR
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            return cpu->handleThumbAddOffsetToStackPtr(thumbInst.params.add_offset_to_stack_ptr.s, thumbInst.params.add_offset_to_stack_ptr.offset);
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            cpu->handleThumbAddOffsetToStackPtr(info, thumbInst.params.add_offset_to_stack_ptr.s, thumbInst.params.add_offset_to_stack_ptr.offset);
         },
         // Category: PUSH_POP_REG
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            return cpu->handleThumbPushPopRegister(thumbInst.params.push_pop_reg.l, thumbInst.params.push_pop_reg.r, thumbInst.params.push_pop_reg.rlist);
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            cpu->handleThumbPushPopRegister(info, thumbInst.params.push_pop_reg.l, thumbInst.params.push_pop_reg.r, thumbInst.params.push_pop_reg.rlist);
         },
         // Category: MULT_LOAD_STORE
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            return cpu->handleThumbMultLoadStore(thumbInst.params.mult_load_store.l, thumbInst.params.mult_load_store.rb, thumbInst.params.mult_load_store.rlist);
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            cpu->handleThumbMultLoadStore(info, thumbInst.params.mult_load_store.l, thumbInst.params.mult_load_store.rb, thumbInst.params.mult_load_store.rlist);
         },
         // Category: COND_BRANCH
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            return cpu->handleThumbConditionalBranch(thumbInst.params.cond_branch.cond, thumbInst.params.cond_branch.offset);
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            cpu->handleThumbConditionalBranch(info, thumbInst.params.cond_branch.cond, thumbInst.params.cond_branch.offset);
         },
         // Category: SOFTWARE_INTERRUPT
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) {
             if (cpu->state.memory.usesExternalBios()) {
-                return swi::callBiosCodeSWIHandler(cpu);
+                swi::callBiosCodeSWIHandler(info, cpu);
             } else {
                 uint8_t index = thumbInst.params.software_interrupt.comment;
                 if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
                     if (index != 5 && index != 0x2B) {
                         LOG_SWI(std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;);
                     }
-                    return swi::biosCallHandler[index](cpu);
+                    swi::biosCallHandler[index](info, cpu);
                 } else {
                     std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
                 }
-                return InstructionExecutionInfo{0};
             }
         },
         // Category: UNCONDITIONAL_BRANCH
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            return cpu->handleThumbUnconditionalBranch(thumbInst.params.unconditional_branch.offset);
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            cpu->handleThumbUnconditionalBranch(info, thumbInst.params.unconditional_branch.offset);
         },
         // Category: LONG_BRANCH_WITH_LINK
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            return cpu->handleThumbLongBranchWithLink(thumbInst.params.long_branch_with_link.h, thumbInst.params.long_branch_with_link.offset);
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+            cpu->handleThumbLongBranchWithLink(info, thumbInst.params.long_branch_with_link.h, thumbInst.params.long_branch_with_link.offset);
         },
         /*
         // Category: INVALID_CAT
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
+        [](InstructionExecutionInfo &info, thumb::ThumbInstruction &thumbInst, CPU *cpu) {
             std::cout << "ERROR: trying to execute invalid THUMB instruction! PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
-            InstructionExecutionInfo info{0};
             info.hasCausedException = true;
-            return info;
         },
         */
     };
 
-    InstructionExecutionInfo CPU::handleThumbLongBranchWithLink(bool h, uint16_t offset)
+    void CPU::handleThumbLongBranchWithLink(InstructionExecutionInfo &info, bool h, uint16_t offset)
     {
         auto currentRegs = state.getCurrentRegs();
-
-        InstructionExecutionInfo info{0};
 
         uint32_t extendedAddr = static_cast<uint32_t>(offset);
         if (h) {
@@ -120,28 +115,23 @@ namespace gbaemu
             info.additionalProgCyclesN = 1;
             info.additionalProgCyclesS = 1;
         }
-
-        return info;
     }
 
-    InstructionExecutionInfo CPU::handleThumbUnconditionalBranch(int16_t offset)
+    void CPU::handleThumbUnconditionalBranch(InstructionExecutionInfo &info, int16_t offset)
     {
         state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(state.getCurrentPC() + 4 + static_cast<int32_t>(offset) * 2);
 
         // Unconditional branches take 2S + 1N
-        InstructionExecutionInfo info{0};
+
         info.additionalProgCyclesN = 1;
         info.additionalProgCyclesS = 1;
 
         // This is a branch instruction so we need to consider self branches!
         info.forceBranch = true;
-
-        return info;
     }
 
-    InstructionExecutionInfo CPU::handleThumbConditionalBranch(uint8_t cond, int8_t offset)
+    void CPU::handleThumbConditionalBranch(InstructionExecutionInfo &info, uint8_t cond, int8_t offset)
     {
-        InstructionExecutionInfo info{0};
 
         // Branch will be executed if condition is met
         if (conditionSatisfied(static_cast<ConditionOPCode>(cond), state)) {
@@ -155,11 +145,9 @@ namespace gbaemu
             // This is a branch instruction so we need to consider self branches!
             info.forceBranch = true;
         }
-
-        return info;
     }
 
-    InstructionExecutionInfo CPU::handleThumbMultLoadStore(bool load, uint8_t rb, uint8_t rlist)
+    void CPU::handleThumbMultLoadStore(InstructionExecutionInfo &info, bool load, uint8_t rb, uint8_t rlist)
     {
         arm::ARMInstruction wrapper;
         wrapper.params.block_data_transf.l = load;
@@ -171,10 +159,10 @@ namespace gbaemu
         wrapper.params.block_data_transf.s = false;
         wrapper.params.block_data_transf.rn = rb;
 
-        return execDataBlockTransfer(wrapper, true);
+        execDataBlockTransfer(info, wrapper, true);
     }
 
-    InstructionExecutionInfo CPU::handleThumbPushPopRegister(bool load, bool r, uint8_t rlist)
+    void CPU::handleThumbPushPopRegister(InstructionExecutionInfo &info, bool load, bool r, uint8_t rlist)
     {
         uint16_t extendedRList = static_cast<uint16_t>(rlist);
 
@@ -209,10 +197,10 @@ namespace gbaemu
 
         wrapper.params.block_data_transf.rn = regs::SP_OFFSET;
 
-        return execDataBlockTransfer(wrapper, true);
+        execDataBlockTransfer(info, wrapper, true);
     }
 
-    InstructionExecutionInfo CPU::handleThumbLoadStore(const thumb::ThumbInstruction &inst)
+    void CPU::handleThumbLoadStore(InstructionExecutionInfo &info, const thumb::ThumbInstruction &inst)
     {
         arm::ARMInstruction wrapper;
 
@@ -294,10 +282,10 @@ namespace gbaemu
         // i is inverted immediate bool
         wrapper.params.ls_reg_ubyte.i = !wrapper.params.ls_reg_ubyte.i;
 
-        return execLoadStoreRegUByte(wrapper, true);
+        execLoadStoreRegUByte(info, wrapper, true);
     }
 
-    InstructionExecutionInfo CPU::handleThumbLoadStoreSignHalfword(const thumb::ThumbInstruction &inst)
+    void CPU::handleThumbLoadStoreSignHalfword(InstructionExecutionInfo &info, const thumb::ThumbInstruction &inst)
     {
         bool pre = true;
         bool up = true;
@@ -338,19 +326,20 @@ namespace gbaemu
                 break;
         }
 
-        return execHalfwordDataTransferImmRegSignedTransfer(pre,
-                                                            up,
-                                                            load,
-                                                            writeback,
-                                                            sign,
-                                                            rn,
-                                                            rd,
-                                                            offset,
-                                                            transferSize,
-                                                            true);
+        execHalfwordDataTransferImmRegSignedTransfer(info,
+                                                     pre,
+                                                     up,
+                                                     load,
+                                                     writeback,
+                                                     sign,
+                                                     rn,
+                                                     rd,
+                                                     offset,
+                                                     transferSize,
+                                                     true);
     }
 
-    InstructionExecutionInfo CPU::handleThumbAddOffsetToStackPtr(bool s, uint8_t offset)
+    void CPU::handleThumbAddOffsetToStackPtr(InstructionExecutionInfo &info, bool s, uint8_t offset)
     {
         // nn - Unsigned Offset    (0-508, step 4)
         uint32_t extOffset = static_cast<uint32_t>(offset) << 2;
@@ -364,12 +353,9 @@ namespace gbaemu
         }
 
         // Execution Time: 1S
-        InstructionExecutionInfo info{0};
-
-        return info;
     }
 
-    InstructionExecutionInfo CPU::handleThumbRelAddr(bool sp, uint8_t offset, uint8_t rd)
+    void CPU::handleThumbRelAddr(InstructionExecutionInfo &info, bool sp, uint8_t offset, uint8_t rd)
     {
         auto currentRegs = state.getCurrentRegs();
 
@@ -380,11 +366,9 @@ namespace gbaemu
         *currentRegs[rd] = (sp ? *currentRegs[regs::SP_OFFSET] : ((*currentRegs[regs::PC_OFFSET] + 4) & ~2)) + (static_cast<uint32_t>(offset) << 2);
 
         // Execution Time: 1S
-        InstructionExecutionInfo info{0};
-        return info;
     }
 
-    InstructionExecutionInfo CPU::handleThumbAddSubtract(InstructionID insID, uint8_t rd, uint8_t rs, uint8_t rn_offset)
+    void CPU::handleThumbAddSubtract(InstructionExecutionInfo &info, InstructionID insID, uint8_t rd, uint8_t rs, uint8_t rn_offset)
     {
         arm::ARMInstruction wrapper;
         wrapper.id = insID;
@@ -401,10 +385,10 @@ namespace gbaemu
         // We want to update flags!
         wrapper.params.data_proc_psr_transf.s = true;
 
-        return execDataProc(wrapper, true);
+        execDataProc(info, wrapper, true);
     }
 
-    InstructionExecutionInfo CPU::handleThumbMovCmpAddSubImm(InstructionID ins, uint8_t rd, uint8_t offset)
+    void CPU::handleThumbMovCmpAddSubImm(InstructionExecutionInfo &info, InstructionID ins, uint8_t rd, uint8_t offset)
     {
         // ARM equivalents for MOV/CMP/ADD/SUB are MOVS/CMP/ADDS/SUBS same format.
 
@@ -416,10 +400,10 @@ namespace gbaemu
         armIns.params.data_proc_psr_transf.operand2 = offset;
         armIns.id = ins;
 
-        return execDataProc(armIns);
+        execDataProc(info, armIns);
     }
 
-    InstructionExecutionInfo CPU::handleThumbMoveShiftedReg(InstructionID ins, uint8_t rs, uint8_t rd, uint8_t offset)
+    void CPU::handleThumbMoveShiftedReg(InstructionExecutionInfo &info, InstructionID ins, uint8_t rs, uint8_t rd, uint8_t offset)
     {
         uint32_t rsValue = state.accessReg(rs);
         uint64_t rdValue = 0;
@@ -454,13 +438,10 @@ namespace gbaemu
             false);
 
         // Execution Time: 1S
-        InstructionExecutionInfo info{0};
-        return info;
     }
 
-    InstructionExecutionInfo CPU::handleThumbBranchXCHG(InstructionID id, uint8_t rd, uint8_t rs)
+    void CPU::handleThumbBranchXCHG(InstructionExecutionInfo &info, InstructionID id, uint8_t rd, uint8_t rs)
     {
-        InstructionExecutionInfo info{0};
 
         auto currentRegs = state.getCurrentRegs();
 
@@ -524,11 +505,9 @@ namespace gbaemu
             default:
                 break;
         }
-
-        return info;
     }
 
-    InstructionExecutionInfo CPU::handleThumbALUops(InstructionID instID, uint8_t rs, uint8_t rd)
+    void CPU::handleThumbALUops(InstructionExecutionInfo &info, InstructionID instID, uint8_t rs, uint8_t rd)
     {
         arm::ARMInstruction wrapper;
         wrapper.id = instID;
@@ -576,7 +555,8 @@ namespace gbaemu
                 break;
 
             case MUL: {
-                return handleMultAcc(false, true, rd, 0, rs, rd);
+                handleMultAcc(info, false, true, rd, 0, rs, rd);
+                return;
             }
 
             default:
@@ -585,6 +565,6 @@ namespace gbaemu
                 break;
         }
 
-        return execDataProc(wrapper, true);
+        execDataProc(info, wrapper, true);
     }
 } // namespace gbaemu

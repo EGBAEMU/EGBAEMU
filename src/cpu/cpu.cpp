@@ -1,5 +1,6 @@
 #include "cpu.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 
@@ -61,55 +62,46 @@ namespace gbaemu
         //TODO is it important if it gets executed first or last?
         timerGroup.step();
 
-        if (dmaInfo.cycleCount == 0 && info.cycleCount == 0) {
-            dmaInfo = dma0.step();
-            if (!dmaInfo.dmaExecutes) {
-                dmaInfo = dma1.step();
-                if (!dmaInfo.dmaExecutes) {
-                    dmaInfo = dma2.step();
-                    if (!dmaInfo.dmaExecutes) {
-                        dmaInfo = dma3.step();
+        if (dmaInfo.cycleCount == 0) {
+            if (info.cycleCount != 0 || dma0.step(dmaInfo) && dma1.step(dmaInfo) && dma2.step(dmaInfo) && dma3.step(dmaInfo)) {
+                if (info.haltCPU) {
+                    info.haltCPU = !irqHandler.checkForHaltCondition(info.haltCondition);
+                } else {
+                    // Execute pipeline only after stall is over
+                    if (info.cycleCount == 0) {
+                        irqHandler.checkForInterrupt();
+                        fetch();
+                        decode();
+
+                        std::fill_n(reinterpret_cast<char *>(&info), sizeof(info), 0);
+
+                        uint32_t prevPC = state.getCurrentPC();
+                        execute(info);
+
+                        // Current cycle must be removed
+                        --info.cycleCount;
+
+                        if (info.hasCausedException) {
+                            //TODO print cause
+                            //TODO set cause in memory class
+
+                            //TODO maybe return reason? as this might be needed to exit a game?
+                            // Abort
+                            std::stringstream ss;
+                            ss << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception\n";
+
+                            executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());
+
+                            return CPUExecutionInfoType::EXCEPTION;
+                        }
+                    } else {
+                        --info.cycleCount;
                     }
                 }
             }
         }
         if (dmaInfo.cycleCount) {
             --dmaInfo.cycleCount;
-        }
-
-        if (!dmaInfo.dmaExecutes) {
-            if (info.haltCPU) {
-                info.haltCPU = !irqHandler.checkForHaltCondition(info.haltCondition);
-            } else {
-                // Execute pipeline only after stall is over
-                if (info.cycleCount == 0) {
-                    irqHandler.checkForInterrupt();
-                    fetch();
-                    decode();
-
-                    uint32_t prevPC = state.getCurrentPC();
-                    info = execute();
-
-                    // Current cycle must be removed
-                    --info.cycleCount;
-
-                    if (info.hasCausedException) {
-                        //TODO print cause
-                        //TODO set cause in memory class
-
-                        //TODO maybe return reason? as this might be needed to exit a game?
-                        // Abort
-                        std::stringstream ss;
-                        ss << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception\n";
-
-                        executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());
-
-                        return CPUExecutionInfoType::EXCEPTION;
-                    }
-                } else {
-                    --info.cycleCount;
-                }
-            }
         }
 
         return CPUExecutionInfoType::NORMAL;
@@ -147,10 +139,8 @@ namespace gbaemu
         }
     }
 
-    InstructionExecutionInfo CPU::execute()
+    void CPU::execute(InstructionExecutionInfo &info)
     {
-        InstructionExecutionInfo info{0};
-
         const uint32_t prevPc = state.getCurrentPC();
         const bool prevThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
 
@@ -158,16 +148,16 @@ namespace gbaemu
         if (!inst.isValid()) {
             std::cout << "ERROR: Decoded instruction is invalid: [" << std::hex << state.pipeline.decode.lastInstruction << "] @ " << state.accessReg(regs::PC_OFFSET);
             info.hasCausedException = true;
-            return info;
+            return;
         }
 
         if (inst.isArmInstruction()) {
             arm::ARMInstruction &armInst = inst.arm;
             if (conditionSatisfied(armInst.condition, state))
-                info = armExecuteHandler[inst.arm.cat](armInst, this);
+                armExecuteHandler[inst.arm.cat](info, armInst, this);
         } else {
             thumb::ThumbInstruction &thumbInst = inst.thumb;
-            info = thumbExecuteHandler[inst.thumb.cat](thumbInst, this);
+            thumbExecuteHandler[inst.thumb.cat](info, thumbInst, this);
         }
 
         const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
@@ -185,11 +175,11 @@ namespace gbaemu
         if (memReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
             std::cout << "CRITIAL ERROR: PC points to bios address outside of our code! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
             info.hasCausedException = true;
-            return info;
+            return;
         } else if (memReg == Memory::OUT_OF_ROM) {
             std::cout << "CRITIAL ERROR: PC points out to address out of its ROM bounds! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
             info.hasCausedException = true;
-            return info;
+            return;
         }
 
         // Add 1S cycle needed to fetch a instruction if not other requested
@@ -281,8 +271,6 @@ namespace gbaemu
                 std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(modeBits) << " prevPC: 0x" << std::hex << prevPc << std::endl;
                 break;
         }
-
-        return info;
     }
 
     void CPU::reset()
