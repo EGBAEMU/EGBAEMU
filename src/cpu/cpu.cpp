@@ -56,32 +56,30 @@ namespace gbaemu
 
     CPUExecutionInfoType CPU::step()
     {
-        static InstructionExecutionInfo info{0};
-        static InstructionExecutionInfo dmaInfo{0};
-
         //TODO is it important if it gets executed first or last?
         timerGroup.step();
 
         if (dmaInfo.cycleCount == 0) {
-            if (info.cycleCount != 0 || dma0.step(dmaInfo) && dma1.step(dmaInfo) && dma2.step(dmaInfo) && dma3.step(dmaInfo)) {
-                if (info.haltCPU) {
-                    info.haltCPU = !irqHandler.checkForHaltCondition(info.haltCondition);
+            if (cpuInfo.cycleCount != 0 || dma0.step(dmaInfo) && dma1.step(dmaInfo) && dma2.step(dmaInfo) && dma3.step(dmaInfo)) {
+                if (cpuInfo.haltCPU) {
+                    //TODO this can be removed if we remove swi.cpp
+                    cpuInfo.haltCPU = !irqHandler.checkForHaltCondition(cpuInfo.haltCondition);
                 } else {
                     // Execute pipeline only after stall is over
-                    if (info.cycleCount == 0) {
+                    if (cpuInfo.cycleCount == 0) {
                         irqHandler.checkForInterrupt();
                         fetch();
                         decode();
 
-                        std::fill_n(reinterpret_cast<char *>(&info), sizeof(info), 0);
+                        std::fill_n(reinterpret_cast<char *>(&cpuInfo), sizeof(cpuInfo), 0);
 
                         uint32_t prevPC = state.getCurrentPC();
-                        execute(info);
+                        execute();
 
                         // Current cycle must be removed
-                        --info.cycleCount;
+                        --cpuInfo.cycleCount;
 
-                        if (info.hasCausedException) {
+                        if (cpuInfo.hasCausedException) {
                             //TODO print cause
                             //TODO set cause in memory class
 
@@ -95,7 +93,7 @@ namespace gbaemu
                             return CPUExecutionInfoType::EXCEPTION;
                         }
                     } else {
-                        --info.cycleCount;
+                        --cpuInfo.cycleCount;
                     }
                 }
             }
@@ -139,7 +137,7 @@ namespace gbaemu
         }
     }
 
-    void CPU::execute(InstructionExecutionInfo &info)
+    void CPU::execute()
     {
         const uint32_t prevPc = state.getCurrentPC();
         const bool prevThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
@@ -147,17 +145,17 @@ namespace gbaemu
         Instruction inst(state.decoder->decode(state.pipeline.decode.lastInstruction));
         if (!inst.isValid()) {
             std::cout << "ERROR: Decoded instruction is invalid: [" << std::hex << state.pipeline.decode.lastInstruction << "] @ " << state.accessReg(regs::PC_OFFSET);
-            info.hasCausedException = true;
+            cpuInfo.hasCausedException = true;
             return;
         }
 
         if (inst.isArmInstruction()) {
             arm::ARMInstruction &armInst = inst.arm;
             if (conditionSatisfied(armInst.condition, state))
-                armExecuteHandler[inst.arm.cat](info, armInst, this);
+                armExecuteHandler[inst.arm.cat](armInst, this);
         } else {
             thumb::ThumbInstruction &thumbInst = inst.thumb;
-            thumbExecuteHandler[inst.thumb.cat](info, thumbInst, this);
+            thumbExecuteHandler[inst.thumb.cat](thumbInst, this);
         }
 
         const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
@@ -174,21 +172,21 @@ namespace gbaemu
 
         if (memReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
             std::cout << "CRITIAL ERROR: PC points to bios address outside of our code! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
-            info.hasCausedException = true;
+            cpuInfo.hasCausedException = true;
             return;
         } else if (memReg == Memory::OUT_OF_ROM) {
             std::cout << "CRITIAL ERROR: PC points out to address out of its ROM bounds! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
-            info.hasCausedException = true;
+            cpuInfo.hasCausedException = true;
             return;
         }
 
         // Add 1S cycle needed to fetch a instruction if not other requested
         // Handle wait cycles!
-        if (!info.noDefaultSCycle) {
-            info.cycleCount += state.memory.cyclesForVirtualAddrSeq(memReg, prevThumbMode ? sizeof(uint16_t) : sizeof(uint32_t));
+        if (!cpuInfo.noDefaultSCycle) {
+            cpuInfo.cycleCount += state.memory.cyclesForVirtualAddrSeq(memReg, prevThumbMode ? sizeof(uint16_t) : sizeof(uint32_t));
         }
-        info.cycleCount += state.memory.cyclesForVirtualAddrNonSeq(memReg, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * info.additionalProgCyclesN;
-        info.cycleCount += state.memory.cyclesForVirtualAddrSeq(memReg, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * info.additionalProgCyclesS;
+        cpuInfo.cycleCount += state.memory.cyclesForVirtualAddrNonSeq(memReg, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * cpuInfo.additionalProgCyclesN;
+        cpuInfo.cycleCount += state.memory.cyclesForVirtualAddrSeq(memReg, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * cpuInfo.additionalProgCyclesS;
 
         // Change from arm mode to thumb mode or vice versa
         if (prevThumbMode != postThumbMode) {
@@ -200,7 +198,7 @@ namespace gbaemu
             //TODO can we assume that on change the pc counter will always be modified as well?
         }
         // We have a branch, return or something that changed our PC
-        if (info.forceBranch || prevPc != postPc) {
+        if (cpuInfo.forceBranch || prevPc != postPc) {
             initPipeline();
         } else {
             //TODO this is probably unwanted if we changed the mode?
@@ -305,5 +303,8 @@ namespace gbaemu
         *state.getModeRegs(CPUState::CPUMode::UserMode)[regs::SP_OFFSET] = 0x03007F00;
         *state.getModeRegs(CPUState::CPUMode::IRQ)[regs::SP_OFFSET] = 0x3007FA0;
         *state.getModeRegs(CPUState::CPUMode::SupervisorMode)[regs::SP_OFFSET] = 0x03007FE0;
+
+        std::fill_n(reinterpret_cast<char*>(&cpuInfo), sizeof(cpuInfo), 0);
+        std::fill_n(reinterpret_cast<char*>(&dmaInfo), sizeof(dmaInfo), 0);
     }
 } // namespace gbaemu

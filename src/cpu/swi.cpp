@@ -25,7 +25,7 @@ namespace gbaemu
             }
         }
 
-        void callBiosCodeSWIHandler(InstructionExecutionInfo &info, CPU *cpu)
+        void callBiosCodeSWIHandler(CPU *cpu)
         {
             /*
             How BIOS Processes SWIs
@@ -48,29 +48,29 @@ namespace gbaemu
             // Offset to the swi routine
             cpu->state.accessReg(regs::PC_OFFSET) = Memory::BIOS_SWI_HANDLER_OFFSET;
 
-            info.forceBranch = true;
+            cpu->cpuInfo.forceBranch = true;
         }
 
-        void softReset(InstructionExecutionInfo &info, CPU *cpu)
+        void softReset(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: softReset not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void registerRamReset(InstructionExecutionInfo &info, CPU *cpu)
+        void registerRamReset(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: registerRamReset not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void stop(InstructionExecutionInfo &info, CPU *cpu)
+        void stop(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: stop not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
 
-        void halt(InstructionExecutionInfo &info, CPU *cpu)
+        void halt(CPU *cpu)
         {
             /*
                 SWI 02h (GBA) or SWI 06h (NDS7/NDS9/DSi7/DSi9) - Halt
@@ -89,40 +89,40 @@ namespace gbaemu
 
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
 
-            info.haltCPU = true;
+            cpu->cpuInfo.haltCPU = true;
             // load IE
-            info.haltCondition = cpu->state.memory.ioHandler.internalRead16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR);
+            cpu->cpuInfo.haltCondition = cpu->state.memory.ioHandler.internalRead16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR);
         }
-        void intrWait(InstructionExecutionInfo &info, CPU *cpu)
+        void intrWait(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
 
             // The function forcefully sets IME=1
             cpu->state.memory.ioHandler.externalWrite8(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 8, 0x1);
 
-            info.haltCondition = cpu->state.accessReg(regs::R1_OFFSET);
+            cpu->cpuInfo.haltCondition = cpu->state.accessReg(regs::R1_OFFSET);
 
             if (cpu->state.accessReg(regs::R0_OFFSET)) {
                 // r0 = 1 = Discard old flags, wait until a NEW flag becomes set
                 // Discard current requests! : write into IF
-                info.haltCPU = true;
+                cpu->cpuInfo.haltCPU = true;
 
                 //TODO only discard in R1 selected ones or all??
-                cpu->state.memory.ioHandler.externalWrite16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 2, info.haltCondition);
+                cpu->state.memory.ioHandler.externalWrite16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 2, cpu->cpuInfo.haltCondition);
             } else {
                 //0=Return immediately if an old flag was already set
                 // check if condition is currently satisfied and if so return else cause halt
-                info.haltCPU = !cpu->irqHandler.checkForHaltCondition(info.haltCondition);
+                cpu->cpuInfo.haltCPU = !cpu->irqHandler.checkForHaltCondition(cpu->cpuInfo.haltCondition);
             }
         }
-        void vBlankIntrWait(InstructionExecutionInfo &info, CPU *cpu)
+        void vBlankIntrWait(CPU *cpu)
         {
             cpu->state.accessReg(regs::R0_OFFSET) = 0;
             cpu->state.accessReg(regs::R1_OFFSET) = 1;
-            intrWait(info, cpu);
+            intrWait(cpu);
         }
 
-        void changeBIOSState(InstructionExecutionInfo &info, CPU *cpu)
+        void changeBIOSState(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(static_cast<Memory::BiosReadState>(cpu->state.accessReg(regs::R0_OFFSET)));
         }
@@ -157,27 +157,27 @@ namespace gbaemu
 
             //TODO proper time calculation
         }
-        void div(InstructionExecutionInfo &info, CPU *cpu)
+        void div(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             auto currentRegs = cpu->state.getCurrentRegs();
 
             int32_t numerator = static_cast<int32_t>(*currentRegs[regs::R0_OFFSET]);
             int32_t denominator = static_cast<int32_t>(*currentRegs[regs::R1_OFFSET]);
-            _div(info, currentRegs, numerator, denominator);
+            _div(cpu->cpuInfo, currentRegs, numerator, denominator);
         }
 
-        void divArm(InstructionExecutionInfo &info, CPU *cpu)
+        void divArm(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             auto currentRegs = cpu->state.getCurrentRegs();
 
             int32_t numerator = static_cast<int32_t>(*currentRegs[regs::R1_OFFSET]);
             int32_t denominator = static_cast<int32_t>(*currentRegs[regs::R0_OFFSET]);
-            _div(info, currentRegs, numerator, denominator);
+            _div(cpu->cpuInfo, currentRegs, numerator, denominator);
         }
 
-        void sqrt(InstructionExecutionInfo &info, CPU *cpu)
+        void sqrt(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             uint32_t &r0 = cpu->state.accessReg(regs::R0_OFFSET);
@@ -203,7 +203,7 @@ namespace gbaemu
           r0   "-PI/2<THETA/<PI/2" in a range of C000h-4000h.
         Note: there is a problem in accuracy with "THETA<-PI/4, PI/4<THETA".
         */
-        void arcTan(InstructionExecutionInfo &info, CPU *cpu)
+        void arcTan(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
 
@@ -242,7 +242,7 @@ namespace gbaemu
         Return:
           r0   0000h-FFFFh for 0<=THETA<2PI.
         */
-        void arcTan2(InstructionExecutionInfo &info, CPU *cpu)
+        void arcTan2(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             uint32_t &r0 = cpu->state.accessReg(regs::R0_OFFSET);
@@ -272,9 +272,9 @@ namespace gbaemu
                   Bit 24    Fixed Source Address (0=Copy, 1=Fill by WORD[r0])
         Return: No return value, Data written to destination address.
         */
-        void cpuFastSet(InstructionExecutionInfo &info, CPU *cpu)
+        void cpuFastSet(CPU *cpu)
         {
-            callBiosCodeSWIHandler(info, cpu);
+            callBiosCodeSWIHandler(cpu);
         }
         /*
         Memory copy/fill in units of 4 bytes or 2 bytes. Memcopy is implemented as repeated LDMIA/STMIA [Rb]!,r3 or LDRH/STRH r3,[r0,r5] instructions. Memfill as single LDMIA or LDRH followed by repeated STMIA [Rb]!,r3 or STRH r3,[r0,r5].
@@ -287,9 +287,9 @@ namespace gbaemu
                   Bit 26    Datasize (0=16bit, 1=32bit)
         Return: No return value, Data written to destination address.
         */
-        void cpuSet(InstructionExecutionInfo &info, CPU *cpu)
+        void cpuSet(CPU *cpu)
         {
-            callBiosCodeSWIHandler(info, cpu);
+            callBiosCodeSWIHandler(cpu);
         }
 
         /*
@@ -297,7 +297,7 @@ namespace gbaemu
         The checksum is BAAE187Fh (GBA and GBA SP), or BAAE1880h (NDS/3DS in GBA mode, whereas the only difference is that the byte at [3F0Ch] is changed from 00h to 01h, otherwise the BIOS is 1:1 same as GBA BIOS, it does even include multiboot code).
         Parameters: None. Return: r0=Checksum.
         */
-        void biosChecksum(InstructionExecutionInfo &info, CPU *cpu)
+        void biosChecksum(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             cpu->state.accessReg(regs::R0_OFFSET) = 0x0BAAE18F;
@@ -328,7 +328,7 @@ namespace gbaemu
         For both Bg- and ObjAffineSet, Rotation angles are specified as 0-FFFFh (covering a range of 360 degrees), 
         however, the GBA BIOS recurses only the upper 8bit; the lower 8bit may contain a fractional portion, but it is ignored by the BIOS.
         */
-        void bgAffineSet(InstructionExecutionInfo &info, CPU *cpu)
+        void bgAffineSet(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             //TODO do those read & writes count as non sequential?
@@ -343,21 +343,21 @@ namespace gbaemu
 
             for (uint32_t i = 0; i < iterationCount; ++i) {
                 uint32_t off = i * 20;
-                float ox = m.read32(off + sourceAddr, &info, true) / 256.f;
-                float oy = m.read32(off + sourceAddr + 4, &info, true) / 256.f;
-                float cx = m.read16(off + sourceAddr + 8, &info, true);
-                float cy = m.read16(off + sourceAddr + 10, &info, true);
-                float sx = m.read16(off + sourceAddr + 12, &info, true) / 256.f;
-                float sy = m.read16(off + sourceAddr + 14, &info, true) / 256.f;
-                float theta = (m.read32(sourceAddr + 16, &info, true) >> 8) / 128.f * M_PI;
+                float ox = m.read32(off + sourceAddr, &cpu->cpuInfo, true) / 256.f;
+                float oy = m.read32(off + sourceAddr + 4, &cpu->cpuInfo, true) / 256.f;
+                float cx = m.read16(off + sourceAddr + 8, &cpu->cpuInfo, true);
+                float cy = m.read16(off + sourceAddr + 10, &cpu->cpuInfo, true);
+                float sx = m.read16(off + sourceAddr + 12, &cpu->cpuInfo, true) / 256.f;
+                float sy = m.read16(off + sourceAddr + 14, &cpu->cpuInfo, true) / 256.f;
+                float theta = (m.read32(sourceAddr + 16, &cpu->cpuInfo, true) >> 8) / 128.f * M_PI;
 
                 /*
-                common::math::real_t ox = fixedToFloat<uint32_t, 8, 19>(m.read32(off + sourceAddr,     &info, true));
-                common::math::real_t oy = fixedToFloat<uint32_t, 8, 19>(m.read32(off + sourceAddr + 4, &info, true));
-                common::math::real_t cx = static_cast<common::math::real_t>(m.read16(off + sourceAddr + 8, &info, true));
-                common::math::real_t cy = static_cast<common::math::real_t>(m.read16(off + sourceAddr + 10, &info, true));
-                common::math::real_t sx = fixedToFloat<uint16_t, 8, 7>(m.read16(off + sourceAddr + 12, &info, true));
-                common::math::real_t sy = fixedToFloat<uint16_t, 8, 7>(m.read16(off + sourceAddr + 14, &info, true));
+                common::math::real_t ox = fixedToFloat<uint32_t, 8, 19>(m.read32(off + sourceAddr,     &cpu->cpuInfo, true));
+                common::math::real_t oy = fixedToFloat<uint32_t, 8, 19>(m.read32(off + sourceAddr + 4, &cpu->cpuInfo, true));
+                common::math::real_t cx = static_cast<common::math::real_t>(m.read16(off + sourceAddr + 8, &cpu->cpuInfo, true));
+                common::math::real_t cy = static_cast<common::math::real_t>(m.read16(off + sourceAddr + 10, &cpu->cpuInfo, true));
+                common::math::real_t sx = fixedToFloat<uint16_t, 8, 7>(m.read16(off + sourceAddr + 12, &cpu->cpuInfo, true));
+                common::math::real_t sy = fixedToFloat<uint16_t, 8, 7>(m.read16(off + sourceAddr + 14, &cpu->cpuInfo, true));
                  */
 
                 /* F* THIS. This is taken from mgba. */
@@ -374,12 +374,12 @@ namespace gbaemu
                 ry = oy - (c * cx + d * cy);
 
                 uint32_t dstOff = i * 16;
-                m.write16(dstOff + destAddr, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(a), &info, i != 0);
-                m.write16(dstOff + destAddr + 2, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(b), &info, true);
-                m.write16(dstOff + destAddr + 4, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(c), &info, true);
-                m.write16(dstOff + destAddr + 6, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(d), &info, true);
-                m.write32(dstOff + destAddr + 8, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(rx), &info, true);
-                m.write32(dstOff + destAddr + 12, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(ry), &info, true);
+                m.write16(dstOff + destAddr, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(a), &cpu->cpuInfo, i != 0);
+                m.write16(dstOff + destAddr + 2, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(b), &cpu->cpuInfo, true);
+                m.write16(dstOff + destAddr + 4, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(c), &cpu->cpuInfo, true);
+                m.write16(dstOff + destAddr + 6, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(d), &cpu->cpuInfo, true);
+                m.write32(dstOff + destAddr + 8, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(rx), &cpu->cpuInfo, true);
+                m.write32(dstOff + destAddr + 12, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(ry), &cpu->cpuInfo, true);
             }
         }
 
@@ -406,7 +406,7 @@ namespace gbaemu
         For both Bg- and ObjAffineSet, Rotation angles are specified as 0-FFFFh (covering a range of 360 degrees), 
         however, the GBA BIOS recurses only the upper 8bit; the lower 8bit may contain a fractional portion, but it is ignored by the BIOS.
         */
-        void objAffineSet(InstructionExecutionInfo &info, CPU *cpu)
+        void objAffineSet(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
@@ -421,11 +421,11 @@ namespace gbaemu
 
             for (uint32_t i = 0; i < iterationCount; ++i) {
                 uint32_t srcOff = i * 8;
-                //float sx = m.read16(sourceAddr, &info, i != 0) / 256.f;
-                //float sy = m.read16(sourceAddr + 2, &info, true) / 256.f;
-                uint16_t orgTheta = m.read16(sourceAddr + 4, &info, true);
-                uint16_t orgSx = m.read16(sourceAddr, &info, i != 0);
-                uint16_t orgSy = m.read16(sourceAddr + 2, &info, i != 0);
+                //float sx = m.read16(sourceAddr, &cpu->cpuInfo, i != 0) / 256.f;
+                //float sy = m.read16(sourceAddr + 2, &cpu->cpuInfo, true) / 256.f;
+                uint16_t orgTheta = m.read16(sourceAddr + 4, &cpu->cpuInfo, true);
+                uint16_t orgSx = m.read16(sourceAddr, &cpu->cpuInfo, i != 0);
+                uint16_t orgSy = m.read16(sourceAddr + 2, &cpu->cpuInfo, i != 0);
 
                 float theta = (orgTheta >> 8) / 128.f * M_PI;
 
@@ -443,10 +443,10 @@ namespace gbaemu
                 c *= sy;
                 d *= sy;
 
-                m.write16(destAddr, floatToFixed<uint16_t, 8, 7>(a), &info, i != 0);
-                m.write16(destAddr + diff, floatToFixed<uint16_t, 8, 7>(b), &info, true);
-                m.write16(destAddr + diff * 2, floatToFixed<uint16_t, 8, 7>(c), &info, true);
-                m.write16(destAddr + diff * 3, floatToFixed<uint16_t, 8, 7>(d), &info, true);
+                m.write16(destAddr, floatToFixed<uint16_t, 8, 7>(a), &cpu->cpuInfo, i != 0);
+                m.write16(destAddr + diff, floatToFixed<uint16_t, 8, 7>(b), &cpu->cpuInfo, true);
+                m.write16(destAddr + diff * 2, floatToFixed<uint16_t, 8, 7>(c), &cpu->cpuInfo, true);
+                m.write16(destAddr + diff * 3, floatToFixed<uint16_t, 8, 7>(d), &cpu->cpuInfo, true);
                 destAddr += diff * 4;
             }
         }
@@ -468,7 +468,7 @@ namespace gbaemu
         The width of source units (plus the offset) should not exceed the destination width.
         Return: No return value, Data written to destination address
         */
-        void bitUnPack(InstructionExecutionInfo &info, CPU *cpu)
+        void bitUnPack(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
@@ -478,10 +478,10 @@ namespace gbaemu
 
             //TODO proper time calculation
 
-            uint16_t srcByteCount = cpu->state.memory.read16(unpackFormatPtr, &info, false);
-            const uint8_t srcUnitWidth = cpu->state.memory.read8(unpackFormatPtr + 2, &info, true);
-            const uint8_t destUnitWidth = cpu->state.memory.read8(unpackFormatPtr + 3, &info, true);
-            uint32_t dataOffset = cpu->state.memory.read32(unpackFormatPtr + 4, &info, true);
+            uint16_t srcByteCount = cpu->state.memory.read16(unpackFormatPtr, &cpu->cpuInfo, false);
+            const uint8_t srcUnitWidth = cpu->state.memory.read8(unpackFormatPtr + 2, &cpu->cpuInfo, true);
+            const uint8_t destUnitWidth = cpu->state.memory.read8(unpackFormatPtr + 3, &cpu->cpuInfo, true);
+            uint32_t dataOffset = cpu->state.memory.read32(unpackFormatPtr + 4, &cpu->cpuInfo, true);
             const bool zeroDataOff = dataOffset & (static_cast<uint32_t>(1) << 31);
             dataOffset &= 0x7FFFFFF;
 
@@ -493,7 +493,7 @@ namespace gbaemu
             bool firstWriteDone = false;
 
             for (; srcByteCount > 0; --srcByteCount) {
-                uint8_t srcUnits = cpu->state.memory.read8(sourceAddr++, &info, firstReadDone);
+                uint8_t srcUnits = cpu->state.memory.read8(sourceAddr++, &cpu->cpuInfo, firstReadDone);
                 firstReadDone = true;
 
                 // units of size < 8 will be concatenated so we need to extract them before storing
@@ -518,7 +518,7 @@ namespace gbaemu
                     // if there is no more space for another unit we have to flush our buffer
                     // flushing is also needed if this is the very last unit!
                     if (writeBufOffset + destUnitWidth > 32 || (srcByteCount == 1 && srcUnitBitsLeft <= srcUnitWidth)) {
-                        cpu->state.memory.write32(destAddr, writeBuf, &info, firstWriteDone);
+                        cpu->state.memory.write32(destAddr, writeBuf, &cpu->cpuInfo, firstWriteDone);
                         destAddr += 4;
                         writeBuf = 0;
                         writeBufOffset = 0;
@@ -559,7 +559,7 @@ namespace gbaemu
         Return: No return value.
         */
         //TODO is the difference between writing in units of 8 bit vs 16 bit relevant?
-        static void _LZ77UnComp(InstructionExecutionInfo &info, CPU *cpu)
+        static void _LZ77UnComp(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
@@ -568,7 +568,7 @@ namespace gbaemu
 
             //TODO proper time calculation
 
-            const uint32_t dataHeader = cpu->state.memory.read32(sourceAddr, &info, false);
+            const uint32_t dataHeader = cpu->state.memory.read32(sourceAddr, &cpu->cpuInfo, false);
             sourceAddr += 4;
 
             const uint8_t compressedType = (dataHeader >> 4) & 0x0F;
@@ -582,7 +582,7 @@ namespace gbaemu
             bool firstWriteDone = false;
 
             while (decompressedSize > 0) {
-                const uint8_t typeBitset = cpu->state.memory.read8(sourceAddr++, &info, true);
+                const uint8_t typeBitset = cpu->state.memory.read8(sourceAddr++, &cpu->cpuInfo, true);
 
                 // process each block
                 for (uint8_t i = 0; i < 8; ++i) {
@@ -590,7 +590,7 @@ namespace gbaemu
 
                     if (type1) {
                         // Type 1 uses previously written data as lookup source
-                        uint16_t type1Desc = cpu->state.memory.read16(sourceAddr, &info, true);
+                        uint16_t type1Desc = cpu->state.memory.read16(sourceAddr, &cpu->cpuInfo, true);
                         sourceAddr += 2;
 
                         uint16_t disp = (((type1Desc & 0x0F) << 8) | ((type1Desc >> 8) & 0x0FF)) + 1;
@@ -602,27 +602,27 @@ namespace gbaemu
                         // Copy N Bytes from Dest-Disp to Dest (+3 and - 1 already applied)
                         uint32_t readAddr = destAddr - disp;
                         for (; n > 0; --n) {
-                            cpu->state.memory.write8(destAddr++, cpu->state.memory.read8(readAddr++, &info, true), &info, firstWriteDone);
+                            cpu->state.memory.write8(destAddr++, cpu->state.memory.read8(readAddr++, &cpu->cpuInfo, true), &cpu->cpuInfo, firstWriteDone);
                             firstWriteDone = true;
                         }
                     } else {
                         // Type 0 is one uncompressed byte of data
-                        uint8_t data = cpu->state.memory.read8(sourceAddr++, &info, true);
+                        uint8_t data = cpu->state.memory.read8(sourceAddr++, &cpu->cpuInfo, true);
                         --decompressedSize;
-                        cpu->state.memory.write8(destAddr++, data, &info, firstWriteDone);
+                        cpu->state.memory.write8(destAddr++, data, &cpu->cpuInfo, firstWriteDone);
                         firstWriteDone = true;
                     }
                 }
             }
         }
 
-        void LZ77UnCompWRAM(InstructionExecutionInfo &info, CPU *cpu)
+        void LZ77UnCompWRAM(CPU *cpu)
         {
-            _LZ77UnComp(info, cpu);
+            _LZ77UnComp(cpu);
         }
-        void LZ77UnCompVRAM(InstructionExecutionInfo &info, CPU *cpu)
+        void LZ77UnCompVRAM(CPU *cpu)
         {
-            _LZ77UnComp(info, cpu);
+            _LZ77UnComp(cpu);
         }
 
         /*
@@ -654,7 +654,7 @@ namespace gbaemu
           r3  Callback structure        ;/(see Callback notes below)
         Return: No return value, Data written to destination address.
         */
-        void huffUnComp(InstructionExecutionInfo &info, CPU *cpu)
+        void huffUnComp(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
@@ -663,7 +663,7 @@ namespace gbaemu
 
             //TODO proper time calculation
 
-            uint32_t dataHeader = cpu->state.memory.read32(sourceAddr, &info, false);
+            uint32_t dataHeader = cpu->state.memory.read32(sourceAddr, &cpu->cpuInfo, false);
             sourceAddr += 4;
 
             int32_t decompressedBits = ((dataHeader >> 8) & 0x00FFFFFF) * 8;
@@ -682,7 +682,7 @@ namespace gbaemu
                 LOG_SWI(std::cout << "ERROR: Invalid call of huffUnComp!" << std::endl;);
             }
 
-            uint8_t treeSize = cpu->state.memory.read8(sourceAddr, &info, true);
+            uint8_t treeSize = cpu->state.memory.read8(sourceAddr, &cpu->cpuInfo, true);
             sourceAddr += 1;
 
             const uint32_t treeRoot = sourceAddr;
@@ -693,7 +693,7 @@ namespace gbaemu
             uint8_t writeBufOffset = 0;
 
             // as bits needed for decompressions varies we need to keep track of bits left in the read buffer
-            uint32_t readBuf = cpu->state.memory.read32(sourceAddr, &info, true);
+            uint32_t readBuf = cpu->state.memory.read32(sourceAddr, &cpu->cpuInfo, true);
             sourceAddr += 4;
             uint8_t readBufBitsLeft = 32;
 
@@ -711,7 +711,7 @@ namespace gbaemu
                 // Bit wise tree walk
                 for (;;) {
                     // Probably non sequential
-                    uint8_t node = cpu->state.memory.read8(currentParsingAddr, &info, false);
+                    uint8_t node = cpu->state.memory.read8(currentParsingAddr, &cpu->cpuInfo, false);
 
                     if (isDataNode) {
                         writeBuf |= (static_cast<uint32_t>(node) << writeBufOffset);
@@ -732,7 +732,7 @@ namespace gbaemu
 
                     // Fill empty read buffer again
                     if (readBufBitsLeft == 0) {
-                        readBuf = cpu->state.memory.read32(sourceAddr, &info, true);
+                        readBuf = cpu->state.memory.read32(sourceAddr, &cpu->cpuInfo, true);
                         sourceAddr += 4;
                         readBufBitsLeft = 32;
                     }
@@ -740,7 +740,7 @@ namespace gbaemu
 
                 // Is there is no more space left for decompressed data or we are done decompressing(only dataSize bits left) then we have to flush our buffer
                 if (writeBufOffset + dataSize > 32 || decompressedBits == dataSize) {
-                    cpu->state.memory.write32(destAddr, writeBuf, &info, firstWriteDone);
+                    cpu->state.memory.write32(destAddr, writeBuf, &cpu->cpuInfo, firstWriteDone);
                     destAddr += 4;
                     // Reset buf state
                     writeBufOffset = 0;
@@ -773,7 +773,7 @@ namespace gbaemu
         Return: No return value, Data written to destination address.
         */
         //TODO is the difference between writing in units of 8 bit vs 16 bit relevant?
-        static void _rlUnComp(InstructionExecutionInfo &info, CPU *cpu)
+        static void _rlUnComp(CPU *cpu)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
@@ -782,7 +782,7 @@ namespace gbaemu
 
             //TODO proper time calculation
 
-            const uint32_t dataHeader = cpu->state.memory.read32(sourceAddr, &info, false);
+            const uint32_t dataHeader = cpu->state.memory.read32(sourceAddr, &cpu->cpuInfo, false);
             sourceAddr += 4;
 
             const uint8_t compressedType = (dataHeader >> 4) & 0x0F;
@@ -796,7 +796,7 @@ namespace gbaemu
             bool firstWriteDone = false;
 
             while (decompressedSize > 0) {
-                uint8_t flagData = cpu->state.memory.read8(sourceAddr++, &info, true);
+                uint8_t flagData = cpu->state.memory.read8(sourceAddr++, &cpu->cpuInfo, true);
 
                 bool compressed = (flagData >> 7) & 0x1;
                 uint8_t decompressedDataLength = (flagData & 0x7F) + (compressed ? 3 : 1);
@@ -806,23 +806,23 @@ namespace gbaemu
                 }
                 decompressedSize -= decompressedDataLength;
 
-                uint8_t data = cpu->state.memory.read8(sourceAddr++, &info, true);
+                uint8_t data = cpu->state.memory.read8(sourceAddr++, &cpu->cpuInfo, true);
 
                 // write read data byte N times for decompression
                 for (; decompressedDataLength > 0; --decompressedDataLength) {
-                    cpu->state.memory.write8(destAddr++, data, &info, firstWriteDone);
+                    cpu->state.memory.write8(destAddr++, data, &cpu->cpuInfo, firstWriteDone);
                     firstWriteDone = true;
                 }
             }
         }
 
-        void RLUnCompWRAM(InstructionExecutionInfo &info, CPU *cpu)
+        void RLUnCompWRAM(CPU *cpu)
         {
-            _rlUnComp(info, cpu);
+            _rlUnComp(cpu);
         }
-        void RLUnCompVRAM(InstructionExecutionInfo &info, CPU *cpu)
+        void RLUnCompVRAM(CPU *cpu)
         {
-            _rlUnComp(info, cpu);
+            _rlUnComp(cpu);
         }
 
         /*
@@ -848,7 +848,7 @@ namespace gbaemu
           r1  Destination address
         Return: No return value, Data written to destination address.
         */
-        static void _diffUnFilter(InstructionExecutionInfo &info, CPU *cpu, bool bits8)
+        static void _diffUnFilter(CPU *cpu, bool bits8)
         {
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
@@ -857,7 +857,7 @@ namespace gbaemu
 
             //TODO proper time calculation considering bit width!
 
-            uint32_t header = cpu->state.memory.read32(srcAddr, &info, false);
+            uint32_t header = cpu->state.memory.read32(srcAddr, &cpu->cpuInfo, false);
             srcAddr += 4;
 
             //TODO not sure if we need those... maybe for sanity checks
@@ -871,131 +871,131 @@ namespace gbaemu
             uint16_t current = 0;
             bool firstWriteDone = false;
             do {
-                uint16_t diff = bits8 ? cpu->state.memory.read8(srcAddr, &info, false) : cpu->state.memory.read16(srcAddr, &info, false);
+                uint16_t diff = bits8 ? cpu->state.memory.read8(srcAddr, &cpu->cpuInfo, false) : cpu->state.memory.read16(srcAddr, &cpu->cpuInfo, false);
                 current += diff;
-                bits8 ? cpu->state.memory.write8(destAddr, static_cast<uint8_t>(current & 0x0FF), &info, firstWriteDone) : cpu->state.memory.write16(srcAddr, current, &info, firstWriteDone);
+                bits8 ? cpu->state.memory.write8(destAddr, static_cast<uint8_t>(current & 0x0FF), &cpu->cpuInfo, firstWriteDone) : cpu->state.memory.write16(srcAddr, current, &cpu->cpuInfo, firstWriteDone);
                 destAddr += addressInc;
                 srcAddr += addressInc;
                 firstWriteDone = true;
             } while (--size);
         }
 
-        void diff8BitUnFilterWRAM(InstructionExecutionInfo &info, CPU *cpu)
+        void diff8BitUnFilterWRAM(CPU *cpu)
         {
-            _diffUnFilter(info, cpu, true);
+            _diffUnFilter(cpu, true);
         }
-        void diff8BitUnFilterVRAM(InstructionExecutionInfo &info, CPU *cpu)
+        void diff8BitUnFilterVRAM(CPU *cpu)
         {
-            _diffUnFilter(info, cpu, true);
+            _diffUnFilter(cpu, true);
         }
-        void diff16BitUnFilter(InstructionExecutionInfo &info, CPU *cpu)
+        void diff16BitUnFilter(CPU *cpu)
         {
-            _diffUnFilter(info, cpu, false);
+            _diffUnFilter(cpu, false);
         }
 
-        void soundBiasChange(InstructionExecutionInfo &info, CPU *cpu)
+        void soundBiasChange(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundBiasChange not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void soundDriverInit(InstructionExecutionInfo &info, CPU *cpu)
+        void soundDriverInit(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundDriverInit not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void soundDriverMode(InstructionExecutionInfo &info, CPU *cpu)
+        void soundDriverMode(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundDriverMode not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void soundDriverMain(InstructionExecutionInfo &info, CPU *cpu)
+        void soundDriverMain(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundDirverMain not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void soundDriverVSync(InstructionExecutionInfo &info, CPU *cpu)
+        void soundDriverVSync(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundDirverVSync not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void soundChannelClear(InstructionExecutionInfo &info, CPU *cpu)
+        void soundChannelClear(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundChannelClear not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void MIDIKey2Freq(InstructionExecutionInfo &info, CPU *cpu)
+        void MIDIKey2Freq(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: MIDIKey2Freq not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void musicPlayerOpen(InstructionExecutionInfo &info, CPU *cpu)
+        void musicPlayerOpen(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: musicPlayerOpen not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void musicPlayerStart(InstructionExecutionInfo &info, CPU *cpu)
+        void musicPlayerStart(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: musicPlayerStart not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void musicPlayerStop(InstructionExecutionInfo &info, CPU *cpu)
+        void musicPlayerStop(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: musicPlayerStop not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void musicPlayerContinue(InstructionExecutionInfo &info, CPU *cpu)
+        void musicPlayerContinue(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: musicPlayerContinue not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void musicPlayerFadeOut(InstructionExecutionInfo &info, CPU *cpu)
+        void musicPlayerFadeOut(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: musicPlayerFadeOut not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void multiBoot(InstructionExecutionInfo &info, CPU *cpu)
+        void multiBoot(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: multiBoot not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void hardReset(InstructionExecutionInfo &info, CPU *cpu)
+        void hardReset(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: hardReset not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void customHalt(InstructionExecutionInfo &info, CPU *cpu)
+        void customHalt(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: customHalt not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void soundDriverVSyncOff(InstructionExecutionInfo &info, CPU *cpu)
+        void soundDriverVSyncOff(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: sourdDriverVSyncOff not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void soundDriverVSyncOn(InstructionExecutionInfo &info, CPU *cpu)
+        void soundDriverVSyncOn(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundDriverVSyncOn not yet implemented!" << std::endl;);
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
         }
-        void getJumpList(InstructionExecutionInfo &info, CPU *cpu)
+        void getJumpList(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: getJumpList not yet implemented!" << std::endl;);
