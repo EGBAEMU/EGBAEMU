@@ -137,6 +137,15 @@ namespace gbaemu
         }
     }
 
+    uint32_t CPU::normalizePC(bool thumbMode)
+    {
+        uint8_t bytes = thumbMode ? sizeof(uint16_t) : sizeof(uint32_t);
+        uint32_t patchedPC = state.accessReg(regs::PC_OFFSET) = state.memory.normalizeAddress(state.accessReg(regs::PC_OFFSET) & (thumbMode ? 0xFFFFFFFE : 0xFFFFFFFC), executionMemReg);
+        waitStatesSeq = state.memory.cyclesForVirtualAddrSeq(executionMemReg, bytes);
+        waitStatesNonSeq = state.memory.cyclesForVirtualAddrNonSeq(executionMemReg, bytes);
+        return patchedPC;
+    }
+
     void CPU::execute()
     {
         const uint32_t prevPc = state.getCurrentPC();
@@ -159,34 +168,13 @@ namespace gbaemu
         }
 
         const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
-
-        /*
-        Mis-aligned PC/R15 (branch opcodes, or MOV/ALU/LDR with Rd=R15)
-        For ARM code, the low bits of the target address should be usually zero, otherwise, R15 is forcibly aligned by clearing the lower two bits.
-        For THUMB code, the low bit of the target address may/should/must be set, the bit is (or is not) interpreted as thumb-bit (depending on the opcode), and R15 is then forcibly aligned by clearing the lower bit.
-        In short, R15 will be always forcibly aligned, so mis-aligned branches won't have effect on subsequent opcodes that use R15, or [R15+disp] as operand.
-        */
-        // Ensure that pc is word / halfword aligned & apply normalization to handle mirroring
-        Memory::MemoryRegion memReg;
-        const uint32_t postPc = state.accessReg(regs::PC_OFFSET) = state.memory.normalizeAddress(state.accessReg(regs::PC_OFFSET) & (postThumbMode ? 0xFFFFFFFE : 0xFFFFFFFC), memReg);
-
-        if (memReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
-            std::cout << "CRITIAL ERROR: PC points to bios address outside of our code! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
-            cpuInfo.hasCausedException = true;
-            return;
-        } else if (memReg == Memory::OUT_OF_ROM) {
-            std::cout << "CRITIAL ERROR: PC points out to address out of its ROM bounds! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
-            cpuInfo.hasCausedException = true;
-            return;
-        }
+        uint32_t postPc = state.accessReg(regs::PC_OFFSET);
 
         // Add 1S cycle needed to fetch a instruction if not other requested
         // Handle wait cycles!
         if (!cpuInfo.noDefaultSCycle) {
-            cpuInfo.cycleCount += state.memory.cyclesForVirtualAddrSeq(memReg, prevThumbMode ? sizeof(uint16_t) : sizeof(uint32_t));
+            cpuInfo.cycleCount += waitStatesSeq;
         }
-        cpuInfo.cycleCount += state.memory.cyclesForVirtualAddrNonSeq(memReg, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * cpuInfo.additionalProgCyclesN;
-        cpuInfo.cycleCount += state.memory.cyclesForVirtualAddrSeq(memReg, postThumbMode ? sizeof(uint16_t) : sizeof(uint32_t)) * cpuInfo.additionalProgCyclesS;
 
         // Change from arm mode to thumb mode or vice versa
         if (prevThumbMode != postThumbMode) {
@@ -195,19 +183,20 @@ namespace gbaemu
             } else {
                 state.decoder = &armDecoder;
             }
-            //TODO can we assume that on change the pc counter will always be modified as well?
+            cpuInfo.forceBranch = true;
         }
+
         // We have a branch, return or something that changed our PC
         if (cpuInfo.forceBranch || prevPc != postPc) {
+            postPc = normalizePC(postThumbMode);
             initPipeline();
         } else {
-            //TODO this is probably unwanted if we changed the mode?
-            if (prevThumbMode != postThumbMode) {
-                std::cout << "WARNING: mode change, but no PC change-> no flush occurred & wrong mode code will be executed! At PrevPC: 0x" << std::hex << prevPc << std::endl;
-            }
             // Increment the pc counter to the next instruction
             state.accessReg(regs::PC_OFFSET) = postPc + (postThumbMode ? 2 : 4);
         }
+
+        cpuInfo.cycleCount += waitStatesNonSeq * cpuInfo.additionalProgCyclesN;
+        cpuInfo.cycleCount += waitStatesSeq * cpuInfo.additionalProgCyclesS;
 
         /*
             The Mode Bits M4-M0 contain the current operating mode.
@@ -225,49 +214,44 @@ namespace gbaemu
                     11111b 1Fh 31 - System (privileged 'User' mode) (ARMv4 and up)
             Writing any other values into the Mode bits is not allowed. 
             */
-        uint8_t modeBits = state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK;
+        uint8_t modeBits = state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK & 0xF;
         switch (modeBits) {
-            case 0b10000:
+            case 0b0000:
                 state.mode = CPUState::UserMode;
                 break;
-            case 0b10001:
+            case 0b0001:
                 state.mode = CPUState::FIQ;
                 break;
-            case 0b10010:
+            case 0b0010:
                 state.mode = CPUState::IRQ;
                 break;
-            case 0b10011:
+            case 0b0011:
                 state.mode = CPUState::SupervisorMode;
                 break;
-            case 0b10111:
+            case 0b0111:
                 state.mode = CPUState::AbortMode;
                 break;
-            case 0b11011:
+            case 0b1011:
                 state.mode = CPUState::UndefinedMode;
                 break;
-            case 0b11111:
+            case 0b1111:
                 state.mode = CPUState::SystemMode;
                 break;
 
             default:
-                /*
-                    switch (modeBits & 0x13) {
-                        case 0b0000:
-                            state.mode = CPUState::UserMode;
-                            break;
-                        case 0b0001:
-                            state.mode = CPUState::FIQ;
-                            break;
-                        case 0b0010:
-                            state.mode = CPUState::IRQ;
-                            break;
-                        case 0b0011:
-                            state.mode = CPUState::SupervisorMode;
-                            break;
-                    }
-                    */
-                std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(modeBits) << " prevPC: 0x" << std::hex << prevPc << std::endl;
+                std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK) << " prevPC: 0x" << std::hex << prevPc << std::endl;
+                cpuInfo.hasCausedException = true;
                 break;
+        }
+
+        if (executionMemReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
+            std::cout << "CRITIAL ERROR: PC points to bios address outside of our code! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
+            cpuInfo.hasCausedException = true;
+            return;
+        } else if (executionMemReg == Memory::OUT_OF_ROM) {
+            std::cout << "CRITIAL ERROR: PC points out to address out of its ROM bounds! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
+            cpuInfo.hasCausedException = true;
+            return;
         }
     }
 
@@ -304,7 +288,10 @@ namespace gbaemu
         *state.getModeRegs(CPUState::CPUMode::IRQ)[regs::SP_OFFSET] = 0x3007FA0;
         *state.getModeRegs(CPUState::CPUMode::SupervisorMode)[regs::SP_OFFSET] = 0x03007FE0;
 
-        std::fill_n(reinterpret_cast<char*>(&cpuInfo), sizeof(cpuInfo), 0);
-        std::fill_n(reinterpret_cast<char*>(&dmaInfo), sizeof(dmaInfo), 0);
+        std::fill_n(reinterpret_cast<char *>(&cpuInfo), sizeof(cpuInfo), 0);
+        std::fill_n(reinterpret_cast<char *>(&dmaInfo), sizeof(dmaInfo), 0);
+
+        state.accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
+        normalizePC(false);
     }
 } // namespace gbaemu

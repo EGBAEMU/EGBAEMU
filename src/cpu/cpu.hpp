@@ -57,7 +57,14 @@ namespace gbaemu
         InstructionExecutionInfo cpuInfo;
         InstructionExecutionInfo dmaInfo;
 
+        // Execute phase variables
+        Memory::MemoryRegion executionMemReg;
+        uint8_t waitStatesSeq;
+        uint8_t waitStatesNonSeq;
+
         CPU();
+
+        uint32_t normalizePC(bool thumbMode);
 
         void reset();
 
