@@ -20,7 +20,7 @@ namespace gbaemu
 
     void InterruptHandler::internalWrite8ToReg(uint32_t offset, uint8_t value)
     {
-        if (offset == 2 || offset == 3) {
+        if (offset == offsetof(InterruptControlRegs, irqRequest) || offset == offsetof(InterruptControlRegs, irqRequest) + 1) {
             regsMutex.lock();
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
             regsMutex.unlock();
@@ -32,7 +32,7 @@ namespace gbaemu
 
     void InterruptHandler::externalWrite8ToReg(uint32_t offset, uint8_t value)
     {
-        if (offset == 2 || offset == 3) {
+        if (offset == offsetof(InterruptControlRegs, irqRequest) || offset == offsetof(InterruptControlRegs, irqRequest) + 1) {
             regsMutex.lock();
             *(offset + reinterpret_cast<uint8_t *>(&regs)) &= ~value;
             regsMutex.unlock();
