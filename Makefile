@@ -27,6 +27,9 @@ debug: CCFLAGS += -g
 debug: gbaemu
 release: CCFLAGS += -Ofast
 release: gbaemu
+profiling: CCFLAGS += -pg
+profiling: LDFLAGS += -pg
+profiling: release
 
 gbaemu: $(objs)
 	@mkdir -p $(OUT)
