@@ -197,7 +197,8 @@ namespace gbaemu
             return ss.str();
         }
 
-        void ARMInstructionDecoder::decode(uint32_t lastInst, Instruction &decodedInst) const
+        template <class Executor>
+        void ARMInstructionDecoder::decode(uint32_t lastInst, Executor &exec)
         {
             ARMInstruction instruction;
 
@@ -222,8 +223,10 @@ namespace gbaemu
 
                 if (a) {
                     instruction.id = InstructionID::MLA;
+                    exec.Executor::template operator()<MUL_ACC, MLA>(instruction);
                 } else {
                     instruction.id = InstructionID::MUL;
+                    exec.Executor::template operator()<MUL_ACC, MUL>(instruction);
                 }
 
             } else if ((lastInst & MASK_MUL_ACC_LONG) == VAL_MUL_ACC_LONG) {
@@ -245,12 +248,16 @@ namespace gbaemu
 
                 if (u && a) {
                     instruction.id = InstructionID::SMLAL;
+                    exec.Executor::template operator()<MUL_ACC_LONG, SMLAL>(instruction);
                 } else if (u && !a) {
                     instruction.id = InstructionID::SMULL;
+                    exec.Executor::template operator()<MUL_ACC_LONG, SMULL>(instruction);
                 } else if (!u && a) {
                     instruction.id = InstructionID::UMLAL;
+                    exec.Executor::template operator()<MUL_ACC_LONG, UMLAL>(instruction);
                 } else {
                     instruction.id = InstructionID::UMULL;
+                    exec.Executor::template operator()<MUL_ACC_LONG, UMULL>(instruction);
                 }
 
             } else if ((lastInst & MASK_BRANCH_XCHG) == VAL_BRANCH_XCHG) {
@@ -259,6 +266,7 @@ namespace gbaemu
                 instruction.id = InstructionID::BX;
                 instruction.params.branch_xchg.rn = lastInst & 0x0F;
 
+                exec.Executor::template operator()<BRANCH_XCHG, BX>(instruction);
             } else if ((lastInst & MASK_DATA_SWP) == VAL_DATA_SWP) {
 
                 instruction.cat = ARMInstructionCategory::DATA_SWP;
@@ -274,8 +282,10 @@ namespace gbaemu
 
                 if (!b) {
                     instruction.id = InstructionID::SWP;
+                    exec.Executor::template operator()<DATA_SWP, SWP>(instruction);
                 } else {
                     instruction.id = InstructionID::SWPB;
+                    exec.Executor::template operator()<DATA_SWP, SWPB>(instruction);
                 }
 
             } else if ((lastInst & MASK_HW_TRANSF_REG_OFF) == VAL_HW_TRANSF_REG_OFF) {
@@ -298,8 +308,10 @@ namespace gbaemu
                 // register offset variants
                 if (l) {
                     instruction.id = InstructionID::LDRH;
+                    exec.Executor::template operator()<HW_TRANSF_REG_OFF, LDRH>(instruction);
                 } else {
                     instruction.id = InstructionID::STRH;
+                    exec.Executor::template operator()<HW_TRANSF_REG_OFF, STRH>(instruction);
                 }
 
             } else if ((lastInst & MASK_HW_TRANSF_IMM_OFF) == VAL_HW_TRANSF_IMM_OFF) {
@@ -324,8 +336,10 @@ namespace gbaemu
 
                 if (l) {
                     instruction.id = InstructionID::LDRH;
+                    exec.Executor::template operator()<HW_TRANSF_IMM_OFF, LDRH>(instruction);
                 } else {
                     instruction.id = InstructionID::STRH;
+                    exec.Executor::template operator()<HW_TRANSF_IMM_OFF, STRH>(instruction);
                 }
 
             } else if ((lastInst & MASK_SIGN_TRANSF) == VAL_SIGN_TRANSF) {
@@ -354,8 +368,12 @@ namespace gbaemu
 
                 if (l && !h) {
                     instruction.id = InstructionID::LDRSB;
+                    exec.Executor::template operator()<SIGN_TRANSF, LDRSB>(instruction);
                 } else if (l && h) {
                     instruction.id = InstructionID::LDRSH;
+                    exec.Executor::template operator()<SIGN_TRANSF, LDRSH>(instruction);
+                } else {
+                    exec.Executor::template operator()<INVALID_CAT, INVALID>(instruction);
                 } /*else if (!l && h) { // supported arm5 and up
                     instruction.id = InstructionID::STRD;
                 }
@@ -385,67 +403,87 @@ namespace gbaemu
                 switch (opCode) {
                     case 0b0000:
                         instruction.id = InstructionID::AND;
+                        exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, AND>(instruction);
                         break;
                     case 0b0001:
                         instruction.id = InstructionID::EOR;
+                        exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, EOR>(instruction);
                         break;
                     case 0b0010:
                         instruction.id = InstructionID::SUB;
+                        exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, SUB>(instruction);
                         break;
                     case 0b0011:
                         instruction.id = InstructionID::RSB;
+                        exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, RSB>(instruction);
                         break;
                     case 0b0100:
                         instruction.id = InstructionID::ADD;
+                        exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, ADD>(instruction);
                         break;
                     case 0b0101:
                         instruction.id = InstructionID::ADC;
+                        exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, ADC>(instruction);
                         break;
                     case 0b0110:
                         instruction.id = InstructionID::SBC;
+                        exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, SBC>(instruction);
                         break;
                     case 0b0111:
                         instruction.id = InstructionID::RSC;
+                        exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, RSC>(instruction);
                         break;
                     case 0b1000:
                         if (s) {
                             instruction.id = InstructionID::TST;
+                            exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, TST>(instruction);
                         } else {
                             instruction.id = InstructionID::MRS;
+                            exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, MRS>(instruction);
                         }
                         break;
                     case 0b1001:
                         if (s) {
                             instruction.id = InstructionID::TEQ;
+                            exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, TEQ>(instruction);
                         } else {
                             instruction.id = InstructionID::MSR;
+                            exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, MSR>(instruction);
                         }
                         break;
                     case 0b1010:
                         if (s) {
                             instruction.id = InstructionID::CMP;
+                            exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, CMP>(instruction);
                         } else {
                             instruction.id = InstructionID::MRS;
+                            exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, MRS>(instruction);
                         }
                         break;
                     case 0b1011:
                         if (s) {
                             instruction.id = InstructionID::CMN;
+                            exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, CMN>(instruction);
                         } else {
                             instruction.id = InstructionID::MSR;
+                            exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, MSR>(instruction);
                         }
                         break;
                     case 0b1100:
                         instruction.id = InstructionID::ORR;
+                        exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, ORR>(instruction);
                         break;
                     case 0b1101:
                         instruction.id = InstructionID::MOV;
+                        exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, MOV>(instruction);
                         break;
                     case 0b1110:
                         instruction.id = InstructionID::BIC;
+                        exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, BIC>(instruction);
                         break;
                     case 0b1111:
                         instruction.id = InstructionID::MVN;
+                        exec.Executor::template operator()<DATA_PROC_PSR_TRANSF, MVN>(instruction);
                         break;
                 }
             } else if ((lastInst & MASK_LS_REG_UBYTE) == VAL_LS_REG_UBYTE) {
@@ -472,17 +510,22 @@ namespace gbaemu
 
                 if (!b && l) {
                     instruction.id = InstructionID::LDR;
+                    exec.Executor::template operator()<LS_REG_UBYTE, LDR>(instruction);
                 } else if (b && l) {
                     instruction.id = InstructionID::LDRB;
+                    exec.Executor::template operator()<LS_REG_UBYTE, LDRB>(instruction);
                 } else if (!b && !l) {
                     instruction.id = InstructionID::STR;
+                    exec.Executor::template operator()<LS_REG_UBYTE, STR>(instruction);
                 } else {
                     instruction.id = InstructionID::STRB;
+                    exec.Executor::template operator()<LS_REG_UBYTE, STRB>(instruction);
                 }
 
-            }/* else if ((lastInst & MASK_UNDEFINED) == VAL_UNDEFINED) {
+            } /* else if ((lastInst & MASK_UNDEFINED) == VAL_UNDEFINED) {
                 std::cout << "WARNING: Undefined instruction: " << std::hex << lastInst << std::endl;
-            }*/ else if ((lastInst & MASK_BLOCK_DATA_TRANSF) == VAL_BLOCK_DATA_TRANSF) {
+            }*/
+            else if ((lastInst & MASK_BLOCK_DATA_TRANSF) == VAL_BLOCK_DATA_TRANSF) {
 
                 instruction.cat = ARMInstructionCategory::BLOCK_DATA_TRANSF;
 
@@ -504,8 +547,10 @@ namespace gbaemu
                 /* docs say there are two more distinct instructions in this category */
                 if (l) {
                     instruction.id = InstructionID::LDM;
+                    exec.Executor::template operator()<BLOCK_DATA_TRANSF, LDM>(instruction);
                 } else {
                     instruction.id = InstructionID::STM;
+                    exec.Executor::template operator()<BLOCK_DATA_TRANSF, STM>(instruction);
                 }
 
             } else if ((lastInst & MASK_BRANCH) == VAL_BRANCH) {
@@ -520,22 +565,25 @@ namespace gbaemu
                 instruction.params.branch.offset = signExt<int32_t, uint32_t, 24>(si);
 
                 instruction.id = InstructionID::B;
+                exec.Executor::template operator()<BRANCH, B>(instruction);
 
-            }/* else if ((lastInst & MASK_COPROC_DATA_TRANSF) == VAL_COPROC_DATA_TRANSF) {
+            } /* else if ((lastInst & MASK_COPROC_DATA_TRANSF) == VAL_COPROC_DATA_TRANSF) {
                 // Unused
             } else if ((lastInst & MASK_COPROC_OP) == VAL_COPROC_OP) {
                 // Unused
             } else if ((lastInst & MASK_COPROC_REG_TRANSF) == VAL_COPROC_REG_TRANSF) {
                 // Unused
-            }*/ else if ((lastInst & MASK_SOFTWARE_INTERRUPT) == VAL_SOFTWARE_INTERRUPT) {
+            }*/
+            else if ((lastInst & MASK_SOFTWARE_INTERRUPT) == VAL_SOFTWARE_INTERRUPT) {
 
                 instruction.cat = ARMInstructionCategory::SOFTWARE_INTERRUPT;
 
                 instruction.id = InstructionID::SWI;
                 instruction.params.software_interrupt.comment = lastInst & 0x00FFFFFF;
+                exec.Executor::template operator()<SOFTWARE_INTERRUPT, SWI>(instruction);
+            } else {
+                exec.Executor::template operator()<INVALID_CAT, INVALID>(instruction);
             }
-
-            decodedInst.setArmInstruction(instruction);
         }
 
     } // namespace arm

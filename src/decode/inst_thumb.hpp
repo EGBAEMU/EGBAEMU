@@ -70,10 +70,11 @@ namespace gbaemu
         static const uint16_t MASK_THUMB_LONG_BRANCH_WITH_LINK = 0b1111000000000000;
         static const uint16_t VAL_THUMB_LONG_BRANCH_WITH_LINK = 0b1111000000000000;
 
-        class ThumbInstructionDecoder : public InstructionDecoder
+        class ThumbInstructionDecoder
         {
           public:
-            virtual void decode(uint32_t inst, Instruction &decodedInst) const override;
+            template <class Executor>
+            static void decode(uint32_t inst, Executor &exec);
         };
     } // namespace thumb
 } // namespace gbaemu

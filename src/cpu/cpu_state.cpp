@@ -152,7 +152,9 @@ namespace gbaemu
 
     std::string CPUState::disas(uint32_t addr, uint32_t cmds) const
     {
+        //TODO rework!
         std::stringstream ss;
+        /*
         ss << std::setfill('0') << std::hex;
 
         uint32_t startAddr = addr - (cmds / 2) * (getFlag(cpsr_flags::THUMB_STATE) ? 2 : 4);
@@ -162,15 +164,15 @@ namespace gbaemu
 
         for (uint32_t i = startAddr; cmds > 0; --cmds) {
 
-            /* indicate executed instruction */
+            // indicate executed instruction
             //if (i == addr)
             //    ss << "<- ";
 
-            /* indicate current instruction */
+            // indicate current instruction
             if (i == accessReg(regs::PC_OFFSET))
                 ss << "=> ";
 
-            /* address, pad hex numbers with 0 */
+            // address, pad hex numbers with 0
             ss << "0x" << std::setw(8) << i << "    ";
 
             if (getFlag(cpsr_flags::THUMB_STATE)) {
@@ -183,10 +185,10 @@ namespace gbaemu
                 decoder->decode(bytes, decodedInst);
                 auto &inst = decodedInst.inst.thumb;
 
-                /* bytes */
+                // bytes
                 ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << " [" << std::setw(4) << bytes << ']';
 
-                /* code */
+                // code
                 ss << "    " << inst.toString() << '\n';
 
                 i += 2;
@@ -202,15 +204,16 @@ namespace gbaemu
                 decoder->decode(bytes, decodedInst);
                 auto &inst = decodedInst.inst.arm;
 
-                /* bytes */
+                // bytes
                 ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << std::setw(2) << b2 << ' ' << std::setw(2) << b3 << " [" << std::setw(8) << bytes << ']';
 
-                /* code */
+                // code
                 ss << "    " << inst.toString() << '\n';
 
                 i += 4;
             }
         }
+        */
 
         return ss.str();
     }

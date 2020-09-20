@@ -71,8 +71,6 @@ namespace gbaemu
 
         Memory memory;
 
-        const InstructionDecoder *decoder;
-
       public:
         CPUState();
         ~CPUState();

@@ -148,12 +148,12 @@ namespace gbaemu
 
     void CPU::execute()
     {
-        static Instruction inst;
-
         const uint32_t prevPc = state.getCurrentPC();
         const bool prevThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
 
-        state.decoder->decode(state.pipeline.decode.lastInstruction, inst);
+        NopExecutor dummyExecutor{};
+        decoder(state.pipeline.decode.lastInstruction, dummyExecutor);
+        /*
         if (!inst.isValid()) {
             std::cout << "ERROR: Decoded instruction is invalid: [" << std::hex << state.pipeline.decode.lastInstruction << "] @ " << state.accessReg(regs::PC_OFFSET);
             cpuInfo.hasCausedException = true;
@@ -167,7 +167,7 @@ namespace gbaemu
         } else {
             thumb::ThumbInstruction &thumbInst = inst.inst.thumb;
             thumbExecuteHandler[inst.inst.thumb.cat](thumbInst, this);
-        }
+        }*/
 
         const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
         uint32_t postPc = state.accessReg(regs::PC_OFFSET);
@@ -181,9 +181,10 @@ namespace gbaemu
         // Change from arm mode to thumb mode or vice versa
         if (prevThumbMode != postThumbMode) {
             if (postThumbMode) {
-                state.decoder = &thumbDecoder;
+                //TODO rework!
+                //decoder = &thumbDecoder;
             } else {
-                state.decoder = &armDecoder;
+                //decoder = &armDecoder;
             }
             cpuInfo.forceBranch = true;
         }
@@ -268,7 +269,8 @@ namespace gbaemu
         irqHandler.reset();
         keypad.reset();
 
-        state.decoder = &armDecoder;
+        //TODO rework!
+        //decoder = &armDecoder;
         /*
             Default memory usage at 03007FXX (and mirrored to 03FFFFXX)
               Addr.    Size Expl.

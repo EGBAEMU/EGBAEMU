@@ -2,6 +2,7 @@
 #define INST_HPP
 
 #include <cstdint>
+#include <functional>
 #include <string>
 
 namespace gbaemu
@@ -536,11 +537,25 @@ namespace gbaemu
         static Instruction fromThumb(thumb::ThumbInstruction &thumbInst);
     };
 
-    class InstructionDecoder
+    class NopExecutor
     {
       public:
-        virtual void decode(uint32_t inst, Instruction &decodedInst) const = 0;
+        template <typename T, typename... Args>
+        void operator()(T, Args...)
+        {
+        }
     };
+
+    class Executor 
+    {
+      public:
+        template <typename T, InstructionID, typename... Args>
+        void operator()(Args...)
+        {
+        }
+    };
+
+    typedef std::function<void(uint32_t, NopExecutor &exec)> InstructionDecoder;
 
 } // namespace gbaemu
 

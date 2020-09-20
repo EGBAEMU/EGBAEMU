@@ -40,6 +40,7 @@ namespace gbaemu
         CPUState state;
         arm::ARMInstructionDecoder armDecoder;
         thumb::ThumbInstructionDecoder thumbDecoder;
+        InstructionDecoder decoder;
 
         DMA dma0;
         DMA dma1;

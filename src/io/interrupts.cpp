@@ -135,8 +135,9 @@ namespace gbaemu
             // Save PC to LR_irq
             *(cpu->state.getModeRegs(CPUState::IRQ)[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + 4;
 
+            //TODO rework!
             // Change instruction mode to arm
-            cpu->state.decoder = &cpu->armDecoder;
+            // cpu->state.decoder = &cpu->armDecoder;
 
             // Change the register mode to irq
             cpu->state.mode = CPUState::IRQ;

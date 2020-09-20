@@ -161,10 +161,11 @@ namespace gbaemu
         static const uint32_t MASK_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
         static const uint32_t VAL_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
 
-        class ARMInstructionDecoder : public InstructionDecoder
+        class ARMInstructionDecoder
         {
           public:
-            virtual void decode(uint32_t inst, Instruction &decodedInst) const override;
+            template <class Executor>
+            static void decode(uint32_t inst, Executor &exec);
         };
 
     } // namespace arm
