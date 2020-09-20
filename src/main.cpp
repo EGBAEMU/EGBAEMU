@@ -60,6 +60,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController,
         }
         lcdController.tick();
 
+
         if (j >= 1001) {
             double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
             // dt = us * 1000, us for a single instruction = dt / 1000
@@ -193,17 +194,17 @@ int main(int argc, char **argv)
             gameController.processSDLEvent(event);
 
             if (event.type == SDL_KEYDOWN) {
-                static int32_t debugCanvasIndex = 0;
+                static int32_t objIndex = 0;
 
                 if (event.key.keysym.sym == SDLK_KP_PLUS) {
-                    debugCanvasIndex = ((uint32_t)debugCanvasIndex + 1) % 4;
-                    std::cout << "OBJ hightlight index: " << std::dec << debugCanvasIndex << std::endl;
+                    ++objIndex;
+                    std::cout << "OBJ hightlight index: " << std::dec << objIndex << std::endl;
                 } else if (event.key.keysym.sym == SDLK_KP_MINUS) {
-                    debugCanvasIndex = ((uint32_t)debugCanvasIndex - 1) % 4;
-                    std::cout << "OBJ hightlight index: " << std::dec << debugCanvasIndex << std::endl;
+                    --objIndex;
+                    std::cout << "OBJ hightlight index: " << std::dec << objIndex << std::endl;
                 }
 
-                controller.objSetDebugCanvas(debugCanvasIndex);
+                controller.objHightlightSetIndex(objIndex);
             }
         }
 

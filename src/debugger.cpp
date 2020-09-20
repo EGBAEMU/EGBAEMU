@@ -298,20 +298,28 @@ namespace gbaemu::debugger
         }
 
         if (words[0] == "help" || words[0] == "h") {
+            std::cout
+                << "continue/con\nbreak/b [address] (defaults to PC)\nlistbreak/lb\nunbreak address\n"
+                << "watch address\nunwatch address\ndisas/dis [address] [length] (defaults to PC)\n"
+                << "regs/r\nbreakpoints/bps\nwatchpoints/wps\nstep/s\nreset\n";
+
+            return;
         }
 
         std::cout << "DebugCLI: Invalid command!" << std::endl;
     }
 
-    DebugCLI::DebugCLI(CPU& cpuRef) : cpu(cpuRef)
+    DebugCLI::DebugCLI(CPU& cpuRef) : cpu(cpuRef), stepCount(0)
     {
         state = RUNNING;
 
         cpu.state.memory.memWatch.registerTrigger([&](address_t addr, const MemWatch::Condition& cond,
                 uint32_t oldValue, bool onWrite, uint32_t newValue) {
-                    std::tuple<address_t, MemWatch::Condition, uint32_t, bool, uint32_t> val =
-                        std::make_tuple(addr, cond, oldValue, onWrite, newValue);
-                    triggeredWatchpoint = std::optional(val);
+                    triggeredWatchpoint.address = addr;
+                    triggeredWatchpoint.condition = cond;
+                    triggeredWatchpoint.isWrite = onWrite;
+                    triggeredWatchpoint.oldValue = oldValue;
+                    triggeredWatchpoint.newValue = newValue;
                 });
     }
 
@@ -320,7 +328,6 @@ namespace gbaemu::debugger
         if (state == STOPPED)
             return false;
 
-        /* The CPU is stopped so we need the user something to do. */
         if (state == RUNNING) {
             cpuExecutionMutex.lock();
             CPUExecutionInfoType executionInfo = cpu.step();
@@ -335,10 +342,10 @@ namespace gbaemu::debugger
 
         if (pc != prevPC) {
             if (state == RUNNING) {
-                if (state == RUNNING && triggeredWatchpoint) {
-                    std::tuple<address_t, MemWatch::Condition, uint32_t, bool, uint32_t> wp = triggeredWatchpoint.value();
-                    triggeredWatchpoint = std::optional<std::tuple<address_t, MemWatch::Condition, uint32_t, bool, uint32_t>>();
-                    address_t addr = std::get<0>(wp);
+                if (state == RUNNING && triggeredWatchpoint.address != INVALID_ADDRESS) {
+                    address_t addr = triggeredWatchpoint.address;
+                    /* clear event */
+                    triggeredWatchpoint.address = INVALID_ADDRESS;
 
                     cpuExecutionMutex.lock();
                     std::cout << "DebugCLI: watchpoint " << std::hex << addr << " reached" << std::endl;
@@ -363,6 +370,7 @@ namespace gbaemu::debugger
         }
 
         prevPC = pc;
+        ++stepCount;
 
         return state == HALTED;
     }

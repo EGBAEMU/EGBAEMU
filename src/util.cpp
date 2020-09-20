@@ -58,13 +58,14 @@ namespace gbaemu
         /* This is fixed point 2's complement. */
         const T SIGN_OFF = FRAC + INT;
         const ResultType factor = static_cast<ResultType>(static_cast<T>(1) << FRAC);
+        const T mask = (static_cast<T>(1) << (SIGN_OFF + 1)) - 1;
 
-        T bitValue = fp & ((static_cast<T>(1) << (SIGN_OFF + 1)) - 1);
+        T bitValue = fp & mask;
         bool negative = (fp >> SIGN_OFF) & 1;
         //T compOffset = negative ? (static_cast<T>(1) << INT) : 0;
 
         if (negative)
-            bitValue = ~bitValue + 1;
+            bitValue = (~bitValue + 1) & mask;
 
         return static_cast<ResultType>(bitValue) / (negative ? -factor : factor);
     }

@@ -169,12 +169,18 @@ namespace gbaemu::debugger
             STOPPED,
             HALTED
         };
+
+        struct WatchEvent
+        {
+            address_t address;
+            MemWatch::Condition condition;
+            uint32_t oldValue;
+            bool isWrite;
+            uint32_t newValue;
+        };
     private:
         CPU& cpu;
         State state;
-        /* if true, step() waits for input */
-        bool inputBlocking;
-        bool acceptNewInput = true;
 
         bool exe1Step = false;
 
@@ -183,7 +189,7 @@ namespace gbaemu::debugger
         std::mutex cpuExecutionMutex;
         uint64_t stepCount;
 
-        std::optional<std::tuple<address_t, MemWatch::Condition, uint32_t, bool, uint32_t>> triggeredWatchpoint;
+        WatchEvent triggeredWatchpoint;
 
         void executeInput(const std::string& line);
 

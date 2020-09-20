@@ -308,6 +308,11 @@ namespace gbaemu
             execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(value)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(value));
         }
 
+        if (memWatch.isAddressWatched(addr)) {
+            uint32_t currValue = le<uint16_t>(*reinterpret_cast<const uint16_t *>(dst));
+            memWatch.addressCheckTrigger(addr, currValue, value);
+        }
+
         if (memReg == OUT_OF_ROM) {
             LOG_MEM(std::cout << "CRITICAL ERROR: trying to write16 ROM + outside of its bounds!" << std::endl;);
             if (execInfo != nullptr) {
@@ -323,11 +328,6 @@ namespace gbaemu
             const uint8_t data = value >> (unalignedPart << 3);
             ext_sram->write((addr | unalignedPart) & 0x00007FFF, reinterpret_cast<const char *>(&data), 1);
         } else {
-            if (memWatch.isAddressWatched(addr)) {
-                uint32_t currValue = le<uint16_t>(*reinterpret_cast<const uint16_t *>(dst));
-                memWatch.addressCheckTrigger(addr, currValue, value);
-            }
-
             dst[0] = value & 0x0FF;
             dst[1] = (value >> 8) & 0x0FF;
         }
@@ -345,6 +345,11 @@ namespace gbaemu
             execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(value)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(value));
         }
 
+        if (memWatch.isAddressWatched(addr)) {
+            uint32_t currValue = le<uint32_t>(*reinterpret_cast<const uint32_t *>(dst));
+            memWatch.addressCheckTrigger(addr, currValue, value);
+        }
+
         if (memReg == OUT_OF_ROM) {
             LOG_MEM(std::cout << "CRITICAL ERROR: trying to write32 ROM + outside of its bounds!" << std::endl;);
             if (execInfo != nullptr) {
@@ -360,11 +365,6 @@ namespace gbaemu
             const uint8_t data = value >> (unalignedPart << 3);
             ext_sram->write((addr | unalignedPart) & 0x00007FFF, reinterpret_cast<const char *>(&data), 1);
         } else {
-            if (memWatch.isAddressWatched(addr)) {
-                uint32_t currValue = le<uint32_t>(*reinterpret_cast<const uint32_t *>(dst));
-                memWatch.addressCheckTrigger(addr, currValue, value);
-            }
-
             dst[0] = value & 0x0FF;
             dst[1] = (value >> 8) & 0x0FF;
             dst[2] = (value >> 16) & 0x0FF;
