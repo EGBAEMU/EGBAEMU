@@ -16,97 +16,97 @@ namespace gbaemu::arm
     }
 
     template <>
-    void ArmExecutor::operator()<MUL_ACC, MLA, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<MUL_ACC, MLA>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<MUL_ACC, MUL, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<MUL_ACC, MUL>(ARMInstruction &armInst) {}
 
     template <>
-    void ArmExecutor::operator()<MUL_ACC_LONG, SMLAL, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<MUL_ACC_LONG, SMLAL>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<MUL_ACC_LONG, SMULL, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<MUL_ACC_LONG, SMULL>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<MUL_ACC_LONG, UMLAL, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<MUL_ACC_LONG, UMLAL>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<MUL_ACC_LONG, UMULL, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<MUL_ACC_LONG, UMULL>(ARMInstruction &armInst) {}
 
     template <>
-    void ArmExecutor::operator()<BRANCH_XCHG, BX, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<BRANCH_XCHG, BX>(ARMInstruction &armInst) {}
 
     template <>
-    void ArmExecutor::operator()<DATA_SWP, SWP, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_SWP, SWP>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_SWP, SWPB, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_SWP, SWPB>(ARMInstruction &armInst) {}
 
     template <>
-    void ArmExecutor::operator()<HW_TRANSF_REG_OFF, LDRH, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<HW_TRANSF_REG_OFF, LDRH>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<HW_TRANSF_REG_OFF, STRH, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<HW_TRANSF_REG_OFF, STRH>(ARMInstruction &armInst) {}
 
     template <>
-    void ArmExecutor::operator()<HW_TRANSF_IMM_OFF, LDRH, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<HW_TRANSF_IMM_OFF, LDRH>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<HW_TRANSF_IMM_OFF, STRH, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<HW_TRANSF_IMM_OFF, STRH>(ARMInstruction &armInst) {}
 
     template <>
-    void ArmExecutor::operator()<SIGN_TRANSF, LDRSB, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<SIGN_TRANSF, LDRSB>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<SIGN_TRANSF, LDRSH, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<SIGN_TRANSF, LDRSH>(ARMInstruction &armInst) {}
 
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, AND, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, AND>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, EOR, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, EOR>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, SUB, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, SUB>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, RSB, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, RSB>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, ADD, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, ADD>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, ADC, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, ADC>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, SBC, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, SBC>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, RSC, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, RSC>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, TST, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, TST>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, MRS, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, MRS>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, TEQ, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, TEQ>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, MSR, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, MSR>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, CMP, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, CMP>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, CMN, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, CMN>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, ORR, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, ORR>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, MOV, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, MOV>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, BIC, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, BIC>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, MVN, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<DATA_PROC_PSR_TRANSF, MVN>(ARMInstruction &armInst) {}
 
     template <>
-    void ArmExecutor::operator()<LS_REG_UBYTE, LDR, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<LS_REG_UBYTE, LDR>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<LS_REG_UBYTE, LDRB, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<LS_REG_UBYTE, LDRB>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<LS_REG_UBYTE, STR, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<LS_REG_UBYTE, STR>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<LS_REG_UBYTE, STRB, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<LS_REG_UBYTE, STRB>(ARMInstruction &armInst) {}
 
     template <>
-    void ArmExecutor::operator()<BLOCK_DATA_TRANSF, LDM, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<BLOCK_DATA_TRANSF, LDM>(ARMInstruction &armInst) {}
     template <>
-    void ArmExecutor::operator()<BLOCK_DATA_TRANSF, STM, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<BLOCK_DATA_TRANSF, STM>(ARMInstruction &armInst) {}
 
     template <>
-    void ArmExecutor::operator()<BRANCH, B, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<BRANCH, B>(ARMInstruction &armInst) {}
 
     template <>
-    void ArmExecutor::operator()<SOFTWARE_INTERRUPT, SWI, ARMInstruction &>(ARMInstruction &armInst) {}
+    void ArmExecutor::operator()<SOFTWARE_INTERRUPT, SWI>(ARMInstruction &armInst) {}
 
 } // namespace gbaemu::arm
