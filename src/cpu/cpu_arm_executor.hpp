@@ -15,7 +15,7 @@ namespace gbaemu
             CPU *cpu;
 
           public:
-            template <arm::ARMInstructionCategory, InstructionID id, class T, typename... Args>
+            template <arm::ARMInstructionCategory, InstructionID, class T, typename... Args>
             void operator()(T t, Args... args);
 
             friend CPU;

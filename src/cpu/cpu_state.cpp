@@ -3,6 +3,11 @@
 #include "regs.hpp"
 #include "util.hpp"
 
+#include "decode/disas_arm.hpp"
+#include "decode/disas_thumb.hpp"
+#include "decode/inst_arm.hpp"
+#include "decode/inst_thumb.hpp"
+
 #include <algorithm>
 #include <iomanip>
 #include <sstream>
@@ -150,11 +155,14 @@ namespace gbaemu
         return ss.str();
     }
 
+    static thumb::ThumbDisas thumbDisas;
+    static arm::ArmDisas armDisas;
+
     std::string CPUState::disas(uint32_t addr, uint32_t cmds) const
     {
         //TODO rework!
         std::stringstream ss;
-        /*
+
         ss << std::setfill('0') << std::hex;
 
         uint32_t startAddr = addr - (cmds / 2) * (getFlag(cpsr_flags::THUMB_STATE) ? 2 : 4);
@@ -181,9 +189,8 @@ namespace gbaemu
                 uint32_t b0 = bytes & 0x0FF;
                 uint32_t b1 = (bytes >> 8) & 0x0FF;
 
-                Instruction decodedInst;
-                decoder->decode(bytes, decodedInst);
-                auto &inst = decodedInst.inst.thumb;
+                thumb::ThumbInstructionDecoder<thumb::ThumbDisas>::decode<thumbDisas>(bytes);
+                auto &inst = thumbDisas.inst;
 
                 // bytes
                 ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << " [" << std::setw(4) << bytes << ']';
@@ -200,9 +207,8 @@ namespace gbaemu
                 uint32_t b2 = (bytes >> 16) & 0x0FF;
                 uint32_t b3 = (bytes >> 24) & 0x0FF;
 
-                Instruction decodedInst;
-                decoder->decode(bytes, decodedInst);
-                auto &inst = decodedInst.inst.arm;
+                arm::ARMInstructionDecoder<arm::ArmDisas>::decode<armDisas>(bytes);
+                auto &inst = armDisas.inst;
 
                 // bytes
                 ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << std::setw(2) << b2 << ' ' << std::setw(2) << b3 << " [" << std::setw(8) << bytes << ']';
@@ -213,7 +219,6 @@ namespace gbaemu
                 i += 4;
             }
         }
-        */
 
         return ss.str();
     }
