@@ -37,9 +37,10 @@ namespace gbaemu
     {
 
       public:
+        static arm::ArmExecutor armExecutor;
+        static thumb::ThumbExecutor thumbExecutor;
+
         CPUState state;
-        arm::ARMInstructionDecoder armDecoder;
-        thumb::ThumbInstructionDecoder thumbDecoder;
         InstructionDecoder decoder;
 
         DMA dma0;
@@ -90,7 +91,7 @@ namespace gbaemu
         void execDataBlockTransfer(arm::ARMInstruction &inst, bool thumb = false);
         void execLoadStoreRegUByte(const arm::ARMInstruction &inst, bool thumb = false);
         void execHalfwordDataTransferImmRegSignedTransfer(bool pre, bool up, bool load, bool writeback, bool sign,
-                                                                              uint8_t rn, uint8_t rd, uint32_t offset, uint8_t transferSize, bool thumb = false);
+                                                          uint8_t rn, uint8_t rd, uint32_t offset, uint8_t transferSize, bool thumb = false);
 
         // THUMB instruction execution helpers
         void handleThumbLongBranchWithLink(bool h, uint16_t offset);

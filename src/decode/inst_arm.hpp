@@ -1,12 +1,15 @@
 #ifndef INST_ARM_HPP
 #define INST_ARM_HPP
 
-#include "inst.hpp"
 #include "cpu/regs.hpp"
+#include "inst.hpp"
 #include <cstdint>
 
 namespace gbaemu
 {
+
+    class CPU;
+
     namespace arm
     {
 
@@ -161,11 +164,27 @@ namespace gbaemu
         static const uint32_t MASK_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
         static const uint32_t VAL_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
 
+        template <class Executor>
         class ARMInstructionDecoder
         {
+          private:
+            ARMInstructionDecoder();
+
           public:
-            template <class Executor>
-            static void decode(uint32_t inst, Executor &exec);
+            template <Executor &exec>
+            static void decode(uint32_t inst);
+        };
+
+        class ArmExecutor
+        {
+          private:
+            CPU *cpu;
+
+          public:
+            template <arm::ARMInstructionCategory, InstructionID id, typename T, typename... Args>
+            void operator()(T t, Args... args);
+
+            friend CPU;
         };
 
     } // namespace arm

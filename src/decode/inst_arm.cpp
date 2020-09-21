@@ -1,4 +1,5 @@
 #include "inst_arm.hpp"
+#include "cpu/cpu.hpp"
 #include "cpu/cpu_state.hpp"
 #include "cpu/swi.hpp"
 #include "util.hpp"
@@ -197,8 +198,9 @@ namespace gbaemu
             return ss.str();
         }
 
-        template <class Executor>
-        void ARMInstructionDecoder::decode(uint32_t lastInst, Executor &exec)
+        template <typename Executor>
+        template <Executor &exec>
+        void ARMInstructionDecoder<Executor>::decode(uint32_t lastInst)
         {
             ARMInstruction instruction;
 
@@ -585,6 +587,9 @@ namespace gbaemu
                 exec.Executor::template operator()<INVALID_CAT, INVALID>(instruction);
             }
         }
+
+        template class ARMInstructionDecoder<ArmExecutor>;
+        template void ARMInstructionDecoder<ArmExecutor>::decode<CPU::armExecutor>(uint32_t inst);
 
     } // namespace arm
 } // namespace gbaemu

@@ -5,8 +5,17 @@
 #include "inst.hpp"
 #include <cstdint>
 
+//TODO remove
+//TODO remove
+#include <iostream>
+//TODO remove
+//TODO remove
+//TODO remove
+
 namespace gbaemu
 {
+    class CPU;
+
     namespace thumb
     {
 
@@ -70,11 +79,37 @@ namespace gbaemu
         static const uint16_t MASK_THUMB_LONG_BRANCH_WITH_LINK = 0b1111000000000000;
         static const uint16_t VAL_THUMB_LONG_BRANCH_WITH_LINK = 0b1111000000000000;
 
+        template <class Executor>
         class ThumbInstructionDecoder
         {
+          private:
+            ThumbInstructionDecoder();
+
           public:
-            template <class Executor>
-            static void decode(uint32_t inst, Executor &exec);
+            template <Executor &exec>
+            static void decode(uint32_t inst);
+        };
+
+        class ThumbExecutor
+        {
+          private:
+            CPU *cpu;
+
+          public:
+            template <thumb::ThumbInstructionCategory, InstructionID id, typename T, typename... Args>
+            void operator()(T t, Args... args)
+            { //TODO remove
+                //TODO remove
+                //TODO remove
+                //static_assert(id == INVALID);
+                std::cout << "ERROR: Thumb executor: trying to execute invalid instruction!" << std::endl;
+                cpu->cpuInfo.hasCausedException = true;
+                //TODO remove
+                //TODO remove
+                //TODO remove
+            }
+
+            friend CPU;
         };
     } // namespace thumb
 } // namespace gbaemu

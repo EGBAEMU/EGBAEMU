@@ -546,16 +546,7 @@ namespace gbaemu
         }
     };
 
-    class Executor 
-    {
-      public:
-        template <typename T, InstructionID, typename... Args>
-        void operator()(Args...)
-        {
-        }
-    };
-
-    typedef std::function<void(uint32_t, NopExecutor &exec)> InstructionDecoder;
+    typedef std::function<void(uint32_t)> InstructionDecoder;
 
 } // namespace gbaemu
 

@@ -6,6 +6,9 @@
 
 namespace gbaemu
 {
+    arm::ArmExecutor CPU::armExecutor;
+    thumb::ThumbExecutor CPU::thumbExecutor;
+
     CPU::CPU() : dma0(DMA::DMA0, this), dma1(DMA::DMA1, this), dma2(DMA::DMA2, this), dma3(DMA::DMA3, this), timerGroup(this), irqHandler(this), keypad(this)
     {
         reset();
@@ -151,23 +154,7 @@ namespace gbaemu
         const uint32_t prevPc = state.getCurrentPC();
         const bool prevThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
 
-        NopExecutor dummyExecutor{};
-        decoder(state.pipeline.decode.lastInstruction, dummyExecutor);
-        /*
-        if (!inst.isValid()) {
-            std::cout << "ERROR: Decoded instruction is invalid: [" << std::hex << state.pipeline.decode.lastInstruction << "] @ " << state.accessReg(regs::PC_OFFSET);
-            cpuInfo.hasCausedException = true;
-            return;
-        }
-
-        if (inst.isArmInstruction()) {
-            arm::ARMInstruction &armInst = inst.inst.arm;
-            if (conditionSatisfied(armInst.condition, state))
-                armExecuteHandler[inst.inst.arm.cat](armInst, this);
-        } else {
-            thumb::ThumbInstruction &thumbInst = inst.inst.thumb;
-            thumbExecuteHandler[inst.inst.thumb.cat](thumbInst, this);
-        }*/
+        decoder(state.pipeline.decode.lastInstruction);
 
         const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
         uint32_t postPc = state.accessReg(regs::PC_OFFSET);
@@ -181,10 +168,9 @@ namespace gbaemu
         // Change from arm mode to thumb mode or vice versa
         if (prevThumbMode != postThumbMode) {
             if (postThumbMode) {
-                //TODO rework!
-                //decoder = &thumbDecoder;
+                decoder = &thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>;
             } else {
-                //decoder = &armDecoder;
+                decoder = &arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>;
             }
             cpuInfo.forceBranch = true;
         }
@@ -269,8 +255,9 @@ namespace gbaemu
         irqHandler.reset();
         keypad.reset();
 
-        //TODO rework!
-        //decoder = &armDecoder;
+        decoder = &arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>;
+        armExecutor.cpu = this;
+        thumbExecutor.cpu = this;
         /*
             Default memory usage at 03007FXX (and mirrored to 03FFFFXX)
               Addr.    Size Expl.

@@ -1,4 +1,5 @@
 #include "inst_thumb.hpp"
+#include "cpu/cpu.hpp"
 #include "cpu/swi.hpp"
 #include "util.hpp"
 
@@ -119,8 +120,9 @@ namespace gbaemu
             return ss.str();
         }
 
-        template <class Executor>
-        void ThumbInstructionDecoder::decode(uint32_t lastInst, Executor &exec)
+        template <typename Executor>
+        template <Executor &exec>
+        void ThumbInstructionDecoder<Executor>::decode(uint32_t lastInst)
         {
             ThumbInstruction instruction;
             instruction.id = InstructionID::INVALID;
@@ -533,7 +535,7 @@ namespace gbaemu
                 // first we extract the 11 bit offset, then we place it at the MSB so we can automatically sign extend it after casting to a signed type
                 // finally shift back where it came from but this time with correct sign
                 instruction.params.unconditional_branch.offset = signExt<int16_t, uint16_t, 11>(static_cast<uint16_t>(lastInst & 0x07FF));
-                
+
                 exec.Executor::template operator()<UNCONDITIONAL_BRANCH, B>(instruction);
             } else if ((lastInst & MASK_THUMB_LONG_BRANCH_WITH_LINK) == VAL_THUMB_LONG_BRANCH_WITH_LINK) {
 
@@ -543,12 +545,15 @@ namespace gbaemu
                 bool h = lastInst & (1 << 11);
                 instruction.params.long_branch_with_link.h = h;
                 instruction.params.long_branch_with_link.offset = lastInst & 0x07FF;
-                
+
                 exec.Executor::template operator()<LONG_BRANCH_WITH_LINK, B>(instruction);
             } else {
                 exec.Executor::template operator()<INVALID_CAT, INVALID>(instruction);
             }
         }
+
+        template class ThumbInstructionDecoder<ThumbExecutor>;
+        template void ThumbInstructionDecoder<ThumbExecutor>::decode<CPU::thumbExecutor>(uint32_t inst);
 
     } // namespace thumb
 } // namespace gbaemu
