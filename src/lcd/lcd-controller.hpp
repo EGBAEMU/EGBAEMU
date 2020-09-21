@@ -326,12 +326,14 @@ namespace gbaemu::lcd
             } else if ((offset & ~1) == offsetof(LCDIORegs, BLDALPHA)) {
                 mask = 0x1F;
             }
+
             *(offset + reinterpret_cast<uint8_t *>(&regsRef)) = value & mask;
         }
 
         void setupLayers();
         void sortLayers();
         void loadWindowSettings();
+        void loadSettings();
         void onHBlank();
         void onVBlank();
         void copyLayer(const Canvas<color_t> &src);

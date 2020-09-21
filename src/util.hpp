@@ -5,6 +5,9 @@
 
 namespace gbaemu
 {
+    typedef uint32_t address_t;
+    static const constexpr address_t INVALID_ADDRESS = 0xFFFFFFFF;
+
     /* converts from or to little endian regardless of the platform */
     template <class T>
     T le(T val);

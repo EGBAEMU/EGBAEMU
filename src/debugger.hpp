@@ -3,6 +3,7 @@
 
 #include "cpu/cpu.hpp"
 #include "cpu/cpu_state.hpp"
+#include <lcd/lcd-controller.hpp>
 #include <cassert>
 #include <cstring>
 #include <vector>
@@ -158,9 +159,6 @@ namespace gbaemu::debugger
         void check(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state);
     };
 
-    typedef uint32_t address_t;
-    static const constexpr address_t INVALID_ADDRESS = 0xFFFFFFFF;
-
     class DebugCLI
     {
     public:
@@ -178,8 +176,31 @@ namespace gbaemu::debugger
             bool isWrite;
             uint32_t newValue;
         };
+
+        struct WatchEventCounter
+        {
+            std::map<address_t, uint32_t> reads;
+            std::map<address_t, uint32_t> writes;
+
+            void incRead(address_t addr)
+            {
+                if (reads.find(addr) == reads.end())
+                    reads[addr] = 0;
+
+                ++reads[addr];
+            }
+
+            void incWrite(address_t addr)
+            {
+                if (writes.find(addr) == writes.end())
+                    writes[addr] = 0;
+
+                ++writes[addr];
+            }
+        };
     private:
         CPU& cpu;
+        lcd::LCDController& lcdController;
         State state;
 
         bool exe1Step = false;
@@ -188,21 +209,32 @@ namespace gbaemu::debugger
 
         std::mutex cpuExecutionMutex;
         uint64_t stepCount;
+        uint64_t cpuStepCount;
 
-        WatchEvent triggeredWatchpoint;
-
-        void executeInput(const std::string& line);
+        WatchEvent watchEvent;
+        std::map<address_t, WatchEventCounter> watchEvents;
 
         /* for code */
         std::set<address_t> breakpoints;
+
+         void executeInput(const std::string& line);
     public:
-        DebugCLI(CPU& cpuRef);
+        DebugCLI(CPU& cpuRef, lcd::LCDController& lcdRef);
         bool step();
         /* These can be called from external threads. */
         State getState() const;
         void passCommand(const std::string& line);
 
+        /* Use these when accessing memory, they don't trigger watchpoints. */
+        uint8_t safeRead8(address_t addr);
+        uint16_t safeRead16(address_t addr);
+        uint32_t safeRead32(address_t addr);
+        void safeWrite8(address_t addr, uint8_t value);
+        void safeWrite16(address_t addr, uint16_t value);
+        void safeWrite32(address_t addr, uint32_t value);
+
         std::string getBreakpointInfo() const;
+        std::string getWatchEventsInfo() const;
     };
 } // namespace gbaemu::debugger
 

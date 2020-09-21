@@ -176,7 +176,7 @@ int main(int argc, char **argv)
 
     gbaemu::keyboard::KeyboardController gameController(cpu.keypad);
 
-    gbaemu::debugger::DebugCLI debugCLI(cpu);
+    gbaemu::debugger::DebugCLI debugCLI(cpu, controller);
 
     std::cout << "INFO: Launching CPU thread" << std::endl;
     std::thread cpuThread(cpuLoop, std::ref(cpu), std::ref(controller), std::ref(debugCLI));

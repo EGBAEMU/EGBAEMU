@@ -92,7 +92,11 @@ namespace gbaemu
     template <class IntType>
     IntType fastMod(IntType value, IntType upperBound)
     {
-        return (0 <= value && value < upperBound) ? value : (value % upperBound);
+        if (0 <= value && value < upperBound)
+            return value;
+
+        IntType result = value % upperBound;
+        return (result >= 0) ? result : (result + upperBound);
     }
 } // namespace gbaemu
 
