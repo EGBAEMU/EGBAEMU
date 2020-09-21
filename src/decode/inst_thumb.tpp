@@ -141,19 +141,19 @@ namespace gbaemu
                 switch (opCode) {
                     case 0b00:
                         instruction.id = InstructionID::ADD;
-                        exec.Executor::template operator()<ADD_SUB, ADD>(instruction);
+                        exec.Executor::template operator()<ADD_SUB, ADD, ThumbInstruction &>(instruction);
                         break;
                     case 0b01:
                         instruction.id = InstructionID::SUB;
-                        exec.Executor::template operator()<ADD_SUB, SUB>(instruction);
+                        exec.Executor::template operator()<ADD_SUB, SUB, ThumbInstruction &>(instruction);
                         break;
                     case 0b10:
                         instruction.id = InstructionID::ADD_SHORT_IMM;
-                        exec.Executor::template operator()<ADD_SUB, ADD_SHORT_IMM>(instruction);
+                        exec.Executor::template operator()<ADD_SUB, ADD_SHORT_IMM, ThumbInstruction &>(instruction);
                         break;
                     case 0b11:
                         instruction.id = InstructionID::SUB_SHORT_IMM;
-                        exec.Executor::template operator()<ADD_SUB, SUB_SHORT_IMM>(instruction);
+                        exec.Executor::template operator()<ADD_SUB, SUB_SHORT_IMM, ThumbInstruction &>(instruction);
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_MOV_SHIFT) == VAL_THUMB_MOV_SHIFT) {
@@ -169,15 +169,15 @@ namespace gbaemu
                 switch (opCode) {
                     case 0b00:
                         instruction.id = InstructionID::LSL;
-                        exec.Executor::template operator()<MOV_SHIFT, LSL>(instruction);
+                        exec.Executor::template operator()<MOV_SHIFT, LSL, ThumbInstruction &>(instruction);
                         break;
                     case 0b01:
                         instruction.id = InstructionID::LSR;
-                        exec.Executor::template operator()<MOV_SHIFT, LSR>(instruction);
+                        exec.Executor::template operator()<MOV_SHIFT, LSR, ThumbInstruction &>(instruction);
                         break;
                     case 0b10:
                         instruction.id = InstructionID::ASR;
-                        exec.Executor::template operator()<MOV_SHIFT, ASR>(instruction);
+                        exec.Executor::template operator()<MOV_SHIFT, ASR, ThumbInstruction &>(instruction);
                         break;
 
                     // This case belongs to ADD_SUB
@@ -196,19 +196,19 @@ namespace gbaemu
                 switch (opCode) {
                     case 0b00:
                         instruction.id = InstructionID::MOV;
-                        exec.Executor::template operator()<MOV_CMP_ADD_SUB_IMM, MOV>(instruction);
+                        exec.Executor::template operator()<MOV_CMP_ADD_SUB_IMM, MOV, ThumbInstruction &>(instruction);
                         break;
                     case 0b01:
                         instruction.id = InstructionID::CMP;
-                        exec.Executor::template operator()<MOV_CMP_ADD_SUB_IMM, CMP>(instruction);
+                        exec.Executor::template operator()<MOV_CMP_ADD_SUB_IMM, CMP, ThumbInstruction &>(instruction);
                         break;
                     case 0b10:
                         instruction.id = InstructionID::ADD;
-                        exec.Executor::template operator()<MOV_CMP_ADD_SUB_IMM, ADD>(instruction);
+                        exec.Executor::template operator()<MOV_CMP_ADD_SUB_IMM, ADD, ThumbInstruction &>(instruction);
                         break;
                     case 0b11:
                         instruction.id = InstructionID::SUB;
-                        exec.Executor::template operator()<MOV_CMP_ADD_SUB_IMM, SUB>(instruction);
+                        exec.Executor::template operator()<MOV_CMP_ADD_SUB_IMM, SUB, ThumbInstruction &>(instruction);
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_ALU_OP) == VAL_THUMB_ALU_OP) {
@@ -222,67 +222,67 @@ namespace gbaemu
                 switch (opCode) {
                     case 0b0000:
                         instruction.id = InstructionID::AND;
-                        exec.Executor::template operator()<ALU_OP, AND>(instruction);
+                        exec.Executor::template operator()<ALU_OP, AND, ThumbInstruction &>(instruction);
                         break;
                     case 0b0001:
                         instruction.id = InstructionID::EOR;
-                        exec.Executor::template operator()<ALU_OP, EOR>(instruction);
+                        exec.Executor::template operator()<ALU_OP, EOR, ThumbInstruction &>(instruction);
                         break;
                     case 0b0010:
                         instruction.id = InstructionID::LSL;
-                        exec.Executor::template operator()<ALU_OP, LSL>(instruction);
+                        exec.Executor::template operator()<ALU_OP, LSL, ThumbInstruction &>(instruction);
                         break;
                     case 0b0011:
                         instruction.id = InstructionID::LSR;
-                        exec.Executor::template operator()<ALU_OP, LSR>(instruction);
+                        exec.Executor::template operator()<ALU_OP, LSR, ThumbInstruction &>(instruction);
                         break;
                     case 0b0100:
                         instruction.id = InstructionID::ASR;
-                        exec.Executor::template operator()<ALU_OP, ASR>(instruction);
+                        exec.Executor::template operator()<ALU_OP, ASR, ThumbInstruction &>(instruction);
                         break;
                     case 0b0101:
                         instruction.id = InstructionID::ADC;
-                        exec.Executor::template operator()<ALU_OP, ADC>(instruction);
+                        exec.Executor::template operator()<ALU_OP, ADC, ThumbInstruction &>(instruction);
                         break;
                     case 0b0110:
                         instruction.id = InstructionID::SBC;
-                        exec.Executor::template operator()<ALU_OP, SBC>(instruction);
+                        exec.Executor::template operator()<ALU_OP, SBC, ThumbInstruction &>(instruction);
                         break;
                     case 0b0111:
                         instruction.id = InstructionID::ROR;
-                        exec.Executor::template operator()<ALU_OP, ROR>(instruction);
+                        exec.Executor::template operator()<ALU_OP, ROR, ThumbInstruction &>(instruction);
                         break;
                     case 0b1000:
                         instruction.id = InstructionID::TST;
-                        exec.Executor::template operator()<ALU_OP, TST>(instruction);
+                        exec.Executor::template operator()<ALU_OP, TST, ThumbInstruction &>(instruction);
                         break;
                     case 0b1001:
                         instruction.id = InstructionID::NEG;
-                        exec.Executor::template operator()<ALU_OP, NEG>(instruction);
+                        exec.Executor::template operator()<ALU_OP, NEG, ThumbInstruction &>(instruction);
                         break;
                     case 0b1010:
                         instruction.id = InstructionID::CMP;
-                        exec.Executor::template operator()<ALU_OP, CMP>(instruction);
+                        exec.Executor::template operator()<ALU_OP, CMP, ThumbInstruction &>(instruction);
                         break;
                     case 0b1011:
                         instruction.id = InstructionID::CMN;
-                        exec.Executor::template operator()<ALU_OP, CMN>(instruction);
+                        exec.Executor::template operator()<ALU_OP, CMN, ThumbInstruction &>(instruction);
                         break;
                     case 0b1100:
                         instruction.id = InstructionID::ORR;
-                        exec.Executor::template operator()<ALU_OP, ORR>(instruction);
+                        exec.Executor::template operator()<ALU_OP, ORR, ThumbInstruction &>(instruction);
                         break;
                     case 0b1101:
                         instruction.id = InstructionID::MUL;
-                        exec.Executor::template operator()<ALU_OP, MUL>(instruction);
+                        exec.Executor::template operator()<ALU_OP, MUL, ThumbInstruction &>(instruction);
                         break;
                     case 0b1110:
                         instruction.id = InstructionID::BIC;
-                        exec.Executor::template operator()<ALU_OP, BIC>(instruction);
+                        exec.Executor::template operator()<ALU_OP, BIC, ThumbInstruction &>(instruction);
                         break;
                     case 0b1111:
                         instruction.id = InstructionID::MVN;
-                        exec.Executor::template operator()<ALU_OP, MVN>(instruction);
+                        exec.Executor::template operator()<ALU_OP, MVN, ThumbInstruction &>(instruction);
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_BR_XCHG) == VAL_THUMB_BR_XCHG) {
@@ -302,20 +302,20 @@ namespace gbaemu
                 switch (opCode) {
                     case 0b00:
                         instruction.id = InstructionID::ADD;
-                        exec.Executor::template operator()<BR_XCHG, ADD>(instruction);
+                        exec.Executor::template operator()<BR_XCHG, ADD, ThumbInstruction &>(instruction);
                         break;
                     case 0b01:
                         instruction.id = InstructionID::CMP;
-                        exec.Executor::template operator()<BR_XCHG, CMP>(instruction);
+                        exec.Executor::template operator()<BR_XCHG, CMP, ThumbInstruction &>(instruction);
                         break;
                     case 0b10:
                         //Assemblers/Disassemblers should use MOV R8,R8 as NOP (in THUMB mode)
                         if (rd == rs && rd == regs::R8_OFFSET) {
                             instruction.id = InstructionID::NOP;
-                            exec.Executor::template operator()<BR_XCHG, NOP>(instruction);
+                            exec.Executor::template operator()<BR_XCHG, NOP, ThumbInstruction &>(instruction);
                         } else {
                             instruction.id = InstructionID::MOV;
-                            exec.Executor::template operator()<BR_XCHG, MOV>(instruction);
+                            exec.Executor::template operator()<BR_XCHG, MOV, ThumbInstruction &>(instruction);
                         }
                         break;
                     case 0b11:
@@ -323,7 +323,7 @@ namespace gbaemu
                             //instruction.id = InstructionID::BLX;
                         } else {
                             instruction.id = InstructionID::BX;
-                            exec.Executor::template operator()<BR_XCHG, BX>(instruction);
+                            exec.Executor::template operator()<BR_XCHG, BX, ThumbInstruction &>(instruction);
                         }
                         break;
                 }
@@ -348,19 +348,19 @@ namespace gbaemu
                 switch (opCode) {
                     case 0b00:
                         instruction.id = InstructionID::STR;
-                        exec.Executor::template operator()<LD_ST_REL_OFF, STR>(instruction);
+                        exec.Executor::template operator()<LD_ST_REL_OFF, STR, ThumbInstruction &>(instruction);
                         break;
                     case 0b01:
                         instruction.id = InstructionID::STRB;
-                        exec.Executor::template operator()<LD_ST_REL_OFF, STRB>(instruction);
+                        exec.Executor::template operator()<LD_ST_REL_OFF, STRB, ThumbInstruction &>(instruction);
                         break;
                     case 0b10:
                         instruction.id = InstructionID::LDR;
-                        exec.Executor::template operator()<LD_ST_REL_OFF, LDR>(instruction);
+                        exec.Executor::template operator()<LD_ST_REL_OFF, LDR, ThumbInstruction &>(instruction);
                         break;
                     case 0b11:
                         instruction.id = InstructionID::LDRB;
-                        exec.Executor::template operator()<LD_ST_REL_OFF, LDRB>(instruction);
+                        exec.Executor::template operator()<LD_ST_REL_OFF, LDRB, ThumbInstruction &>(instruction);
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_LD_ST_SIGN_EXT) == VAL_THUMB_LD_ST_SIGN_EXT) {
@@ -377,19 +377,19 @@ namespace gbaemu
                 switch (opCode) {
                     case 0b00:
                         instruction.id = InstructionID::STRH;
-                        exec.Executor::template operator()<LD_ST_SIGN_EXT, STRH>(instruction);
+                        exec.Executor::template operator()<LD_ST_SIGN_EXT, STRH, ThumbInstruction &>(instruction);
                         break;
                     case 0b01:
                         instruction.id = InstructionID::LDRSB;
-                        exec.Executor::template operator()<LD_ST_SIGN_EXT, LDRSB>(instruction);
+                        exec.Executor::template operator()<LD_ST_SIGN_EXT, LDRSB, ThumbInstruction &>(instruction);
                         break;
                     case 0b10:
                         instruction.id = InstructionID::LDRH;
-                        exec.Executor::template operator()<LD_ST_SIGN_EXT, LDRH>(instruction);
+                        exec.Executor::template operator()<LD_ST_SIGN_EXT, LDRH, ThumbInstruction &>(instruction);
                         break;
                     case 0b11:
                         instruction.id = InstructionID::LDRSH;
-                        exec.Executor::template operator()<LD_ST_SIGN_EXT, LDRSH>(instruction);
+                        exec.Executor::template operator()<LD_ST_SIGN_EXT, LDRSH, ThumbInstruction &>(instruction);
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_LD_ST_IMM_OFF) == VAL_THUMB_LD_ST_IMM_OFF) {
@@ -406,19 +406,19 @@ namespace gbaemu
                 switch (opCode) {
                     case 0b00:
                         instruction.id = InstructionID::STR;
-                        exec.Executor::template operator()<LD_ST_IMM_OFF, STR>(instruction);
+                        exec.Executor::template operator()<LD_ST_IMM_OFF, STR, ThumbInstruction &>(instruction);
                         break;
                     case 0b01:
                         instruction.id = InstructionID::LDR;
-                        exec.Executor::template operator()<LD_ST_IMM_OFF, LDR>(instruction);
+                        exec.Executor::template operator()<LD_ST_IMM_OFF, LDR, ThumbInstruction &>(instruction);
                         break;
                     case 0b10:
                         instruction.id = InstructionID::STRB;
-                        exec.Executor::template operator()<LD_ST_IMM_OFF, STRB>(instruction);
+                        exec.Executor::template operator()<LD_ST_IMM_OFF, STRB, ThumbInstruction &>(instruction);
                         break;
                     case 0b11:
                         instruction.id = InstructionID::LDRB;
-                        exec.Executor::template operator()<LD_ST_IMM_OFF, LDRB>(instruction);
+                        exec.Executor::template operator()<LD_ST_IMM_OFF, LDRB, ThumbInstruction &>(instruction);
                         break;
                 }
             } else if ((lastInst & MASK_THUMB_LD_ST_HW) == VAL_THUMB_LD_ST_HW) {
@@ -433,10 +433,10 @@ namespace gbaemu
 
                 if (l) {
                     instruction.id = InstructionID::LDRH;
-                    exec.Executor::template operator()<LD_ST_HW, LDRH>(instruction);
+                    exec.Executor::template operator()<LD_ST_HW, LDRH, ThumbInstruction &>(instruction);
                 } else {
                     instruction.id = InstructionID::STRH;
-                    exec.Executor::template operator()<LD_ST_HW, STRH>(instruction);
+                    exec.Executor::template operator()<LD_ST_HW, STRH, ThumbInstruction &>(instruction);
                 }
             } else if ((lastInst & MASK_THUMB_LD_ST_REL_SP) == VAL_THUMB_LD_ST_REL_SP) {
 
@@ -449,10 +449,10 @@ namespace gbaemu
 
                 if (l) {
                     instruction.id = InstructionID::LDR;
-                    exec.Executor::template operator()<LD_ST_REL_SP, LDR>(instruction);
+                    exec.Executor::template operator()<LD_ST_REL_SP, LDR, ThumbInstruction &>(instruction);
                 } else {
                     instruction.id = InstructionID::STR;
-                    exec.Executor::template operator()<LD_ST_REL_SP, STR>(instruction);
+                    exec.Executor::template operator()<LD_ST_REL_SP, STR, ThumbInstruction &>(instruction);
                 }
             } else if ((lastInst & MASK_THUMB_LOAD_ADDR) == VAL_THUMB_LOAD_ADDR) {
 
@@ -464,7 +464,7 @@ namespace gbaemu
                 instruction.params.load_addr.rd = (lastInst >> 8) & 0x7;
 
                 instruction.id = InstructionID::ADD;
-                exec.Executor::template operator()<LOAD_ADDR, ADD>(instruction);
+                exec.Executor::template operator()<LOAD_ADDR, ADD, ThumbInstruction &>(instruction);
             } else if ((lastInst & MASK_THUMB_ADD_OFFSET_TO_STACK_PTR) == VAL_THUMB_ADD_OFFSET_TO_STACK_PTR) {
 
                 instruction.cat = ThumbInstructionCategory::ADD_OFFSET_TO_STACK_PTR;
@@ -474,7 +474,7 @@ namespace gbaemu
                 instruction.params.add_offset_to_stack_ptr.offset = lastInst & 0x7F;
 
                 instruction.id = InstructionID::ADD;
-                exec.Executor::template operator()<ADD_OFFSET_TO_STACK_PTR, ADD>(instruction);
+                exec.Executor::template operator()<ADD_OFFSET_TO_STACK_PTR, ADD, ThumbInstruction &>(instruction);
             } else if ((lastInst & MASK_THUMB_PUSH_POP_REG) == VAL_THUMB_PUSH_POP_REG) {
 
                 instruction.cat = ThumbInstructionCategory::PUSH_POP_REG;
@@ -487,10 +487,10 @@ namespace gbaemu
 
                 if (l) {
                     instruction.id = InstructionID::POP;
-                    exec.Executor::template operator()<PUSH_POP_REG, POP>(instruction);
+                    exec.Executor::template operator()<PUSH_POP_REG, POP, ThumbInstruction &>(instruction);
                 } else {
                     instruction.id = InstructionID::PUSH;
-                    exec.Executor::template operator()<PUSH_POP_REG, PUSH>(instruction);
+                    exec.Executor::template operator()<PUSH_POP_REG, PUSH, ThumbInstruction &>(instruction);
                 }
             } else if ((lastInst & MASK_THUMB_MULT_LOAD_STORE) == VAL_THUMB_MULT_LOAD_STORE) {
 
@@ -503,10 +503,10 @@ namespace gbaemu
 
                 if (l) {
                     instruction.id = InstructionID::LDMIA;
-                    exec.Executor::template operator()<MULT_LOAD_STORE, LDMIA>(instruction);
+                    exec.Executor::template operator()<MULT_LOAD_STORE, LDMIA, ThumbInstruction &>(instruction);
                 } else {
                     instruction.id = InstructionID::STMIA;
-                    exec.Executor::template operator()<MULT_LOAD_STORE, STMIA>(instruction);
+                    exec.Executor::template operator()<MULT_LOAD_STORE, STMIA, ThumbInstruction &>(instruction);
                 }
             } else if ((lastInst & MASK_THUMB_SOFTWARE_INTERRUPT) == VAL_THUMB_SOFTWARE_INTERRUPT) {
 
@@ -514,7 +514,7 @@ namespace gbaemu
 
                 instruction.id = InstructionID::SWI;
                 instruction.params.software_interrupt.comment = lastInst & 0x0FF;
-                exec.Executor::template operator()<SOFTWARE_INTERRUPT, SWI>(instruction);
+                exec.Executor::template operator()<SOFTWARE_INTERRUPT, SWI, ThumbInstruction &>(instruction);
             } else if ((lastInst & MASK_THUMB_COND_BRANCH) == VAL_THUMB_COND_BRANCH) {
 
                 instruction.cat = ThumbInstructionCategory::COND_BRANCH;
@@ -524,7 +524,7 @@ namespace gbaemu
                 instruction.params.cond_branch.offset = static_cast<int8_t>(lastInst & 0x0FF);
 
                 instruction.id = InstructionID::B;
-                exec.Executor::template operator()<COND_BRANCH, B>(instruction);
+                exec.Executor::template operator()<COND_BRANCH, B, ThumbInstruction &>(instruction);
 
             } else if ((lastInst & MASK_THUMB_UNCONDITIONAL_BRANCH) == VAL_THUMB_UNCONDITIONAL_BRANCH) {
 
@@ -536,7 +536,7 @@ namespace gbaemu
                 // finally shift back where it came from but this time with correct sign
                 instruction.params.unconditional_branch.offset = signExt<int16_t, uint16_t, 11>(static_cast<uint16_t>(lastInst & 0x07FF));
 
-                exec.Executor::template operator()<UNCONDITIONAL_BRANCH, B>(instruction);
+                exec.Executor::template operator()<UNCONDITIONAL_BRANCH, B, ThumbInstruction &>(instruction);
             } else if ((lastInst & MASK_THUMB_LONG_BRANCH_WITH_LINK) == VAL_THUMB_LONG_BRANCH_WITH_LINK) {
 
                 instruction.cat = ThumbInstructionCategory::LONG_BRANCH_WITH_LINK;
@@ -546,14 +546,11 @@ namespace gbaemu
                 instruction.params.long_branch_with_link.h = h;
                 instruction.params.long_branch_with_link.offset = lastInst & 0x07FF;
 
-                exec.Executor::template operator()<LONG_BRANCH_WITH_LINK, B>(instruction);
+                exec.Executor::template operator()<LONG_BRANCH_WITH_LINK, B, ThumbInstruction &>(instruction);
             } else {
-                exec.Executor::template operator()<INVALID_CAT, INVALID>(instruction);
+                exec.Executor::template operator()<INVALID_CAT, INVALID, ThumbInstruction &>(instruction);
             }
         }
-
-        template class ThumbInstructionDecoder<ThumbExecutor>;
-        template void ThumbInstructionDecoder<ThumbExecutor>::decode<CPU::thumbExecutor>(uint32_t inst);
 
     } // namespace thumb
 } // namespace gbaemu

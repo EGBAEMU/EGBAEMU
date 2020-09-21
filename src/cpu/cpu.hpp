@@ -2,8 +2,7 @@
 #define CPU_HPP
 
 #include "cpu_state.hpp"
-#include "decode/inst_arm.hpp"
-#include "decode/inst_thumb.hpp"
+#include "decode/inst.hpp"
 #include "io/dma.hpp"
 #include "io/interrupts.hpp"
 #include "io/keypad.hpp"
@@ -32,6 +31,16 @@ namespace gbaemu
         {
         }
     };
+
+    // forward declarations
+    namespace arm
+    {
+        class ArmExecutor;
+    }
+    namespace thumb
+    {
+        class ThumbExecutor;
+    }
 
     class CPU
     {

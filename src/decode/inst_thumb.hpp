@@ -5,13 +5,6 @@
 #include "inst.hpp"
 #include <cstdint>
 
-//TODO remove
-//TODO remove
-#include <iostream>
-//TODO remove
-//TODO remove
-//TODO remove
-
 namespace gbaemu
 {
     class CPU;
@@ -90,28 +83,9 @@ namespace gbaemu
             static void decode(uint32_t inst);
         };
 
-        class ThumbExecutor
-        {
-          private:
-            CPU *cpu;
-
-          public:
-            template <thumb::ThumbInstructionCategory, InstructionID id, typename T, typename... Args>
-            void operator()(T t, Args... args)
-            { //TODO remove
-                //TODO remove
-                //TODO remove
-                //static_assert(id == INVALID);
-                std::cout << "ERROR: Thumb executor: trying to execute invalid instruction!" << std::endl;
-                cpu->cpuInfo.hasCausedException = true;
-                //TODO remove
-                //TODO remove
-                //TODO remove
-            }
-
-            friend CPU;
-        };
     } // namespace thumb
 } // namespace gbaemu
+
+#include "inst_thumb.tpp"
 
 #endif /* INST_THUMB_HPP */

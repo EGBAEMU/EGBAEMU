@@ -1,5 +1,10 @@
 #include "cpu.hpp"
 
+#include "decode/inst_thumb.hpp"
+#include "decode/inst_arm.hpp"
+#include "cpu_arm_executor.hpp"
+#include "cpu_thumb_executor.hpp"
+
 #include <algorithm>
 #include <iostream>
 #include <sstream>

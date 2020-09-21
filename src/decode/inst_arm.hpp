@@ -175,19 +175,9 @@ namespace gbaemu
             static void decode(uint32_t inst);
         };
 
-        class ArmExecutor
-        {
-          private:
-            CPU *cpu;
-
-          public:
-            template <arm::ARMInstructionCategory, InstructionID id, typename T, typename... Args>
-            void operator()(T t, Args... args);
-
-            friend CPU;
-        };
-
     } // namespace arm
 } // namespace gbaemu
+
+#include "inst_arm.tpp"
 
 #endif /* INST_ARM_HPP */
