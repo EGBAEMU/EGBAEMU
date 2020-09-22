@@ -68,7 +68,7 @@ namespace gbaemu::lcd
 
         int32_t bgLayer = 0;
         int32_t objLayer = 3;
-        int32_t index;
+        int32_t index = 0;
 
         while (true) {
             if (bgLayer < 4 && objLayer >= 0) {
