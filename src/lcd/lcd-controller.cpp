@@ -524,6 +524,9 @@ namespace gbaemu::lcd
                 step.dm[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[1]));
                 step.d[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[2]));
                 step.dm[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[3]));
+
+                //std::cout << regs.BG2X << "    " << regs.BG2Y << std::endl;
+                //std::cout << step.origin << "    " << step.d << "    " << step.dm << std::endl;
             } else {
                 step.origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3X));
                 step.origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3Y));
@@ -547,6 +550,9 @@ namespace gbaemu::lcd
             /* use scrolling parameters */
             step.origin[0] = static_cast<common::math::real_t>(le(regs.BGOFS[bgIndex].h) & 0x1FF);
             step.origin[1] = static_cast<common::math::real_t>(le(regs.BGOFS[bgIndex].v) & 0x1FF);
+
+            //if (bgIndex == 1)
+            //    std::cout << step.origin[0] << std::endl;
 
             step.d[0] = 1;
             step.d[1] = 0;
@@ -633,6 +639,7 @@ namespace gbaemu::lcd
 
         auto pixels = tempCanvas.pixels();
         auto stride = tempCanvas.getWidth();
+
 
         for (uint32_t scIndex = 0; scIndex < scCount; ++scIndex) {
             uint16_t *bgMap = reinterpret_cast<uint16_t *>(bgMapBase + scIndex * 0x800);
@@ -784,6 +791,10 @@ namespace gbaemu::lcd
         const common::math::vec<2> screenRef{0, 0};
         canvas.drawSprite(tempCanvas.pixels(), width, height, tempCanvas.getWidth(),
                           step.origin, step.d, step.dm, screenRef, wrap);
+
+        if (id == 2) {
+            //std::cout << step.origin << ' ' << step.d << ' ' << step.dm << ' ' << screenRef << std::endl;
+        }
     }
 
     /*
@@ -857,10 +868,10 @@ namespace gbaemu::lcd
 
     }
 
-    void LCDController::onHBlank()
+    void LCDController::loadSettings()
     {
         /* copy registers, they cannot be modified when rendering */
-        regs = regsRef;
+        //regs = regsRef;
 
         uint32_t bgMode = le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
         Memory::MemoryRegion region;
@@ -881,7 +892,6 @@ namespace gbaemu::lcd
 
                 if (backgroundLayers[i]->enabled) {
                     backgroundLayers[i]->loadSettings(0, i, regs, memory);
-                    backgroundLayers[i]->renderBG0(palette);
                 }
             }
         } else if (bgMode == 1) {
@@ -936,6 +946,11 @@ namespace gbaemu::lcd
         }
 
         sortLayers();
+    }
+
+    void LCDController::onHBlank()
+    {
+
     }
 
     void LCDController::onVBlank()
@@ -1241,7 +1256,7 @@ namespace gbaemu::lcd
                 break;
             }
 
-            onHBlank();
+            loadSettings();
             render();
 
             /* Tell the window we are done, if it isn't ready it has to try next time. */
@@ -1296,23 +1311,15 @@ namespace gbaemu::lcd
             irqTriggeredH = true;
         }
 
-        /* rendering once per h-blank */
-        if (counters.hBlanking && counters.cycle % (1231 * 4) == 0) {
-            /*
-                Rendering will not be able to keep up with each hblank, but that's ok because we per scanline updates
-                are not visible to the human eye.
-             */
-
-            /* No blocking, otherwise we have gained nothing. */
-
-            if (renderControlMutex.try_lock()) {
-                renderControl = RUN;
-                renderControlMutex.unlock();
-            }
-        }
-
-        if (counters.vBlanking && counters.cycle % 197120 == 0) {
+        /* rendering once per v-blank */
+        if (!counters.vBlanking && vState == 0) {
             onVBlank();
+
+            regs = regsRef;
+        
+            renderControlMutex.lock();
+            renderControl = RUN;
+            renderControlMutex.unlock();
         }
 
         /* update stat */
@@ -1349,12 +1356,15 @@ namespace gbaemu::lcd
     {
         std::stringstream ss;
 
+        ss << "background mode " << std::dec << (le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK) << '\n';
+
         for (int32_t i = 0; i < layers.size(); ++i) {
             ss << "==== layer " << i << " ====\n";
             ss << "enabled: " << (layers[i]->enabled ? "true" : "false") << '\n';
             ss << "first target: " << (layers[i]->asFirstTarget ? "true" : "false") << '\n';
             ss << "second target: " << (layers[i]->asSecondTarget ? "true" : "false") << '\n';
             ss << "priority: " << layers[i]->priority << '\n';
+            ss << "id: " << layers[i]->id << '\n';
         }
 
         return ss.str();

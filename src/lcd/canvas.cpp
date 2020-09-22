@@ -227,7 +227,7 @@ namespace gbaemu::lcd
         typedef common::math::real_t real_t;
 
         PixelType *destPixels = pixels();
-        vec2 spriteCoordScanLine = vec2{d[0], d[1]} * (-screenRef[0]) + vec2{dm[0], dm[1]} * (-screenRef[1]) + origin;
+        vec2 spriteCoordScanLine = d * (-screenRef[0]) + dm * (-screenRef[1]) + origin;
 
         for (int32_t y = 0; y < height; ++y) {
             vec2 spriteCoord = spriteCoordScanLine;
