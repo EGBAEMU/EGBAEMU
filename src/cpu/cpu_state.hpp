@@ -59,17 +59,7 @@ namespace gbaemu
 
       public:
         /* pipeline */
-        struct {
-            struct {
-                uint32_t instruction;
-                uint32_t lastInstruction;
-            } fetch;
-
-            struct {
-                uint32_t instruction;
-                uint32_t lastInstruction;
-            } decode;
-        } pipeline;
+        uint32_t pipeline[2];
 
         Memory memory;
 

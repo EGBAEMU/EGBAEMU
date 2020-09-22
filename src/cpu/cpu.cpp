@@ -31,42 +31,33 @@ namespace gbaemu
         // We need to fill the pipeline to the state where the instruction at PC is ready for execution -> fetched + decoded!
         uint32_t pc = state.accessReg(regs::PC_OFFSET);
         bool thumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
-        state.accessReg(regs::PC_OFFSET) = pc - (thumbMode ? 4 : 8);
-        fetch();
-        state.accessReg(regs::PC_OFFSET) = pc - (thumbMode ? 2 : 4);
-        fetch();
-        decode();
-        state.accessReg(regs::PC_OFFSET) = pc;
+        propagatePipeline(pc - (thumbMode ? 4 : 8));
+        propagatePipeline(pc - (thumbMode ? 2 : 4));
     }
 
-    void CPU::fetch()
+    uint32_t CPU::propagatePipeline(uint32_t pc)
     {
         // propagate pipeline
-        state.pipeline.fetch.lastInstruction = state.pipeline.fetch.instruction;
+        uint32_t currentInst = state.pipeline[1];
+        state.pipeline[1] = state.pipeline[0];
 
         bool thumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
-
-        uint32_t pc = state.accessReg(regs::PC_OFFSET);
 
         //TODO we might need this info? (where nullptr is currently)
         if (thumbMode) {
             pc += 4;
-            state.pipeline.fetch.instruction = state.memory.read16(pc, nullptr, false, true);
+            state.pipeline[0] = state.memory.read16(pc, nullptr, false, true);
         } else {
             pc += 8;
-            state.pipeline.fetch.instruction = state.memory.read32(pc, nullptr, false, true);
+            state.pipeline[0] = state.memory.read32(pc, nullptr, false, true);
 
             // auto update bios state if we are currently executing inside bios!
             if (pc < state.memory.getBiosSize()) {
-                state.memory.setBiosState(state.pipeline.fetch.instruction);
+                state.memory.setBiosState(state.pipeline[0]);
             }
         }
-    }
 
-    void CPU::decode()
-    {
-        state.pipeline.decode.lastInstruction = state.pipeline.decode.instruction;
-        state.pipeline.decode.instruction = state.pipeline.fetch.lastInstruction;
+        return currentInst;
     }
 
     CPUExecutionInfoType CPU::step()
@@ -83,13 +74,11 @@ namespace gbaemu
                     // Execute pipeline only after stall is over
                     if (cpuInfo.cycleCount == 0) {
                         irqHandler.checkForInterrupt();
-                        fetch();
-                        decode();
 
                         std::fill_n(reinterpret_cast<char *>(&cpuInfo), sizeof(cpuInfo), 0);
 
                         uint32_t prevPC = state.getCurrentPC();
-                        execute();
+                        execute(propagatePipeline(prevPC), prevPC);
 
                         // Current cycle must be removed
                         --cpuInfo.cycleCount;
@@ -129,12 +118,11 @@ namespace gbaemu
         return patchedPC;
     }
 
-    void CPU::execute()
+    void CPU::execute(uint32_t inst, uint32_t prevPc)
     {
-        const uint32_t prevPc = state.getCurrentPC();
         const bool prevThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
 
-        decoder(state.pipeline.decode.lastInstruction);
+        decoder(inst);
 
         const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
         uint32_t postPc = state.accessReg(regs::PC_OFFSET);

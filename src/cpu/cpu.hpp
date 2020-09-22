@@ -83,9 +83,8 @@ namespace gbaemu
         void reset();
 
         void initPipeline();
-        void fetch();
-        void decode();
-        void execute();
+        uint32_t propagatePipeline(uint32_t pc);
+        void execute(uint32_t inst, uint32_t pc);
         CPUExecutionInfoType step();
 
         template <bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry>
