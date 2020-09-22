@@ -120,8 +120,10 @@ namespace gbaemu
         //LDRD, /* supported arm5 and up */
         MLA,
         MOV,
-        MRS,
-        MSR,
+        MRS_SPSR,
+        MRS_CPSR,
+        MSR_SPSR,
+        MSR_CPSR,
         MUL,
         MVN,
         ORR,
@@ -270,29 +272,6 @@ namespace gbaemu
                     uint8_t rn;
                     uint8_t rd;
                     uint16_t operand2;
-
-                    bool extractOperand2(shifts::ShiftType &shiftType, uint8_t &shiftAmount, uint8_t &rm, uint8_t &rs, uint8_t &imm) const
-                    {
-                        bool shiftAmountFromReg = false;
-
-                        if (i) {
-                            /* ROR */
-                            shiftType = shifts::ShiftType::ROR;
-                            imm = operand2 & 0x0FF;
-                            shiftAmount = ((operand2 >> 8) & 0x0F) * 2;
-                        } else {
-                            shiftType = static_cast<shifts::ShiftType>((operand2 >> 5) & 0b11);
-                            rm = operand2 & 0xF;
-                            shiftAmountFromReg = (operand2 >> 4) & 1;
-
-                            if (shiftAmountFromReg)
-                                rs = (operand2 >> 8) & 0x0F;
-                            else
-                                shiftAmount = (operand2 >> 7) & 0b11111;
-                        }
-
-                        return shiftAmountFromReg;
-                    }
                 } data_proc_psr_transf;
 
                 struct {

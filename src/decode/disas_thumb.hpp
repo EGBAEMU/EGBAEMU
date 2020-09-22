@@ -18,7 +18,10 @@ namespace gbaemu::thumb
     template <ThumbInstructionCategory, InstructionID, typename T, typename... Args>
     void ThumbDisas::operator()(T thumbInst, Args... a)
     {
+        //TODO rework
+        /*
         inst = thumbInst;
+        */
     }
 
 } // namespace gbaemu::thumb

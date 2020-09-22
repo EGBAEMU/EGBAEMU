@@ -53,8 +53,10 @@ namespace gbaemu
             //STRINGIFY_CASE_ID(LDRD);
             STRINGIFY_CASE_ID(MLA);
             STRINGIFY_CASE_ID(MOV);
-            STRINGIFY_CASE_ID(MRS);
-            STRINGIFY_CASE_ID(MSR);
+            STRINGIFY_CASE_ID(MRS_CPSR);
+            STRINGIFY_CASE_ID(MRS_SPSR);
+            STRINGIFY_CASE_ID(MSR_CPSR);
+            STRINGIFY_CASE_ID(MSR_SPSR);
             STRINGIFY_CASE_ID(MUL);
             STRINGIFY_CASE_ID(MVN);
             STRINGIFY_CASE_ID(ORR);

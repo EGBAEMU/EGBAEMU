@@ -1,9 +1,9 @@
 #include "cpu.hpp"
 
-#include "decode/inst_thumb.hpp"
-#include "decode/inst_arm.hpp"
 #include "cpu_arm_executor.hpp"
 #include "cpu_thumb_executor.hpp"
+#include "decode/inst_arm.hpp"
+#include "decode/inst_thumb.hpp"
 
 #include <algorithm>
 #include <iostream>
@@ -175,7 +175,11 @@ namespace gbaemu
             if (postThumbMode) {
                 decoder = &thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>;
             } else {
-                decoder = &arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>;
+                decoder = [](uint32_t inst) {
+                    if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
+                        arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
+                    }
+                };
             }
             cpuInfo.forceBranch = true;
         }
@@ -260,7 +264,11 @@ namespace gbaemu
         irqHandler.reset();
         keypad.reset();
 
-        decoder = &arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>;
+        decoder = [](uint32_t inst) {
+            if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
+                arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
+            }
+        };
         armExecutor.cpu = this;
         thumbExecutor.cpu = this;
         /*

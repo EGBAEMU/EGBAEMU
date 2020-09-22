@@ -88,41 +88,40 @@ namespace gbaemu
         void setFlags(uint64_t resultValue, bool msbOp1, bool msbOp2, bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry);
 
         // ARM instructions execution helpers
-        void handleMultAcc(bool a, bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm);
-        void handleMultAccLong(bool signMul, bool a, bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm);
-        void handleDataSwp(bool b, uint8_t rn, uint8_t rd, uint8_t rm);
+        template <InstructionID id>
+        void handleMultAcc(bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm);
+        template <InstructionID id>
+        void handleMultAccLong(bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm);
+        template <InstructionID id>
+        void handleDataSwp(uint8_t rn, uint8_t rd, uint8_t rm);
         // Executes instructions belonging to the branch subsection
         void handleBranch(bool link, int32_t offset);
         // Executes instructions belonging to the branch and execute subsection
         void handleBranchAndExchange(uint8_t rn);
         /* ALU functions */
-        void execDataProc(arm::ARMInstruction &inst, bool thumb = false);
-        void execDataBlockTransfer(arm::ARMInstruction &inst, bool thumb = false);
-        void execLoadStoreRegUByte(const arm::ARMInstruction &inst, bool thumb = false);
-        void execHalfwordDataTransferImmRegSignedTransfer(bool pre, bool up, bool load, bool writeback, bool sign,
-                                                          uint8_t rn, uint8_t rd, uint32_t offset, uint8_t transferSize, bool thumb = false);
+        template <InstructionID id, bool thumb = false>
+        void execDataProc(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+        template <InstructionID id, bool thumb = false>
+        void execDataBlockTransfer(bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList);
+        template <InstructionID id, bool thumb = false>
+        void execLoadStoreRegUByte(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
+        template <InstructionID id, bool thumb = false>
+        void execHalfwordDataTransferImmRegSignedTransfer(bool pre, bool up, bool writeback,
+                                                          uint8_t rn, uint8_t rd, uint32_t offset);
 
         // THUMB instruction execution helpers
         void handleThumbLongBranchWithLink(bool h, uint16_t offset);
         void handleThumbUnconditionalBranch(int16_t offset);
         void handleThumbConditionalBranch(uint8_t cond, int8_t offset);
-        void handleThumbMultLoadStore(bool load, uint8_t rb, uint8_t rlist);
-        void handleThumbPushPopRegister(bool load, bool r, uint8_t rlist);
         void handleThumbAddOffsetToStackPtr(bool s, uint8_t offset);
         void handleThumbRelAddr(bool sp, uint8_t offset, uint8_t rd);
 
-        void handleThumbLoadStore(const thumb::ThumbInstruction &inst);
-        void handleThumbLoadStoreSignHalfword(const thumb::ThumbInstruction &inst);
-
-        void handleThumbAddSubtract(InstructionID insID, uint8_t rd, uint8_t rs, uint8_t rn_offset);
-        void handleThumbMovCmpAddSubImm(InstructionID ins, uint8_t rd, uint8_t offset);
-        void handleThumbMoveShiftedReg(InstructionID ins, uint8_t rs, uint8_t rd, uint8_t offset);
-        void handleThumbBranchXCHG(InstructionID id, uint8_t rd, uint8_t rs);
-        void handleThumbALUops(InstructionID instID, uint8_t rs, uint8_t rd);
-
-        // Lookup tables
-        static const std::function<void(thumb::ThumbInstruction &, CPU *)> thumbExecuteHandler[];
-        static const std::function<void(arm::ARMInstruction &, CPU *)> armExecuteHandler[];
+        template <InstructionID id>
+        void handleThumbMoveShiftedReg(uint8_t rs, uint8_t rd, uint8_t offset);
+        template <InstructionID id>
+        void handleThumbBranchXCHG(uint8_t rd, uint8_t rs);
+        template <InstructionID id, InstructionID origID>
+        void handleThumbALUops(uint8_t rs, uint8_t rd);
     };
 
 } // namespace gbaemu

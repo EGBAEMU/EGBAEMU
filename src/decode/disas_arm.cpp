@@ -4,18 +4,20 @@
 #include <iostream>
 #include <sstream>
 
-namespace gbaemu::arm {
+namespace gbaemu::arm
+{
 
     std::string ARMInstruction::toString() const
     {
         std::stringstream ss;
-
+        //TODO rework
+        /*
         ss << '(' << conditionCodeToString(condition) << ") " << instructionIDToString(id);
 
         switch (cat) {
 
             case ARMInstructionCategory::DATA_PROC_PSR_TRANSF: {
-                /* TODO: probably not done */
+                // TODO: probably not done
                 bool hasRN = !(id == InstructionID::MOV || id == InstructionID::MVN);
                 bool hasRD = !(id == InstructionID::TST || id == InstructionID::TEQ ||
                                id == InstructionID::CMP || id == InstructionID::CMN);
@@ -29,7 +31,7 @@ namespace gbaemu::arm {
                 uint8_t imm;
                 bool shiftByReg = params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
 
-                if (id == MSR) {
+                if (id == MSR_CPSR || id == MSR_SPSR) {
                     // true iff write to flag field is allowed 31-24
                     bool f = params.data_proc_psr_transf.rn & 0x08;
                     // true iff write to status field is allowed 23-16
@@ -88,10 +90,10 @@ namespace gbaemu::arm {
                 break;
             }
             case ARMInstructionCategory::HW_TRANSF_REG_OFF: {
-                /* No immediate in this category! */
+                // No immediate in this category!
                 ss << " r" << static_cast<uint32_t>(params.hw_transf_reg_off.rd);
 
-                /* TODO: does p mean pre? */
+                // TODO: does p mean pre?
                 if (params.hw_transf_reg_off.p) {
                     ss << " [r" << static_cast<uint32_t>(params.hw_transf_reg_off.rn) << "+r" << static_cast<uint32_t>(params.hw_transf_reg_off.rm) << ']';
                 } else {
@@ -100,7 +102,7 @@ namespace gbaemu::arm {
                 break;
             }
             case ARMInstructionCategory::HW_TRANSF_IMM_OFF: {
-                /* Immediate in this category! */
+                // Immediate in this category!
                 ss << " r" << static_cast<uint32_t>(params.hw_transf_imm_off.rd);
 
                 if (params.hw_transf_reg_off.p) {
@@ -111,7 +113,7 @@ namespace gbaemu::arm {
                 break;
             }
             case ARMInstructionCategory::SIGN_TRANSF: {
-                /* Immediate in this category! */
+                // Immediate in this category!
                 ss << " r" << params.sign_transf.rd;
 
                 if (params.hw_transf_reg_off.p) {
@@ -165,7 +167,7 @@ namespace gbaemu::arm {
                 break;
             }
             case ARMInstructionCategory::BRANCH: {
-                /*  */
+                
                 int32_t off = params.branch.offset * 4;
 
                 ss << (params.branch.l ? "L" : "") << " "
@@ -188,7 +190,7 @@ namespace gbaemu::arm {
                 break;
             }
         }
-
+*/
         return ss.str();
     }
-}
+} // namespace gbaemu::arm

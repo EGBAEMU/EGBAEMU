@@ -18,7 +18,10 @@ namespace gbaemu::arm
     template <ARMInstructionCategory, InstructionID, typename T, typename... Args>
     void ArmDisas::operator()(T thumbInst, Args... a)
     {
+        //TODO rework
+        /*
         inst = thumbInst;
+        */
     }
 
 } // namespace gbaemu::arm

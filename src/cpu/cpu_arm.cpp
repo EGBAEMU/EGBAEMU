@@ -8,7 +8,7 @@
 
 namespace gbaemu
 {
-
+    /*
     const std::function<void(arm::ARMInstruction &, CPU *)> CPU::armExecuteHandler[] = {
         // Category: MUL_ACC
         [](arm::ARMInstruction &armInst, CPU *cpu) { cpu->handleMultAcc(armInst.params.mul_acc.a,
@@ -93,17 +93,14 @@ namespace gbaemu
                 }
             }
         },
-        /*
-        // Category: INVALID_CAT
-        [](arm::ARMInstruction &armInst, CPU *cpu) {
-            std::cout << "ERROR: trying to execute invalid ARM instruction! PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
-            cpuInfo.hasCausedException = true;
-        },
-        */
     };
+    */
 
-    void CPU::handleMultAcc(bool a, bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm)
+    template <InstructionID id>
+    void CPU::handleMultAcc(bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm)
     {
+        constexpr bool a = id == MLA;
+
         // Check given restrictions
         if (rd == regs::PC_OFFSET || rn == regs::PC_OFFSET || rs == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
             std::cout << "ERROR: MUL/MLA PC register may not be involved in calculations!" << std::endl;
@@ -155,8 +152,12 @@ namespace gbaemu
         }
     }
 
-    void CPU::handleMultAccLong(bool signMul, bool a, bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm)
+    template <InstructionID id>
+    void CPU::handleMultAccLong(bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm)
     {
+        constexpr bool signMul = id == SMLAL || id == SMULL;
+        constexpr bool a = id == SMLAL || id == UMLAL;
+
         if (rd_lsw == rd_msw || rd_lsw == rm || rd_msw == rm) {
             std::cout << "ERROR: SMULL/SMLAL/UMULL/UMLAL lo, high & rm registers may not be the same!" << std::endl;
         }
@@ -233,8 +234,10 @@ namespace gbaemu
         }
     }
 
-    void CPU::handleDataSwp(bool b, uint8_t rn, uint8_t rd, uint8_t rm)
+    template <InstructionID id>
+    void CPU::handleDataSwp(uint8_t rn, uint8_t rd, uint8_t rm)
     {
+        constexpr bool b = id == SWPB;
         //TODO maybe replace by LDR followed by STR?
 
         if (rd == regs::PC_OFFSET || rn == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
@@ -250,12 +253,12 @@ namespace gbaemu
         cpuInfo.cycleCount = 1;
 
         if (b) {
-            uint8_t memVal = state.memory.read8(memAddr, &cpuInfo, false, state.getCurrentPC() < state.memory.getBiosSize());
+            uint8_t memVal = state.memory.read8(memAddr, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
             state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF), &cpuInfo);
             *currentRegs[rd] = static_cast<uint32_t>(memVal);
         } else {
             // LDR part
-            uint32_t alignedWord = state.memory.read32(memAddr, &cpuInfo, false, state.getCurrentPC() < state.memory.getBiosSize());
+            uint32_t alignedWord = state.memory.read32(memAddr, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
             alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memAddr & 0x03) * 8, false, false) & 0xFFFFFFFF;
             *currentRegs[rd] = alignedWord;
 
@@ -316,8 +319,69 @@ namespace gbaemu
         cpuInfo.forceBranch = true;
     }
 
+    static bool extractOperand2(shifts::ShiftType &shiftType, uint8_t &shiftAmount, uint8_t &rm, uint8_t &rs, uint8_t &imm, uint16_t operand2, bool i)
+    {
+        bool shiftAmountFromReg = false;
+
+        if (i) {
+            /* ROR */
+            shiftType = shifts::ShiftType::ROR;
+            imm = operand2 & 0x0FF;
+            shiftAmount = ((operand2 >> 8) & 0x0F) * 2;
+        } else {
+            shiftType = static_cast<shifts::ShiftType>((operand2 >> 5) & 0b11);
+            rm = operand2 & 0xF;
+            shiftAmountFromReg = (operand2 >> 4) & 1;
+
+            if (shiftAmountFromReg)
+                rs = (operand2 >> 8) & 0x0F;
+            else
+                shiftAmount = (operand2 >> 7) & 0b11111;
+        }
+
+        return shiftAmountFromReg;
+    }
+
+#define CREATE_CONSTEXPR_GETTER(Name, ...)                              \
+    static constexpr bool get##Name(InstructionID id)                   \
+    {                                                                   \
+        constexpr InstructionID Name[] = {__VA_ARGS__};                 \
+        for (uint32_t i = 0; i < sizeof(Name) / sizeof(Name[0]); ++i) { \
+            if (Name[i] == id)                                          \
+                return true;                                            \
+        }                                                               \
+        return false;                                                   \
+    }
+
+    CREATE_CONSTEXPR_GETTER(UpdateNegative, ADC, ADD, AND, BIC, CMN,
+                            CMP, EOR, MOV, MVN, ORR,
+                            RSB, RSC, SBC, SUB, TEQ,
+                            TST, ADD_SHORT_IMM, SUB_SHORT_IMM, MUL, NEG)
+    CREATE_CONSTEXPR_GETTER(UpdateZero, ADC, ADD, AND, BIC, CMN,
+                            CMP, EOR, MOV, MVN, ORR,
+                            RSB, RSC, SBC, SUB, TEQ,
+                            TST, ADD_SHORT_IMM, SUB_SHORT_IMM, MUL, NEG)
+    CREATE_CONSTEXPR_GETTER(UpdateCarry,
+                            ADC, ADD, CMN, CMP, RSB,
+                            RSC, SBC, SUB, ADD_SHORT_IMM, SUB_SHORT_IMM, NEG)
+    CREATE_CONSTEXPR_GETTER(UpdateOverflow,
+                            ADC, ADD, CMN, CMP, MOV,
+                            RSB, RSC, SBC, SUB, ADD_SHORT_IMM, SUB_SHORT_IMM, NEG)
+    CREATE_CONSTEXPR_GETTER(UpdateCarryFromShiftOp,
+                            AND, EOR, MOV, MVN, ORR,
+                            BIC, TEQ, TST)
+    CREATE_CONSTEXPR_GETTER(DontUpdateRD,
+                            CMP, CMN, TST, TEQ)
+    CREATE_CONSTEXPR_GETTER(InvertCarry,
+                            CMP, SUB, SBC, RSB, RSC, NEG, SUB_SHORT_IMM)
+    CREATE_CONSTEXPR_GETTER(MovSPSR,
+                            SUB, MVN, ADC, ADD, AND,
+                            BIC, EOR, MOV, ORR, RSB,
+                            RSC, SBC, ADD_SHORT_IMM, SUB_SHORT_IMM)
+
     /* ALU functions */
-    void CPU::execDataProc(arm::ARMInstruction &inst, bool thumb)
+    template <InstructionID id, bool thumb>
+    void CPU::execDataProc(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2)
     {
 
         bool carry = state.getFlag(cpsr_flags::C_FLAG);
@@ -329,21 +393,23 @@ namespace gbaemu
         uint8_t rs;
         uint8_t imm;
         uint64_t shifterOperand;
-        bool shiftByReg = inst.params.data_proc_psr_transf.extractOperand2(shiftType, shiftAmount, rm, rs, imm);
+        bool shiftByReg = extractOperand2(shiftType, shiftAmount, rm, rs, imm, operand2, i);
 
-        if (inst.params.data_proc_psr_transf.i) {
+        const auto currentRegs = state.getCurrentRegs();
+
+        if (i) {
             shifterOperand = shifts::shift(imm, shifts::ShiftType::ROR, shiftAmount, carry, false);
         } else {
             if (shiftByReg)
-                shiftAmount = *state.getCurrentRegs()[rs];
+                shiftAmount = *currentRegs[rs];
 
-            uint32_t rmValue = *state.getCurrentRegs()[rm];
+            uint32_t rmValue = *currentRegs[rm];
 
             if (rm == regs::PC_OFFSET) {
                 // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
                 // PC+12 if I=0,R=1 (shift by register),
                 // otherwise PC+8 (shift by immediate).
-                if (!inst.params.data_proc_psr_transf.i && shiftByReg) {
+                if (!i && shiftByReg) {
                     rmValue += thumb ? 6 : 12;
                 } else {
                     rmValue += thumb ? 4 : 8;
@@ -356,12 +422,12 @@ namespace gbaemu
         bool shifterOperandCarry = shifterOperand & (static_cast<uint64_t>(1) << 32);
         shifterOperand &= 0xFFFFFFFF;
 
-        uint64_t rnValue = state.accessReg(inst.params.data_proc_psr_transf.rn);
-        if (inst.params.data_proc_psr_transf.rn == regs::PC_OFFSET) {
+        uint64_t rnValue = *currentRegs[rn];
+        if (rn == regs::PC_OFFSET) {
             // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
             // PC+12 if I=0,R=1 (shift by register),
             // otherwise PC+8 (shift by immediate).
-            if (!inst.params.data_proc_psr_transf.i && shiftByReg) {
+            if (!i && shiftByReg) {
                 rnValue += thumb ? 6 : 12;
             } else {
                 rnValue += thumb ? 4 : 8;
@@ -371,44 +437,17 @@ namespace gbaemu
         uint64_t resultValue;
 
         /* Different instructions cause different flags to be changed. */
-        /* TODO: This can be extended for all instructions. */
-        static const std::set<InstructionID> updateNegative{
-            ADC, ADD, AND, BIC, CMN,
-            CMP, EOR, MOV, MVN, ORR,
-            RSB, RSC, SBC, SUB, TEQ,
-            TST, ADD_SHORT_IMM, SUB_SHORT_IMM, MUL, NEG};
-
-        static const std::set<InstructionID> updateZero{
-            ADC, ADD, AND, BIC, CMN,
-            CMP, EOR, MOV, MVN, ORR,
-            RSB, RSC, SBC, SUB, TEQ,
-            TST, ADD_SHORT_IMM, SUB_SHORT_IMM, MUL, NEG};
-
-        static const std::set<InstructionID> updateCarry{
-            ADC, ADD, CMN, CMP, RSB,
-            RSC, SBC, SUB, ADD_SHORT_IMM, SUB_SHORT_IMM, NEG};
-
-        static const std::set<InstructionID> updateOverflow{
-            ADC, ADD, CMN, CMP, MOV,
-            RSB, RSC, SBC, SUB, ADD_SHORT_IMM, SUB_SHORT_IMM, NEG};
-
-        static const std::set<InstructionID> updateCarryFromShiftOp{
-            AND, EOR, MOV, MVN, ORR,
-            BIC, TEQ, TST};
-
-        static const std::set<InstructionID> dontUpdateRD{
-            CMP, CMN, TST, TEQ};
-
-        static const std::set<InstructionID> invertCarry{
-            CMP, SUB, SBC, RSB, RSC, NEG, SUB_SHORT_IMM};
-
-        static const std::set<InstructionID> movSPSR{
-            SUB, MVN, ADC, ADD, AND,
-            BIC, EOR, MOV, ORR, RSB,
-            RSC, SBC, ADD_SHORT_IMM, SUB_SHORT_IMM};
+        constexpr bool updateNegative = getUpdateNegative(id);
+        constexpr bool updateZero = getUpdateZero(id);
+        constexpr bool updateCarry = getUpdateCarry(id);
+        constexpr bool updateOverflow = getUpdateOverflow(id);
+        constexpr bool updateCarryFromShiftOp = getUpdateCarryFromShiftOp(id);
+        constexpr bool dontUpdateRD = getDontUpdateRD(id);
+        constexpr bool invertCarry = getInvertCarry(id);
+        constexpr bool movSPSR = getMovSPSR(id);
 
         /* execute functions */
-        switch (inst.id) {
+        switch (id) {
             case ADC:
                 resultValue = rnValue + shifterOperand + (carry ? 1 : 0);
                 break;
@@ -431,33 +470,40 @@ namespace gbaemu
             case MOV:
                 resultValue = shifterOperand;
                 break;
-            case MRS:
-                if (inst.params.data_proc_psr_transf.r)
-                    resultValue = state.accessReg(regs::SPSR_OFFSET);
+            case MRS_CPSR:
+            case MRS_SPSR: {
+                constexpr bool r = id == MRS_SPSR;
+
+                if (r)
+                    resultValue = *currentRegs[regs::SPSR_OFFSET];
                 else
-                    resultValue = state.accessReg(regs::CPSR_OFFSET);
+                    resultValue = *currentRegs[regs::CPSR_OFFSET];
                 break;
-            case MSR: {
+            }
+            case MSR_SPSR:
+            case MSR_CPSR: {
                 // true iff write to flag field is allowed 31-24
-                bool f = inst.params.data_proc_psr_transf.rn & 0x08;
+                bool f = rn & 0x08;
                 // true iff write to status field is allowed 23-16
-                bool s = inst.params.data_proc_psr_transf.rn & 0x04;
+                bool s = rn & 0x04;
                 // true iff write to extension field is allowed 15-8
-                bool x = inst.params.data_proc_psr_transf.rn & 0x02;
+                bool x = rn & 0x02;
                 // true iff write to control field is allowed 7-0
-                bool c = inst.params.data_proc_psr_transf.rn & 0x01;
+                bool c = rn & 0x01;
 
                 uint32_t bitMask = (f ? 0xFF000000 : 0) | (s ? 0x00FF0000 : 0) | (x ? 0x0000FF00 : 0) | (c ? 0x000000FF : 0);
 
+                constexpr bool r = id == MSR_SPSR;
+
                 // Shady trick to fix destination register because extracted rd value is not used
-                if (inst.params.data_proc_psr_transf.r) {
-                    inst.params.data_proc_psr_transf.rd = regs::SPSR_OFFSET;
+                if (r) {
+                    rd = regs::SPSR_OFFSET;
                     // clear fields that should be written to
-                    resultValue = state.accessReg(regs::SPSR_OFFSET) & ~bitMask;
+                    resultValue = *currentRegs[regs::SPSR_OFFSET] & ~bitMask;
                 } else {
-                    inst.params.data_proc_psr_transf.rd = regs::CPSR_OFFSET;
+                    rd = regs::CPSR_OFFSET;
                     // clear fields that should be written to
-                    resultValue = state.accessReg(regs::CPSR_OFFSET) & ~bitMask;
+                    resultValue = *currentRegs[regs::CPSR_OFFSET] & ~bitMask;
                 }
 
                 // ensure that only fields that should be written to are changed!
@@ -500,38 +546,34 @@ namespace gbaemu
                 break;
 
             default:
-                std::cout << "ERROR: execDataProc can not handle instruction: " << instructionIDToString(inst.id) << std::endl;
+                std::cout << "ERROR: execDataProc can not handle instruction: " << instructionIDToString(id) << std::endl;
                 break;
         }
 
-        // Special case 9000
-        if (movSPSR.find(inst.id) != movSPSR.end() && inst.params.data_proc_psr_transf.s && inst.params.data_proc_psr_transf.rd == regs::PC_OFFSET) {
-            state.accessReg(regs::CPSR_OFFSET) = state.accessReg(regs::SPSR_OFFSET);
-            inst.params.data_proc_psr_transf.s = false;
-        }
+        bool destPC = rd == regs::PC_OFFSET;
 
-        /* set flags */
-        if (inst.params.data_proc_psr_transf.s) {
+        // Special case 9000
+        if (movSPSR && s && destPC) {
+            state.accessReg(regs::CPSR_OFFSET) = *currentRegs[regs::SPSR_OFFSET];
+        } else if (s) {
             setFlags(
                 resultValue,
                 (rnValue >> 31) & 1,
                 (shifterOperand >> 31) & 1,
-                updateNegative.find(inst.id) != updateNegative.end(),
-                updateZero.find(inst.id) != updateZero.end(),
-                updateOverflow.find(inst.id) != updateOverflow.end(),
-                updateCarry.find(inst.id) != updateCarry.end(),
-                invertCarry.find(inst.id) != invertCarry.end());
+                updateNegative,
+                updateZero,
+                updateOverflow,
+                updateCarry,
+                invertCarry);
 
-            if (updateCarryFromShiftOp.find(inst.id) != updateCarryFromShiftOp.end() &&
+            if (updateCarryFromShiftOp &&
                 (shiftType != shifts::ShiftType::LSL || shiftAmount != 0)) {
                 state.setFlag(cpsr_flags::C_FLAG, shifterOperandCarry);
             }
         }
 
-        if (dontUpdateRD.find(inst.id) == dontUpdateRD.end())
-            state.accessReg(inst.params.data_proc_psr_transf.rd) = static_cast<uint32_t>(resultValue);
-
-        bool destPC = inst.params.data_proc_psr_transf.rd == regs::PC_OFFSET;
+        if (!dontUpdateRD)
+            state.accessReg(rd) = static_cast<uint32_t>(resultValue);
 
         if (destPC) {
             cpuInfo.additionalProgCyclesN = 1;
@@ -542,23 +584,19 @@ namespace gbaemu
         }
     }
 
-    void CPU::execDataBlockTransfer(arm::ARMInstruction &inst, bool thumb)
+    template <InstructionID id, bool thumb>
+    void CPU::execDataBlockTransfer(bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList)
     {
         auto currentRegs = state.getCurrentRegs();
 
-        //TODO S bit seems relevant for register selection, NOTE: this instruction is reused for handleThumbMultLoadStore & handleThumbPushPopRegister
-        bool forceUserRegisters = inst.params.block_data_transf.s;
+        //TODO NOTE: this instruction is reused for handleThumbMultLoadStore & handleThumbPushPopRegister
 
-        bool pre = inst.params.block_data_transf.p;
-        bool up = inst.params.block_data_transf.u;
-        bool writeback = inst.params.block_data_transf.w;
-        bool load = inst.params.block_data_transf.l;
+        constexpr bool load = id == LDM || id == LDMIA;
 
-        if (forceUserRegisters && (!load || (inst.params.block_data_transf.rList & (1 << regs::PC_OFFSET)) == 0)) {
+        if (forceUserRegisters && (!load || (rList & (1 << regs::PC_OFFSET)) == 0)) {
             currentRegs = state.getModeRegs(CPUState::UserMode);
         }
 
-        uint8_t rn = inst.params.block_data_transf.rn;
         uint32_t address = *currentRegs[rn];
 
         // Execution Time:
@@ -580,12 +618,12 @@ namespace gbaemu
 
         //TODO is it fine to just walk in different direction?
         /*
-            Transfer Order
-            The lowest Register in Rlist (R0 if its in the list) will be loaded/stored to/from the lowest memory address.
-            Internally, the rlist register are always processed with INCREASING addresses 
-            (ie. for DECREASING addressing modes, the CPU does first calculate the lowest address,
-            and does then process rlist with increasing addresses; this detail can be important when accessing memory mapped I/O ports).
-            */
+        Transfer Order
+        The lowest Register in Rlist (R0 if its in the list) will be loaded/stored to/from the lowest memory address.
+        Internally, the rlist register are always processed with INCREASING addresses 
+        (ie. for DECREASING addressing modes, the CPU does first calculate the lowest address,
+        and does then process rlist with increasing addresses; this detail can be important when accessing memory mapped I/O ports).
+        */
         uint32_t addrInc = up ? 4 : -static_cast<uint32_t>(4);
 
         bool edgeCaseEmptyRlist = false;
@@ -603,9 +641,9 @@ namespace gbaemu
         STMDA: str -> r0 -0x3C
             r0 = r0 - 0x40
         */
-        if (inst.params.block_data_transf.rList == 0) {
+        if (rList == 0) {
             edgeCaseEmptyRlist = true;
-            inst.params.block_data_transf.rList = (1 << regs::PC_OFFSET);
+            rList = (1 << regs::PC_OFFSET);
             writeback = true;
             if (up) {
                 edgeCaseEmptyRlistAddrInc = static_cast<uint32_t>(0x3C);
@@ -620,7 +658,7 @@ namespace gbaemu
 
         for (uint32_t i = 0; i < 16; ++i) {
             uint8_t currentIdx = (up ? i : 15 - i);
-            if (inst.params.block_data_transf.rList & (1 << currentIdx)) {
+            if (rList & (1 << currentIdx)) {
 
                 if (pre) {
                     address += addrInc;
@@ -628,7 +666,7 @@ namespace gbaemu
 
                 if (load) {
                     if (currentIdx == regs::PC_OFFSET) {
-                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, &cpuInfo, nonSeqAccDone, state.getCurrentPC() < state.memory.getBiosSize());
+                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, &cpuInfo, nonSeqAccDone, this->executionMemReg == Memory::MemoryRegion::BIOS);
                         // Special case for pipeline refill
                         cpuInfo.additionalProgCyclesN = 1;
                         cpuInfo.additionalProgCyclesS = 1;
@@ -643,7 +681,7 @@ namespace gbaemu
                             *currentRegs[regs::CPSR_OFFSET] = *state.getCurrentRegs()[regs::SPSR_OFFSET];
                         }
                     } else {
-                        *currentRegs[currentIdx] = state.memory.read32(address, &cpuInfo, nonSeqAccDone, state.getCurrentPC() < state.memory.getBiosSize());
+                        *currentRegs[currentIdx] = state.memory.read32(address, &cpuInfo, nonSeqAccDone, this->executionMemReg == Memory::MemoryRegion::BIOS);
                     }
                 } else {
                     // Shady hack to make edge case treatment easier
@@ -666,7 +704,7 @@ namespace gbaemu
         // Final edge case address patch
         address += edgeCaseEmptyRlistAddrInc;
 
-        if (!edgeCaseEmptyRlist && (inst.params.block_data_transf.rList & (1 << rn)) && writeback) {
+        if (!edgeCaseEmptyRlist && (rList & (1 << rn)) && writeback) {
             // Edge case: writeback enabled & rn is inside rlist
             // If load then it was overwritten anyway & we should not do another writeback as writeback comes before read!
             // else on STM it depends if this register was the first written to memory
@@ -674,7 +712,7 @@ namespace gbaemu
             // else we need to patch the written memory & store the address that would normally written back
             if (!load) {
                 // Check if there are any registers that were written first to memory
-                if (inst.params.block_data_transf.rList & ((1 << rn) - 1)) {
+                if (rList & ((1 << rn) - 1)) {
                     // We need to patch mem
                     state.memory.write32(patchMemAddr, address, nullptr);
                 }
@@ -687,7 +725,8 @@ namespace gbaemu
         }
     }
 
-    void CPU::execLoadStoreRegUByte(const arm::ARMInstruction &inst, bool thumb)
+    template <InstructionID id, bool thumb>
+    void CPU::execLoadStoreRegUByte(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode)
     {
         /*
                 Opcode Format
@@ -719,14 +758,10 @@ namespace gbaemu
                     3-0    Rm - Offset Register   (R0..R14) (not including PC=R15)
              */
 
-        /* use variable names with semantics */
-        bool pre = inst.params.ls_reg_ubyte.p;
-        /* add or substract offset? */
-        bool up = inst.params.ls_reg_ubyte.u;
-        bool load = inst.params.ls_reg_ubyte.l;
-        bool immediate = !inst.params.ls_reg_ubyte.i;
-        bool byte = inst.params.ls_reg_ubyte.b;
-        bool writeback = inst.params.ls_reg_ubyte.w;
+        constexpr bool load = id == LDR || id == LDRB;
+        constexpr bool byte = id == LDRB || id == STRB;
+
+        bool immediate = !i;
 
         auto currentRegs = state.getCurrentRegs();
 
@@ -739,8 +774,6 @@ namespace gbaemu
             }
         }
 
-        uint8_t rn = inst.params.ls_reg_ubyte.rn;
-        uint8_t rd = inst.params.ls_reg_ubyte.rd;
         /* these are computed in the next step */
         uint32_t memoryAddress;
         uint32_t offset;
@@ -763,11 +796,11 @@ namespace gbaemu
 
         /* offset is calculated differently, depending on the I-bit */
         if (immediate) {
-            offset = inst.params.ls_reg_ubyte.addrMode;
+            offset = addrMode;
         } else {
-            uint8_t shiftAmount = (inst.params.ls_reg_ubyte.addrMode >> 7) & 0x1F;
-            auto shiftType = static_cast<shifts::ShiftType>((inst.params.ls_reg_ubyte.addrMode >> 5) & 0b11);
-            uint8_t rm = inst.params.ls_reg_ubyte.addrMode & 0xF;
+            uint8_t shiftAmount = (addrMode >> 7) & 0x1F;
+            auto shiftType = static_cast<shifts::ShiftType>((addrMode >> 5) & 0b11);
+            uint8_t rm = addrMode & 0xF;
 
             offset = shifts::shift(*currentRegs[rm], shiftType, shiftAmount, state.getFlag(cpsr_flags::C_FLAG), true) & 0xFFFFFFFF;
         }
@@ -800,7 +833,7 @@ namespace gbaemu
         /* transfer */
         if (load) {
             if (byte) {
-                *currentRegs[rd] = state.memory.read8(memoryAddress, &cpuInfo, false, state.getCurrentPC() < state.memory.getBiosSize());
+                *currentRegs[rd] = state.memory.read8(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
             } else {
                 // More edge case:
                 /*
@@ -810,7 +843,7 @@ namespace gbaemu
                 However, by isolating lower bits this may be used to read a halfword from memory. 
                 (Above applies to little endian mode, as used in GBA.)
                 */
-                uint32_t alignedWord = state.memory.read32(memoryAddress, &cpuInfo, false, state.getCurrentPC() < state.memory.getBiosSize());
+                uint32_t alignedWord = state.memory.read32(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
                 alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
                 *currentRegs[rd] = alignedWord;
             }
@@ -830,8 +863,9 @@ namespace gbaemu
             *currentRegs[rn] = memoryAddress;
     }
 
-    void CPU::execHalfwordDataTransferImmRegSignedTransfer(bool pre, bool up, bool load, bool writeback, bool sign,
-                                                           uint8_t rn, uint8_t rd, uint32_t offset, uint8_t transferSize, bool thumb)
+    template <InstructionID id, bool thumb>
+    void CPU::execHalfwordDataTransferImmRegSignedTransfer(bool pre, bool up, bool writeback,
+                                                           uint8_t rn, uint8_t rd, uint32_t offset)
     {
         /*
                 Bit    Expl.
@@ -869,6 +903,12 @@ namespace gbaemu
                         When above Bit 22 I=1:
                         Immediate Offset (lower 4bits)  (0-255, together with upper bits)
              */
+
+        constexpr uint8_t transferSize_ = (id == LDRH || id == STRH || id == LDRSH) ? 16 : 8;
+        constexpr bool load = id == LDRH || id == LDRSB || id == LDRSH;
+        constexpr bool sign = id == LDRSB || id == LDRSH;
+
+        uint8_t transferSize = transferSize_;
 
         //Execution Time: For Normal LDR, 1S+1N+1I. For LDR PC, 2S+2N+1I. For STRH 2N
 
@@ -912,16 +952,16 @@ namespace gbaemu
                 // Handle misaligned address
                 if (sign && memoryAddress & 1) {
                     // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]         ;sign-expand BYTE value
-                    readData = state.memory.read8(memoryAddress, &cpuInfo, false, state.getCurrentPC() < state.memory.getBiosSize());
+                    readData = state.memory.read8(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
                     transferSize = 8;
                 } else {
                     // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
                     // LDRH with ROR (see LDR with non word aligned)
-                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &cpuInfo, false, state.getCurrentPC() < state.memory.getBiosSize()));
+                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS));
                     readData = shifts::shift(readData, shifts::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
                 }
             } else {
-                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &cpuInfo, false, state.getCurrentPC() < state.memory.getBiosSize()));
+                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS));
             }
 
             if (sign) {
@@ -946,4 +986,80 @@ namespace gbaemu
             state.accessReg(rn) = memoryAddress;
         }
     }
+
+    template void CPU::handleMultAcc<MLA>(bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm);
+    template void CPU::handleMultAcc<MUL>(bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm);
+
+    template void CPU::handleDataSwp<SWP>(uint8_t rn, uint8_t rd, uint8_t rm);
+    template void CPU::handleDataSwp<SWPB>(uint8_t rn, uint8_t rd, uint8_t rm);
+
+    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<LDRH, false>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
+    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<STRH, false>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
+    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<LDRSB, false>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
+    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<LDRSH, false>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
+
+    template void CPU::execDataProc<AND, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<EOR, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<SUB, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<RSB, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<ADD, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<ADC, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<SBC, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<RSC, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<TST, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<MRS_CPSR, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<MRS_SPSR, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<TEQ, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<MSR_CPSR, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<MSR_SPSR, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<CMP, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<CMN, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<ORR, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<MOV, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<BIC, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<MVN, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+
+    template void CPU::execLoadStoreRegUByte<LDR, false>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
+    template void CPU::execLoadStoreRegUByte<LDRB, false>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
+    template void CPU::execLoadStoreRegUByte<STR, false>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
+    template void CPU::execLoadStoreRegUByte<STRB, false>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
+
+    template void CPU::execDataBlockTransfer<LDM>(bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList);
+    template void CPU::execDataBlockTransfer<STM>(bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList);
+
+    template void CPU::handleMultAccLong<SMULL>(bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm);
+    template void CPU::handleMultAccLong<SMLAL>(bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm);
+    template void CPU::handleMultAccLong<UMLAL>(bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm);
+    template void CPU::handleMultAccLong<UMULL>(bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm);
+
+    template void CPU::execDataProc<SUB, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<ADD_SHORT_IMM, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<SUB_SHORT_IMM, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execLoadStoreRegUByte<STR, true>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
+    template void CPU::execLoadStoreRegUByte<STRB, true>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
+    template void CPU::execLoadStoreRegUByte<LDR, true>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
+    template void CPU::execLoadStoreRegUByte<LDRB, true>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
+    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<STRH, true>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
+    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<LDRSB, true>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
+    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<LDRH, true>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
+    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<LDRSH, true>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
+
+    template void CPU::execDataBlockTransfer<LDM, true>(bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList);
+    template void CPU::execDataBlockTransfer<STM, true>(bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList);
+
+    template void CPU::execDataProc<ADD, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<AND, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<EOR, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<MOV, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<ADC, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<SBC, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<TST, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<NEG, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<CMP, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<CMN, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<ORR, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<MUL, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<BIC, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+    template void CPU::execDataProc<MVN, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
+
 } // namespace gbaemu
