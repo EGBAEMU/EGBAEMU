@@ -201,6 +201,7 @@ namespace gbaemu::lcd
         std::string getLayerStatus() const;
         void objHightlightSetIndex(int32_t index);
         void objSetDebugCanvas(int32_t i);
+        std::string getOBJLayerString(uint32_t objIndex) const;
     };
 
 } // namespace gbaemu::lcd

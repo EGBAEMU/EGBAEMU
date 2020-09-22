@@ -1,8 +1,25 @@
 #include "objlayer.hpp"
 
+#include <sstream>
+
 
 namespace gbaemu::lcd
 {
+    std::string OBJInfo::toString() const
+    {
+        std::stringstream ss;
+
+        ss << "visible: " << (visible ? "yes" : "no") << '\n';
+        ss << "obj index: " << std::dec << objIndex << '\n';
+        ss << "xy off: " << xOff << ' ' << yOff << '\n';
+        ss << "width height: " << width << 'x' << height << '\n';
+        ss << "origin: " << origin << '\n';
+        ss << "screen ref: " << screenRef << '\n';
+        ss << "d dm: " << d << dm << '\n';
+
+        return ss.str();
+    }
+
     OBJAttribute OBJLayer::getAttribute(uint32_t index) const
     {
         auto uints = reinterpret_cast<const uint16_t *>(attributes + (index * 0x8));
@@ -40,7 +57,11 @@ namespace gbaemu::lcd
     {
         OBJInfo info;
 
+        if (objIndex >= 1024)
+            return info;
+
         OBJAttribute attr = getAttribute(objIndex);
+        info.objIndex = objIndex;
         info.priority = static_cast<uint16_t>(bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PRIORITY_MASK, OBJ_ATTRIBUTE::PRIORITY_OFFSET));
 
         bool useRotScale = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::ROT_SCALE_MASK, OBJ_ATTRIBUTE::ROT_SCALE_OFFSET);

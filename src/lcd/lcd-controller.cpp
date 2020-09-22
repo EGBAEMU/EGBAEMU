@@ -628,4 +628,9 @@ namespace gbaemu::lcd
     {
         objDebugCanvasIndex = i;
     }
+
+    std::string LCDController::getOBJLayerString(uint32_t objIndex) const
+    {
+        return objLayers[0]->getOBJInfo(objIndex).toString();
+    }
 } // namespace gbaemu::lcd

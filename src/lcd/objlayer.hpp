@@ -28,6 +28,7 @@ namespace gbaemu::lcd
     struct OBJInfo
     {
         bool visible = false;
+        int32_t objIndex;
         OBJShape shape;
         uint16_t priority;
         int32_t xOff, yOff;
@@ -38,6 +39,8 @@ namespace gbaemu::lcd
         uint16_t tilesPerRow;
         uint16_t bytesPerTile;
         vec2 origin{0, 0}, screenRef, d{1, 0,}, dm{0, 1};
+
+        std::string toString() const;
     };
 
     class OBJLayer : public Layer
