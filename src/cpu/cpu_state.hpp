@@ -22,10 +22,9 @@ namespace gbaemu
         };
 
       private:
-        //TODO are there conventions about inital reg values?
         struct Regs {
             uint32_t rx[16];
-            uint32_t r8_14_fig[7];
+            uint32_t r8_14_fiq[7];
             uint32_t r13_14_svc[2];
             uint32_t r13_14_abt[2];
             uint32_t r13_14_irq[2];
@@ -43,7 +42,7 @@ namespace gbaemu
             // System / User mode regs
             {regs.rx, regs.rx + 1, regs.rx + 2, regs.rx + 3, regs.rx + 4, regs.rx + 5, regs.rx + 6, regs.rx + 7, regs.rx + 8, regs.rx + 9, regs.rx + 10, regs.rx + 11, regs.rx + 12, regs.rx + 13, regs.rx + 14, regs.rx + 15, &regs.CPSR, &regs.CPSR},
             // FIQ mode
-            {regs.rx, regs.rx + 1, regs.rx + 2, regs.rx + 3, regs.rx + 4, regs.rx + 5, regs.rx + 6, regs.rx + 7, regs.r8_14_fig, regs.r8_14_fig + 1, regs.r8_14_fig + 2, regs.r8_14_fig + 3, regs.r8_14_fig + 4, regs.r8_14_fig + 5, regs.r8_14_fig + 6, regs.rx + 15, &regs.CPSR, &regs.SPSR_fiq},
+            {regs.rx, regs.rx + 1, regs.rx + 2, regs.rx + 3, regs.rx + 4, regs.rx + 5, regs.rx + 6, regs.rx + 7, regs.r8_14_fiq, regs.r8_14_fiq + 1, regs.r8_14_fiq + 2, regs.r8_14_fiq + 3, regs.r8_14_fiq + 4, regs.r8_14_fiq + 5, regs.r8_14_fiq + 6, regs.rx + 15, &regs.CPSR, &regs.SPSR_fiq},
             // IRQ mode
             {regs.rx, regs.rx + 1, regs.rx + 2, regs.rx + 3, regs.rx + 4, regs.rx + 5, regs.rx + 6, regs.rx + 7, regs.rx + 8, regs.rx + 9, regs.rx + 10, regs.rx + 11, regs.rx + 12, regs.r13_14_irq, regs.r13_14_irq + 1, regs.rx + 15, &regs.CPSR, &regs.SPSR_irq},
             // Supervisor Mode

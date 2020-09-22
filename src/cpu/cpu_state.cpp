@@ -52,10 +52,8 @@ namespace gbaemu
 
     uint32_t CPUState::getCurrentPC() const
     {
-        // TODO: This is somewhat finshy as there are 3 active pc's due to pipelining. As the regs
-        // only get modified by the EXECUTE stage, this will return the pc for the exec stage.
-        // Fetch will be at +8 and decode at +4. Maybe encode this as option or so.
-        return accessReg(regs::PC_OFFSET);
+        // PC register is not banked!
+        return regs.rx[regs::PC_OFFSET];
     }
 
     uint32_t *const *const CPUState::getModeRegs(CPUMode cpuMode)
