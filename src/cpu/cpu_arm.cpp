@@ -8,93 +8,6 @@
 
 namespace gbaemu
 {
-    /*
-    const std::function<void(arm::ARMInstruction &, CPU *)> CPU::armExecuteHandler[] = {
-        // Category: MUL_ACC
-        [](arm::ARMInstruction &armInst, CPU *cpu) { cpu->handleMultAcc(armInst.params.mul_acc.a,
-                                                                        armInst.params.mul_acc.s,
-                                                                        armInst.params.mul_acc.rd,
-                                                                        armInst.params.mul_acc.rn,
-                                                                        armInst.params.mul_acc.rs,
-                                                                        armInst.params.mul_acc.rm); },
-        // Category: MUL_ACC_LONG
-        [](arm::ARMInstruction &armInst, CPU *cpu) { cpu->handleMultAccLong(armInst.params.mul_acc_long.u,
-                                                                            armInst.params.mul_acc_long.a,
-                                                                            armInst.params.mul_acc_long.s,
-                                                                            armInst.params.mul_acc_long.rd_msw,
-                                                                            armInst.params.mul_acc_long.rd_lsw,
-                                                                            armInst.params.mul_acc_long.rs,
-                                                                            armInst.params.mul_acc_long.rm); },
-        // Category: BRANCH_XCHG
-        [](arm::ARMInstruction &armInst, CPU *cpu) { cpu->handleBranchAndExchange(armInst.params.branch_xchg.rn); },
-        // Category: DATA_SWP
-        [](arm::ARMInstruction &armInst, CPU *cpu) { cpu->handleDataSwp(
-                                                         armInst.params.data_swp.b,
-                                                         armInst.params.data_swp.rn,
-                                                         armInst.params.data_swp.rd,
-                                                         armInst.params.data_swp.rm); },
-        // Category: HW_TRANSF_REG_OFF
-        [](arm::ARMInstruction &armInst, CPU *cpu) { cpu->execHalfwordDataTransferImmRegSignedTransfer(
-
-                                                         armInst.params.hw_transf_reg_off.p,
-                                                         armInst.params.hw_transf_reg_off.u,
-                                                         armInst.params.hw_transf_reg_off.l,
-                                                         armInst.params.hw_transf_reg_off.w,
-                                                         false,
-                                                         armInst.params.hw_transf_reg_off.rn,
-                                                         armInst.params.hw_transf_reg_off.rd,
-                                                         cpu->state.accessReg(armInst.params.hw_transf_reg_off.rm),
-                                                         16); },
-        // Category: HW_TRANSF_IMM_OFF
-        [](arm::ARMInstruction &armInst, CPU *cpu) { cpu->execHalfwordDataTransferImmRegSignedTransfer(
-
-                                                         armInst.params.hw_transf_imm_off.p,
-                                                         armInst.params.hw_transf_imm_off.u,
-                                                         armInst.params.hw_transf_imm_off.l,
-                                                         armInst.params.hw_transf_imm_off.w,
-                                                         false,
-                                                         armInst.params.hw_transf_imm_off.rn,
-                                                         armInst.params.hw_transf_imm_off.rd,
-                                                         armInst.params.hw_transf_imm_off.offset,
-                                                         16); },
-        // Category: SIGN_TRANSF
-        [](arm::ARMInstruction &armInst, CPU *cpu) { cpu->execHalfwordDataTransferImmRegSignedTransfer(
-
-                                                         armInst.params.sign_transf.p,
-                                                         armInst.params.sign_transf.u,
-                                                         armInst.params.sign_transf.l,
-                                                         armInst.params.sign_transf.w,
-                                                         true,
-                                                         armInst.params.sign_transf.rn,
-                                                         armInst.params.sign_transf.rd,
-                                                         armInst.params.sign_transf.b ? armInst.params.sign_transf.addrMode : cpu->state.accessReg(armInst.params.sign_transf.addrMode & 0x0F),
-                                                         armInst.params.sign_transf.h ? 16 : 8); },
-        // Category: DATA_PROC_PSR_TRANSF
-        [](arm::ARMInstruction &armInst, CPU *cpu) { cpu->execDataProc(armInst); },
-        // Category: LS_REG_UBYTE
-        [](arm::ARMInstruction &armInst, CPU *cpu) { cpu->execLoadStoreRegUByte(armInst); },
-        // Category: BLOCK_DATA_TRANSF
-        [](arm::ARMInstruction &armInst, CPU *cpu) { cpu->execDataBlockTransfer(armInst); },
-        // Category: BRANCH
-        [](arm::ARMInstruction &armInst, CPU *cpu) { cpu->handleBranch(armInst.params.branch.l, armInst.params.branch.offset); },
-        // Category: SOFTWARE_INTERRUPT
-        [](arm::ARMInstruction &armInst, CPU *cpu) {
-            if (cpu->state.memory.usesExternalBios()) {
-                swi::callBiosCodeSWIHandler(cpu);
-            } else {
-                uint8_t index = armInst.params.software_interrupt.comment >> 16;
-                if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
-                    if (index != 5 && index != 0x2B) {
-                        LOG_SWI(std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;);
-                    }
-                    swi::biosCallHandler[index](cpu);
-                } else {
-                    std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
-                }
-            }
-        },
-    };
-    */
 
     template <InstructionID id>
     void CPU::handleMultAcc(bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm)
@@ -122,13 +35,12 @@ namespace gbaemu
         if (s) {
             // update zero flag & signed flags
             // the rest is unaffected
-            setFlags(
+            setFlags<true,
+                     true,
+                     false,
+                     false,
+                     false>(
                 mulRes,
-                false,
-                false,
-                true,
-                true,
-                false,
                 false,
                 false);
         }
@@ -556,15 +468,14 @@ namespace gbaemu
         if (movSPSR && s && destPC) {
             state.accessReg(regs::CPSR_OFFSET) = *currentRegs[regs::SPSR_OFFSET];
         } else if (s) {
-            setFlags(
+            setFlags<updateNegative,
+                     updateZero,
+                     updateOverflow,
+                     updateCarry,
+                     invertCarry>(
                 resultValue,
                 (rnValue >> 31) & 1,
-                (shifterOperand >> 31) & 1,
-                updateNegative,
-                updateZero,
-                updateOverflow,
-                updateCarry,
-                invertCarry);
+                (shifterOperand >> 31) & 1);
 
             if (updateCarryFromShiftOp &&
                 (shiftType != shifts::ShiftType::LSL || shiftAmount != 0)) {

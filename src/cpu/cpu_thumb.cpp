@@ -9,81 +9,6 @@
 namespace gbaemu
 {
 
-    /*
-    const std::function<void(thumb::ThumbInstruction &, CPU *)> CPU::thumbExecuteHandler[] = {
-        // Category: MOV_SHIFT
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbMoveShiftedReg(thumbInst.id, thumbInst.params.mov_shift.rs, thumbInst.params.mov_shift.rd, thumbInst.params.mov_shift.offset); },
-        // Category: ADD_SUB
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbAddSubtract(thumbInst.id, thumbInst.params.add_sub.rd, thumbInst.params.add_sub.rs, thumbInst.params.add_sub.rn_offset); },
-        // Category: MOV_CMP_ADD_SUB_IMM
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            cpu->handleThumbMovCmpAddSubImm(thumbInst.id, thumbInst.params.mov_cmp_add_sub_imm.rd, thumbInst.params.mov_cmp_add_sub_imm.offset);
-        },
-        // Category: ALU_OP
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            cpu->handleThumbALUops(thumbInst.id, thumbInst.params.alu_op.rs, thumbInst.params.alu_op.rd);
-        },
-        // Category: BR_XCHG
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            cpu->handleThumbBranchXCHG(thumbInst.id, thumbInst.params.br_xchg.rd, thumbInst.params.br_xchg.rs);
-        },
-        // Category: PC_LD
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbLoadStore(thumbInst); },
-        // Category: LD_ST_REL_OFF
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbLoadStore(thumbInst); },
-        // Category: LD_ST_SIGN_EXT
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbLoadStoreSignHalfword(thumbInst); },
-        // Category: LD_ST_IMM_OFF
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbLoadStore(thumbInst); },
-        // Category: LD_ST_HW
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbLoadStoreSignHalfword(thumbInst); },
-        // Category: LD_ST_REL_SP
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbLoadStore(thumbInst); },
-        // Category: LOAD_ADDR
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) { cpu->handleThumbRelAddr(thumbInst.params.load_addr.sp, thumbInst.params.load_addr.offset, thumbInst.params.load_addr.rd); },
-        // Category: ADD_OFFSET_TO_STACK_PTR
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            cpu->handleThumbAddOffsetToStackPtr(thumbInst.params.add_offset_to_stack_ptr.s, thumbInst.params.add_offset_to_stack_ptr.offset);
-        },
-        // Category: PUSH_POP_REG
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            cpu->handleThumbPushPopRegister(thumbInst.params.push_pop_reg.l, thumbInst.params.push_pop_reg.r, thumbInst.params.push_pop_reg.rlist);
-        },
-        // Category: MULT_LOAD_STORE
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            cpu->handleThumbMultLoadStore(thumbInst.params.mult_load_store.l, thumbInst.params.mult_load_store.rb, thumbInst.params.mult_load_store.rlist);
-        },
-        // Category: COND_BRANCH
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            cpu->handleThumbConditionalBranch(thumbInst.params.cond_branch.cond, thumbInst.params.cond_branch.offset);
-        },
-        // Category: SOFTWARE_INTERRUPT
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            if (cpu->state.memory.usesExternalBios()) {
-                swi::callBiosCodeSWIHandler(cpu);
-            } else {
-                uint8_t index = thumbInst.params.software_interrupt.comment;
-                if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
-                    if (index != 5 && index != 0x2B) {
-                        LOG_SWI(std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;);
-                    }
-                    swi::biosCallHandler[index](cpu);
-                } else {
-                    std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
-                }
-            }
-        },
-        // Category: UNCONDITIONAL_BRANCH
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            cpu->handleThumbUnconditionalBranch(thumbInst.params.unconditional_branch.offset);
-        },
-        // Category: LONG_BRANCH_WITH_LINK
-        [](thumb::ThumbInstruction &thumbInst, CPU *cpu) {
-            cpu->handleThumbLongBranchWithLink(thumbInst.params.long_branch_with_link.h, thumbInst.params.long_branch_with_link.offset);
-        },
-    };
-*/
-
     void CPU::handleThumbLongBranchWithLink(bool h, uint16_t offset)
     {
         auto currentRegs = state.getCurrentRegs();
@@ -200,14 +125,13 @@ namespace gbaemu
         state.accessReg(rd) = static_cast<uint32_t>(rdValue & 0x0FFFFFFFF);
 
         // Flags: Z=zeroflag, N=sign, C=carry (except LSL#0: C=unchanged), V=unchanged.
-        setFlags(
+        setFlags<true,  // n Flag
+                 true,  // z Flag
+                 false, // v Flag
+                 true,  // c flag
+                 false>(
             rdValue,
             false,
-            false,
-            true,  // n Flag
-            true,  // z Flag
-            false, // v Flag
-            true,  // c flag
             false);
 
         // Execution Time: 1S
@@ -236,14 +160,13 @@ namespace gbaemu
 
                 uint64_t result = static_cast<int64_t>(rdValue) - static_cast<int64_t>(rsValue);
 
-                setFlags(result,
-                         (rdValue >> 31) & 1,
-                         (rsValue >> 31) & 1 ? false : true,
+                setFlags<true,
                          true,
                          true,
                          true,
-                         true,
-                         true);
+                         true>(result,
+                               (rdValue >> 31) & 1,
+                               (rsValue >> 31) & 1 ? false : true);
                 break;
             }
 
