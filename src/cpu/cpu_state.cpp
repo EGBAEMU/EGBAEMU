@@ -27,7 +27,7 @@ namespace gbaemu
 
         // Ensure that system mode is also set in CPSR register!
         regs.CPSR = 0b11111;
-        mode = SystemMode;
+        updateCPUMode();
 
         memory.reset();
     }
@@ -56,16 +56,6 @@ namespace gbaemu
         // only get modified by the EXECUTE stage, this will return the pc for the exec stage.
         // Fetch will be at +8 and decode at +4. Maybe encode this as option or so.
         return accessReg(regs::PC_OFFSET);
-    }
-
-    uint32_t *const *const CPUState::getCurrentRegs()
-    {
-        return regsHacks[mode];
-    }
-
-    const uint32_t *const *const CPUState::getCurrentRegs() const
-    {
-        return regsHacks[mode];
     }
 
     uint32_t *const *const CPUState::getModeRegs(CPUMode cpuMode)
@@ -99,6 +89,58 @@ namespace gbaemu
     bool CPUState::getFlag(size_t flag) const
     {
         return accessReg(regs::CPSR_OFFSET) & (1 << flag);
+    }
+
+    bool CPUState::updateCPUMode() {
+        /*
+            The Mode Bits M4-M0 contain the current operating mode.
+                    Binary Hex Dec  Expl.
+                    0xx00b 00h 0  - Old User       ;\26bit Backward Compatibility modes
+                    0xx01b 01h 1  - Old FIQ        ; (supported only on ARMv3, except ARMv3G,
+                    0xx10b 02h 2  - Old IRQ        ; and on some non-T variants of ARMv4)
+                    0xx11b 03h 3  - Old Supervisor ;/
+                    10000b 10h 16 - User (non-privileged)
+                    10001b 11h 17 - FIQ
+                    10010b 12h 18 - IRQ
+                    10011b 13h 19 - Supervisor (SWI)
+                    10111b 17h 23 - Abort
+                    11011b 1Bh 27 - Undefined
+                    11111b 1Fh 31 - System (privileged 'User' mode) (ARMv4 and up)
+            Writing any other values into the Mode bits is not allowed. 
+            */
+        uint8_t modeBits = regs.CPSR & cpsr_flags::MODE_BIT_MASK & 0xF;
+        bool error = false;
+        switch (modeBits) {
+            case 0b0000:
+                mode = CPUState::UserMode;
+                break;
+            case 0b0001:
+                mode = CPUState::FIQ;
+                break;
+            case 0b0010:
+                mode = CPUState::IRQ;
+                break;
+            case 0b0011:
+                mode = CPUState::SupervisorMode;
+                break;
+            case 0b0111:
+                mode = CPUState::AbortMode;
+                break;
+            case 0b1011:
+                mode = CPUState::UndefinedMode;
+                break;
+            case 0b1111:
+                mode = CPUState::SystemMode;
+                break;
+
+            default:
+                error = true;
+                break;
+        }
+
+        currentRegs = regsHacks[mode];
+
+        return error;
     }
 
     std::string CPUState::toString() const

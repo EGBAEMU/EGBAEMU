@@ -133,7 +133,6 @@ namespace gbaemu
                 uint8_t opCode = (lastInst >> 21) & 0x0F;
                 bool i = (lastInst >> 25) & 1;
                 bool s = lastInst & (1 << 20);
-                bool r = (lastInst >> 22) & 1;
 
                 uint8_t rn = (lastInst >> 16) & 0x0F;
                 uint8_t rd = (lastInst >> 12) & 0x0F;

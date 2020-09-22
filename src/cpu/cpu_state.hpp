@@ -10,6 +10,16 @@ namespace gbaemu
 {
 
     struct CPUState {
+      public:
+        enum CPUMode : uint8_t {
+            UserMode,
+            FIQ,
+            IRQ,
+            SupervisorMode,
+            AbortMode,
+            UndefinedMode,
+            SystemMode
+        };
 
       private:
         //TODO are there conventions about inital reg values?
@@ -45,17 +55,10 @@ namespace gbaemu
             // System / User mode regs
             {regs.rx, regs.rx + 1, regs.rx + 2, regs.rx + 3, regs.rx + 4, regs.rx + 5, regs.rx + 6, regs.rx + 7, regs.rx + 8, regs.rx + 9, regs.rx + 10, regs.rx + 11, regs.rx + 12, regs.rx + 13, regs.rx + 14, regs.rx + 15, &regs.CPSR, &regs.CPSR}};
 
-      public:
-        enum CPUMode : uint8_t {
-            UserMode,
-            FIQ,
-            IRQ,
-            SupervisorMode,
-            AbortMode,
-            UndefinedMode,
-            SystemMode
-        } mode;
+        CPUMode mode;
+        uint32_t *const *currentRegs;
 
+      public:
         /* pipeline */
         struct {
             struct {
@@ -77,13 +80,16 @@ namespace gbaemu
 
         void reset();
 
+        CPUMode getCPUMode() const { return mode; }
+        bool updateCPUMode();
+
         const char *cpuModeToString() const;
 
         uint32_t getCurrentPC() const;
 
-        uint32_t *const *const getCurrentRegs();
+        uint32_t *const *const getCurrentRegs() { return currentRegs; }
 
-        const uint32_t *const *const getCurrentRegs() const;
+        const uint32_t *const *const getCurrentRegs() const { return currentRegs; }
 
         uint32_t *const *const getModeRegs(CPUMode cpuMode);
 

@@ -149,7 +149,7 @@ namespace gbaemu::debugger
 
     bool CPUModeTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
     {
-        return state.mode == trapMode;
+        return state.getCPUMode() == trapMode;
     }
 
     void Watchdog::registerTrap(Trap &t)

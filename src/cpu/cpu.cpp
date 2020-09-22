@@ -14,8 +14,7 @@ namespace gbaemu
     arm::ArmExecutor CPU::armExecutor;
     thumb::ThumbExecutor CPU::thumbExecutor;
 
-    InstructionDecoder CPU::armDecoder = [](uint32_t inst)
-    {
+    InstructionDecoder CPU::armDecoder = [](uint32_t inst) {
         if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
             arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
         }
@@ -168,50 +167,9 @@ namespace gbaemu
         cpuInfo.cycleCount += waitStatesNonSeq * cpuInfo.additionalProgCyclesN;
         cpuInfo.cycleCount += waitStatesSeq * cpuInfo.additionalProgCyclesS;
 
-        /*
-            The Mode Bits M4-M0 contain the current operating mode.
-                    Binary Hex Dec  Expl.
-                    0xx00b 00h 0  - Old User       ;\26bit Backward Compatibility modes
-                    0xx01b 01h 1  - Old FIQ        ; (supported only on ARMv3, except ARMv3G,
-                    0xx10b 02h 2  - Old IRQ        ; and on some non-T variants of ARMv4)
-                    0xx11b 03h 3  - Old Supervisor ;/
-                    10000b 10h 16 - User (non-privileged)
-                    10001b 11h 17 - FIQ
-                    10010b 12h 18 - IRQ
-                    10011b 13h 19 - Supervisor (SWI)
-                    10111b 17h 23 - Abort
-                    11011b 1Bh 27 - Undefined
-                    11111b 1Fh 31 - System (privileged 'User' mode) (ARMv4 and up)
-            Writing any other values into the Mode bits is not allowed. 
-            */
-        uint8_t modeBits = state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK & 0xF;
-        switch (modeBits) {
-            case 0b0000:
-                state.mode = CPUState::UserMode;
-                break;
-            case 0b0001:
-                state.mode = CPUState::FIQ;
-                break;
-            case 0b0010:
-                state.mode = CPUState::IRQ;
-                break;
-            case 0b0011:
-                state.mode = CPUState::SupervisorMode;
-                break;
-            case 0b0111:
-                state.mode = CPUState::AbortMode;
-                break;
-            case 0b1011:
-                state.mode = CPUState::UndefinedMode;
-                break;
-            case 0b1111:
-                state.mode = CPUState::SystemMode;
-                break;
-
-            default:
-                std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK) << " prevPC: 0x" << std::hex << prevPc << std::endl;
-                cpuInfo.hasCausedException = true;
-                break;
+        if (state.updateCPUMode()) {
+            std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK) << " prevPC: 0x" << std::hex << prevPc << std::endl;
+            cpuInfo.hasCausedException = true;
         }
 
         if (executionMemReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
