@@ -2,6 +2,7 @@
 #define OBJLAYER_HPP
 
 #include "palette.hpp"
+#include "packed.h"
 
 
 namespace gbaemu::lcd
@@ -18,11 +19,8 @@ namespace gbaemu::lcd
         OBJ_WINDOW
     };
 
-#include "packed.h"
-    struct OBJAttribute {
-        uint16_t attribute[3];
-    } PACKED;
-#include "endpacked.h"
+    PACK_STRUCT_DEF(OBJAttribute,
+                    uint16_t attribute[3];);
 
     /* Contains all the properties for a given obj index. */
     struct OBJInfo

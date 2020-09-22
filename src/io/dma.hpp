@@ -2,6 +2,7 @@
 #define DMA_HPP
 
 #include "memory.hpp"
+#include "packed.h"
 #include <cstdint>
 
 namespace gbaemu
@@ -85,14 +86,11 @@ namespace gbaemu
         Memory &memory;
         InterruptHandler &irqHandler;
 
-#include "packed.h"
-        struct DMARegs {
-            uint32_t srcAddr;
-            uint32_t destAddr;
-            uint16_t count;
-            uint16_t cntReg;
-        } PACKED regs;
-#include "endpacked.h"
+        PACK_STRUCT(DMARegs, regs,
+                    uint32_t srcAddr;
+                    uint32_t destAddr;
+                    uint16_t count;
+                    uint16_t cntReg;);
 
         enum AddrCntType : uint8_t {
             INCREMENT = 0,
