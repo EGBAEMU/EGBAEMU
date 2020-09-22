@@ -14,6 +14,14 @@ namespace gbaemu
     arm::ArmExecutor CPU::armExecutor;
     thumb::ThumbExecutor CPU::thumbExecutor;
 
+    InstructionDecoder CPU::armDecoder = [](uint32_t inst)
+    {
+        if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
+            arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
+        }
+    };
+    InstructionDecoder CPU::thumbDecoder = &thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>;
+
     CPU::CPU() : dma0(DMA::DMA0, this), dma1(DMA::DMA1, this), dma2(DMA::DMA2, this), dma3(DMA::DMA3, this), timerGroup(this), irqHandler(this), keypad(this)
     {
         reset();
@@ -173,13 +181,9 @@ namespace gbaemu
         // Change from arm mode to thumb mode or vice versa
         if (prevThumbMode != postThumbMode) {
             if (postThumbMode) {
-                decoder = &thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>;
+                decoder = thumbDecoder;
             } else {
-                decoder = [](uint32_t inst) {
-                    if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
-                        arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
-                    }
-                };
+                decoder = armDecoder;
             }
             cpuInfo.forceBranch = true;
         }
@@ -264,11 +268,7 @@ namespace gbaemu
         irqHandler.reset();
         keypad.reset();
 
-        decoder = [](uint32_t inst) {
-            if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
-                arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
-            }
-        };
+        decoder = armDecoder;
         armExecutor.cpu = this;
         thumbExecutor.cpu = this;
         /*

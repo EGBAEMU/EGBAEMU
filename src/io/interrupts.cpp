@@ -135,9 +135,8 @@ namespace gbaemu
             // Save PC to LR_irq
             *(cpu->state.getModeRegs(CPUState::IRQ)[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + 4;
 
-            //TODO rework!
             // Change instruction mode to arm
-            // cpu->state.decoder = &cpu->armDecoder;
+            cpu->decoder = cpu->armDecoder;
 
             // Change the register mode to irq
             cpu->state.mode = CPUState::IRQ;
@@ -150,6 +149,7 @@ namespace gbaemu
             cpu->state.accessReg(regs::PC_OFFSET) = Memory::BIOS_IRQ_HANDLER_OFFSET;
 
             // Flush the pipeline
+            cpu->normalizePC(false);
             cpu->initPipeline();
 
             // After irq we need to execute at least one instruction before another irq may be handled!

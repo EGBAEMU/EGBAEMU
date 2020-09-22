@@ -48,6 +48,8 @@ namespace gbaemu
       public:
         static arm::ArmExecutor armExecutor;
         static thumb::ThumbExecutor thumbExecutor;
+        static InstructionDecoder armDecoder;
+        static InstructionDecoder thumbDecoder;
 
         CPUState state;
         InstructionDecoder decoder;
