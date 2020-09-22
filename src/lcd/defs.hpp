@@ -4,9 +4,13 @@
 #ifndef DEFS_HPP
 #define DEFS_HPP
 
+#include <lcd/canvas.hpp>
+#include <math/mat.hpp>
+#include <util.hpp>
+#include <packed.h>
+
 #include <algorithm>
 #include <cassert>
-#include <math/mat.hpp>
 
 namespace gbaemu::lcd
 {
@@ -251,10 +255,76 @@ namespace gbaemu::lcd
         }
 
         static const constexpr uint16_t WIN0_ENABLE_CSFX_OFFSET = 5, /* color special effect */
-                                        WIN1_ENABLE_CSFX_OFFSET = 13;
+            WIN1_ENABLE_CSFX_OFFSET = 13;
 
         static const constexpr uint16_t ENABLE_MASK = 1;
     } /* namespace WININOUT */
+
+    PACK_STRUCT_DEF(LCDIORegs,
+                    uint16_t DISPCNT;       // LCD Control
+                    uint16_t undocumented0; // Undocumented - Green Swap
+                    uint16_t DISPSTAT;      // General LCD Status (STAT,LYC)
+                    uint16_t VCOUNT;        // Vertical Counter (LY)
+                    uint16_t BGCNT[4];      // BG0 Control
+
+                    PACK_STRUCT(_BGOFS, BGOFS[4],
+                                uint16_t h;
+                                uint16_t v;);
+
+                    //uint16_t BG0HOFS;                       // BG0 X-Offset
+                    //uint16_t BG0VOFS;                       // BG0 Y-Offset
+                    //uint16_t BG1HOFS;                       // BG1 X-Offset
+                    //uint16_t BG1VOFS;                       // BG1 Y-Offset
+                    //uint16_t BG2HOFS;                       // BG2 X-Offset
+                    //uint16_t BG2VOFS;                       // BG2 Y-Offset
+                    //uint16_t BG3HOFS;                       // BG3 X-Offset
+                    //uint16_t BG3VOFS;                       // BG3 Y-Offset
+                    uint16_t BG2P[4]; // BG2 Rotation/Scaling Parameter A (dx)
+                    uint32_t BG2X;    // BG2 Reference Point X-Coordinate
+                    uint32_t BG2Y;    // BG2 Reference Point Y-Coordinate
+                    uint16_t BG3P[4]; // BG3 Rotation/Scaling Parameter A (dx)
+                    uint32_t BG3X;    // BG3 Reference Point X-Coordinate
+                    uint32_t BG3Y;    // BG3 Reference Point Y-Coordinate
+                    uint16_t WIN0H;   // Window 0 Horizontal Dimensions
+                    uint16_t WIN1H;   // Window 1 Horizontal Dimensions
+                    uint16_t WIN0V;   // Window 0 Vertical Dimensions
+                    uint16_t WIN1V;   // Window 1 Vertical Dimensions
+                    uint16_t WININ;   // Inside of Window 0 and 1
+                    uint16_t WINOUT;  // Inside of OBJ Window & Outside of Windows
+                    uint16_t MOSAIC;  // Mosaic Size
+                    uint16_t unused0;
+                    uint16_t BLDCNT;   // Color Special Effects Selection
+                    uint16_t BLDALPHA; // Alpha Blending Coefficients
+                    uint16_t BLDY;     // Brightness (Fade-In/Out) Coefficient
+    );
+
+    class Layer
+    {
+      public:
+        enum LayerId : int32_t {
+            BG0,
+            BG1,
+            BG2,
+            BG3,
+            OBJ0,
+            OBJ1,
+            OBJ2,
+            OBJ3,
+            BD
+        };
+
+        /* Contains the final image of the layer. Has the same size as the display. */
+        MemoryCanvas<color_t> canvas;
+        /* What layer are we talking about? */
+        LayerId id;
+        bool enabled;
+
+        uint16_t priority;
+        bool asFirstTarget;
+        bool asSecondTarget;
+
+        Layer(LayerId _id) : canvas(SCREEN_WIDTH, SCREEN_HEIGHT), id(_id), enabled(false) {}
+    };
 } /* namespace gbaemu::lcd */
 
 #ifdef DEBUG
@@ -307,7 +377,7 @@ namespace gbaemu::lcd
 #define RENDERER_ENABLE_COLOR_EFFECTS 1
 #define RENDERER_DECOMPOSE_LAYERS 0
 
-#define RENDERER_HIGHTLIGHT_OBJ 0
+#define RENDERER_HIGHTLIGHT_OBJ 1
 #define OBJ_HIGHLIGHT_COLOR 0xFF00FF00
 
 #define RENDERER_OBJ_ENABLE_DEBUG_CANVAS 0
