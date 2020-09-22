@@ -364,6 +364,17 @@ namespace gbaemu::debugger
             return;
         }
 
+        if (words[0] == "obj") {
+            if (words.size() < 2) {
+                std::cout << "DebugCLI: Missing obj index parameter!" << std::endl;
+                return;
+            }
+
+            uint32_t objIndex = std::stol(words[1]);
+            std::cout << lcdController.getOBJLayerString(objIndex) << std::endl;
+            return;
+        }
+
         std::cout << "DebugCLI: Invalid command!" << std::endl;
     }
 
