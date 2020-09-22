@@ -68,7 +68,7 @@ namespace gbaemu
         timerGroup.step();
 
         if (dmaInfo.cycleCount == 0) {
-            if (cpuInfo.cycleCount != 0 || dma0.step(dmaInfo) && dma1.step(dmaInfo) && dma2.step(dmaInfo) && dma3.step(dmaInfo)) {
+            if (cpuInfo.cycleCount != 0 || (dma0.step(dmaInfo) && dma1.step(dmaInfo) && dma2.step(dmaInfo) && dma3.step(dmaInfo))) {
                 if (cpuInfo.haltCPU) {
                     //TODO this can be removed if we remove swi.cpp
                     cpuInfo.haltCPU = !irqHandler.checkForHaltCondition(cpuInfo.haltCondition);
