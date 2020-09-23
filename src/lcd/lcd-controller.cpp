@@ -121,6 +121,7 @@ namespace gbaemu::lcd
         //regs = regsRef;
 
         uint32_t bgMode = le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
+        std::cout << bgMode << std::endl;
         Memory::MemoryRegion region;
         const uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, region);
         const uint8_t *oamBase = memory.resolveAddr(Memory::OAM_OFFSET, nullptr, region);
