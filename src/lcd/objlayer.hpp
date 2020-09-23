@@ -64,7 +64,7 @@ namespace gbaemu::lcd
         MemoryCanvas<color_t> debugCanvas;
 #endif
 
-        OBJLayer(LayerId layerId);
+        OBJLayer(int32_t layerId);
         OBJInfo getOBJInfo(uint32_t objIndex) const;
         void setMode(const uint8_t *vramBaseAddress, const uint8_t *oamBaseAddress, uint32_t bgMode);
         void draw(LCDColorPalette &palette, bool use2dMapping);

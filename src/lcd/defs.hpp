@@ -59,7 +59,7 @@ namespace gbaemu::lcd
         color_t result = 0;
 
         for (uint32_t i = 0; i < 4; ++i) {
-            color_t ca = std::min(a >> (i * 8), 255u);
+            color_t ca = (a >> (i * 8)) & 0xFF; //std::min(a >> (i * 8), 255u);
             color_t cs = (ca * scalar) / 16;
 
             result |= (cs << (i * 8));
@@ -303,29 +303,15 @@ namespace gbaemu::lcd
     class Layer
     {
       public:
-        enum LayerId : int32_t {
-            BG0,
-            BG1,
-            BG2,
-            BG3,
-            OBJ0,
-            OBJ1,
-            OBJ2,
-            OBJ3,
-            BD
-        };
-
-        /* Contains the final image of the layer. Has the same size as the display. */
-        MemoryCanvas<color_t> canvas;
-        /* What layer are we talking about? */
-        LayerId id;
         bool enabled;
-
         uint16_t priority;
         bool asFirstTarget;
         bool asSecondTarget;
 
-        Layer(LayerId _id) : canvas(SCREEN_WIDTH, SCREEN_HEIGHT), id(_id), enabled(false) {}
+        std::vector<color_t> scanline;
+
+        Layer() : enabled(false), scanline(SCREEN_WIDTH) {}
+        virtual void drawScanline(int32_t y) = 0;
     };
 } /* namespace gbaemu::lcd */
 
@@ -376,10 +362,10 @@ namespace gbaemu::lcd
 #endif
 #endif
 
-#define RENDERER_ENABLE_COLOR_EFFECTS 1
-#define RENDERER_DECOMPOSE_LAYERS 0
+#define RENDERER_ENABLE_COLOR_EFFECTS 0
+#define RENDERER_DECOMPOSE_LAYERS 1
 
-#define RENDERER_HIGHTLIGHT_OBJ 1
+#define RENDERER_HIGHTLIGHT_OBJ 0
 #define OBJ_HIGHLIGHT_COLOR 0xFF00FF00
 
 #define RENDERER_OBJ_ENABLE_DEBUG_CANVAS 0

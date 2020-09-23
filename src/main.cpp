@@ -50,26 +50,21 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController,
     //charlie.registerTrap(bp2);
     //charlie.registerTrap(bp3);
 
-    lcdController.updateReferences();
-
     std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
 
     for (uint32_t j = 0; doRun; ++j) {
         if (debugCLI.step()) {
             break;
         }
-        lcdController.tick();
 
+        lcdController.renderTick();
 
         if (j >= 1001) {
             double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
             // dt = us * 1000, us for a single instruction = dt / 1000
             double mhz = (1000000 / (dt / 1000)) / 1000000;
 
-            /*
-            if (mhz < 16)
-                std::cout << std::dec << dt << "us for 1000 cycles => ~" << mhz << "MHz" << std::endl;
-             */
+            // std::cout << std::dec << dt << "us for 1000 cycles => ~" << mhz << "MHz" << std::endl;
 
             j = 0;
             t = std::chrono::high_resolution_clock::now();
@@ -213,7 +208,7 @@ int main(int argc, char **argv)
                     std::cout << "OBJ hightlight index: " << std::dec << objIndex << std::endl;
                 }
 
-                controller.objHightlightSetIndex(objIndex);
+                //controller.objHightlightSetIndex(objIndex);
             }
         }
 
@@ -231,7 +226,7 @@ int main(int argc, char **argv)
     std::cout << "window closed" << std::endl;
 
     /* kill LCDController thread and wait */
-    controller.exitThread();
+    //controller.exitThread();
     /* wait for cpu thread to exit */
     cpuThread.join();
     /* When CLI is attached only quit command will exit the program! */

@@ -84,24 +84,7 @@ namespace gbaemu::lcd
         LCDIORegs regs{0};
 
         /* backdrop layer, BG0-BG4, OBJ0-OBJ4 */
-        std::array<std::shared_ptr<Background>, 4> backgroundLayers;
-        std::array<std::shared_ptr<Background>, 4> sortedBackgroundLayers;
-        std::array<std::shared_ptr<OBJLayer>, 4> objLayers;
-
-        std::array<std::shared_ptr<Layer>, 4 + 4> layers;
-        /* special color effects, 0-3 ~ BG0-3, 4 OBJ, 5, Backdrop(?) */
-        BLDCNT::ColorSpecialEffect colorSpecialEffect;
-
-        struct
-        {
-            uint32_t evy;
-        } brightnessEffect;
-
-        struct
-        {
-            uint32_t eva;
-            uint32_t evb;
-        } alphaEffect;
+        std::array<std::shared_ptr<BGLayer>, 4> backgroundLayers;
 
         /* rendering is done in a separate thread */
         RenderControl renderControl;
@@ -112,34 +95,22 @@ namespace gbaemu::lcd
 
         std::unique_ptr<std::thread> renderThread;
 
-        struct {
-            /*
-                For each line:
-
-                takes 960 cycles ---->
-                [p1]...[p240]
-                h-blanking takes 272 cycles <----
-
-                v-blanking takes 83776 cycles
-             */
-            uint32_t cycle;
-            uint16_t vCount;
-
-            bool hBlanking;
-            bool vBlanking;
-
-            uint64_t tickCount = 0;
-            uint64_t renderCount = 0;
-        } counters;
-
-        int32_t objDebugCanvasIndex = 0;
-
-        void blendBackgrounds();
+        struct
+        {
+            uint32_t cycle = 0;
+            int32_t x = 0, y = 0;
+            bool hblanking = false;
+            bool vblanking = false;
+        
+            /* the result of drawScanline() */
+            std::vector<color_t> buf;
+        } scanline;
 
         uint8_t read8FromReg(uint32_t offset)
         {
             return *(offset + reinterpret_cast<uint8_t *>(&regsRef));
         }
+
         void write8ToReg(uint32_t offset, uint8_t value)
         {
             uint8_t mask = 0xFF;
@@ -156,27 +127,22 @@ namespace gbaemu::lcd
 
             *(offset + reinterpret_cast<uint8_t *>(&regsRef)) = value & mask;
         }
+      public:
+        /* new architecture, true to the original hardware */
+        void drawScanline();
+        /* call this @ ~16Mhz */
+        void renderTick();
 
         void setupLayers();
         void sortLayers();
-        void loadWindowSettings();
         void loadSettings();
-        void onHBlank();
-        void onVBlank();
-        void copyLayer(const Canvas<color_t> &src);
         void drawToTarget();
         void drawLayers();
-        void render();
-        void renderLoop();
 
       public:
         LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) : display{disp, 0, 0, 3, 3}, memory(cpu->state.memory), irqHandler(cpu->irqHandler),
                                                                                                         canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw)
         {
-            counters.cycle = 0;
-            counters.vCount = 0;
-            counters.hBlanking = false;
-            counters.vBlanking = false;
             memory.ioHandler.registerIOMappedDevice(
                 IO_Mapped(
                     static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET),
@@ -187,21 +153,15 @@ namespace gbaemu::lcd
                     std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
 
             setupLayers();
+            sortLayers();
+
+            scanline.buf.resize(SCREEN_WIDTH);
 
             renderControl = WAIT;
-            renderThread = std::make_unique<std::thread>(&LCDController::renderLoop, this);
-            // renderThread->detach();
+            //renderThread = std::make_unique<std::thread>(&LCDController::renderLoop, this);
         }
 
         /* updates all raw pointers into the sections of memory (in case they might change) */
-        void updateReferences();
-        bool tick();
-        void exitThread();
-
-        std::string getLayerStatus() const;
-        void objHightlightSetIndex(int32_t index);
-        void objSetDebugCanvas(int32_t i);
-        std::string getOBJLayerString(uint32_t objIndex) const;
     };
 
 } // namespace gbaemu::lcd

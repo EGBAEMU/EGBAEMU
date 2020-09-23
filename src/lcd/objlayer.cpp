@@ -12,6 +12,7 @@ namespace gbaemu::lcd
         ss << "visible: " << (visible ? "yes" : "no") << '\n';
         ss << "obj index: " << std::dec << objIndex << '\n';
         ss << "xy off: " << xOff << ' ' << yOff << '\n';
+        ss << "double sized: " << (doubleSized ? "yes" : "no") << '\n';
         ss << "width height: " << width << 'x' << height << '\n';
         ss << "origin: " << origin << '\n';
         ss << "screen ref: " << screenRef << '\n';
@@ -45,7 +46,7 @@ namespace gbaemu::lcd
                 fixedToFloat<uint16_t, 8, 7, common::math::real_t>(d)});
     }
 
-    OBJLayer::OBJLayer(LayerId layerId) : Layer(layerId)
+    OBJLayer::OBJLayer(int32_t layerId)
 #if RENDERER_OBJ_ENABLE_DEBUG_CANVAS == 1
     , debugCanvas(512, 512)
 #endif
@@ -174,16 +175,16 @@ namespace gbaemu::lcd
         info.origin[0] = static_cast<common::math::real_t>(info.width) / 2;
         info.origin[1] = static_cast<common::math::real_t>(info.height) / 2;
 
-        if (info.doubleSized) {
-            info.screenRef[0] = static_cast<common::math::real_t>(info.xOff + info.width);
-            info.screenRef[1] = static_cast<common::math::real_t>(info.yOff + info.height);
-        } else {
-            info.screenRef[0] = static_cast<common::math::real_t>(info.xOff + info.width / 2);
-            info.screenRef[1] = static_cast<common::math::real_t>(info.yOff + info.height / 2);
-        }
-
         if (info.yOff + info.height * (info.doubleSized ? 2 : 1) > 256)
             info.yOff -= 256;
+
+        if (info.doubleSized) {
+            info.screenRef[0] = static_cast<common::math::real_t>(info.xOff + static_cast<int32_t>(info.width));
+            info.screenRef[1] = static_cast<common::math::real_t>(info.yOff + static_cast<int32_t>(info.height));
+        } else {
+            info.screenRef[0] = static_cast<common::math::real_t>(info.xOff + static_cast<int32_t>(info.width) / 2);
+            info.screenRef[1] = static_cast<common::math::real_t>(info.yOff + static_cast<int32_t>(info.height) / 2);
+        }
 
         info.visible = true;
         return info;
@@ -215,7 +216,7 @@ namespace gbaemu::lcd
         typedef common::math::real_t real_t;
         std::array<color_t, 64 * 64> tempBuffer;
 
-        canvas.clear(TRANSPARENT);
+        //canvas.clear(TRANSPARENT);
 
 #if RENDERER_OBJ_ENABLE_DEBUG_CANVAS == 1
         int32_t locationX = 0;
@@ -342,8 +343,8 @@ namespace gbaemu::lcd
 #endif
 
             /* 0 = highest priority */
-            canvas.drawSprite(tempBuffer.data(), info.width, info.height, 64,
-                              info.origin, info.d, info.dm, info.screenRef);
+            //canvas.drawSprite(tempBuffer.data(), info.width, info.height, 64,
+            //                  info.origin, info.d, info.dm, info.screenRef);
         }
     }
 }
