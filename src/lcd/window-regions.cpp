@@ -146,4 +146,13 @@ namespace gbaemu::lcd
 
         colorEffects.load(regs);
     }
+
+    const Window& WindowEffects::getActiveWindow(int32_t x, int32_t y) const
+    {
+        for (const auto& win : windows)
+            if (win.inside(x, y))
+                return win;
+
+        return *windows.crbegin();
+    }
 }

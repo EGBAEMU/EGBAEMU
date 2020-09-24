@@ -37,11 +37,13 @@ namespace gbaemu::lcd
     class WindowEffects
     {
       private:
-        std::array<Window, 4> windows;
+        /* ordered in descending priority */
+        std::array<Window, 5> windows;
         ColorEffects colorEffects;
       public:
         WindowEffects();
         void load(const LCDIORegs& regs);
+        const Window& getActiveWindow(int32_t x, int32_t y) const;
     };
 }
 
