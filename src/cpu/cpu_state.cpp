@@ -194,7 +194,6 @@ namespace gbaemu
 
     std::string CPUState::disas(uint32_t addr, uint32_t cmds) const
     {
-        //TODO rework!
         std::stringstream ss;
 
         ss << std::setfill('0') << std::hex;
