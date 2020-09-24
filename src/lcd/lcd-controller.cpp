@@ -196,6 +196,7 @@ namespace gbaemu::lcd
         }
 
         colorEffects.load(regs);
+        windowEffects.load(regs);
 
         sortLayers();
     }

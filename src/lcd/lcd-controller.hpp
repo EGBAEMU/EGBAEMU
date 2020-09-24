@@ -13,6 +13,7 @@
 #include <lcd/objlayer.hpp>
 #include <lcd/bglayer.hpp>
 #include <lcd/coloreffects.hpp>
+#include <lcd/windoweffects.hpp>
 
 #include <array>
 #include <functional>
@@ -85,6 +86,7 @@ namespace gbaemu::lcd
         LCDIORegs regs{0};
 
         ColorEffects colorEffects;
+        WindowEffects windowEffects;
 
         /* backdrop layer, BG0-BG4, OBJ0-OBJ4 */
         std::array<std::shared_ptr<BGLayer>, 4> backgroundLayers;
