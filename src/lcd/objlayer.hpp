@@ -3,6 +3,8 @@
 
 #include "palette.hpp"
 
+#include <io/memory.hpp>
+
 
 namespace gbaemu::lcd
 {
@@ -18,6 +20,14 @@ namespace gbaemu::lcd
         OBJ_WINDOW
     };
 
+    struct OBJAffineTransform
+    {
+        vec2 origin{0, 0};
+        vec2 d{1, 0};
+        vec2 dm{0, 1};
+        vec2 screenRef{0, 0};
+    };
+
 #include "packed.h"
     struct OBJAttribute {
         uint16_t attribute[3];
@@ -25,10 +35,13 @@ namespace gbaemu::lcd
 #include "endpacked.h"
 
     /* Contains all the properties for a given obj index. */
-    struct OBJInfo
+    class OBJ
     {
-        bool visible = false;
+      private:
         int32_t objIndex;
+      public:
+        bool visible = false;
+        
         OBJShape shape;
         uint16_t priority;
         int32_t xOff, yOff;
@@ -38,15 +51,25 @@ namespace gbaemu::lcd
         uint16_t tileNumber;
         uint16_t tilesPerRow;
         uint16_t bytesPerTile;
-        vec2 origin{0, 0}, screenRef, d{1, 0,}, dm{0, 1};
-
+        OBJAffineTransform affineTransform;
+      public:
+        std::vector<color_t> scanline;
+      private:
+        static OBJAttribute getAttribute(const uint8_t *attributes, uint32_t index);
+        static std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(const uint8_t *attributes, uint32_t index);
+      public:
+        OBJ() = default;
+        void init(int32_t index);
+        void constructFromAttributes(const uint8_t *attributes, uint16_t prioFilter);
         std::string toString() const;
+        color_t pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, LCDColorPalette& palette, bool use2dMapping) const;
+        void drawScanline(int32_t y, const uint8_t *objTiles, LCDColorPalette& palette, bool use2dMapping);
     };
 
     class OBJLayer : public Layer
     {
       public:
-        uint32_t bgMode;
+        BGMode mode;
         /* depends on bg mode */
         const uint8_t *objTiles;
         uint32_t areaSize;
@@ -55,19 +78,19 @@ namespace gbaemu::lcd
 
         int32_t hightlightObjIndex = 0;
 
-      private:
-        OBJAttribute getAttribute(uint32_t index) const;
-        std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(uint32_t index) const;
+        bool use2dMapping;
+
+        Memory& memory;
+        LCDColorPalette& palette;
+
+        std::vector<OBJ> objects;
+
       public:
-
-#if RENDERER_OBJ_ENABLE_DEBUG_CANVAS == 1
-        MemoryCanvas<color_t> debugCanvas;
-#endif
-
-        OBJLayer(int32_t layerId);
-        OBJInfo getOBJInfo(uint32_t objIndex) const;
-        void setMode(const uint8_t *vramBaseAddress, const uint8_t *oamBaseAddress, uint32_t bgMode);
-        void draw(LCDColorPalette &palette, bool use2dMapping);
+        OBJLayer(Memory& mem, LCDColorPalette& plt, uint16_t prio);
+        void setMode(BGMode bgMode, bool mapping2d);
+        void loadOBJs();
+        void drawScanline(int32_t y) override;
+        std::string toString() const;
     };
 }
 

@@ -305,13 +305,35 @@ namespace gbaemu::lcd
       public:
         bool enabled;
         uint16_t priority;
+        /* used in color special effects */
         bool asFirstTarget;
         bool asSecondTarget;
-
+        /* contains the final pixels */
         std::vector<color_t> scanline;
 
         Layer() : enabled(false), scanline(SCREEN_WIDTH) {}
         virtual void drawScanline(int32_t y) = 0;
+    };
+
+    /*
+        Mode  Rot/Scal Layers Size               Tiles Colors       Features
+        0     No       0123   256x256..512x515   1024  16/16..256/1 SFMABP
+        1     Mixed    012-   (BG0,BG1 as above Mode 0, BG2 as below Mode 2)
+        2     Yes      --23   128x128..1024x1024 256   256/1        S-MABP
+        3     Yes      --2-   240x160            1     32768        --MABP
+        4     Yes      --2-   240x160            2     256/1        --MABP
+        5     Yes      --2-   160x128            2     32768        --MABP
+
+        Features: S)crolling, F)lip, M)osaic, A)lphaBlending, B)rightness, P)riority.
+     */
+    enum BGMode
+    {
+        Mode0 = 0,
+        Mode1,
+        Mode2,
+        Mode3,
+        Mode4,
+        Mode5
     };
 } /* namespace gbaemu::lcd */
 

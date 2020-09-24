@@ -85,6 +85,8 @@ namespace gbaemu::lcd
 
         /* backdrop layer, BG0-BG4, OBJ0-OBJ4 */
         std::array<std::shared_ptr<BGLayer>, 4> backgroundLayers;
+        /* each priority (0-3) gets its own layer */
+        std::array<std::shared_ptr<OBJLayer>, 4> objLayers;
 
         /* rendering is done in a separate thread */
         RenderControl renderControl;
@@ -140,8 +142,9 @@ namespace gbaemu::lcd
         void drawLayers();
 
       public:
-        LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) : display{disp, 0, 0, 3, 3}, memory(cpu->state.memory), irqHandler(cpu->irqHandler),
-                                                                                                        canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw)
+        LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) :
+            display{disp, 0, 0, 3, 3}, memory(cpu->state.memory), irqHandler(cpu->irqHandler),
+            canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw)
         {
             memory.ioHandler.registerIOMappedDevice(
                 IO_Mapped(

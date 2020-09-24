@@ -28,6 +28,14 @@ namespace gbaemu::lcd
         size = (le(regs.BGCNT[index]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
         mode = bgMode;
 
+        /* mixed mode, layers 0, 1 are drawn in mode 0, layer 2 is drawn in mode 2 */
+        if (mode == Mode1) {
+            if (index == BG0 || index == BG1)
+                mode = Mode0;
+            else
+                mode = Mode1;
+        }
+
         /* TODO: not entirely correct */
         if (bgMode == 0 || (bgMode == 1 && index <= 1)) {
             /* text mode */
@@ -184,15 +192,9 @@ namespace gbaemu::lcd
         const void *frameBuffer = getFrameBuffer();
 
         std::function<color_t(int32_t, int32_t)> pixelColor;
-        BGMode _mode = mode;
-
-        if (index <= BGIndex::BG1)
-            _mode = Mode0;
-        else
-            _mode = Mode2;
 
         /* select pixel color function */
-        switch (_mode) {
+        switch (mode) {
             case Mode0:
                 /*
                     +-----------+
@@ -211,9 +213,6 @@ namespace gbaemu::lcd
                     int32_t relBGMapY = sy % 256;
                     int32_t tileX = relBGMapX / 8;
                     int32_t tileY = relBGMapY / 8;
-
-                    if (index == BGIndex::BG2)
-                        std::cout << sx << ' ' << sy << std::endl;
 
                     bgMap = reinterpret_cast<const BGMode0Entry *>(bgMapBase);
                     BGMode0EntryAttributes attrs(bgMap[tileY * 32 + tileX]);

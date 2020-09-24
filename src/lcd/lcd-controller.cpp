@@ -23,15 +23,9 @@ namespace gbaemu::lcd
 {
     void LCDController::drawScanline()
     {
-        int32_t i = 0;
+        auto t = std::chrono::high_resolution_clock::now();
 
-        static color_t color = 0xFFFF0000;
-        if (scanline.y == 0 || true) {
-            if (color == 0xFFFF0000)
-                color = 0xFF00FF00;
-            else
-                color = 0xFFFF0000;
-        }
+        int32_t i = 0;
 
         for (const auto& l : backgroundLayers) {
             if (l->enabled) {
@@ -46,6 +40,24 @@ namespace gbaemu::lcd
 
             ++i;
         }
+
+        i = 0;
+
+        for (const auto& l : objLayers) {
+            if (l->enabled) {
+                l->drawScanline(scanline.y);
+
+                int32_t yOff = (i / 2) * SCREEN_HEIGHT + (SCREEN_HEIGHT * 2);
+                int32_t xOff = (i % 2) * SCREEN_WIDTH;
+
+                for (int32_t x = 0; x < SCREEN_WIDTH; ++x)
+                    display.target.pixels()[(yOff + scanline.y) * display.target.getWidth() + (x + xOff)] = l->scanline[x];
+            }
+
+            ++i;
+        }
+
+        std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count() << std::endl;
     }
 
     void LCDController::renderTick()
@@ -65,6 +77,8 @@ namespace gbaemu::lcd
             /* on first v-blank cycle */
             irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_BLANK);
             scanline.y = 0;
+
+            //std::cout << objLayer->toString() << std::endl;
 
             /* tell the window it can present the image */
             canDrawToScreenMutex->lock();
@@ -112,6 +126,11 @@ namespace gbaemu::lcd
         backgroundLayers[1] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG1);
         backgroundLayers[2] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG2);
         backgroundLayers[3] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG3);
+
+        objLayers[0] = std::make_shared<OBJLayer>(memory, palette, 0);
+        objLayers[1] = std::make_shared<OBJLayer>(memory, palette, 1);
+        objLayers[2] = std::make_shared<OBJLayer>(memory, palette, 2);
+        objLayers[3] = std::make_shared<OBJLayer>(memory, palette, 3);
     }
 
     void LCDController::sortLayers()
@@ -174,6 +193,13 @@ namespace gbaemu::lcd
         for (uint32_t i = 0; i < 4; ++i)
             if (backgroundLayers[i]->enabled)
                 backgroundLayers[i]->loadSettings(static_cast<BGMode>(bgMode), regs);
+
+        bool use2dMapping = !(le(regs.DISPCNT) & DISPCTL::OBJ_CHAR_VRAM_MAPPING_MASK);
+
+        for (auto& l : objLayers) {
+            l->setMode(static_cast<BGMode>(bgMode), use2dMapping);
+            l->loadOBJs();
+        }
 
         sortLayers();
     }
