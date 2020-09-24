@@ -9,8 +9,8 @@ namespace gbaemu::arm
 {
 
     // Fallback if not implemented
-    template <ARMInstructionCategory, InstructionID id, typename T, typename... Args>
-    void ArmExecutor::operator()(T t, Args... args)
+    template <ARMInstructionCategory, InstructionID id, typename... Args>
+    void ArmExecutor::operator()(Args... args)
     {
         static_assert(id == INVALID);
         std::cout << "ERROR: Arm executor: trying to execute invalid instruction!" << std::endl;

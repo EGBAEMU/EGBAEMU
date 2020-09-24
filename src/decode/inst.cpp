@@ -3,10 +3,38 @@
 #include "cpu/regs.hpp"
 #include "util.hpp"
 
+#include "decode/disas_arm.hpp"
+#include "decode/disas_thumb.hpp"
+#include "decode/inst_arm.hpp"
+#include "decode/inst_thumb.hpp"
+
 #include <iostream>
 
 namespace gbaemu
 {
+
+    bool extractOperand2(shifts::ShiftType &shiftType, uint8_t &shiftAmount, uint8_t &rm, uint8_t &rs, uint8_t &imm, uint16_t operand2, bool i)
+    {
+        bool shiftAmountFromReg = false;
+
+        if (i) {
+            /* ROR */
+            shiftType = shifts::ShiftType::ROR;
+            imm = operand2 & 0x0FF;
+            shiftAmount = ((operand2 >> 8) & 0x0F) * 2;
+        } else {
+            shiftType = static_cast<shifts::ShiftType>((operand2 >> 5) & 0b11);
+            rm = operand2 & 0xF;
+            shiftAmountFromReg = (operand2 >> 4) & 1;
+
+            if (shiftAmountFromReg)
+                rs = (operand2 >> 8) & 0x0F;
+            else
+                shiftAmount = (operand2 >> 7) & 0b11111;
+        }
+
+        return shiftAmountFromReg;
+    }
 
     const char *conditionCodeToString(ConditionOPCode condition)
     {
@@ -178,38 +206,24 @@ namespace gbaemu
         }
     } // namespace shifts
 
-    void Instruction::setArmInstruction(arm::ARMInstruction &armInstruction)
-    {
-        inst.arm = armInstruction;
-        isArm = true;
-    }
-    void Instruction::setThumbInstruction(thumb::ThumbInstruction &thumbInstruction)
-    {
-        inst.thumb = thumbInstruction;
-        isArm = false;
-    }
-
-    bool Instruction::isArmInstruction() const
-    {
-        return isArm;
-    }
+    static thumb::ThumbDisas thumbDisas;
+    static arm::ArmDisas armDisas;
 
     std::string Instruction::toString() const
     {
-        if (isArm)
-            return inst.arm.toString();
-        else
-            return inst.thumb.toString();
-    }
+        std::string result;
+        if (isArm) {
+            arm::ARMInstructionDecoder<arm::ArmDisas>::decode<armDisas>(inst);
+            result = armDisas.ss.str();
+            armDisas.ss.clear();
+        } else {
+            thumb::ThumbInstructionDecoder<thumb::ThumbDisas>::decode<thumbDisas>(inst);
+            result = thumbDisas.ss.str();
+            thumbDisas.ss.clear();
+        }
 
-    bool Instruction::isValid() const
-    {
-        if (isArm)
-            return inst.arm.cat != arm::INVALID_CAT && inst.arm.id != INVALID;
-        else
-            return inst.thumb.cat != thumb::INVALID_CAT && inst.thumb.id != INVALID;
+        return result;
     }
-
     bool conditionSatisfied(ConditionOPCode condition, const CPUState &state)
     {
         switch (condition) {

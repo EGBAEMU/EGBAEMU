@@ -3,27 +3,26 @@
 
 #include "inst.hpp"
 
+#include <iostream>
+#include <sstream>
+
 namespace gbaemu::arm
 {
-
     class ArmDisas
     {
       public:
-        ARMInstruction inst;
+        std::stringstream ss;
 
-        template <ARMInstructionCategory, InstructionID, typename T, typename... Args>
-        void operator()(T t, Args... args);
+        template <ARMInstructionCategory, typename... Args>
+        void disas(InstructionID id, Args... args);
+
+        template <ARMInstructionCategory cat, InstructionID id, typename... Args>
+        void operator()(Args... args)
+        {
+            ss /*<< '(' << conditionCodeToString(condition) << ") "*/ << instructionIDToString(id);
+            disas<cat>(id, args...);
+        }
     };
-
-    template <ARMInstructionCategory, InstructionID, typename T, typename... Args>
-    void ArmDisas::operator()(T thumbInst, Args... a)
-    {
-        //TODO rework
-        /*
-        inst = thumbInst;
-        */
-    }
-
 } // namespace gbaemu::arm
 
 #endif

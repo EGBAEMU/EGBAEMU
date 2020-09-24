@@ -120,7 +120,7 @@ namespace gbaemu
                 } else if (l && h) {
                     exec.Executor::template operator()<SIGN_TRANSF, LDRSH>(b, p, u, w, rn, rd, addrMode);
                 } else {
-                    exec.Executor::template operator()<INVALID_CAT, INVALID>(b, p, u, w, rn, rd, addrMode);
+                    exec.Executor::template operator()<INVALID_CAT, INVALID>(/*b, p, u, w, rn, rd, addrMode*/);
                 } /*else if (!l && h) { // supported arm5 and up
                     exec.Executor::template operator()<SIGN_TRANSF, STRD>(b, p, u, w, rn, rd, addrMode);
                 }
@@ -266,7 +266,7 @@ namespace gbaemu
                 uint32_t comment = lastInst & 0x00FFFFFF;
                 exec.Executor::template operator()<SOFTWARE_INTERRUPT, SWI>(static_cast<uint8_t>(comment >> 16));
             } else {
-                exec.Executor::template operator()<INVALID_CAT, INVALID>(42);
+                exec.Executor::template operator()<INVALID_CAT, INVALID>();
             }
         }
 

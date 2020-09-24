@@ -318,7 +318,7 @@ namespace gbaemu
 
                 exec.Executor::template operator()<LONG_BRANCH_WITH_LINK, B>(h, offset);
             } else {
-                exec.Executor::template operator()<INVALID_CAT, INVALID>(42);
+                exec.Executor::template operator()<INVALID_CAT, INVALID>();
             }
         }
 

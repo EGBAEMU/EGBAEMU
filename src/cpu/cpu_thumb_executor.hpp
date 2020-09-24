@@ -17,8 +17,8 @@ namespace gbaemu
             CPU *cpu;
 
           public:
-            template <ThumbInstructionCategory, InstructionID, typename T, typename... Args>
-            void operator()(T t, Args... args);
+            template <ThumbInstructionCategory, InstructionID, typename... Args>
+            void operator()(Args... args);
 
             friend CPU;
         };

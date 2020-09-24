@@ -1,4 +1,5 @@
 #include "cpu.hpp"
+#include "decode/inst.hpp"
 #include "logging.hpp"
 #include "swi.hpp"
 #include "util.hpp"
@@ -229,29 +230,6 @@ namespace gbaemu
 
         // This is a branch instruction so we need to consider self branches!
         cpuInfo.forceBranch = true;
-    }
-
-    static bool extractOperand2(shifts::ShiftType &shiftType, uint8_t &shiftAmount, uint8_t &rm, uint8_t &rs, uint8_t &imm, uint16_t operand2, bool i)
-    {
-        bool shiftAmountFromReg = false;
-
-        if (i) {
-            /* ROR */
-            shiftType = shifts::ShiftType::ROR;
-            imm = operand2 & 0x0FF;
-            shiftAmount = ((operand2 >> 8) & 0x0F) * 2;
-        } else {
-            shiftType = static_cast<shifts::ShiftType>((operand2 >> 5) & 0b11);
-            rm = operand2 & 0xF;
-            shiftAmountFromReg = (operand2 >> 4) & 1;
-
-            if (shiftAmountFromReg)
-                rs = (operand2 >> 8) & 0x0F;
-            else
-                shiftAmount = (operand2 >> 7) & 0b11111;
-        }
-
-        return shiftAmountFromReg;
     }
 
 #define CREATE_CONSTEXPR_GETTER(Name, ...)                              \

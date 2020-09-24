@@ -6,8 +6,8 @@ namespace gbaemu::thumb
 {
 
     // Fallback if not implemented
-    template <ThumbInstructionCategory, InstructionID id, typename T, typename... Args>
-    void ThumbExecutor::operator()(T t, Args... args)
+    template <ThumbInstructionCategory, InstructionID id, typename... Args>
+    void ThumbExecutor::operator()(Args... args)
     {
         static_assert(id == INVALID);
         std::cout << "ERROR: Thumb executor: trying to execute invalid instruction!" << std::endl;

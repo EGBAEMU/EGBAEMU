@@ -1,12 +1,8 @@
 #include "cpu_state.hpp"
 
+#include "decode/inst.hpp"
 #include "regs.hpp"
 #include "util.hpp"
-
-#include "decode/disas_arm.hpp"
-#include "decode/disas_thumb.hpp"
-#include "decode/inst_arm.hpp"
-#include "decode/inst_thumb.hpp"
 
 #include <algorithm>
 #include <iomanip>
@@ -89,7 +85,8 @@ namespace gbaemu
         return accessReg(regs::CPSR_OFFSET) & (1 << flag);
     }
 
-    bool CPUState::updateCPUMode() {
+    bool CPUState::updateCPUMode()
+    {
         /*
             The Mode Bits M4-M0 contain the current operating mode.
                     Binary Hex Dec  Expl.
@@ -195,9 +192,6 @@ namespace gbaemu
         return ss.str();
     }
 
-    static thumb::ThumbDisas thumbDisas;
-    static arm::ArmDisas armDisas;
-
     std::string CPUState::disas(uint32_t addr, uint32_t cmds) const
     {
         //TODO rework!
@@ -229,8 +223,9 @@ namespace gbaemu
                 uint32_t b0 = bytes & 0x0FF;
                 uint32_t b1 = (bytes >> 8) & 0x0FF;
 
-                thumb::ThumbInstructionDecoder<thumb::ThumbDisas>::decode<thumbDisas>(bytes);
-                auto &inst = thumbDisas.inst;
+                Instruction inst;
+                inst.inst = bytes;
+                inst.isArm = false;
 
                 // bytes
                 ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << " [" << std::setw(4) << bytes << ']';
@@ -247,8 +242,9 @@ namespace gbaemu
                 uint32_t b2 = (bytes >> 16) & 0x0FF;
                 uint32_t b3 = (bytes >> 24) & 0x0FF;
 
-                arm::ARMInstructionDecoder<arm::ArmDisas>::decode<armDisas>(bytes);
-                auto &inst = armDisas.inst;
+                Instruction inst;
+                inst.inst = bytes;
+                inst.isArm = true;
 
                 // bytes
                 ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << std::setw(2) << b2 << ' ' << std::setw(2) << b3 << " [" << std::setw(8) << bytes << ']';

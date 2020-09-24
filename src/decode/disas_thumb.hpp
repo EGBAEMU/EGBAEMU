@@ -3,26 +3,26 @@
 
 #include "inst.hpp"
 
+#include <iostream>
+#include <sstream>
+
 namespace gbaemu::thumb
 {
-
     class ThumbDisas
     {
       public:
-        ThumbInstruction inst;
+        std::stringstream ss;
 
-        template <ThumbInstructionCategory, InstructionID, typename T, typename... Args>
-        void operator()(T t, Args... args);
+        template <ThumbInstructionCategory, typename... Args>
+        void disas(InstructionID id, Args... args);
+
+        template <ThumbInstructionCategory cat, InstructionID id, typename... Args>
+        void operator()(Args... args)
+        {
+            ss << instructionIDToString(id);
+            disas<cat>(id, args...);
+        }
     };
-
-    template <ThumbInstructionCategory, InstructionID, typename T, typename... Args>
-    void ThumbDisas::operator()(T thumbInst, Args... a)
-    {
-        //TODO rework
-        /*
-        inst = thumbInst;
-        */
-    }
 
 } // namespace gbaemu::thumb
 
