@@ -81,15 +81,9 @@ namespace gbaemu::lcd
 
         if (displayCycle == 197120 && scanline.vblanking) {
             /* on first v-blank cycle */
-            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_BLANK);
-            scanline.y = 0;
-
-            //std::cout << objLayer->toString() << std::endl;
-
-            /* tell the window it can present the image */
-            canDrawToScreenMutex->lock();
+            onVBlank();
+            /* race conditions are acceptable here */
             *canDrawToScreen = true;
-            canDrawToScreenMutex->unlock();
         } else if (!scanline.vblanking) {
             /* cycle in the current scanline period */
             uint32_t scanlineCycle = scanline.cycle % 1232;
@@ -105,25 +99,42 @@ namespace gbaemu::lcd
                 ++scanline.x;
             } else if (scanlineCycle == 960 && scanline.hblanking) {
                 /* on first h-blank cycle */
-                irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_H_BLANK);
-
-                scanline.x = 0;
-                ++scanline.y;
+                onHBlank();
             }
         }
 
-        /* update stat */
-        uint16_t stat = le(regsRef.DISPSTAT);
-        stat = bitSet(stat, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t>(scanline.vblanking));
-        stat = bitSet(stat, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t>(scanline.hblanking));
-        regsRef.DISPSTAT = le(stat);
+        ++scanline.cycle;
+    }
+
+    void LCDController::onHBlank()
+    {
+        irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_H_BLANK);
+
+        scanline.x = 0;
+        ++scanline.y;
 
         /* update vcount */
         uint16_t vcount = le(regsRef.VCOUNT);
         vcount = bitSet<uint16_t>(vcount, VCOUNT::CURRENT_SCANLINE_MASK, VCOUNT::CURRENT_SCANLINE_OFFSET, scanline.y);
         regsRef.VCOUNT = le(vcount);
 
-        ++scanline.cycle;
+         /* update stat */
+        uint16_t stat = le(regsRef.DISPSTAT);
+        stat = bitSet(stat, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t>(scanline.vblanking));
+        stat = bitSet(stat, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t>(scanline.hblanking));
+        regsRef.DISPSTAT = le(stat);
+    }
+
+    void LCDController::onVBlank()
+    {
+        irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_BLANK);
+        scanline.y = 0;
+
+         /* update stat */
+        uint16_t stat = le(regsRef.DISPSTAT);
+        stat = bitSet(stat, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t>(scanline.vblanking));
+        stat = bitSet(stat, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t>(scanline.hblanking));
+        regsRef.DISPSTAT = le(stat);
     }
 
     void LCDController::setupLayers()
@@ -164,6 +175,7 @@ namespace gbaemu::lcd
         palette.objPalette = reinterpret_cast<uint16_t *>(memory.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET + 0x200, nullptr, memReg));
 
         uint32_t bgMode = le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
+
         Memory::MemoryRegion region;
         const uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, region);
         const uint8_t *oamBase = memory.resolveAddr(Memory::OAM_OFFSET, nullptr, region);
@@ -182,6 +194,8 @@ namespace gbaemu::lcd
             l->setMode(static_cast<BGMode>(bgMode), use2dMapping);
             l->loadOBJs();
         }
+
+        colorEffects.load(regs);
 
         sortLayers();
     }

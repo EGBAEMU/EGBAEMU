@@ -33,7 +33,7 @@ namespace gbaemu::lcd
             if (index == BG0 || index == BG1)
                 mode = Mode0;
             else
-                mode = Mode1;
+                mode = Mode2;
         }
 
         /* TODO: not entirely correct */
@@ -164,18 +164,20 @@ namespace gbaemu::lcd
 
     const void *BGLayer::getBGMap(int32_t sx, int32_t sy) const
     {
-        if (mode == Mode0 || (mode == Mode1 && index <= BGIndex::BG1)) {
-            int32_t scIndex = (sx / 256) * 2 + (sy / 256);
+        switch (mode) {
+            case Mode0: {
+                int32_t scIndex = (sx / 256) + (sy / 256) * 2;
 
-            /* only exception */
-            if (size == 2 && scIndex == 2)
-                scIndex = 1;
+                /* only exception */
+                if (size == 2 && scIndex == 2)
+                    scIndex = 1;
 
-            return bgMapBase + scIndex * 0x800;
-        } else if (mode == Mode2 || (mode == Mode1 && index == BGIndex::BG2)) {
-            return bgMapBase;
-        } else {
-            return nullptr;
+                return bgMapBase + scIndex * 0x800;
+            }
+            case Mode2:
+                return bgMapBase;
+            default:
+                return nullptr;
         }
     }
 
@@ -208,13 +210,13 @@ namespace gbaemu::lcd
                  */
                 pixelColor = [this](int32_t sx, int32_t sy) -> color_t {
                     const BGMode0Entry *bgMap = reinterpret_cast<const BGMode0Entry *>(getBGMap(sx, sy));
+
                     /* sx, sy relative to the current bg map (size 32x32) */
                     int32_t relBGMapX = sx % 256;
                     int32_t relBGMapY = sy % 256;
                     int32_t tileX = relBGMapX / 8;
                     int32_t tileY = relBGMapY / 8;
 
-                    bgMap = reinterpret_cast<const BGMode0Entry *>(bgMapBase);
                     BGMode0EntryAttributes attrs(bgMap[tileY * 32 + tileX]);
                     const uint8_t* tile = reinterpret_cast<const uint8_t *>(tiles) + attrs.tileNumber * (colorPalette256 ? 64 : 32);
 
@@ -254,7 +256,8 @@ namespace gbaemu::lcd
                 };
                 break;
             default:
-                throw new std::runtime_error("getPixelColorFunction() only supports background modes 3, 4, 5");
+                LOG_LCD(std::cout << "Invalid mode!" << std::endl;);
+                throw new std::runtime_error("Invalid mode!");
         }
 
         return pixelColor;

@@ -12,6 +12,7 @@
 #include <lcd/palette.hpp>
 #include <lcd/objlayer.hpp>
 #include <lcd/bglayer.hpp>
+#include <lcd/coloreffects.hpp>
 
 #include <array>
 #include <functional>
@@ -83,6 +84,8 @@ namespace gbaemu::lcd
         LCDIORegs regsRef{0};
         LCDIORegs regs{0};
 
+        ColorEffects colorEffects;
+
         /* backdrop layer, BG0-BG4, OBJ0-OBJ4 */
         std::array<std::shared_ptr<BGLayer>, 4> backgroundLayers;
         /* each priority (0-3) gets its own layer */
@@ -103,6 +106,8 @@ namespace gbaemu::lcd
         {
             uint32_t cycle = 0;
             int32_t x = 0, y = 0;
+            /* interlacing */
+            bool oddScanline = true;
             bool hblanking = false;
             bool vblanking = false;
         
@@ -136,6 +141,9 @@ namespace gbaemu::lcd
         void drawScanline();
         /* call this @ ~16Mhz */
         void renderTick();
+
+        void onHBlank();
+        void onVBlank();
 
         void setupLayers();
         void sortLayers();

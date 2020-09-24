@@ -30,16 +30,11 @@ namespace gbaemu::lcd
                 fixedToFloat<uint16_t, 8, 7, common::math::real_t>(d)});
     }
 
-    void OBJ::init(int32_t index)
-    {
-        objIndex = index;
-        scanline.resize(SCREEN_WIDTH);
-    }
-
-    void OBJ::constructFromAttributes(const uint8_t *attributes, uint16_t prioFilter)
+    OBJ::OBJ(const uint8_t *attributes, uint16_t prioFilter, int32_t index)
     {
         /* by default */
         visible = false;
+        objIndex = index;
 
         OBJAttribute attr = getAttribute(attributes, objIndex);
         priority = static_cast<uint16_t>(bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PRIORITY_MASK, OBJ_ATTRIBUTE::PRIORITY_OFFSET));
@@ -226,35 +221,12 @@ namespace gbaemu::lcd
         }
     }
 
-    void OBJ::drawScanline(int32_t y, const uint8_t *objTiles, LCDColorPalette& palette, bool use2dMapping)
-    {
-        vec2 s = affineTransform.d * (-affineTransform.screenRef[0]) +
-            affineTransform.dm * (y - affineTransform.screenRef[1]) +
-            affineTransform.origin;
-
-        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
-            int32_t sx = static_cast<int32_t>(s[0]);
-            int32_t sy = static_cast<int32_t>(s[1]);
-
-            if (0 <= sx && sx < width && 0 <= sy && sy < height) {
-                color_t color = pixelColor(sx, sy, objTiles, palette, use2dMapping);
-                scanline[x] = color;
-            } else {
-                scanline[x] = TRANSPARENT;
-            }
-
-            s += affineTransform.d;
-        }
-    }
-
     OBJLayer::OBJLayer(Memory& mem, LCDColorPalette& plt, uint16_t prio) : memory(mem), palette(plt), objects(128)
     {
         /* OBJ layers are always enabled */
         enabled = true;
         priority = prio;
-
-        for (int32_t i = 0; i < 128; ++i)
-            objects[i].init(i);
+        objects.reserve(128);
     }
 
     void OBJLayer::setMode(BGMode bgMode, bool mapping2d)
@@ -282,8 +254,14 @@ namespace gbaemu::lcd
 
     void OBJLayer::loadOBJs()
     {
-        for (int32_t objIndex = 0; objIndex < 128; ++objIndex)
-            objects[objIndex].constructFromAttributes(attributes, priority);
+        objects.resize(0);
+
+        for (int32_t objIndex = 0; objIndex < 128; ++objIndex) {
+            OBJ obj(attributes, priority, objIndex);
+
+            if (obj.visible)
+                objects.push_back(obj);
+        }
     }
 
     void OBJLayer::drawScanline(int32_t y)

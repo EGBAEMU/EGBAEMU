@@ -52,18 +52,14 @@ namespace gbaemu::lcd
         uint16_t tilesPerRow;
         uint16_t bytesPerTile;
         OBJAffineTransform affineTransform;
-      public:
-        std::vector<color_t> scanline;
       private:
         static OBJAttribute getAttribute(const uint8_t *attributes, uint32_t index);
         static std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(const uint8_t *attributes, uint32_t index);
       public:
         OBJ() = default;
-        void init(int32_t index);
-        void constructFromAttributes(const uint8_t *attributes, uint16_t prioFilter);
+        OBJ(const uint8_t *attributes, uint16_t prioFilter, int32_t index);
         std::string toString() const;
         color_t pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, LCDColorPalette& palette, bool use2dMapping) const;
-        void drawScanline(int32_t y, const uint8_t *objTiles, LCDColorPalette& palette, bool use2dMapping);
     };
 
     class OBJLayer : public Layer
