@@ -69,6 +69,9 @@ namespace gbaemu::lcd
 
         std::function<color_t(int32_t, int32_t)> getPixelColorFunction();
         void drawScanline(int32_t y) override;
+
+        /* used for sorting */
+        bool operator <(const BGLayer& other) const noexcept;
     };
 }
 

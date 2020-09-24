@@ -70,6 +70,7 @@ namespace gbaemu::lcd
 
     /* This type is also used to represent 5-5-5 bit colors. */
     typedef uint16_t color16_t;
+    typedef common::math::real_t real_t;
     typedef common::math::vec<2> vec2;
     typedef common::math::vec<3> vec3;
     typedef common::math::mat<3, 3> mat3x3;
@@ -313,6 +314,17 @@ namespace gbaemu::lcd
 
         Layer() : enabled(false), scanline(SCREEN_WIDTH) {}
         virtual void drawScanline(int32_t y) = 0;
+
+        /* used for sorting */
+        bool operator <(const Layer& other) const noexcept
+        {
+            return priority < other.priority;
+        }
+
+        bool operator <=(const Layer& other) const noexcept
+        {
+            return priority <= other.priority;
+        }
     };
 
     /*

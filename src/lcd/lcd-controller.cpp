@@ -25,37 +25,43 @@ namespace gbaemu::lcd
     {
         auto t = std::chrono::high_resolution_clock::now();
 
-        int32_t i = 0;
-
-        for (const auto& l : backgroundLayers) {
-            if (l->enabled) {
+        for (const auto& l : layers)
+            if (l->enabled)
                 l->drawScanline(scanline.y);
 
-                int32_t yOff = (i / 2) * SCREEN_HEIGHT;
-                int32_t xOff = (i % 2) * SCREEN_WIDTH;
+        sortLayers();
 
-                for (int32_t x = 0; x < SCREEN_WIDTH; ++x)
-                    display.target.pixels()[(yOff + scanline.y) * display.target.getWidth() + (x + xOff)] = l->scanline[x];
+#if RENDERER_DECOMPOSE_LAYERS == 1
+        {
+            int32_t i = 0;
+
+            for (const auto& l : layers) {
+                if (l->enabled) {
+                    int32_t yOff = (i / 2) * SCREEN_HEIGHT;
+                    int32_t xOff = (i % 2) * SCREEN_WIDTH;
+
+                    for (int32_t x = 0; x < SCREEN_WIDTH; ++x)
+                        display.target.pixels()[(yOff + scanline.y) * display.target.getWidth() + (x + xOff)] = l->scanline[x];
+                }
+
+                ++i;
             }
-
-            ++i;
         }
+#else
+        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+            for (auto l = layers.cbegin(); l != layers.cend(); ++l) {
+                if (!(*l)->enabled)
+                    continue;
+                
+                color_t color = (*l)->scanline[x];
 
-        i = 0;
-
-        for (const auto& l : objLayers) {
-            if (l->enabled) {
-                l->drawScanline(scanline.y);
-
-                int32_t yOff = (i / 2) * SCREEN_HEIGHT + (SCREEN_HEIGHT * 2);
-                int32_t xOff = (i % 2) * SCREEN_WIDTH;
-
-                for (int32_t x = 0; x < SCREEN_WIDTH; ++x)
-                    display.target.pixels()[(yOff + scanline.y) * display.target.getWidth() + (x + xOff)] = l->scanline[x];
-            }
-
-            ++i;
+                if (color != TRANSPARENT) {
+                    display.target.pixels()[scanline.y * display.target.getWidth() + x] = color;
+                    break;
+                }
+            }    
         }
+#endif
 
         std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count() << std::endl;
     }
@@ -131,45 +137,21 @@ namespace gbaemu::lcd
         objLayers[1] = std::make_shared<OBJLayer>(memory, palette, 1);
         objLayers[2] = std::make_shared<OBJLayer>(memory, palette, 2);
         objLayers[3] = std::make_shared<OBJLayer>(memory, palette, 3);
+
+        for (uint32_t i = 0; i < 8; ++i) {
+            if (i <= 3)
+                layers[i] = backgroundLayers[i];
+            else
+                layers[i] = objLayers[i - 4];
+        }
     }
 
     void LCDController::sortLayers()
     {
-        /*
-        sortedBackgroundLayers = backgroundLayers;
-        std::sort(sortedBackgroundLayers.begin(), sortedBackgroundLayers.end(),
-                  [](const std::shared_ptr<Layer> &l1, const std::shared_ptr<Layer> &l2) -> bool {
-                      if (l1->priority != l2->priority)
-                          return l1->priority > l2->priority;
-                      else
-                          return l1->id > l2->id;
-                  });
-
-        int32_t bgLayer = 0;
-        int32_t objLayer = 3;
-        int32_t index = 0;
-
-        while (true) {
-            if (bgLayer < 4 && objLayer >= 0) {
-                auto bgPrio = sortedBackgroundLayers[bgLayer]->priority;
-                auto objPrio = objLayers[objLayer]->priority;
-
-                if (bgPrio >= objPrio) {
-                    layers[index] = sortedBackgroundLayers[bgLayer++];
-                } else {
-                    layers[index] = objLayers[objLayer--];
-                }
-            } else if (bgLayer >= 4 && objLayer >= 0) {
-                layers[index] = objLayers[objLayer--];
-            } else if (objLayer < 0 && bgLayer < 4) {
-                layers[index] = sortedBackgroundLayers[bgLayer++];
-            } else {
-                break;
-            }
-
-            ++index;
-        }
-         */
+        std::sort(layers.begin(), layers.end(), [](const std::shared_ptr<Layer>& pa, const std::shared_ptr<Layer>& pb) -> bool
+        {
+            return *pa < *pb;
+        });
     }
 
     void LCDController::loadSettings()

@@ -87,6 +87,8 @@ namespace gbaemu::lcd
         std::array<std::shared_ptr<BGLayer>, 4> backgroundLayers;
         /* each priority (0-3) gets its own layer */
         std::array<std::shared_ptr<OBJLayer>, 4> objLayers;
+        /* all layers */
+        std::array<std::shared_ptr<Layer>, 8> layers;
 
         /* rendering is done in a separate thread */
         RenderControl renderControl;

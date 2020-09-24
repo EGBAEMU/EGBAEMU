@@ -262,7 +262,7 @@ namespace gbaemu::lcd
 
     void BGLayer::drawScanline(int32_t y)
     {
-        std::function<color_t(int32_t, int32_t)> pixelColor = getPixelColorFunction();
+        auto pixelColor = getPixelColorFunction();
         vec2 s = affineTransform.dm * y + affineTransform.origin;
 
         for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
@@ -282,5 +282,10 @@ namespace gbaemu::lcd
 
             s += affineTransform.d;
         }
+    }
+
+    bool BGLayer::operator <(const BGLayer& other) const noexcept
+    {
+        return (priority == other.priority) ? (index < other.index) : (priority < other.priority);
     }
 }

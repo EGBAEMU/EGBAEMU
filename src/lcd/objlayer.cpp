@@ -289,8 +289,10 @@ namespace gbaemu::lcd
     void OBJLayer::drawScanline(int32_t y)
     {
         for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+            /* clear */
             scanline[x] = TRANSPARENT;
 
+            /* iterate over the objects beginning with OBJ0 (on top) */
             for (auto obj = objects.cbegin(); obj != objects.cend(); ++obj) {
                 if (!obj->visible)
                     continue;
@@ -308,41 +310,11 @@ namespace gbaemu::lcd
                     if (color == TRANSPARENT)
                         continue;
 
+                    /* if the color is not transparent it's the final color */
                     scanline[x] = color;
                     break;
                 }
             }
-        }
-        
-
-        return;
-
-        /* draw all scanlines */
-        for (int32_t i = 0; i < 128; ++i) {
-            auto& obj = objects[i];
-            if (obj.visible) {
-                obj.drawScanline(y, objTiles, palette, use2dMapping);
-            }
-        }
-
-        /* compose */
-        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
-            color_t color = TRANSPARENT;
-
-            /* select color on top */
-            for (int32_t prio = 0; prio < 4; ++prio) {
-                for (int32_t i = static_cast<int32_t>(objects.size()) - 1; i >= 0; --i) {
-                    if (!objects[i].visible)
-                        continue;
-
-                    color_t scColor = objects[i].scanline[x];
-
-                    if (scColor & 0xFF000000)
-                        color = scColor;
-                }
-            }
-
-            scanline[x] = color;
         }
     }
 
