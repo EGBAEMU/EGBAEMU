@@ -793,11 +793,9 @@ namespace gbaemu
                         Immediate Offset (lower 4bits)  (0-255, together with upper bits)
              */
 
-        constexpr uint8_t transferSize_ = (id == LDRH || id == STRH || id == LDRSH) ? 16 : 8;
+        constexpr uint8_t transferSize = (id == LDRH || id == STRH || id == LDRSH) ? 16 : 8;
         constexpr bool load = id == LDRH || id == LDRSB || id == LDRSH;
         constexpr bool sign = id == LDRSB || id == LDRSH;
-
-        uint8_t transferSize = transferSize_;
 
         //Execution Time: For Normal LDR, 1S+1N+1I. For LDR PC, 2S+2N+1I. For STRH 2N
 
@@ -841,21 +839,23 @@ namespace gbaemu
                 // Handle misaligned address
                 if (sign && memoryAddress & 1) {
                     // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]         ;sign-expand BYTE value
-                    readData = state.memory.read8(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
-                    transferSize = 8;
+                    readData = signExt<int32_t, uint32_t, 8>(state.memory.read8(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS));
                 } else {
                     // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
                     // LDRH with ROR (see LDR with non word aligned)
                     readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS));
                     readData = shifts::shift(readData, shifts::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
+
+                    if (sign) {
+                        readData = signExt<int32_t, uint32_t, transferSize>(readData);
+                    }
                 }
             } else {
                 readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS));
-            }
 
-            if (sign) {
-                // Do the sign extension by moving MSB to bit 31 and then reinterpret as signed and divide by power of 2 for a sign extended shift back
-                readData = signExt<int32_t, uint32_t>(readData, transferSize);
+                if (sign) {
+                    readData = signExt<int32_t, uint32_t, transferSize>(readData);
+                }
             }
 
             state.accessReg(rd) = readData;
