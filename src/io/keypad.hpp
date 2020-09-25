@@ -2,6 +2,7 @@
 #define KEYPAD_HPP
 
 #include "memory.hpp"
+#include "packed.h"
 #include "util.hpp"
 #include <cstdint>
 
@@ -22,12 +23,9 @@ namespace gbaemu
           4000130h  2    R    KEYINPUT  Key Status
           4000132h  2    R/W  KEYCNT    Key Interrupt Control
         */
-#include "packed.h"
-        struct KeypadRegister {
-            uint16_t keyStatus;
-            uint16_t keyIRQCnt;
-        } PACKED regs;
-#include "endpacked.h"
+        PACK_STRUCT(KeypadRegister, regs,
+                    uint16_t keyStatus;
+                    uint16_t keyIRQCnt;);
 
         uint8_t read8FromReg(uint32_t offset);
         void write8ToReg(uint32_t offset, uint8_t value);

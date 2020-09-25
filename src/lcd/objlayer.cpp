@@ -1,7 +1,7 @@
 #include "objlayer.hpp"
 
 #include <sstream>
-
+#include <array>
 
 namespace gbaemu::lcd
 {

@@ -13,6 +13,7 @@
 
 #include "input/keyboard_control.hpp"
 
+#define DEBUG_CLI
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5
 #define DEBUG_STACK_PRINT_RANGE 8
@@ -28,34 +29,28 @@ static void handleSignal(int signum)
     }
 }
 
-static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController, gbaemu::debugger::DebugCLI &debugCLI)
+static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
+#ifdef DEBUG_CLI
+                    ,
+                    gbaemu::debugger::DebugCLI &debugCLI
+#endif
+)
 {
-
-    gbaemu::debugger::ExecutionHistory history(100);
-
-    gbaemu::debugger::Watchdog charlie;
-    gbaemu::debugger::JumpTrap jumpTrap;
-    charlie.registerTrap(jumpTrap);
-
-    bool stepMode = false;
-    bool preStepMode = false;
-    bool dummyStepMode = false;
-    //THUMB memory mirroring ROM?
-    gbaemu::debugger::AddressTrap bp1(0x08001118, &stepMode);
-    gbaemu::debugger::ExecutionRegionTrap bp2(gbaemu::Memory::MemoryRegion::IWRAM, &stepMode);
-    gbaemu::debugger::MemoryChangeTrap bp3(0x03007FFC, 0, &dummyStepMode);
-    gbaemu::debugger::RegisterNonZeroTrap r12trap(gbaemu::regs::R12_OFFSET, 0x08000338, &stepMode);
-
-    //charlie.registerTrap(bp1);
-    //charlie.registerTrap(bp2);
-    //charlie.registerTrap(bp3);
 
     std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
 
     for (uint32_t j = 0; doRun; ++j) {
+#ifdef DEBUG_CLI
         if (debugCLI.step()) {
             break;
         }
+#else
+        gbaemu::CPUExecutionInfoType executionInfo = cpu.step();
+        if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
+            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            break;
+        }
+#endif
 
         lcdController.renderTick();
 
@@ -74,6 +69,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController,
     doRun = false;
 }
 
+#ifdef DEBUG_CLI
 static void CLILoop(gbaemu::debugger::DebugCLI &debugCLI)
 {
     while (doRun) {
@@ -89,6 +85,7 @@ static void CLILoop(gbaemu::debugger::DebugCLI &debugCLI)
 
     doRun = false;
 }
+#endif
 
 int main(int argc, char **argv)
 {
@@ -180,13 +177,23 @@ int main(int argc, char **argv)
 
     gbaemu::keyboard::KeyboardController gameController(cpu.keypad);
 
+#ifdef DEBUG_CLI
     gbaemu::debugger::DebugCLI debugCLI(cpu, controller);
+#endif
 
     std::cout << "INFO: Launching CPU thread" << std::endl;
-    std::thread cpuThread(cpuLoop, std::ref(cpu), std::ref(controller), std::ref(debugCLI));
+    std::thread cpuThread(
+        cpuLoop, std::ref(cpu), std::ref(controller)
+#ifdef DEBUG_CLI
+                                    ,
+        std::ref(debugCLI)
+#endif
+    );
 
+#ifdef DEBUG_CLI
     std::cout << "INFO: Launching CLI thread" << std::endl;
     std::thread cliThread(CLILoop, std::ref(debugCLI));
+#endif
 
     while (doRun) {
         SDL_Event event;
@@ -229,8 +236,11 @@ int main(int argc, char **argv)
     //controller.exitThread();
     /* wait for cpu thread to exit */
     cpuThread.join();
+
+#ifdef DEBUG_CLI
     /* When CLI is attached only quit command will exit the program! */
     cliThread.join();
+#endif
 
     return 0;
 }
