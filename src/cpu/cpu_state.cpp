@@ -72,19 +72,6 @@ namespace gbaemu
         return *(getCurrentRegs()[offset]);
     }
 
-    void CPUState::setFlag(size_t flag, bool value)
-    {
-        if (value)
-            accessReg(regs::CPSR_OFFSET) |= (1 << flag);
-        else
-            accessReg(regs::CPSR_OFFSET) &= ~(1 << flag);
-    }
-
-    bool CPUState::getFlag(size_t flag) const
-    {
-        return accessReg(regs::CPSR_OFFSET) & (1 << flag);
-    }
-
     bool CPUState::updateCPUMode()
     {
         /*
@@ -167,7 +154,7 @@ namespace gbaemu
         }
 
         /* flag registers */
-        ss << "N=" << getFlag(cpsr_flags::N_FLAG) << ' ' << "Z=" << getFlag(cpsr_flags::Z_FLAG) << ' ' << "C=" << getFlag(cpsr_flags::C_FLAG) << ' ' << "V=" << getFlag(cpsr_flags::V_FLAG) << '\n';
+        ss << "N=" << getFlag<cpsr_flags::N_FLAG>() << ' ' << "Z=" << getFlag<cpsr_flags::Z_FLAG>() << ' ' << "C=" << getFlag<cpsr_flags::C_FLAG>() << ' ' << "V=" << getFlag<cpsr_flags::V_FLAG>() << '\n';
         // Cpu Mode
         ss << "CPU Mode: " << cpuModeToString() << '\n';
         ss << "IRQ Req Reg: 0x" << std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x202) << '\n';
@@ -198,10 +185,7 @@ namespace gbaemu
 
         ss << std::setfill('0') << std::hex;
 
-        uint32_t startAddr = addr - (cmds / 2) * (getFlag(cpsr_flags::THUMB_STATE) ? 2 : 4);
-        //if (startAddr < Memory::MemoryRegionOffset::EXT_ROM_OFFSET) {
-        //    startAddr = Memory::MemoryRegionOffset::EXT_ROM_OFFSET;
-        //}
+        uint32_t startAddr = addr - (cmds / 2) * (getFlag<cpsr_flags::THUMB_STATE>() ? 2 : 4);
 
         for (uint32_t i = startAddr; cmds > 0; --cmds) {
 
@@ -216,7 +200,7 @@ namespace gbaemu
             // address, pad hex numbers with 0
             ss << "0x" << std::setw(8) << i << "    ";
 
-            if (getFlag(cpsr_flags::THUMB_STATE)) {
+            if (getFlag<cpsr_flags::THUMB_STATE>()) {
                 uint32_t bytes = memory.read16(i, nullptr, false, true);
 
                 uint32_t b0 = bytes & 0x0FF;

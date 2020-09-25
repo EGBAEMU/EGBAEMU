@@ -122,9 +122,9 @@ namespace gbaemu
             bool negative = mulRes & (static_cast<uint64_t>(1) << 63);
             bool zero = mulRes == 0;
 
-            state.setFlag(cpsr_flags::N_FLAG, negative);
+            state.setFlag<cpsr_flags::N_FLAG>(negative);
 
-            state.setFlag(cpsr_flags::Z_FLAG, zero);
+            state.setFlag<cpsr_flags::Z_FLAG>(zero);
         }
 
         /*
@@ -217,7 +217,7 @@ namespace gbaemu
         bool changeToThumb = rnValue & 0x00000001;
 
         if (changeToThumb) {
-            state.setFlag(cpsr_flags::THUMB_STATE, true);
+            state.setFlag<cpsr_flags::THUMB_STATE>(true);
         }
 
         // Change the PC to the address given by rm. Note that we have to mask out the thumb switch bit.
@@ -274,7 +274,7 @@ namespace gbaemu
     void CPU::execDataProc(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2)
     {
 
-        bool carry = state.getFlag(cpsr_flags::C_FLAG);
+        bool carry = state.getFlag<cpsr_flags::C_FLAG>();
 
         /* calculate shifter operand */
         shifts::ShiftType shiftType;
@@ -457,7 +457,7 @@ namespace gbaemu
 
             if (updateCarryFromShiftOp &&
                 (shiftType != shifts::ShiftType::LSL || shiftAmount != 0)) {
-                state.setFlag(cpsr_flags::C_FLAG, shifterOperandCarry);
+                state.setFlag<cpsr_flags::C_FLAG>(shifterOperandCarry);
             }
         }
 
@@ -691,7 +691,7 @@ namespace gbaemu
             auto shiftType = static_cast<shifts::ShiftType>((addrMode >> 5) & 0b11);
             uint8_t rm = addrMode & 0xF;
 
-            offset = shifts::shift(*currentRegs[rm], shiftType, shiftAmount, state.getFlag(cpsr_flags::C_FLAG), true) & 0xFFFFFFFF;
+            offset = shifts::shift(*currentRegs[rm], shiftType, shiftAmount, state.getFlag<cpsr_flags::C_FLAG>(), true) & 0xFFFFFFFF;
         }
 
         uint32_t rnValue = *currentRegs[rn];

@@ -30,7 +30,7 @@ namespace gbaemu
     {
         // We need to fill the pipeline to the state where the instruction at PC is ready for execution -> fetched + decoded!
         uint32_t pc = state.accessReg(regs::PC_OFFSET);
-        bool thumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+        bool thumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
         propagatePipeline(pc - (thumbMode ? 4 : 8));
         propagatePipeline(pc - (thumbMode ? 2 : 4));
     }
@@ -41,7 +41,7 @@ namespace gbaemu
         uint32_t currentInst = state.pipeline[1];
         state.pipeline[1] = state.pipeline[0];
 
-        bool thumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+        bool thumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
 
         //TODO we might need this info? (where nullptr is currently)
         if (thumbMode) {
@@ -120,11 +120,11 @@ namespace gbaemu
 
     void CPU::execute(uint32_t inst, uint32_t prevPc)
     {
-        const bool prevThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+        const bool prevThumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
 
         decoder(inst);
 
-        const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+        const bool postThumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
         uint32_t postPc = state.accessReg(regs::PC_OFFSET);
 
         // Add 1S cycle needed to fetch a instruction if not other requested

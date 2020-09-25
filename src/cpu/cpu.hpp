@@ -107,16 +107,16 @@ namespace gbaemu
             bool carry = resultValue & (static_cast<uint64_t>(1) << 32);
 
             if (nFlag)
-                state.setFlag(cpsr_flags::N_FLAG, negative);
+                state.setFlag<cpsr_flags::N_FLAG>(negative);
 
             if (zFlag)
-                state.setFlag(cpsr_flags::Z_FLAG, zero);
+                state.setFlag<cpsr_flags::Z_FLAG>(zero);
 
             if (vFlag)
-                state.setFlag(cpsr_flags::V_FLAG, overflow);
+                state.setFlag<cpsr_flags::V_FLAG>(overflow);
 
             if (cFlag) {
-                state.setFlag(cpsr_flags::C_FLAG, carry != invertCarry);
+                state.setFlag<cpsr_flags::C_FLAG>(carry != invertCarry);
             }
         }
 

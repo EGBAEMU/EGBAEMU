@@ -3,6 +3,7 @@
 
 #include "decode/inst.hpp"
 #include "io/memory.hpp"
+#include "regs.hpp"
 #include <cstdint>
 #include <string>
 
@@ -88,9 +89,22 @@ namespace gbaemu
 
         uint32_t accessReg(uint8_t offset) const;
 
-        void setFlag(size_t flag, bool value = true);
+        template <uint32_t flag>
+        void setFlag(bool value = true)
+        {
+            constexpr uint32_t mask = static_cast<uint32_t>(1) << flag;
+            if (value)
+                accessReg(regs::CPSR_OFFSET) |= mask;
+            else
+                accessReg(regs::CPSR_OFFSET) &= ~mask;
+        }
 
-        bool getFlag(size_t flag) const;
+        template <uint32_t flag>
+        bool getFlag() const
+        {
+            constexpr uint32_t mask = static_cast<uint32_t>(1) << flag;
+            return accessReg(regs::CPSR_OFFSET) & mask;
+        }
 
         std::string toString() const;
         std::string printStack(uint32_t words) const;

@@ -120,7 +120,7 @@ namespace gbaemu
 
         constexpr shifts::ShiftType shiftType = getShiftType(id);
 
-        rdValue = shifts::shift(rsValue, shiftType, offset, state.getFlag(cpsr_flags::C_FLAG), true);
+        rdValue = shifts::shift(rsValue, shiftType, offset, state.getFlag<cpsr_flags::C_FLAG>(), true);
 
         state.accessReg(rd) = static_cast<uint32_t>(rdValue & 0x0FFFFFFFF);
 
@@ -179,7 +179,7 @@ namespace gbaemu
                 bool stayInThumbMode = rsValue & 0x00000001;
 
                 if (!stayInThumbMode) {
-                    state.setFlag(cpsr_flags::THUMB_STATE, false);
+                    state.setFlag<cpsr_flags::THUMB_STATE>(false);
                 }
 
                 // Except for BX R15: CPU switches to ARM state, and PC is auto-aligned as (($+4) AND NOT 2).
