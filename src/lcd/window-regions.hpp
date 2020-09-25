@@ -15,7 +15,7 @@ namespace gbaemu::lcd
         OUTSIDE
     };
 
-    class Window
+    class WindowRegion
     {
       public:
         WindowID id;
@@ -38,12 +38,12 @@ namespace gbaemu::lcd
     {
       private:
         /* ordered in descending priority */
-        std::array<Window, 5> windows;
+        std::array<WindowRegion, 5> windows;
         ColorEffects colorEffects;
       public:
         WindowEffects();
         void load(const LCDIORegs& regs);
-        const Window& getActiveWindow(int32_t x, int32_t y) const;
+        const WindowRegion& getActiveWindow(int32_t x, int32_t y) const;
     };
 }
 

@@ -5,7 +5,7 @@
 
 namespace gbaemu::lcd
 {
-    void Window::load(const LCDIORegs& regs)
+    void WindowRegion::load(const LCDIORegs& regs)
     {
         uint16_t winh, winv;
 
@@ -47,7 +47,7 @@ namespace gbaemu::lcd
         colorEffect = bitGet<uint16_t>(control, WININOUT::ENABLE_MASK, 5 + maskOff);
     }
 
-    std::string Window::toString() const
+    std::string WindowRegion::toString() const
     {
         std::stringstream ss;
         ss << "id: ";
@@ -68,7 +68,7 @@ namespace gbaemu::lcd
         return ss.str();
     }
 
-    bool Window::inside(int32_t x, int32_t y) const noexcept
+    bool WindowRegion::inside(int32_t x, int32_t y) const noexcept
     {
         return left <= x && x < right && top <= y && y < bottom;
     }
@@ -89,7 +89,7 @@ namespace gbaemu::lcd
         colorEffects.load(regs);
     }
 
-    const Window& WindowEffects::getActiveWindow(int32_t x, int32_t y) const
+    const WindowRegion& WindowEffects::getActiveWindow(int32_t x, int32_t y) const
     {
         for (const auto& win : windows)
             if (win.inside(x, y))

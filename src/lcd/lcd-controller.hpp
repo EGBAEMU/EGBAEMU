@@ -13,7 +13,7 @@
 #include <lcd/objlayer.hpp>
 #include <lcd/bglayer.hpp>
 #include <lcd/coloreffects.hpp>
-#include <lcd/windoweffects.hpp>
+#include <lcd/window-regions.hpp>
 
 #include <array>
 #include <functional>
