@@ -59,12 +59,12 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController,
 
         lcdController.renderTick();
 
-        if (j >= 1001) {
+        if (j >= 100001) {
             double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
             // dt = us * 1000, us for a single instruction = dt / 1000
-            double mhz = (1000000 / (dt / 1000)) / 1000000;
+            double mhz = (1000000 / (dt / 100000)) / 1000000;
 
-            // std::cout << std::dec << dt << "us for 1000 cycles => ~" << mhz << "MHz" << std::endl;
+            //std::cout << std::dec << dt << "us for 100000 cycles => ~" << mhz << "MHz" << std::endl;
 
             j = 0;
             t = std::chrono::high_resolution_clock::now();
@@ -212,13 +212,9 @@ int main(int argc, char **argv)
             }
         }
 
-        if (canDrawToScreenMutex.try_lock()) {
-            if (canDrawToScreen) {
-                window.present();
-            }
-
+        if (canDrawToScreen) {
+            window.present();
             canDrawToScreen = false;
-            canDrawToScreenMutex.unlock();
         }
     }
 
