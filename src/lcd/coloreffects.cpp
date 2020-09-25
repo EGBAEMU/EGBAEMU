@@ -2,10 +2,9 @@
 
 #include <util.hpp>
 
-
 namespace gbaemu::lcd
 {
-    void ColorEffects::load(const LCDIORegs& regs) noexcept
+    void ColorEffects::load(const LCDIORegs &regs) noexcept
     {
         uint16_t bldcnt = le(regs.BLDCNT);
         uint16_t bldAlpha = le(regs.BLDALPHA);
@@ -14,7 +13,8 @@ namespace gbaemu::lcd
         effect = static_cast<BLDCNT::ColorSpecialEffect>(bitGet(bldcnt, BLDCNT::COLOR_SPECIAL_FX_MASK, BLDCNT::COLOR_SPECIAL_FX_OFFSET));
 
         switch (effect) {
-            case BLDCNT::BrightnessIncrease: case BLDCNT::BrightnessDecrease:
+            case BLDCNT::BrightnessIncrease:
+            case BLDCNT::BrightnessDecrease:
                 /* 0/16, 1/16, 2/16, ..., 16/16, 16/16, ..., 16/16 */
                 evy = std::min(16, bldy & 0x1F);
                 break;
@@ -33,15 +33,17 @@ namespace gbaemu::lcd
             case BLDCNT::None:
                 finalColor = first;
                 break;
-            case BLDCNT::BrightnessIncrease:
+            case BLDCNT::BrightnessIncrease: {
                 color_t inverted = colSub(0xFFFFFFFF, first);
                 color_t scaledEvy = colScale(inverted, evy);
                 finalColor = colAdd(first, scaledEvy);
                 break;
-            case BLDCNT::BrightnessDecrease:
+            }
+            case BLDCNT::BrightnessDecrease: {
                 color_t scaledEvy = colScale(first, evy);
                 finalColor = colSub(first, scaledEvy);
                 break;
+            }
             case BLDCNT::AlphaBlending:
                 for (uint32_t i = 0; i < 4; ++i) {
                     color_t top = (first >> (i * 8)) & 0xFF;
@@ -54,4 +56,4 @@ namespace gbaemu::lcd
 
         return finalColor;
     }
-}
+} // namespace gbaemu::lcd

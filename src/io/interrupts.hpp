@@ -1,6 +1,7 @@
 #ifndef INTERRUPT_HPP
 #define INTERRUPT_HPP
 
+#include "packed.h"
 #include <mutex>
 
 namespace gbaemu
@@ -66,15 +67,13 @@ namespace gbaemu
           4xx0800h  4    R/W  ?         Mirrors of 4000800h (repeated each 64K)
           4700000h  4    W    (3DS)     Disable ARM7 bootrom overlay (3DS only)
         */
-#include "packed.h"
-        struct InterruptControlRegs {
-            uint16_t irqEnable;
-            uint16_t irqRequest;
-            uint16_t waitStateCnt;
-            uint16_t _;
-            uint16_t irqMasterEnable;
-        } PACKED regs;
-#include "endpacked.h"
+        PACK_STRUCT(InterruptControlRegs, regs,
+                    uint16_t irqEnable;
+                    uint16_t irqRequest;
+                    uint16_t waitStateCnt;
+                    uint16_t _;
+                    uint16_t irqMasterEnable;);
+
         bool needsOneIdleCycle;
         /* protects regs */
         std::mutex regsMutex;

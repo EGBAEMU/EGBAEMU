@@ -3,6 +3,7 @@
 
 #include "io_regs.hpp"
 #include "memory.hpp"
+#include "packed.h"
 #include "util.hpp"
 
 namespace gbaemu
@@ -39,12 +40,9 @@ namespace gbaemu
 
             static const constexpr uint16_t prescales[] = {1, 64, 256, 1024};
 
-#include "packed.h"
-            struct TimerRegs {
-                uint16_t reload;
-                uint16_t control;
-            } PACKED regs;
-#include "endpacked.h"
+            PACK_STRUCT(TimerRegs, regs,
+                        uint16_t reload;
+                        uint16_t control;);
 
             Memory &memory;
             InterruptHandler &irqHandler;

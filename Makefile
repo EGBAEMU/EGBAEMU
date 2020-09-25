@@ -60,6 +60,9 @@ windows: CMakeLists.txt
 	cmake .. && \
 	cmake --build . --config Release --target ALL_BUILD
 
+windows_: $(MSC_BUILDDIR)
+	cd $(MSC_BUILDDIR) && cmake --build . --config Release --target ALL_BUILD
+
 clean:
 	rm -rf $(objs) $(deps) $(OUT) $(BUILDDIR) CMakeLists.txt $(MSC_BUILDDIR)
 

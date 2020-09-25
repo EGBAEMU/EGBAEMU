@@ -2,6 +2,7 @@
 #define OBJLAYER_HPP
 
 #include "palette.hpp"
+#include "packed.h"
 
 #include <io/memory.hpp>
 
@@ -28,11 +29,8 @@ namespace gbaemu::lcd
         vec2 screenRef{0, 0};
     };
 
-#include "packed.h"
-    struct OBJAttribute {
-        uint16_t attribute[3];
-    } PACKED;
-#include "endpacked.h"
+    PACK_STRUCT_DEF(OBJAttribute,
+                    uint16_t attribute[3];);
 
     /* Contains all the properties for a given obj index. */
     class OBJ
