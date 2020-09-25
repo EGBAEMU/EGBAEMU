@@ -1,6 +1,7 @@
 #ifndef WINDOW_REGIONS_HPP
 #define WINDOW_REGIONS_HPP
 
+#include <memory>
 #include <lcd/defs.hpp>
 #include <lcd/coloreffects.hpp>
 
@@ -12,6 +13,7 @@ namespace gbaemu::lcd
         WIN0 = 0,
         WIN1,
         OBJ,
+        /* is enabled if any of the windows above are enabled */
         OUTSIDE
     };
 
@@ -19,7 +21,7 @@ namespace gbaemu::lcd
     {
       public:
         WindowID id;
-      private:
+        bool enabled;
         int32_t left;
         int32_t right;
         int32_t top;
@@ -34,16 +36,20 @@ namespace gbaemu::lcd
         bool inside(int32_t x, int32_t y) const noexcept;
     };
 
-    class WindowEffects
+    class WindowFeature
     {
       private:
         /* ordered in descending priority */
-        std::array<WindowRegion, 5> windows;
+        std::array<WindowRegion, 4> windows;
         ColorEffects colorEffects;
+
+        bool anyWindowEnabled() const;
+        void composeTrivialScanline(const std::array<std::shared_ptr<Layer>, 8>& layers, color_t *target);
       public:
-        WindowEffects();
+        WindowFeature();
         void load(const LCDIORegs& regs);
         const WindowRegion& getActiveWindow(int32_t x, int32_t y) const;
+        void composeScanline(const std::array<std::shared_ptr<Layer>, 8>& layers, color_t *target);
     };
 }
 

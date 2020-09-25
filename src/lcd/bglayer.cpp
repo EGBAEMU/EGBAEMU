@@ -17,7 +17,7 @@ namespace gbaemu::lcd
     BGLayer::BGLayer(LCDColorPalette& plt, Memory& mem, BGIndex idx) :
         palette(plt), memory(mem), index(idx)
     {
-        
+        layerID = static_cast<LayerID>(index);
     }
 
     void BGLayer::loadSettings(BGMode bgMode, const LCDIORegs &regs)

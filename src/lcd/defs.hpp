@@ -299,6 +299,20 @@ namespace gbaemu::lcd
                     uint16_t BLDY;     // Brightness (Fade-In/Out) Coefficient
     );
 
+    enum LayerID
+    {
+        LAYER_BG0 = 0,
+        LAYER_BG1,
+        LAYER_BG2,
+        LAYER_BG3,
+        LAYER_OBJ0,
+        LAYER_OBJ1,
+        LAYER_OBJ2,
+        LAYER_OBJ3
+    };
+
+    const char *layerIDToString(LayerID id);
+
     class Layer
     {
       public:
@@ -310,17 +324,47 @@ namespace gbaemu::lcd
         /* contains the final pixels */
         std::vector<color_t> scanline;
 
+        LayerID layerID;
+
         Layer() : enabled(false), scanline(SCREEN_WIDTH) {}
         virtual void drawScanline(int32_t y) = 0;
 
         /* used for sorting */
         bool operator <(const Layer& other) const noexcept
         {
-            return priority < other.priority;
+            bool thisIsOBJ = (layerID == LAYER_OBJ0 || layerID == LAYER_OBJ1 ||
+                layerID == LAYER_OBJ2 || layerID == LAYER_OBJ3);
+            bool otherIsBG = (layerID == LAYER_BG0 || layerID == LAYER_BG1 ||
+                layerID == LAYER_BG2 || layerID == LAYER_BG3);
+
+            /*
+            if (thisIsOBJ && otherIsBG) {
+                if (priority == other.priority)
+                    return true;
+            } else if (!thisIsOBJ && !otherIsBG) {
+                if (priority == other.priority)
+                    return false;
+            }
+             */
+
+            return priority < other.priority || (thisIsOBJ && priority <= other.priority);
         }
 
         bool operator <=(const Layer& other) const noexcept
         {
+            bool thisIsOBJ = (layerID == LAYER_OBJ0 || layerID == LAYER_OBJ1 ||
+                layerID == LAYER_OBJ2 || layerID == LAYER_OBJ3);
+            bool otherIsBG = (layerID == LAYER_BG0 || layerID == LAYER_BG1 ||
+                layerID == LAYER_BG2 || layerID == LAYER_BG3);
+
+            if (thisIsOBJ && otherIsBG) {
+                if (priority == other.priority)
+                    return true;
+            } else if (!thisIsOBJ && !otherIsBG) {
+                if (priority == other.priority)
+                    return false;
+            }
+
             return priority <= other.priority;
         }
     };

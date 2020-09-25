@@ -48,22 +48,10 @@ namespace gbaemu::lcd
             }
         }
 #else
-        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
-            for (auto l = layers.cbegin(); l != layers.cend(); ++l) {
-                if (!(*l)->enabled)
-                    continue;
-                
-                color_t color = (*l)->scanline[x];
-
-                if (color != TRANSPARENT) {
-                    display.target.pixels()[scanline.y * display.target.getWidth() + x] = color;
-                    break;
-                }
-            }    
-        }
+        windowFeature.composeScanline(layers, display.target.pixels() + scanline.y * display.target.getWidth());
 #endif
 
-        std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count() << std::endl;
+        //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count() << std::endl;
     }
 
     void LCDController::renderTick()
@@ -82,6 +70,7 @@ namespace gbaemu::lcd
         if (displayCycle == 197120 && scanline.vblanking) {
             /* on first v-blank cycle */
             onVBlank();
+            loadSettings();
             /* race conditions are acceptable here */
             *canDrawToScreen = true;
         } else if (!scanline.vblanking) {
@@ -90,7 +79,7 @@ namespace gbaemu::lcd
             scanline.hblanking = scanlineCycle >= 960;
 
             if (scanlineCycle == 0 && !scanline.hblanking) {
-                loadSettings();
+                
                 drawScanline();
             }
 
@@ -151,15 +140,15 @@ namespace gbaemu::lcd
 
         for (uint32_t i = 0; i < 8; ++i) {
             if (i <= 3)
-                layers[i] = backgroundLayers[i];
+                layers[i] = objLayers[i];
             else
-                layers[i] = objLayers[i - 4];
+                layers[i] = backgroundLayers[i - 4];
         }
     }
 
     void LCDController::sortLayers()
     {
-        std::sort(layers.begin(), layers.end(), [](const std::shared_ptr<Layer>& pa, const std::shared_ptr<Layer>& pb) -> bool
+        std::stable_sort(layers.begin(), layers.end(), [](const std::shared_ptr<Layer>& pa, const std::shared_ptr<Layer>& pb) -> bool
         {
             return *pa < *pb;
         });
@@ -195,9 +184,22 @@ namespace gbaemu::lcd
             l->loadOBJs();
         }
 
-        colorEffects.load(regs);
-        windowEffects.load(regs);
+        windowFeature.load(regs);
 
         sortLayers();
+    }
+
+    std::string LCDController::getLayerStatusString() const
+    {
+        std::stringstream ss;
+
+        for (const auto& pLayer : layers) {
+            ss << "================================\n";
+            ss << "enabled: " << (pLayer->enabled ? "yes" : "no") << '\n';
+            ss << "id: " << layerIDToString(pLayer->layerID) << '\n';
+            ss << "priority: " << pLayer->priority << '\n';
+        }
+
+        return ss.str();
     }
 } // namespace gbaemu::lcd

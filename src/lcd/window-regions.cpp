@@ -7,6 +7,26 @@ namespace gbaemu::lcd
 {
     void WindowRegion::load(const LCDIORegs& regs)
     {
+        switch (id) {
+            case WIN0:
+                enabled = bitGet<uint16_t>(le(regs.DISPCNT), 1, 13);
+                break;
+            case WIN1:
+                enabled = bitGet<uint16_t>(le(regs.DISPCNT), 1, 14);
+                break;
+            case OBJ:
+                enabled = bitGet<uint16_t>(le(regs.DISPCNT), 1, 15);
+                break;
+            case OUTSIDE:
+                enabled = bitGet<uint16_t>(le(regs.DISPCNT), 1, 13) ||
+                    bitGet<uint16_t>(le(regs.DISPCNT), 1, 14) ||
+                    bitGet<uint16_t>(le(regs.DISPCNT), 1, 15);;
+                break;
+        }
+
+        if (!enabled)
+            return;
+
         uint16_t winh, winv;
 
         if (id == WIN0) {
@@ -73,7 +93,40 @@ namespace gbaemu::lcd
         return left <= x && x < right && top <= y && y < bottom;
     }
 
-    WindowEffects::WindowEffects()
+    bool WindowFeature::anyWindowEnabled() const
+    {
+        return windows[0].enabled ||
+            windows[1].enabled ||
+            windows[2].enabled ||
+            windows[3].enabled;
+    }
+
+    void WindowFeature::composeTrivialScanline(const std::array<std::shared_ptr<Layer>, 8>& layers, color_t *target)
+    {
+        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+            color_t first, second;
+
+            /* TODO: find first, second */
+            for (auto l = layers.cbegin(); l != layers.cend(); ++l) {
+                if (!(*l)->enabled)
+                    continue;
+                
+                color_t color = (*l)->scanline[x];
+
+                if (color != TRANSPARENT) {
+                    first = color;
+                    break;
+                }
+            }
+
+            color_t finalColor = first;//colorEffects.apply(first, second);
+
+            /* TODO: put finalColor in final scanline */
+            target[x] = finalColor;
+        }
+    }
+
+    WindowFeature::WindowFeature()
     {
         windows[0].id = WIN0;
         windows[1].id = WIN1;
@@ -81,7 +134,7 @@ namespace gbaemu::lcd
         windows[3].id = OUTSIDE;
     }
 
-    void WindowEffects::load(const LCDIORegs& regs)
+    void WindowFeature::load(const LCDIORegs& regs)
     {
         for (auto& win : windows)
             win.load(regs);
@@ -89,12 +142,24 @@ namespace gbaemu::lcd
         colorEffects.load(regs);
     }
 
-    const WindowRegion& WindowEffects::getActiveWindow(int32_t x, int32_t y) const
+    const WindowRegion& WindowFeature::getActiveWindow(int32_t x, int32_t y) const
     {
         for (const auto& win : windows)
             if (win.inside(x, y))
                 return win;
 
         return *windows.crbegin();
+    }
+
+    void WindowFeature::composeScanline(const std::array<std::shared_ptr<Layer>, 8>& layers, color_t *target)
+    {
+        /*
+        if (!anyWindowEnabled()) {
+            composeTrivialScanline(layers);
+        } else {
+
+        }
+         */
+        composeTrivialScanline(layers, target);
     }
 }

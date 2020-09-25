@@ -227,6 +227,11 @@ namespace gbaemu::lcd
         enabled = true;
         priority = prio;
         objects.reserve(128);
+
+        if (prio >= 4)
+            throw new std::runtime_error("0 <= Priority <= 3 is not satisfied");
+
+        layerID = static_cast<LayerID>(priority + 4);
     }
 
     void OBJLayer::setMode(BGMode bgMode, bool mapping2d)

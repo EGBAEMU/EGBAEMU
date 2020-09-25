@@ -85,8 +85,7 @@ namespace gbaemu::lcd
         LCDIORegs regsRef{0};
         LCDIORegs regs{0};
 
-        ColorEffects colorEffects;
-        WindowEffects windowEffects;
+        WindowFeature windowFeature;
 
         /* backdrop layer, BG0-BG4, OBJ0-OBJ4 */
         std::array<std::shared_ptr<BGLayer>, 4> backgroundLayers;
@@ -176,7 +175,7 @@ namespace gbaemu::lcd
             //renderThread = std::make_unique<std::thread>(&LCDController::renderLoop, this);
         }
 
-        /* updates all raw pointers into the sections of memory (in case they might change) */
+        std::string getLayerStatusString() const;
     };
 
 } // namespace gbaemu::lcd

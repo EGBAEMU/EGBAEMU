@@ -360,7 +360,7 @@ namespace gbaemu::debugger
         }
 
         if (words[0] == "lcd") {
-            //std::cout << lcdController.getLayerStatus() << std::endl;
+            std::cout << lcdController.getLayerStatusString() << std::endl;
             return;
         }
 
