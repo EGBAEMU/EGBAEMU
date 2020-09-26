@@ -380,9 +380,9 @@ namespace gbaemu
                     cycles32Bit[1][EXT_SRAM] = cycles32Bit[1][EXT_SRAM_] =
                         cycles32Bit[1][EXT_SRAM] = cycles32Bit[1][EXT_SRAM_] = waitCycles_n[sramWaitCnt];
 
-            cycles16Bit[0][EXT_ROM1] = cycles16Bit[0][EXT_ROM1_] =
-                cycles16Bit[0][EXT_ROM2] = cycles16Bit[0][EXT_ROM2_] =
-                    cycles16Bit[0][EXT_ROM3] = cycles16Bit[0][EXT_ROM3_] = waitCycles_n[wait0_n];
+            cycles16Bit[0][EXT_ROM1] = cycles16Bit[0][EXT_ROM1_] = waitCycles_n[wait0_n];
+            cycles16Bit[0][EXT_ROM2] = cycles16Bit[0][EXT_ROM2_] = waitCycles_n[wait1_n];
+            cycles16Bit[0][EXT_ROM3] = cycles16Bit[0][EXT_ROM3_] = waitCycles_n[wait2_n];
 
             cycles16Bit[1][EXT_ROM1] = cycles16Bit[1][EXT_ROM1_] = waitCycles0_s[wait0_s];
             cycles16Bit[1][EXT_ROM2] = cycles16Bit[1][EXT_ROM2_] = waitCycles1_s[wait1_s];
