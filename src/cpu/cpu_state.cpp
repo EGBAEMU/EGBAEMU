@@ -158,6 +158,9 @@ namespace gbaemu
         // Cpu Mode
         ss << "CPU Mode: " << cpuModeToString() << '\n';
         ss << "IRQ Req Reg: 0x" << std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x202) << '\n';
+        ss << "IRQ IE Reg: 0x" << std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x200) << '\n';
+        ss << "IRQ EN CPSR: " << ((accessReg(regs::CPSR_OFFSET) & (1 << 7)) == 0) << std::endl;
+        ss << "IRQ EN MASTER: 0x" <<std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x208) << std::endl;
 
         return ss.str();
     }
