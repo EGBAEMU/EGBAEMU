@@ -4,6 +4,7 @@
 #include <memory>
 #include <lcd/defs.hpp>
 #include <lcd/coloreffects.hpp>
+#include <array>
 
 
 namespace gbaemu::lcd
