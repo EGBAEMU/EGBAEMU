@@ -1,6 +1,8 @@
 #ifndef LOGGING_HPP
 #define LOGGING_HPP
 
+// #define DEBUG_CLI
+
 #ifdef DEBUG_ALL
 #define DEBUG_DMA
 #define DEBUG_IRQ

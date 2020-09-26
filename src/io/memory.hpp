@@ -3,6 +3,7 @@
 
 #include "decode/inst.hpp"
 #include "io/io_regs.hpp"
+#include "logging.hpp"
 #include "save/eeprom.hpp"
 #include "save/flash.hpp"
 #include "util.hpp"
@@ -14,6 +15,7 @@ namespace gbaemu
 {
     typedef uint32_t address_t;
 
+#ifdef DEBUG_CLI
     /*
         A pointer to this class can be handed to Memory, which triggers a callback
         if the condition is satisfied.
@@ -52,6 +54,7 @@ namespace gbaemu
 
         std::string getWatchPointInfo() const;
     };
+#endif
 
     /*
     General Internal Memory
@@ -308,8 +311,11 @@ namespace gbaemu
         save::EEPROM *eeprom;
         save::FLASH *flash;
         save::SaveFile *ext_sram;
+
+#ifdef DEBUG_CLI
         /* We are going to expose this directly becaus this cannot be in an invalid state and I don't have time. */
         MemWatch memWatch;
+#endif
 
         Memory()
         {
