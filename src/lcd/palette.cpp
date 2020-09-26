@@ -14,6 +14,13 @@ namespace gbaemu::lcd
         return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
+    void LCDColorPalette::loadPalette(Memory& mem)
+    {
+        Memory::MemoryRegion memReg;
+        bgPalette = reinterpret_cast<uint16_t *>(mem.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET, nullptr, memReg));
+        objPalette = reinterpret_cast<uint16_t *>(mem.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET + 0x200, nullptr, memReg));
+    }
+
     color_t LCDColorPalette::getBgColor(uint32_t index) const
     {
         if (index == 0)
@@ -49,5 +56,21 @@ namespace gbaemu::lcd
     color_t LCDColorPalette::getBackdropColor() const
     {
         return toR8G8B8(bgPalette[0]);
+    }
+
+    void LCDColorPalette::drawPalette(int32_t size, color_t *target, int32_t stride)
+    {
+        for (int32_t y = 0; y < size; ++y)
+            for (int32_t x = 0; x < size * 256; ++x) {
+                int32_t index = x / size;
+                color_t color;
+
+                if (index == 0)
+                    color = getBackdropColor();
+                else
+                    color = getBgColor(index);
+
+                target[y * stride + x] = color;
+            }
     }
 }

@@ -104,7 +104,7 @@ namespace gbaemu::lcd
     void WindowFeature::composeTrivialScanline(const std::array<std::shared_ptr<Layer>, 8>& layers, color_t *target)
     {
         for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
-            color_t first, second;
+            color_t first = backdropColor, second;
 
             /* TODO: find first, second */
             for (auto l = layers.cbegin(); l != layers.cend(); ++l) {
@@ -134,12 +134,13 @@ namespace gbaemu::lcd
         windows[3].id = OUTSIDE;
     }
 
-    void WindowFeature::load(const LCDIORegs& regs)
+    void WindowFeature::load(const LCDIORegs& regs, color_t bdColor)
     {
         for (auto& win : windows)
             win.load(regs);
 
         colorEffects.load(regs);
+        backdropColor = bdColor;
     }
 
     const WindowRegion& WindowFeature::getActiveWindow(int32_t x, int32_t y) const

@@ -114,6 +114,8 @@ namespace gbaemu::lcd
         
             /* the result of drawScanline() */
             std::vector<color_t> buf;
+
+            uint16_t vCount;
         } scanline;
 
         uint8_t read8FromReg(uint32_t offset)
@@ -143,6 +145,7 @@ namespace gbaemu::lcd
         /* call this @ ~16Mhz */
         void renderTick();
 
+        void onVCount();
         void onHBlank();
         void onVBlank();
 

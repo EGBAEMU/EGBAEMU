@@ -4,6 +4,8 @@
 #include <memory>
 #include <lcd/defs.hpp>
 #include <lcd/coloreffects.hpp>
+#include <lcd/palette.hpp>
+#include <io/memory.hpp>
 #include <array>
 
 
@@ -43,12 +45,13 @@ namespace gbaemu::lcd
         /* ordered in descending priority */
         std::array<WindowRegion, 4> windows;
         ColorEffects colorEffects;
+        color_t backdropColor;
 
         bool anyWindowEnabled() const;
         void composeTrivialScanline(const std::array<std::shared_ptr<Layer>, 8>& layers, color_t *target);
       public:
         WindowFeature();
-        void load(const LCDIORegs& regs);
+        void load(const LCDIORegs& regs, color_t bdColor);
         const WindowRegion& getActiveWindow(int32_t x, int32_t y) const;
         void composeScanline(const std::array<std::shared_ptr<Layer>, 8>& layers, color_t *target);
     };
