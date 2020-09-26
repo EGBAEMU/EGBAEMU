@@ -198,13 +198,11 @@ namespace gbaemu
             BIOS_READ_AFTER_IRQ};
 
         static const constexpr uint32_t backupSizes[] = {
-            //TODO were do we know the exact size from???
             0,                               // NO BACKUP TYPE
             /*EEPROM_V_SIZE = */ 8 << 10,    // 512 bytes or 8 KiB
             /*SRAM_V_SIZE = */ 32 << 10,     // 32 KiB
             /*FLASH_V_SIZE = */ 64 << 10,    // 64 KiB
             /*FLASH512_V_SIZE = */ 64 << 10, // 64 KiB
-                                             //TODO this exceeds the normal expected memory area???
             /*FLASH1M_V_SIZE =*/128 << 10    // 128 KiB
         };
 
