@@ -88,7 +88,7 @@ namespace gbaemu
         const uint8_t *src = resolveAddrRef(addr, execInfo, memReg);
 
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(uint8_t)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(uint8_t));
+            execInfo->cycleCount += memCycles16(addr >> 24, seq);
         }
 
         if (readInstruction && memReg == BIOS && addr < getBiosSize()) {
@@ -142,7 +142,7 @@ namespace gbaemu
         const uint8_t *src = resolveAddrRef(alignedAddr, execInfo, memReg);
 
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(uint16_t)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(uint16_t));
+            execInfo->cycleCount += memCycles16(addr >> 24, seq);
         }
 
         if (readInstruction && memReg == BIOS && alignedAddr < getBiosSize()) {
@@ -189,7 +189,7 @@ namespace gbaemu
         const uint8_t *src = resolveAddrRef(alignedAddr, execInfo, memReg);
 
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(uint32_t)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(uint32_t));
+            execInfo->cycleCount += memCycles32(addr >> 24, seq);
         }
 
         if (readInstruction && memReg == BIOS && alignedAddr < getBiosSize()) {
@@ -235,7 +235,7 @@ namespace gbaemu
         auto dst = resolveAddrRef(addr, execInfo, memReg);
 
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(value)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(value));
+            execInfo->cycleCount += memCycles16(addr >> 24, seq);
         }
 
         if (memReg == OUT_OF_ROM) {
@@ -305,7 +305,7 @@ namespace gbaemu
         auto dst = resolveAddrRef(addr, execInfo, memReg);
 
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(value)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(value));
+            execInfo->cycleCount += memCycles16(addr >> 24, seq);
         }
 
         if (memWatch.isAddressWatched(addr)) {
@@ -342,7 +342,7 @@ namespace gbaemu
         auto dst = resolveAddrRef(addr, execInfo, memReg);
 
         if (execInfo != nullptr) {
-            execInfo->cycleCount += seq ? cyclesForVirtualAddrSeq(memReg, sizeof(value)) : cyclesForVirtualAddrNonSeq(memReg, sizeof(value));
+            execInfo->cycleCount += memCycles32(addr >> 24, seq);
         }
 
         if (memWatch.isAddressWatched(addr)) {
@@ -624,136 +624,6 @@ namespace gbaemu
             LOG_MEM(std::cout << "CRITICAL ERROR: could not indicate that an exception has been caused!" << std::endl;);
         }
         return wasteMem;
-    }
-
-    uint8_t Memory::cyclesForVirtualAddrNonSeq(MemoryRegion memoryRegion, uint8_t bytesToRead) const
-    {
-        switch (memoryRegion) {
-            case WRAM: {
-                // bytesToRead + 1 for ceiling
-                // divided by 2 to get the access count on the 16 bit bus (2 bytes)
-                uint8_t accessTimes = (bytesToRead + 1) / 2;
-                // times 2 because there are always 2 wait cycles(regardless of N or S read)
-                return accessTimes * 2 + accessTimes;
-            }
-            // No wait states here
-            case BIOS:
-            case IWRAM:
-            case IO_REGS:
-            case BG_OBJ_RAM:
-                return 1;
-            case VRAM:
-            case OAM: {
-                // 16 bit bus else no additional wait times
-                return (bytesToRead + 1) / 2;
-            }
-
-            //TODO those are configurable and different for N and S cycles (WAITCNT register)
-            /*
-            ROM Waitstates
-            The GBA starts the cartridge with 4,2 waitstates (N,S) and prefetch disabled.
-            The program may change these settings by writing to WAITCNT, 
-            the games F-ZERO and Super Mario Advance use 3,1 waitstates (N,S) each, with prefetch enabled.
-            Third-party flashcards are reportedly running unstable with these settings.
-            Also, prefetch and shorter waitstates are allowing to read more data and opcodes from ROM is less time,
-            the downside is that it increases the power consumption.
-
-            Game Pak ROM (regions 8–13) contains up to 32MiB of memory that resides on the cartridge.
-                The cartridge bus is also 16-bits, but N cycles and S cycles have different timing on this bus—they are configurable.
-                N cycles can be configured to have either 2, 3, 4, or 8 wait states in these regions.
-                S cycles actually depend on which specific address is used.
-                Region 8/9 has either 1 or 2 wait states, region 10/11 has either 1 or 4, and region 12/13 has either 1 or 8.
-                Regions 10-13 are mostly unused, however, so most of what’s important is region 8/9.
-            Game Pak RAM (region 14) contains rewritable memory on the cartridge. 
-                The bus is only 8 bits wide, and wait states are configurable to be either 2, 3, 4, or 8 cycles.
-                There are no special S cycles on this bus.
-            */
-            case OUT_OF_ROM:
-            case EEPROM_REGION:
-            case EXT_ROM1_:
-            case EXT_ROM2:
-            case EXT_ROM2_:
-            case EXT_ROM3:
-            case EXT_ROM3_:
-            case EXT_ROM1: {
-                // Initial waitstate (N,S) = (4,2)
-                uint8_t accessTimes = (bytesToRead + 1) / 2;
-                return accessTimes * 4 + accessTimes;
-            }
-            case FLASH_REGION:
-            case SRAM_REGION:
-            case EXT_SRAM_:
-            case EXT_SRAM:
-                // Only 8 bit bus -> accesTimes = bytesToRead
-                return bytesToRead * 2 + bytesToRead;
-        }
-
-        return 1;
-    }
-
-    uint8_t Memory::cyclesForVirtualAddrSeq(MemoryRegion memoryRegion, uint8_t bytesToRead) const
-    {
-        switch (memoryRegion) {
-            case WRAM: {
-                // bytesToRead + 1 for ceiling
-                // divided by 2 to get the access count on the 16 bit bus (2 bytes)
-                uint8_t accessTimes = (bytesToRead + 1) / 2;
-                // times 2 because there are always 2 wait cycles(regardless of N or S read)
-                return accessTimes * 2 + accessTimes;
-            }
-            // No wait states here
-            case BIOS:
-            case IWRAM:
-            case IO_REGS:
-            case BG_OBJ_RAM:
-                return 1;
-            case VRAM:
-            case OAM: {
-                // 16 bit bus else no additional wait times
-                return (bytesToRead + 1) / 2;
-            }
-
-            //TODO those are configurable and different for N and S cycles
-            /*
-            ROM Waitstates
-            The GBA starts the cartridge with 4,2 waitstates (N,S) and prefetch disabled.
-            The program may change these settings by writing to WAITCNT, 
-            the games F-ZERO and Super Mario Advance use 3,1 waitstates (N,S) each, with prefetch enabled.
-            Third-party flashcards are reportedly running unstable with these settings.
-            Also, prefetch and shorter waitstates are allowing to read more data and opcodes from ROM is less time,
-            the downside is that it increases the power consumption.
-
-            Game Pak ROM (regions 8–13) contains up to 32MiB of memory that resides on the cartridge.
-                The cartridge bus is also 16-bits, but N cycles and S cycles have different timing on this bus—they are configurable.
-                N cycles can be configured to have either 2, 3, 4, or 8 wait states in these regions.
-                S cycles actually depend on which specific address is used.
-                Region 8/9 has either 1 or 2 wait states, region 10/11 has either 1 or 4, and region 12/13 has either 1 or 8.
-                Regions 10-13 are mostly unused, however, so most of what’s important is region 8/9.
-            Game Pak RAM (region 14) contains rewritable memory on the cartridge. 
-                The bus is only 8 bits wide, and wait states are configurable to be either 2, 3, 4, or 8 cycles.
-                There are no special S cycles on this bus.
-            */
-            case OUT_OF_ROM:
-            case EEPROM_REGION:
-            case EXT_ROM1_:
-            case EXT_ROM2:
-            case EXT_ROM2_:
-            case EXT_ROM3:
-            case EXT_ROM3_:
-            case EXT_ROM1: {
-                // Initial waitstate (N,S) = (4,2)
-                uint8_t accessTimes = (bytesToRead + 1) / 2;
-                return accessTimes * 2 + accessTimes;
-            }
-            case FLASH_REGION:
-            case SRAM_REGION:
-            case EXT_SRAM_:
-            case EXT_SRAM:
-                // Only 8 bit bus -> accesTimes = bytesToRead
-                return bytesToRead * 2 + bytesToRead;
-        }
-
-        return 1;
     }
 
     void Memory::scanROMForBackupID()
