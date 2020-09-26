@@ -299,6 +299,23 @@ namespace gbaemu::lcd
                     uint16_t BLDY;     // Brightness (Fade-In/Out) Coefficient
     );
 
+    struct Fragment
+    {
+        color_t color = 0;
+        /* asFirstColor, asSecondColor, asFirstAlpha */ 
+        uint8_t props = 0;
+
+        Fragment() {}
+        Fragment(color_t col, bool asFirst, bool asSecond, bool asAlpha) :
+            color(col),
+            props((asFirst ? 1 : 0) | (asSecond ? 2 : 0) | (asAlpha ? 4 : 0)) {} 
+
+        bool asFirstColor() const { return props & 1; }
+        bool asSecondColor() const { return (props >> 1) & 1; }
+        bool asFirstAlpha() const { return (props >> 2) & 1; }
+        bool colorEffectEnabled() const { return asFirstColor() || asSecondColor() || asFirstAlpha(); }
+    };
+
     enum LayerID
     {
         LAYER_BG0 = 0,
@@ -318,15 +335,20 @@ namespace gbaemu::lcd
       public:
         bool enabled;
         uint16_t priority;
-        /* used in color special effects */
+        /* contains the final pixels */
+        std::vector<Fragment> scanline;
+
         bool asFirstTarget;
         bool asSecondTarget;
-        /* contains the final pixels */
-        std::vector<color_t> scanline;
 
         LayerID layerID;
 
-        Layer() : enabled(false), scanline(SCREEN_WIDTH) {}
+        bool isBGLayer;
+
+        Layer() : enabled(false), scanline(SCREEN_WIDTH)
+        {
+        }
+
         virtual void drawScanline(int32_t y) = 0;
 
         /* used for sorting */

@@ -67,6 +67,7 @@ namespace gbaemu::lcd
         uint16_t size = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::OBJ_SIZE_MASK, OBJ_ATTRIBUTE::OBJ_SIZE_OFFSET);
         tileNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::CHAR_NAME_MASK, OBJ_ATTRIBUTE::CHAR_NAME_OFFSET);
         mosaic = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MOSAIC_MASK, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET);
+        mode = static_cast<OBJMode>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MODE_MASK, OBJ_ATTRIBUTE::OBJ_MODE_OFFSET));
 
         if (useColor256)
             tileNumber /= 2;
@@ -221,7 +222,7 @@ namespace gbaemu::lcd
         }
     }
 
-    OBJLayer::OBJLayer(Memory& mem, LCDColorPalette& plt, uint16_t prio) : memory(mem), palette(plt), objects(128)
+    OBJLayer::OBJLayer(Memory& mem, LCDColorPalette& plt, const LCDIORegs& ioRegs, uint16_t prio) : memory(mem), palette(plt), regs(ioRegs), objects(128)
     {
         /* OBJ layers are always enabled */
         enabled = true;
@@ -232,6 +233,7 @@ namespace gbaemu::lcd
             throw new std::runtime_error("0 <= Priority <= 3 is not satisfied");
 
         layerID = static_cast<LayerID>(priority + 4);
+        isBGLayer = false;
     }
 
     void OBJLayer::setMode(BGMode bgMode, bool mapping2d)
@@ -267,13 +269,16 @@ namespace gbaemu::lcd
             if (obj.visible)
                 objects.push_back(obj);
         }
+
+        asFirstTarget = bitGet<uint16_t>(le(regs.BLDCNT), BLDCNT::TARGET_MASK, BLDCNT::OBJ_FIRST_TARGET_OFFSET);
+        asSecondTarget = bitGet<uint16_t>(le(regs.BLDCNT), BLDCNT::TARGET_MASK, BLDCNT::OBJ_SECOND_TARGET_OFFSET);
     }
 
     void OBJLayer::drawScanline(int32_t y)
     {
         for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
             /* clear */
-            scanline[x] = TRANSPARENT;
+            scanline[x] = Fragment(TRANSPARENT, asFirstTarget, asSecondTarget, false);
 
             /* iterate over the objects beginning with OBJ0 (on top) */
             for (auto obj = objects.cbegin(); obj != objects.cend(); ++obj) {
@@ -294,7 +299,7 @@ namespace gbaemu::lcd
                         continue;
 
                     /* if the color is not transparent it's the final color */
-                    scanline[x] = color;
+                    scanline[x] = Fragment(color, asFirstTarget, asSecondTarget, (obj->mode == SEMI_TRANSPARENT));
                     break;
                 }
             }

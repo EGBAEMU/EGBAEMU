@@ -18,6 +18,7 @@ namespace gbaemu::lcd
         palette(plt), memory(mem), index(idx)
     {
         layerID = static_cast<LayerID>(index);
+        isBGLayer = true;
     }
 
     void BGLayer::loadSettings(BGMode bgMode, const LCDIORegs &regs)
@@ -148,6 +149,9 @@ namespace gbaemu::lcd
         /* tile addresses in steps of 0x4000 */
         /* 8x8, also called characters */
         tiles = vramBase + charBaseBlock * 0x4000;
+
+        asFirstTarget = bitGet<uint16_t>(le(regs.BLDCNT), BLDCNT::TARGET_MASK, BLDCNT::BG_FIRST_TARGET_OFFSET(static_cast<uint16_t>(index)));
+        asSecondTarget = bitGet<uint16_t>(le(regs.BLDCNT), BLDCNT::TARGET_MASK, BLDCNT::BG_SECOND_TARGET_OFFSET(static_cast<uint16_t>(index)));
     }
 
     std::string BGLayer::toString() const
@@ -278,9 +282,9 @@ namespace gbaemu::lcd
                     sy = fastMod<int32_t>(sy, height);
                 }
 
-                scanline[x] = pixelColor(sx, sy);
+                scanline[x] = Fragment(pixelColor(sx, sy), asFirstTarget, asSecondTarget, false);
             } else {
-                scanline[x] = TRANSPARENT;
+                scanline[x] = Fragment(TRANSPARENT, asFirstTarget, asSecondTarget, false);
             }
 
             s += affineTransform.d;

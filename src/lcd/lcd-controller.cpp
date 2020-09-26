@@ -21,39 +21,6 @@
 
 namespace gbaemu::lcd
 {
-    void LCDController::drawScanline()
-    {
-        auto t = std::chrono::high_resolution_clock::now();
-
-        for (const auto& l : layers)
-            if (l->enabled)
-                l->drawScanline(scanline.y);
-
-        sortLayers();
-
-#if RENDERER_DECOMPOSE_LAYERS == 1
-        {
-            int32_t i = 0;
-
-            for (const auto& l : layers) {
-                if (l->enabled) {
-                    int32_t yOff = (i / 2) * SCREEN_HEIGHT;
-                    int32_t xOff = (i % 2) * SCREEN_WIDTH;
-
-                    for (int32_t x = 0; x < SCREEN_WIDTH; ++x)
-                        display.target.pixels()[(yOff + scanline.y) * display.target.getWidth() + (x + xOff)] = l->scanline[x];
-                }
-
-                ++i;
-            }
-        }
-#else
-        windowFeature.composeScanline(layers, display.target.pixels() + scanline.y * display.target.getWidth());
-#endif
-
-        //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count() << std::endl;
-    }
-
     void LCDController::renderTick()
     {
         /*
@@ -82,8 +49,12 @@ namespace gbaemu::lcd
         } else if (!scanline.vblanking) {
             /* h-blank interrupt, scanline rendering, scanline.x increase is only done when not v-blanking */
             if (scanlineCycle == 0 && !scanline.hblanking) {
-                loadSettings();
-                drawScanline();
+                regs = regsRef;
+#if RENDERER_DECOMPOSE_LAYERS == 1
+                renderer.drawScanline(scanline.y, display.target.pixels(), display.target.getWidth());
+#else
+                renderer.drawScanline(scanline.y, display.target.pixels() + display.target.getWidth() * scanline.y);
+#endif
             }
 
             /* 4 cycles per pixel */
@@ -139,72 +110,21 @@ namespace gbaemu::lcd
         scanline.y = 0;
     }
 
-    void LCDController::setupLayers()
-    {
-        backgroundLayers[0] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG0);
-        backgroundLayers[1] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG1);
-        backgroundLayers[2] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG2);
-        backgroundLayers[3] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG3);
-
-        objLayers[0] = std::make_shared<OBJLayer>(memory, palette, 0);
-        objLayers[1] = std::make_shared<OBJLayer>(memory, palette, 1);
-        objLayers[2] = std::make_shared<OBJLayer>(memory, palette, 2);
-        objLayers[3] = std::make_shared<OBJLayer>(memory, palette, 3);
-
-        for (uint32_t i = 0; i < 8; ++i) {
-            if (i <= 3)
-                layers[i] = objLayers[i];
-            else
-                layers[i] = backgroundLayers[i - 4];
-        }
-    }
-
-    void LCDController::sortLayers()
-    {
-        std::stable_sort(layers.begin(), layers.end(), [](const std::shared_ptr<Layer>& pa, const std::shared_ptr<Layer>& pb) -> bool
-        {
-            return *pa < *pb;
-        });
-    }
-
-    void LCDController::loadSettings()
-    {
-        /* copy registers, they cannot be modified when rendering */
-        regs = regsRef;
-
-        uint32_t bgMode = le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
-
-        /* Which background layers are enabled to begin with? */
-        for (uint32_t i = 0; i < 4; ++i)
-            backgroundLayers[i]->enabled = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
-
-        for (uint32_t i = 0; i < 4; ++i)
-            if (backgroundLayers[i]->enabled)
-                backgroundLayers[i]->loadSettings(static_cast<BGMode>(bgMode), regs);
-
-        bool use2dMapping = !(le(regs.DISPCNT) & DISPCTL::OBJ_CHAR_VRAM_MAPPING_MASK);
-
-        for (auto& l : objLayers) {
-            l->setMode(static_cast<BGMode>(bgMode), use2dMapping);
-            l->loadOBJs();
-        }
-
-        palette.loadPalette(memory);
-        windowFeature.load(regs, palette.getBackdropColor());
-
-        sortLayers();
-    }
-
+ 
     std::string LCDController::getLayerStatusString() const
     {
         std::stringstream ss;
 
+        /*
         for (const auto& pLayer : layers) {
             ss << "================================\n";
             ss << "enabled: " << (pLayer->enabled ? "yes" : "no") << '\n';
             ss << "id: " << layerIDToString(pLayer->layerID) << '\n';
             ss << "priority: " << pLayer->priority << '\n';
+            //ss << "as first target: " << (pLayer->asFirstTarget ? "yes" : "no") << '\n';
+            //ss << "as second target: " << (pLayer->asSecondTarget ? "yes" : "no") << '\n';
         }
+         */
 
         return ss.str();
     }

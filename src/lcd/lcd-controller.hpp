@@ -14,6 +14,7 @@
 #include <lcd/bglayer.hpp>
 #include <lcd/coloreffects.hpp>
 #include <lcd/window-regions.hpp>
+#include <lcd/renderer.hpp>
 
 #include <array>
 #include <functional>
@@ -41,11 +42,6 @@ namespace gbaemu::lcd
         In mode 1 layers 0 and 1 are in text mode.
         All other layers are in map mode.
      */
-    
-
-    
-
-    
 
     class LCDController
     {
@@ -85,14 +81,7 @@ namespace gbaemu::lcd
         LCDIORegs regsRef{0};
         LCDIORegs regs{0};
 
-        WindowFeature windowFeature;
-
-        /* backdrop layer, BG0-BG4, OBJ0-OBJ4 */
-        std::array<std::shared_ptr<BGLayer>, 4> backgroundLayers;
-        /* each priority (0-3) gets its own layer */
-        std::array<std::shared_ptr<OBJLayer>, 4> objLayers;
-        /* all layers */
-        std::array<std::shared_ptr<Layer>, 8> layers;
+        Renderer renderer;
 
         /* rendering is done in a separate thread */
         RenderControl renderControl;
@@ -140,8 +129,6 @@ namespace gbaemu::lcd
             *(offset + reinterpret_cast<uint8_t *>(&regsRef)) = value & mask;
         }
       public:
-        /* new architecture, true to the original hardware */
-        void drawScanline();
         /* call this @ ~16Mhz */
         void renderTick();
 
@@ -149,16 +136,11 @@ namespace gbaemu::lcd
         void onHBlank();
         void onVBlank();
 
-        void setupLayers();
-        void sortLayers();
-        void loadSettings();
-        void drawToTarget();
-        void drawLayers();
-
       public:
         LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) :
             display{disp, 0, 0, 3, 3}, memory(cpu->state.memory), irqHandler(cpu->irqHandler),
-            canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw)
+            canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw),
+            renderer(cpu->state.memory, cpu->irqHandler, regs)
         {
             memory.ioHandler.registerIOMappedDevice(
                 IO_Mapped(
@@ -168,9 +150,6 @@ namespace gbaemu::lcd
                     std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
                     std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),
                     std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
-
-            setupLayers();
-            sortLayers();
 
             scanline.buf.resize(SCREEN_WIDTH);
 

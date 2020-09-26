@@ -15,7 +15,7 @@ namespace gbaemu::lcd
     {
         WIN0 = 0,
         WIN1,
-        OBJ,
+        OBJ_WIN,
         /* is enabled if any of the windows above are enabled */
         OUTSIDE
     };

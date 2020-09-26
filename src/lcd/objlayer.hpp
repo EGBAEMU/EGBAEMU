@@ -41,6 +41,7 @@ namespace gbaemu::lcd
         bool visible = false;
         
         OBJShape shape;
+        OBJMode mode;
         uint16_t priority;
         int32_t xOff, yOff;
         bool doubleSized, vFlip = false, hFlip = false, useColor256, mosaic;
@@ -54,7 +55,7 @@ namespace gbaemu::lcd
         static OBJAttribute getAttribute(const uint8_t *attributes, uint32_t index);
         static std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(const uint8_t *attributes, uint32_t index);
       public:
-        OBJ() = default;
+        OBJ() {};
         OBJ(const uint8_t *attributes, uint16_t prioFilter, int32_t index);
         std::string toString() const;
         color_t pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, LCDColorPalette& palette, bool use2dMapping) const;
@@ -76,11 +77,12 @@ namespace gbaemu::lcd
 
         Memory& memory;
         LCDColorPalette& palette;
+        const LCDIORegs& regs;
 
         std::vector<OBJ> objects;
 
       public:
-        OBJLayer(Memory& mem, LCDColorPalette& plt, uint16_t prio);
+        OBJLayer(Memory& mem, LCDColorPalette& plt, const LCDIORegs& ioRegs, uint16_t prio);
         void setMode(BGMode bgMode, bool mapping2d);
         void loadOBJs();
         void drawScanline(int32_t y) override;

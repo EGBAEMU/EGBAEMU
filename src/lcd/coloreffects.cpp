@@ -29,6 +29,9 @@ namespace gbaemu::lcd
     {
         color_t finalColor = 0;
 
+        if (effect != BLDCNT::AlphaBlending)
+            return first;
+
         switch (effect) {
             case BLDCNT::None:
                 finalColor = first;
@@ -55,5 +58,15 @@ namespace gbaemu::lcd
         }
 
         return finalColor;
+    }
+
+    bool ColorEffects::secondColorRequired() const
+    {
+        return effect == BLDCNT::AlphaBlending;
+    }
+
+    BLDCNT::ColorSpecialEffect ColorEffects::getEffect() const
+    {
+        return effect;
     }
 } // namespace gbaemu::lcd

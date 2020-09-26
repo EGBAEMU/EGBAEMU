@@ -14,7 +14,7 @@ namespace gbaemu::lcd
             case WIN1:
                 enabled = bitGet<uint16_t>(le(regs.DISPCNT), 1, 14);
                 break;
-            case OBJ:
+            case OBJ_WIN:
                 enabled = bitGet<uint16_t>(le(regs.DISPCNT), 1, 15);
                 break;
             case OUTSIDE:
@@ -57,7 +57,7 @@ namespace gbaemu::lcd
         else
             control = le(regs.WINOUT);
 
-        if (id == WIN1 || id == OBJ)
+        if (id == WIN1 || id == OBJ_WIN)
             maskOff = 8;
 
         for (int32_t i = 0; i < 4; ++i)
@@ -75,7 +75,7 @@ namespace gbaemu::lcd
         switch (id) {
             case WIN0: ss << "WIN0"; break;
             case WIN1: ss << "WIN1"; break;
-            case OBJ: ss << "OBJ"; break;
+            case OBJ_WIN: ss << "OBJ"; break;
             case OUTSIDE: ss << "OUTSIDE"; break;
         }
 
@@ -104,22 +104,18 @@ namespace gbaemu::lcd
     void WindowFeature::composeTrivialScanline(const std::array<std::shared_ptr<Layer>, 8>& layers, color_t *target)
     {
         for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
-            color_t first = backdropColor, second;
+            color_t finalColor = backdropColor;
 
-            /* TODO: find first, second */
-            for (auto l = layers.cbegin(); l != layers.cend(); ++l) {
-                if (!(*l)->enabled)
-                    continue;
-                
-                color_t color = (*l)->scanline[x];
+            /*
+                ------------------- layer 0
+                ------------------- layer 1
+                ------------------- layer 2
+                ------------------- layer 3
 
-                if (color != TRANSPARENT) {
-                    first = color;
-                    break;
-                }
-            }
+                If the top most non-transparent pixel is not used as a first target draw it without effects.
 
-            color_t finalColor = first;//colorEffects.apply(first, second);
+
+             */
 
             /* TODO: put finalColor in final scanline */
             target[x] = finalColor;
@@ -130,7 +126,7 @@ namespace gbaemu::lcd
     {
         windows[0].id = WIN0;
         windows[1].id = WIN1;
-        windows[2].id = OBJ;
+        windows[2].id = OBJ_WIN;
         windows[3].id = OUTSIDE;
     }
 
