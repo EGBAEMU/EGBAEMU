@@ -215,11 +215,11 @@ namespace gbaemu
         if (isArm) {
             arm::ARMInstructionDecoder<arm::ArmDisas>::decode<armDisas>(inst);
             result = armDisas.ss.str();
-            armDisas.ss.clear();
+            armDisas.ss.str(std::string());
         } else {
             thumb::ThumbInstructionDecoder<thumb::ThumbDisas>::decode<thumbDisas>(inst);
             result = thumbDisas.ss.str();
-            thumbDisas.ss.clear();
+            thumbDisas.ss.str(std::string());
         }
 
         return result;
