@@ -11,7 +11,7 @@ namespace gbaemu
 {
     void TimerGroup::Timer::reset()
     {
-        std::fill_n(reinterpret_cast<char*>(&regs), sizeof(regs), 0);
+        std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
         counter = 0;
         active = false;
     }

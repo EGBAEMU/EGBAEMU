@@ -104,7 +104,9 @@ template uint16_t gbaemu::bitSet<uint16_t>(uint16_t, uint16_t, uint16_t, uint16_
 
 template uint16_t gbaemu::bitGet<uint16_t>(uint16_t, uint16_t, uint16_t);
 
+template uint32_t gbaemu::bmap<uint32_t>(bool);
 template uint16_t gbaemu::bmap<uint16_t>(bool);
+template uint8_t gbaemu::bmap<uint8_t>(bool);
 
 template uint16_t gbaemu::le<uint16_t>(uint16_t);
 template uint32_t gbaemu::le<uint32_t>(uint32_t);

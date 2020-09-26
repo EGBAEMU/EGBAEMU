@@ -36,6 +36,9 @@ namespace gbaemu
             regsMutex.lock();
             *(offset + reinterpret_cast<uint8_t *>(&regs)) &= ~value;
             regsMutex.unlock();
+        } else if (offset == offsetof(InterruptControlRegs, waitStateCnt) || offset == offsetof(InterruptControlRegs, waitStateCnt) + 1) {
+            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+            cpu->state.memory.updateWaitCycles(le(regs.waitStateCnt));
         } else {
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
         }
@@ -43,7 +46,7 @@ namespace gbaemu
 
     void InterruptHandler::reset()
     {
-        std::fill_n(reinterpret_cast<char*>(&regs), sizeof(regs), 0);
+        std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
 
         needsOneIdleCycle = false;
     }
@@ -137,7 +140,6 @@ namespace gbaemu
 
             // Change instruction mode to arm
             cpu->decoder = cpu->armDecoder;
-
 
             // Change the register mode to irq
             // Ensure that the CPSR represents that we are in ARM mode again

@@ -111,10 +111,14 @@ namespace gbaemu
 
     uint32_t CPU::normalizePC(bool thumbMode)
     {
-        uint8_t bytes = thumbMode ? sizeof(uint16_t) : sizeof(uint32_t);
         uint32_t patchedPC = state.accessReg(regs::PC_OFFSET) = state.memory.normalizeAddress(state.accessReg(regs::PC_OFFSET) & (thumbMode ? 0xFFFFFFFE : 0xFFFFFFFC), executionMemReg);
-        waitStatesSeq = state.memory.cyclesForVirtualAddrSeq(executionMemReg, bytes);
-        waitStatesNonSeq = state.memory.cyclesForVirtualAddrNonSeq(executionMemReg, bytes);
+        if (thumbMode) {
+            waitStatesSeq = state.memory.memCycles16(executionMemReg, true);
+            waitStatesNonSeq = state.memory.memCycles16(executionMemReg, false);
+        } else {
+            waitStatesSeq = state.memory.memCycles32(executionMemReg, true);
+            waitStatesNonSeq = state.memory.memCycles32(executionMemReg, false);
+        }
         return patchedPC;
     }
 
@@ -126,12 +130,6 @@ namespace gbaemu
 
         const bool postThumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
         uint32_t postPc = state.accessReg(regs::PC_OFFSET);
-
-        // Add 1S cycle needed to fetch a instruction if not other requested
-        // Handle wait cycles!
-        if (!cpuInfo.noDefaultSCycle) {
-            cpuInfo.cycleCount += waitStatesSeq;
-        }
 
         // Change from arm mode to thumb mode or vice versa
         if (prevThumbMode != postThumbMode) {
@@ -150,6 +148,12 @@ namespace gbaemu
         } else {
             // Increment the pc counter to the next instruction
             state.accessReg(regs::PC_OFFSET) = postPc + (postThumbMode ? 2 : 4);
+        }
+
+        // Add 1S cycle needed to fetch a instruction if not other requested
+        // Handle wait cycles!
+        if (!cpuInfo.noDefaultSCycle) {
+            cpuInfo.cycleCount += waitStatesSeq;
         }
 
         cpuInfo.cycleCount += waitStatesNonSeq * cpuInfo.additionalProgCyclesN;
