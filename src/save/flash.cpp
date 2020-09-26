@@ -184,6 +184,10 @@ namespace gbaemu::save
 
                 LOG_SAVE(std::cout << "FLASH: write ATMEL to: 0x" << std::hex << (static_cast<uint32_t>(lowerAddr) + static_cast<uint32_t>(offsets64K) * static_cast<uint32_t>(64 << 10)) << std::endl;);
                 break;
+
+            default:
+                LOG_SAVE(std::cout << "FLASH: error unexpected write to: 0x" << std::hex << (static_cast<uint32_t>(lowerAddr) + static_cast<uint32_t>(offsets64K) * static_cast<uint32_t>(64 << 10)) << " in state: " << state << std::endl;);
+                break;
         }
     }
 } // namespace gbaemu::save
