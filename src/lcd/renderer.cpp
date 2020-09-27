@@ -212,7 +212,8 @@ namespace gbaemu::lcd
             case BLDCNT::ColorSpecialEffect::AlphaBlending:
                 blendAlpha(outBuf);
                 break;
-            case BLDCNT::ColorSpecialEffect::BrightnessIncrease: case BLDCNT::ColorSpecialEffect::BrightnessDecrease:
+            case BLDCNT::ColorSpecialEffect::BrightnessIncrease:
+            case BLDCNT::ColorSpecialEffect::BrightnessDecrease:
                 blendBrightness(outBuf);
                 break;
             default: case BLDCNT::ColorSpecialEffect::None:

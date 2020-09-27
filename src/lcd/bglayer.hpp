@@ -42,6 +42,8 @@ namespace gbaemu::lcd
         /* settings */
         bool useOtherFrameBuffer;
         bool mosaicEnabled;
+        int32_t mosaicWidth;
+        int32_t mosaicHeight;
         bool colorPalette256;
         /* actual pixel count */
         uint32_t width;

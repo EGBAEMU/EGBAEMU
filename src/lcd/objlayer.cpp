@@ -66,7 +66,7 @@ namespace gbaemu::lcd
         OBJShape shape = static_cast<OBJShape>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_SHAPE_MASK, OBJ_ATTRIBUTE::OBJ_SHAPE_OFFSET));
         uint16_t size = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::OBJ_SIZE_MASK, OBJ_ATTRIBUTE::OBJ_SIZE_OFFSET);
         tileNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::CHAR_NAME_MASK, OBJ_ATTRIBUTE::CHAR_NAME_OFFSET);
-        mosaic = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MOSAIC_MASK, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET);
+        mosaicEnabled = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MOSAIC_MASK, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET);
         mode = static_cast<OBJMode>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MODE_MASK, OBJ_ATTRIBUTE::OBJ_MODE_OFFSET));
 
         if (useColor256)
@@ -257,6 +257,8 @@ namespace gbaemu::lcd
 
         attributes = oamBase;
         use2dMapping = mapping2d;
+        mosaicWidth = bitGet(le(regs.MOSAIC), MOSAIC::OBJ_MOSAIC_HSIZE_MASK, MOSAIC::OBJ_MOSAIC_HSIZE_OFFSET);
+        mosaicHeight = bitGet(le(regs.MOSAIC), MOSAIC::OBJ_MOSAIC_VSIZE_MASK, MOSAIC::OBJ_MOSAIC_VSIZE_OFFSET);
     }
 
     void OBJLayer::loadOBJs()
@@ -292,8 +294,11 @@ namespace gbaemu::lcd
                 int32_t sx = static_cast<int32_t>(s[0]);
                 int32_t sy = static_cast<int32_t>(s[1]);
 
-                if (0 <= sx && sx < obj->width && 0 <= sy && sy < obj->height) {
-                    color_t color = obj->pixelColor(sx, sy, objTiles, palette, use2dMapping);
+                int32_t msx = obj->mosaicEnabled ? (sx - (sx % mosaicWidth)) : sx;
+                int32_t msy = obj->mosaicEnabled ? (sy - (sy % mosaicHeight)) : sy;
+
+                if (0 <= msx && msx < obj->width && 0 <= msy && msy < obj->height) {
+                    color_t color = obj->pixelColor(msx, msy, objTiles, palette, use2dMapping);
 
                     if (color == TRANSPARENT)
                         continue;

@@ -78,6 +78,15 @@ namespace gbaemu::lcd
         }
 
         mosaicEnabled = le(regs.BGCNT[index]) & BGCNT::MOSAIC_MASK;
+
+        if (mosaicEnabled) {
+            mosaicWidth = bitGet(le(regs.MOSAIC), MOSAIC::BG_MOSAIC_HSIZE_MASK, MOSAIC::BG_MOSAIC_HSIZE_OFFSET) + 1;
+            mosaicHeight = bitGet(le(regs.MOSAIC), MOSAIC::BG_MOSAIC_VSIZE_MASK, MOSAIC::BG_MOSAIC_VSIZE_OFFSET) + 1;
+        } else {
+            mosaicWidth = 1;
+            mosaicHeight = 1;
+        }
+
         /* if true tiles have 8 bit color depth, 4 bit otherwise */
         colorPalette256 = le(regs.BGCNT[index]) & BGCNT::COLORS_PALETTES_MASK;
         priority = le(regs.BGCNT[index]) & BGCNT::BG_PRIORITY_MASK;
@@ -215,9 +224,12 @@ namespace gbaemu::lcd
                 pixelColor = [this](int32_t sx, int32_t sy) -> color_t {
                     const BGMode0Entry *bgMap = reinterpret_cast<const BGMode0Entry *>(getBGMap(sx, sy));
 
+                    int32_t msx = sx - (sx % mosaicWidth);
+                    int32_t msy = sy - (sy % mosaicHeight);
+
                     /* sx, sy relative to the current bg map (size 32x32) */
-                    int32_t relBGMapX = sx % 256;
-                    int32_t relBGMapY = sy % 256;
+                    int32_t relBGMapX = msx % 256;
+                    int32_t relBGMapY = msy % 256;
                     int32_t tileX = relBGMapX / 8;
                     int32_t tileY = relBGMapY / 8;
 
@@ -238,11 +250,14 @@ namespace gbaemu::lcd
                 break;
             case Mode2:
                 pixelColor = [bgMap, this](int32_t sx, int32_t sy) -> color_t {
-                    int32_t tileX = sx / 8;
-                    int32_t tileY = sy / 8;
+                    int32_t msx = sx - (sx % mosaicWidth);
+                    int32_t msy = sy - (sy % mosaicHeight);
+                    
+                    int32_t tileX = msx / 8;
+                    int32_t tileY = msy / 8;
                     uint32_t tileNumber = reinterpret_cast<const uint8_t *>(bgMap)[tileY * (width / 8) + tileX];
                     const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + (tileNumber * 64);
-                    uint32_t paletteIndex = tile[(sy % 8) * 8 + (sx % 8)];
+                    uint32_t paletteIndex = tile[(msy % 8) * 8 + (msx % 8)];
 
                     return palette.getBgColor(paletteIndex);
                 };
@@ -250,13 +265,19 @@ namespace gbaemu::lcd
             case Mode3: case Mode5:
                 /* 32768 colors in color16 format */
                 pixelColor = [frameBuffer, this](int32_t sx, int32_t sy) -> color_t {
-                    return LCDColorPalette::toR8G8B8(reinterpret_cast<const color16_t *>(frameBuffer)[sy * width + sx]);
+                    int32_t msx = sx - (sx % mosaicWidth);
+                    int32_t msy = sy - (sy % mosaicHeight);
+
+                    return LCDColorPalette::toR8G8B8(reinterpret_cast<const color16_t *>(frameBuffer)[msy * width + msx]);
                 };
                 break;
             case Mode4:
                 /* 256 indexed colors */
                 pixelColor = [frameBuffer, this](int32_t sx, int32_t sy) -> color_t {
-                    return palette.getBgColor(reinterpret_cast<const uint8_t *>(frameBuffer)[sy * width + sx]);
+                    int32_t msx = sx - (sx % mosaicWidth);
+                    int32_t msy = sy - (sy % mosaicHeight);
+
+                    return palette.getBgColor(reinterpret_cast<const uint8_t *>(frameBuffer)[msy * width + msx]);
                 };
                 break;
             default:

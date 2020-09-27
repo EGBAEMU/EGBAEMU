@@ -44,7 +44,7 @@ namespace gbaemu::lcd
         OBJMode mode;
         uint16_t priority;
         int32_t xOff, yOff;
-        bool doubleSized, vFlip = false, hFlip = false, useColor256, mosaic;
+        bool doubleSized, vFlip = false, hFlip = false, useColor256, mosaicEnabled;
         uint32_t width = 0, height = 0;
         uint16_t paletteNumber;
         uint16_t tileNumber;
@@ -74,6 +74,9 @@ namespace gbaemu::lcd
         int32_t hightlightObjIndex = 0;
 
         bool use2dMapping;
+
+        int32_t mosaicWidth;
+        int32_t mosaicHeight;
 
         Memory& memory;
         LCDColorPalette& palette;

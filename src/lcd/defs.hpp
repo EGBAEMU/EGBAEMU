@@ -182,15 +182,15 @@ namespace gbaemu::lcd
 
     namespace MOSAIC
     {
-        static const constexpr uint32_t BG_MOSAIC_HSIZE_OFFSET = 0,
+        static const constexpr uint16_t BG_MOSAIC_HSIZE_OFFSET = 0,
                                         BG_MOSAIC_VSIZE_OFFSET = 4,
                                         OBJ_MOSAIC_HSIZE_OFFSET = 8,
                                         OBJ_MOSAIC_VSIZE_OFFSET = 12;
 
-        static const constexpr uint32_t BG_MOSAIC_HSIZE_MASK = 0xF << BG_MOSAIC_HSIZE_OFFSET,
-                                        BG_MOSAIC_VSIZE_MASK = 0xF << BG_MOSAIC_VSIZE_OFFSET,
-                                        OBJ_MOSAIC_HSIZE_MASK = 0xF << OBJ_MOSAIC_HSIZE_OFFSET,
-                                        OBJ_MOSAIC_VSIZE_MASK = 0xF << OBJ_MOSAIC_VSIZE_OFFSET;
+        static const constexpr uint16_t BG_MOSAIC_HSIZE_MASK = 0xF,
+                                        BG_MOSAIC_VSIZE_MASK = 0xF,
+                                        OBJ_MOSAIC_HSIZE_MASK = 0xF,
+                                        OBJ_MOSAIC_VSIZE_MASK = 0xF;
     } // namespace MOSAIC
 
     namespace OBJ_ATTRIBUTE
