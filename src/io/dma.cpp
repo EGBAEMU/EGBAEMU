@@ -124,9 +124,6 @@ namespace gbaemu
             }
 
             case SEQ_COPY: {
-                if (checkForUserAbort()) {
-                    break;
-                }
                 letCpuExecute = false;
 
                 if (count == 0) {

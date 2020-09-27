@@ -5,6 +5,7 @@
 #include "io/io_regs.hpp"
 #include "save/eeprom.hpp"
 #include "save/flash.hpp"
+#include "util.hpp"
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -157,6 +158,19 @@ namespace gbaemu
         static constexpr uint32_t BIOS_SWI_HANDLER_OFFSET = 0x08;
 
       private:
+        uint8_t cycles16Bit[2][16] = {
+            // Non seq times
+            {1, 1, 3, 1, 1, 1, 1, 1},
+            // seq times
+            {1, 1, 3, 1, 1, 1, 1, 1},
+        };
+        uint8_t cycles32Bit[2][16] = {
+            // Non seq times
+            {1, 1, 6, 1, 1, 2, 1, 1},
+            // seq times
+            {1, 1, 6, 1, 1, 2, 1, 1},
+        };
+
         uint8_t *wram;
         uint8_t *iwram;
         uint8_t *bg_obj_ram;
@@ -334,6 +348,52 @@ namespace gbaemu
             }
 
             setBiosReadState(BIOS_AFTER_STARTUP);
+            updateWaitCycles(0);
+        }
+
+        void updateWaitCycles(uint16_t WAITCNT)
+        {
+            // See: https://problemkaputt.de/gbatek.htm#gbasystemcontrol
+            uint8_t sramWaitCnt = WAITCNT & 3;
+            WAITCNT >>= 2;
+            uint8_t wait0_n = WAITCNT & 3;
+            WAITCNT >>= 2;
+            uint8_t wait0_s = WAITCNT & 1;
+            WAITCNT >>= 1;
+            uint8_t wait1_n = WAITCNT & 3;
+            WAITCNT >>= 2;
+            uint8_t wait1_s = WAITCNT & 1;
+            WAITCNT >>= 1;
+            uint8_t wait2_n = WAITCNT & 3;
+            WAITCNT >>= 2;
+            uint8_t wait2_s = WAITCNT & 1;
+
+            const constexpr uint8_t waitCycles_n[] = {
+                4, 3, 2, 8};
+
+            const constexpr uint8_t waitCycles0_s[] = {2, 1};
+            const constexpr uint8_t waitCycles1_s[] = {4, 1};
+            const constexpr uint8_t waitCycles2_s[] = {8, 1};
+
+            cycles16Bit[0][EXT_SRAM] = cycles16Bit[0][EXT_SRAM_] =
+                cycles16Bit[1][EXT_SRAM] = cycles16Bit[1][EXT_SRAM_] =
+                    cycles32Bit[1][EXT_SRAM] = cycles32Bit[1][EXT_SRAM_] =
+                        cycles32Bit[1][EXT_SRAM] = cycles32Bit[1][EXT_SRAM_] = waitCycles_n[sramWaitCnt];
+
+            cycles16Bit[0][EXT_ROM1] = cycles16Bit[0][EXT_ROM1_] = waitCycles_n[wait0_n];
+            cycles16Bit[0][EXT_ROM2] = cycles16Bit[0][EXT_ROM2_] = waitCycles_n[wait1_n];
+            cycles16Bit[0][EXT_ROM3] = cycles16Bit[0][EXT_ROM3_] = waitCycles_n[wait2_n];
+
+            cycles16Bit[1][EXT_ROM1] = cycles16Bit[1][EXT_ROM1_] = waitCycles0_s[wait0_s];
+            cycles16Bit[1][EXT_ROM2] = cycles16Bit[1][EXT_ROM2_] = waitCycles1_s[wait1_s];
+            cycles16Bit[1][EXT_ROM3] = cycles16Bit[1][EXT_ROM3_] = waitCycles2_s[wait2_s];
+
+            cycles32Bit[0][EXT_ROM1] = cycles32Bit[0][EXT_ROM1_] = 2 * cycles16Bit[0][EXT_ROM1];
+            cycles32Bit[0][EXT_ROM2] = cycles32Bit[0][EXT_ROM2_] = 2 * cycles16Bit[0][EXT_ROM2];
+            cycles32Bit[0][EXT_ROM3] = cycles32Bit[0][EXT_ROM3_] = 2 * cycles16Bit[0][EXT_ROM3];
+            cycles32Bit[1][EXT_ROM1] = cycles32Bit[1][EXT_ROM1_] = 2 * cycles16Bit[1][EXT_ROM1];
+            cycles32Bit[1][EXT_ROM2] = cycles32Bit[1][EXT_ROM2_] = 2 * cycles16Bit[1][EXT_ROM2];
+            cycles32Bit[1][EXT_ROM3] = cycles32Bit[1][EXT_ROM3_] = 2 * cycles16Bit[1][EXT_ROM3];
         }
 
         ~Memory()
@@ -456,8 +516,14 @@ namespace gbaemu
         void normalizeAddressRef(uint32_t &addr, MemoryRegion &memReg) const;
         uint32_t normalizeAddress(uint32_t addr, MemoryRegion &memReg) const;
 
-        uint8_t cyclesForVirtualAddrNonSeq(MemoryRegion memReg, uint8_t bytesToRead) const;
-        uint8_t cyclesForVirtualAddrSeq(MemoryRegion memReg, uint8_t bytesToRead) const;
+        uint8_t memCycles32(uint8_t reg, bool seq) const
+        {
+            return cycles32Bit[bmap<uint8_t>(seq)][reg & 0xF];
+        }
+        uint8_t memCycles16(uint8_t reg, bool seq) const
+        {
+            return cycles16Bit[bmap<uint8_t>(seq)][reg & 0xF];
+        }
 
         void setBiosReadState(BiosReadState readState)
         {
