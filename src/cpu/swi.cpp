@@ -142,7 +142,7 @@ namespace gbaemu
                 *currentRegs[regs::R0_OFFSET] = (numerator < 0) ? -1 : 1;
                 *currentRegs[regs::R1_OFFSET] = static_cast<uint32_t>(numerator);
                 *currentRegs[regs::R3_OFFSET] = 1;
-            } else if (numerator == 0x80000000 && denominator == 0xFFFFFFFF) {
+            } else if (numerator == static_cast<int32_t>(0x80000000) && denominator == static_cast<int32_t>(0xFFFFFFFF)) {
                 *currentRegs[regs::R0_OFFSET] = 0x80000000;
                 *currentRegs[regs::R1_OFFSET] = 0;
                 *currentRegs[regs::R3_OFFSET] = 0x80000000;

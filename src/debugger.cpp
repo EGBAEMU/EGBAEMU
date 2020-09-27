@@ -75,7 +75,7 @@ namespace gbaemu::debugger
     {
         *stepMode = true;
 
-        uint32_t value;
+        uint32_t value = 0;
 
         switch (bitSize) {
             case 8:

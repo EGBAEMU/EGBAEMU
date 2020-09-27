@@ -324,7 +324,7 @@ namespace gbaemu
             }
         }
 
-        uint64_t resultValue;
+        uint64_t resultValue = 0;
 
         /* Different instructions cause different flags to be changed. */
         constexpr bool updateNegative = getUpdateNegative(id);
@@ -437,6 +437,7 @@ namespace gbaemu
 
             default:
                 std::cout << "ERROR: execDataProc can not handle instruction: " << instructionIDToString(id) << std::endl;
+                cpuInfo.hasCausedException = true;
                 break;
         }
 
@@ -543,7 +544,7 @@ namespace gbaemu
             }
         }
 
-        uint32_t patchMemAddr;
+        uint32_t patchMemAddr = 0;
 
         for (uint32_t i = 0; i < 16; ++i) {
             uint8_t currentIdx = (up ? i : 15 - i);
