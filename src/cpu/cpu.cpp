@@ -84,7 +84,8 @@ namespace gbaemu
                     irqHandler.checkForInterrupt();
 
                     // clear all fields in cpuInfo
-                    cpuInfo = (const InstructionExecutionInfo){0};
+                    const constexpr InstructionExecutionInfo zeroInitExecInfo{0};
+                    cpuInfo = zeroInitExecInfo;
 
                     uint32_t prevPC = state.getCurrentPC();
                     execute(propagatePipeline(prevPC), prevPC);
