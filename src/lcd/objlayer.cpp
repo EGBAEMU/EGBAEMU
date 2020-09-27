@@ -278,36 +278,39 @@ namespace gbaemu::lcd
 
     void OBJLayer::drawScanline(int32_t y)
     {
+        const real_t fy = static_cast<real_t>(y);
+        real_t fx = 0;
+
         for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
             /* clear */
             scanline[x] = Fragment(TRANSPARENT, asFirstTarget, asSecondTarget, false);
 
             /* iterate over the objects beginning with OBJ0 (on top) */
             for (auto obj = objects.cbegin(); obj != objects.cend(); ++obj) {
-                if (!obj->visible)
-                    continue;
-
-                vec2 s = obj->affineTransform.d * (x - obj->affineTransform.screenRef[0]) +
-                    obj->affineTransform.dm * (y - obj->affineTransform.screenRef[1]) +
+                const vec2 s = obj->affineTransform.d * (fx - obj->affineTransform.screenRef[0]) +
+                    obj->affineTransform.dm * (fy - obj->affineTransform.screenRef[1]) +
                     obj->affineTransform.origin;
 
-                int32_t sx = static_cast<int32_t>(s[0]);
-                int32_t sy = static_cast<int32_t>(s[1]);
+                const int32_t sx = static_cast<int32_t>(s[0]);
+                const int32_t sy = static_cast<int32_t>(s[1]);
 
-                int32_t msx = obj->mosaicEnabled ? (sx - (sx % mosaicWidth)) : sx;
-                int32_t msy = obj->mosaicEnabled ? (sy - (sy % mosaicHeight)) : sy;
-
-                if (0 <= msx && msx < obj->width && 0 <= msy && msy < obj->height) {
-                    color_t color = obj->pixelColor(msx, msy, objTiles, palette, use2dMapping);
+                if (0 <= sx && sx < obj->width && 0 <= sy && sy < obj->height) {
+                    const int32_t msx = obj->mosaicEnabled ? (sx - (sx % mosaicWidth)) : sx;
+                    const int32_t msy = obj->mosaicEnabled ? (sy - (sy % mosaicHeight)) : sy;
+                    const color_t color = obj->pixelColor(msx, msy, objTiles, palette, use2dMapping);
 
                     if (color == TRANSPARENT)
                         continue;
 
                     /* if the color is not transparent it's the final color */
-                    scanline[x] = Fragment(color, asFirstTarget, asSecondTarget, (obj->mode == SEMI_TRANSPARENT));
+                    scanline[x].color = color;
+                    scanline[x].props |= (obj->mode == SEMI_TRANSPARENT) ? 4 : 0;
                     break;
                 }
             }
+
+
+            fx += 1.0;
         }
     }
 
