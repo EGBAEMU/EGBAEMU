@@ -14,7 +14,6 @@
 
 #include "input/keyboard_control.hpp"
 
-#define DEBUG_CLI
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5
 #define DEBUG_STACK_PRINT_RANGE 8
