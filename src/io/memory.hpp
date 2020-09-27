@@ -381,7 +381,7 @@ namespace gbaemu
 
             cycles16Bit[0][EXT_SRAM] = cycles16Bit[0][EXT_SRAM_] =
                 cycles16Bit[1][EXT_SRAM] = cycles16Bit[1][EXT_SRAM_] =
-                    cycles32Bit[1][EXT_SRAM] = cycles32Bit[1][EXT_SRAM_] =
+                    cycles32Bit[0][EXT_SRAM] = cycles32Bit[0][EXT_SRAM_] =
                         cycles32Bit[1][EXT_SRAM] = cycles32Bit[1][EXT_SRAM_] = waitCycles_n[sramWaitCnt];
 
             cycles16Bit[0][EXT_ROM1] = cycles16Bit[0][EXT_ROM1_] = waitCycles_n[wait0_n];
