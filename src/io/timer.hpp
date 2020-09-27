@@ -49,8 +49,7 @@ namespace gbaemu
             Timer *const nextTimer;
             const uint8_t id;
 
-            uint16_t counter;
-            uint16_t preCounter;
+            uint32_t counter;
             uint16_t prescale;
             bool active;
             bool countUpTiming;

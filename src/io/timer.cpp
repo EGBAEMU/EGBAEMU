@@ -21,7 +21,7 @@ namespace gbaemu
         if (offset >= offsetof(TimerRegs, control))
             return *(offset + reinterpret_cast<uint8_t *>(&regs));
         else {
-            return (counter >> (offset ? 8 : 0)) & 0x0FF;
+            return ((counter / prescale) >> (offset ? 8 : 0)) & 0x0FF;
         }
     }
 
@@ -56,9 +56,9 @@ namespace gbaemu
 
     void TimerGroup::Timer::checkForOverflow()
     {
-        if (counter == 0) {
+        if (counter == (static_cast<uint32_t>(prescale) << 16)) {
             // reload value!
-            counter = le(regs.reload);
+            counter = static_cast<uint32_t>(le(regs.reload)) * prescale;
 
             if (irq)
                 irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::TIMER_0_OVERFLOW + id));
@@ -82,26 +82,24 @@ namespace gbaemu
                 // was previously active
                 // if countUpTiming is true we only increment on overflow of the previous timer!
                 if (!countUpTiming) {
-                    --preCounter;
 
-                    // Counter to apply the selected prescale
-                    if (preCounter == 0) {
-                        //TODO are prescale changes allowed during operation???
-                        // reset pre counter
-                        preCounter = prescale;
+                    // Increment the timer counter and check for overflows
+                    ++counter;
 
-                        // Increment the real timer counter and check for overflows
-                        ++counter;
-
-                        checkForOverflow();
-                    }
+                    checkForOverflow();
                 }
             } else {
                 // Was previously disabled
-                counter = le(regs.reload);
 
-                preCounter = prescale = prescales[(controlReg & TIMER_PRESCALE_MASK)];
                 countUpTiming = id != 0 && (controlReg & TIMER_TIMING_MASK);
+                if (countUpTiming) {
+                    prescale = 1;
+                } else {
+                    prescale = prescales[(controlReg & TIMER_PRESCALE_MASK)];
+                }
+
+                counter = static_cast<uint32_t>(le(regs.reload)) * prescale;
+
                 irq = controlReg & TIMER_IRQ_EN_MASK;
 
                 LOG_TIM(
