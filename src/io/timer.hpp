@@ -38,7 +38,8 @@ namespace gbaemu
             static const constexpr uint16_t TIMER_IRQ_EN_MASK = static_cast<uint16_t>(1) << 6;
             static const constexpr uint16_t TIMER_START_MASK = static_cast<uint16_t>(1) << 7;
 
-            static const constexpr uint16_t prescales[] = {1, 64, 256, 1024};
+            // prescale = 1 << preShift -> prescale values are: 1, 64, 256, 1024
+            static const constexpr uint8_t preShifts[] = {0, 6, 8, 10};
 
             PACK_STRUCT(TimerRegs, regs,
                         uint16_t reload;
@@ -50,13 +51,14 @@ namespace gbaemu
             const uint8_t id;
 
             uint32_t counter;
-            uint16_t prescale;
+            uint32_t overflowVal;
+            uint8_t preShift;
             bool active;
             bool countUpTiming;
             bool irq;
 
           public:
-            void step();
+            void step(uint32_t cycles);
 
             Timer(Memory &memory, InterruptHandler &irqHandler, uint8_t id, Timer *nextTimer);
 
@@ -66,7 +68,7 @@ namespace gbaemu
             uint8_t read8FromReg(uint32_t offset);
             void write8ToReg(uint32_t offset, uint8_t value);
 
-            void receiveOverflowOfPrevTimer();
+            void receiveOverflowOfPrevTimer(uint32_t overflowTimes);
 
             void checkForOverflow();
         };
@@ -77,12 +79,12 @@ namespace gbaemu
         Timer tim3;
 
       public:
-        void step()
+        void step(uint32_t cycles)
         {
-            tim0.step();
-            tim1.step();
-            tim2.step();
-            tim3.step();
+            tim0.step(cycles);
+            tim1.step(cycles);
+            tim2.step(cycles);
+            tim3.step(cycles);
         }
 
         void reset()

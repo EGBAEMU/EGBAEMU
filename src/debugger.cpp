@@ -402,7 +402,7 @@ namespace gbaemu::debugger
         if (state == RUNNING) {
             cpuExecutionMutex.lock();
             ++cpuStepCount;
-            CPUExecutionInfoType executionInfo = cpu.step();
+            CPUExecutionInfoType executionInfo = cpu.step(1);
             if (executionInfo != CPUExecutionInfoType::NORMAL) {
                 state = HALTED;
                 std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;

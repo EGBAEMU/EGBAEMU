@@ -60,50 +60,63 @@ namespace gbaemu
         return currentInst;
     }
 
-    CPUExecutionInfoType CPU::step()
+    CPUExecutionInfoType CPU::step(uint32_t cycles)
     {
-        //TODO is it important if it gets executed first or last?
-        timerGroup.step();
+        cyclesLeft += cycles;
 
-        if (dmaInfo.cycleCount == 0) {
-            if (cpuInfo.cycleCount != 0 || (dma0.step(dmaInfo) && dma1.step(dmaInfo) && dma2.step(dmaInfo) && dma3.step(dmaInfo))) {
+        if (cyclesLeft > 0) {
+            dma0.step(dmaInfo, cyclesLeft);
+            dma1.step(dmaInfo, cyclesLeft);
+            dma2.step(dmaInfo, cyclesLeft);
+            dma3.step(dmaInfo, cyclesLeft);
+
+            cyclesLeft -= dmaInfo.cycleCount;
+            timerGroup.step(dmaInfo.cycleCount);
+            dmaInfo.cycleCount = 0;
+
+            while (cyclesLeft > 0) {
                 if (cpuInfo.haltCPU) {
                     //TODO this can be removed if we remove swi.cpp
                     cpuInfo.haltCPU = !irqHandler.checkForHaltCondition(cpuInfo.haltCondition);
+                    cpuInfo.cycleCount = 1;
                 } else {
-                    // Execute pipeline only after stall is over
-                    if (cpuInfo.cycleCount == 0) {
-                        irqHandler.checkForInterrupt();
+                    // check if we need to call the irq routine
+                    irqHandler.checkForInterrupt();
 
-                        std::fill_n(reinterpret_cast<char *>(&cpuInfo), sizeof(cpuInfo), 0);
+                    // clear all fields in cpuInfo
+                    cpuInfo = (const InstructionExecutionInfo){0};
 
-                        uint32_t prevPC = state.getCurrentPC();
-                        execute(propagatePipeline(prevPC), prevPC);
+                    uint32_t prevPC = state.getCurrentPC();
+                    execute(propagatePipeline(prevPC), prevPC);
 
-                        // Current cycle must be removed
-                        --cpuInfo.cycleCount;
+                    if (cpuInfo.hasCausedException) {
+                        //TODO print cause
+                        //TODO set cause in memory class
 
-                        if (cpuInfo.hasCausedException) {
-                            //TODO print cause
-                            //TODO set cause in memory class
+                        //TODO maybe return reason? as this might be needed to exit a game?
+                        // Abort
+                        std::stringstream ss;
+                        ss << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception\n";
 
-                            //TODO maybe return reason? as this might be needed to exit a game?
-                            // Abort
-                            std::stringstream ss;
-                            ss << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception\n";
+                        executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());
 
-                            executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());
-
-                            return CPUExecutionInfoType::EXCEPTION;
-                        }
-                    } else {
-                        --cpuInfo.cycleCount;
+                        return CPUExecutionInfoType::EXCEPTION;
                     }
                 }
+
+                timerGroup.step(cpuInfo.cycleCount);
+
+                cyclesLeft -= cpuInfo.cycleCount;
+
+                dma0.step(dmaInfo, cyclesLeft);
+                dma1.step(dmaInfo, cyclesLeft);
+                dma2.step(dmaInfo, cyclesLeft);
+                dma3.step(dmaInfo, cyclesLeft);
+
+                cyclesLeft -= dmaInfo.cycleCount;
+                timerGroup.step(dmaInfo.cycleCount);
+                dmaInfo.cycleCount = 0;
             }
-        }
-        if (dmaInfo.cycleCount) {
-            --dmaInfo.cycleCount;
         }
 
         return CPUExecutionInfoType::NORMAL;
@@ -215,5 +228,7 @@ namespace gbaemu
 
         state.accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
         normalizePC(false);
+
+        cyclesLeft = 0;
     }
 } // namespace gbaemu

@@ -125,12 +125,12 @@ namespace gbaemu
       public:
         DMA(DMAChannel channel, CPU *cpu);
 
-        bool step(InstructionExecutionInfo &info);
+        void step(InstructionExecutionInfo &info, uint32_t cycles);
 
         void reset();
 
       private:
-        bool extractRegValues();
+        void extractRegValues();
         void updateAddr(uint32_t &addr, AddrCntType updateKind) const;
         bool conditionSatisfied() const;
         void fetchCount();

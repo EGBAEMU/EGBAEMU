@@ -76,6 +76,8 @@ namespace gbaemu
         uint8_t waitStatesSeq;
         uint8_t waitStatesNonSeq;
 
+        int32_t cyclesLeft;
+
         CPU();
 
         uint32_t normalizePC(bool thumbMode);
@@ -85,7 +87,7 @@ namespace gbaemu
         void initPipeline();
         uint32_t propagatePipeline(uint32_t pc);
         void execute(uint32_t inst, uint32_t pc);
-        CPUExecutionInfoType step();
+        CPUExecutionInfoType step(uint32_t cycles);
 
         template <bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry>
         void setFlags(uint64_t resultValue, bool msbOp1, bool msbOp2)
