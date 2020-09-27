@@ -2,6 +2,7 @@
 #define INST_HPP
 
 #include <cstdint>
+#include <functional>
 #include <string>
 
 namespace gbaemu
@@ -21,28 +22,28 @@ namespace gbaemu
             3. vomit        
          */
         /*
-            http://problemkaputt.de/gbatek.htm#arminstructionsummary
-            http://problemkaputt.de/gbatek.htm#armcpuinstructioncycletimes
-            https://mgba.io/2015/06/27/cycle-counting-prefetch/
-            The ARM7TDMI also has four different types of cycles, 
-            on which the CPU clock may stall for a different amount of time: 
-                S cycles, the most common type, refer to sequential memory access. 
-                  Basically, if you access memory at one location and then the location afterwards, 
-                  this second access is sequential, so the memory bus can fetch it more quickly. 
-                Next are N cycles, which refer to non-sequential memory accesses. 
-                  N cycles occur when a memory address is fetched that has nothing to do with the previous instruction.
-                Third are I cycles, which are internal cycles. 
-                  These occur when the CPU does a complicated operation, 
-                  such as multiplication, that it can’t complete in a single cycle. 
-                Finally are C cycles, or coprocessor cycles, 
-                  which occur when communicating with coprocessors in the system.
-                  However, the GBA has no ARM-specified coprocessors, 
-                  and all instructions that try to interact with coprocessors trigger an error state.
-            Thus, the only important cycles to the GBA are S, N and I.
+        http://problemkaputt.de/gbatek.htm#arminstructionsummary
+        http://problemkaputt.de/gbatek.htm#armcpuinstructioncycletimes
+        https://mgba.io/2015/06/27/cycle-counting-prefetch/
+        The ARM7TDMI also has four different types of cycles, 
+        on which the CPU clock may stall for a different amount of time: 
+            S cycles, the most common type, refer to sequential memory access. 
+              Basically, if you access memory at one location and then the location afterwards, 
+              this second access is sequential, so the memory bus can fetch it more quickly. 
+            Next are N cycles, which refer to non-sequential memory accesses. 
+              N cycles occur when a memory address is fetched that has nothing to do with the previous instruction.
+            Third are I cycles, which are internal cycles. 
+              These occur when the CPU does a complicated operation, 
+              such as multiplication, that it can’t complete in a single cycle. 
+            Finally are C cycles, or coprocessor cycles, 
+              which occur when communicating with coprocessors in the system.
+              However, the GBA has no ARM-specified coprocessors, 
+              and all instructions that try to interact with coprocessors trigger an error state.
+        Thus, the only important cycles to the GBA are S, N and I.
 
-            How long each stall is depends on which region of memory is being accessed.
-            The GBA refers to these stalls as “wait states”.
-            //TODO seems like we have to consider memory accesses for cycles -> integrate into Memory class & pass InstructionExecutionInfo to Memory methods
+        How long each stall is depends on which region of memory is being accessed.
+        The GBA refers to these stalls as “wait states”.
+        //TODO seems like we have to consider memory accesses for cycles -> integrate into Memory class & pass InstructionExecutionInfo to Memory methods
         */
         uint32_t cycleCount;
 
@@ -119,8 +120,10 @@ namespace gbaemu
         //LDRD, /* supported arm5 and up */
         MLA,
         MOV,
-        MRS,
-        MSR,
+        MRS_SPSR,
+        MRS_CPSR,
+        MSR_SPSR,
+        MSR_CPSR,
         MUL,
         MVN,
         ORR,
@@ -182,7 +185,6 @@ namespace gbaemu
 
     namespace arm
     {
-
         enum ARMInstructionCategory {
             MUL_ACC = 0,
             MUL_ACC_LONG,
@@ -197,128 +199,6 @@ namespace gbaemu
             BRANCH,
             SOFTWARE_INTERRUPT,
             INVALID_CAT
-        };
-
-        class ARMInstruction
-        {
-          public:
-            InstructionID id;
-            ARMInstructionCategory cat;
-            ConditionOPCode condition;
-
-            union {
-                struct {
-                    bool a, s;
-                    uint8_t rn;
-                    uint8_t rs;
-                    uint8_t rd;
-                    uint8_t rm;
-                } mul_acc;
-
-                struct {
-                    bool u, a, s;
-                    uint8_t rd_msw;
-                    uint8_t rd_lsw;
-                    uint8_t rs;
-                    uint8_t rm;
-                } mul_acc_long;
-
-                struct {
-                    uint8_t rn;
-                } branch_xchg;
-
-                struct {
-                    bool b;
-                    uint8_t rn;
-                    uint8_t rd;
-                    uint8_t rm;
-                } data_swp;
-
-                struct {
-                    bool p, u, w, l;
-                    uint8_t rn;
-                    uint8_t rd;
-                    uint8_t rm;
-                } hw_transf_reg_off;
-
-                struct {
-                    bool p, u, w, l;
-                    uint8_t rn;
-                    uint8_t rd;
-                    uint32_t offset;
-                } hw_transf_imm_off;
-
-                struct {
-                    /*
-                        pre/post
-                        up/down
-                        byte/[word, halfword]
-                        writeback/no writeback?
-                        load/store
-                        halfword/word                    
-                     */
-                    bool p, u, b, w, l, h;
-                    uint8_t rn;
-                    uint8_t rd;
-                    uint32_t addrMode;
-                } sign_transf;
-
-                struct {
-                    bool i, s, r /* only used in MRS/MSR */;
-                    //uint8_t opCode;
-                    uint8_t rn;
-                    uint8_t rd;
-                    uint16_t operand2;
-
-                    bool extractOperand2(shifts::ShiftType &shiftType, uint8_t &shiftAmount, uint8_t &rm, uint8_t &rs, uint8_t &imm) const
-                    {
-                        bool shiftAmountFromReg = false;
-
-                        if (i) {
-                            /* ROR */
-                            shiftType = shifts::ShiftType::ROR;
-                            imm = operand2 & 0x0FF;
-                            shiftAmount = ((operand2 >> 8) & 0x0F) * 2;
-                        } else {
-                            shiftType = static_cast<shifts::ShiftType>((operand2 >> 5) & 0b11);
-                            rm = operand2 & 0xF;
-                            shiftAmountFromReg = (operand2 >> 4) & 1;
-
-                            if (shiftAmountFromReg)
-                                rs = (operand2 >> 8) & 0x0F;
-                            else
-                                shiftAmount = (operand2 >> 7) & 0b11111;
-                        }
-
-                        return shiftAmountFromReg;
-                    }
-                } data_proc_psr_transf;
-
-                struct {
-                    bool i, p, u, b, w, l;
-                    uint8_t rn;
-                    uint8_t rd;
-                    uint32_t addrMode;
-                } ls_reg_ubyte;
-
-                struct {
-                    bool p, u, w, l, s;
-                    uint8_t rn;
-                    uint32_t rList;
-                } block_data_transf;
-
-                struct {
-                    bool l;
-                    int32_t offset;
-                } branch;
-
-                struct {
-                    uint32_t comment;
-                } software_interrupt;
-            } params;
-
-            /* implemented in inst_arm.cpp */
-            std::string toString() const;
         };
 
     } // namespace arm
@@ -368,7 +248,8 @@ namespace gbaemu
             B,
             INVALID
         };
-*/
+        */
+
         enum ThumbInstructionCategory {
             MOV_SHIFT = 0,
             ADD_SUB,
@@ -392,155 +273,32 @@ namespace gbaemu
             INVALID_CAT
         };
 
-        class ThumbInstruction
-        {
-          public:
-            InstructionID id;
-            ThumbInstructionCategory cat;
-
-            union {
-                struct {
-                    uint8_t rs;
-                    uint8_t rd;
-                    uint8_t offset;
-                } mov_shift;
-
-                struct {
-                    // can be either rn or a offset
-                    uint8_t rn_offset;
-                    uint8_t rs;
-                    uint8_t rd;
-                } add_sub;
-
-                struct {
-                    uint8_t rd;
-                    uint8_t offset;
-                } mov_cmp_add_sub_imm;
-
-                struct {
-                    uint8_t rs;
-                    uint8_t rd;
-                } alu_op;
-
-                struct {
-                    uint8_t rs;
-                    uint8_t rd;
-                } br_xchg;
-
-                struct {
-                    uint8_t rd;
-                    uint8_t offset;
-                } pc_ld;
-
-                struct {
-                    bool l;
-                    bool b;
-                    uint8_t ro;
-                    uint8_t rb;
-                    uint8_t rd;
-                } ld_st_rel_off;
-
-                struct {
-                    bool h;
-                    bool s;
-                    uint8_t ro;
-                    uint8_t rb;
-                    uint8_t rd;
-                } ld_st_sign_ext;
-
-                struct {
-                    bool b;
-                    bool l;
-                    uint8_t offset;
-                    uint8_t rb;
-                    uint8_t rd;
-                } ld_st_imm_off;
-
-                struct {
-                    bool l;
-                    uint8_t offset;
-                    uint8_t rb;
-                    uint8_t rd;
-                } ld_st_hw;
-
-                struct {
-                    bool l;
-                    uint8_t rd;
-                    uint8_t offset;
-                } ld_st_rel_sp;
-
-                struct {
-                    bool sp;
-                    uint8_t rd;
-                    uint8_t offset;
-                } load_addr;
-
-                struct {
-                    bool s;
-                    uint8_t offset;
-                } add_offset_to_stack_ptr;
-
-                struct {
-                    bool l;
-                    bool r;
-                    uint8_t rlist;
-                } push_pop_reg;
-
-                struct {
-                    bool l;
-                    uint8_t rb;
-                    uint8_t rlist;
-                } mult_load_store;
-
-                struct {
-                    uint8_t cond;
-                    int8_t offset;
-                } cond_branch;
-
-                struct {
-                    uint8_t comment;
-                } software_interrupt;
-
-                struct {
-                    int16_t offset;
-                } unconditional_branch;
-
-                struct {
-                    bool h;
-                    uint16_t offset;
-                } long_branch_with_link;
-            } params;
-
-            std::string
-            toString() const;
-        };
     } // namespace thumb
 
     /* an object that can represent an ARM and a THUMB instruction */
     class Instruction
     {
       public:
-        union {
-            arm::ARMInstruction arm;
-            thumb::ThumbInstruction thumb;
-        } inst;
+        uint32_t inst;
         bool isArm = true;
 
       public:
-        void setArmInstruction(arm::ARMInstruction &armInstruction);
-        void setThumbInstruction(thumb::ThumbInstruction &thumbInstruction);
-        bool isArmInstruction() const;
+        ;
         std::string toString() const;
-        bool isValid() const;
-        static Instruction fromARM(arm::ARMInstruction &armInst);
-        static Instruction fromThumb(thumb::ThumbInstruction &thumbInst);
     };
 
-    class InstructionDecoder
+    class NopExecutor
     {
       public:
-        virtual void decode(uint32_t inst, Instruction &decodedInst) const = 0;
+        template <typename T, typename... Args>
+        void operator()(T, Args...)
+        {
+        }
     };
+
+    typedef std::function<void(uint32_t)> InstructionDecoder;
+
+    bool extractOperand2(shifts::ShiftType &shiftType, uint8_t &shiftAmount, uint8_t &rm, uint8_t &rs, uint8_t &imm, uint16_t operand2, bool i);
 
 } // namespace gbaemu
 

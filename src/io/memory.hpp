@@ -3,6 +3,7 @@
 
 #include "decode/inst.hpp"
 #include "io/io_regs.hpp"
+#include "logging.hpp"
 #include "save/eeprom.hpp"
 #include "save/flash.hpp"
 #include "util.hpp"
@@ -14,6 +15,7 @@ namespace gbaemu
 {
     typedef uint32_t address_t;
 
+#ifdef DEBUG_CLI
     /*
         A pointer to this class can be handed to Memory, which triggers a callback
         if the condition is satisfied.
@@ -52,6 +54,7 @@ namespace gbaemu
 
         std::string getWatchPointInfo() const;
     };
+#endif
 
     /*
     General Internal Memory
@@ -198,13 +201,11 @@ namespace gbaemu
             BIOS_READ_AFTER_IRQ};
 
         static const constexpr uint32_t backupSizes[] = {
-            //TODO were do we know the exact size from???
             0,                               // NO BACKUP TYPE
             /*EEPROM_V_SIZE = */ 8 << 10,    // 512 bytes or 8 KiB
             /*SRAM_V_SIZE = */ 32 << 10,     // 32 KiB
             /*FLASH_V_SIZE = */ 64 << 10,    // 64 KiB
             /*FLASH512_V_SIZE = */ 64 << 10, // 64 KiB
-                                             //TODO this exceeds the normal expected memory area???
             /*FLASH1M_V_SIZE =*/128 << 10    // 128 KiB
         };
 
@@ -310,8 +311,11 @@ namespace gbaemu
         save::EEPROM *eeprom;
         save::FLASH *flash;
         save::SaveFile *ext_sram;
+
+#ifdef DEBUG_CLI
         /* We are going to expose this directly becaus this cannot be in an invalid state and I don't have time. */
         MemWatch memWatch;
+#endif
 
         Memory()
         {
