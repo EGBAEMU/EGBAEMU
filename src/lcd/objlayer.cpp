@@ -177,7 +177,19 @@ namespace gbaemu::lcd
             affineTransform.dm[1] = 1;
         }
 
-        assert(affineTransform.d[0] != 0 || affineTransform.d[1] != 0);
+        //assert(affineTransform.d[0] != 0 || affineTransform.d[1] != 0);
+
+        /*
+        if (affineTransform.d[0] == 0 && affineTransform.d[1] == 0) {
+            affineTransform.d[0] = 1;
+            affineTransform.d[1] = 0;
+        }
+
+        if (affineTransform.dm[0] == 0 && affineTransform.dm[1] == 0) {
+            affineTransform.dm[0] = 0;
+            affineTransform.dm[1] = 1;
+        }
+         */
 
         affineTransform.origin[0] = static_cast<common::math::real_t>(width) / 2;
         affineTransform.origin[1] = static_cast<common::math::real_t>(height) / 2;
@@ -196,6 +208,11 @@ namespace gbaemu::lcd
         visible = true;
 
         cyclesRequired = width * height * (doubleSized || useRotScale ? 2 : 1) + (doubleSized || useRotScale ? 10 : 0);
+
+        rect.left = xOff;
+        rect.top = yOff;
+        rect.right = xOff + width;
+        rect.bottom = yOff + height;
     }
 
     std::string OBJ::toString() const
@@ -244,6 +261,10 @@ namespace gbaemu::lcd
 
     bool OBJ::intersectsWithScanline(real_t fy) const
     {
+        /* check for screen rect */
+        if (fy < rect.top || fy >= rect.bottom)
+            return false;
+
         const vec2 temp = affineTransform.dm * (fy - affineTransform.screenRef[1]) + affineTransform.origin;
         
         //const vec2 s0 = affineTransform.d * (0 - affineTransform.screenRef[0]) + temp;
@@ -440,6 +461,10 @@ namespace gbaemu::lcd
 
             /* iterate over the objects beginning with OBJ0 (on top) */
             for (auto obj = objects.cbegin(); obj != objects.cend(); ++obj) {
+                /* only the screen rectangle of that sprite is scanned */
+                if (x < obj->rect.left || x >= obj->rect.right)
+                    continue;
+
                 //const auto obj = *pObj;
                 const vec2 s = obj->affineTransform.d * (fx - obj->affineTransform.screenRef[0]) +
                     obj->affineTransform.dm * (fy - obj->affineTransform.screenRef[1]) +

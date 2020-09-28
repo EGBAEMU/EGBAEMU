@@ -58,6 +58,14 @@ namespace gbaemu::lcd
         uint16_t bytesPerTile;
         OBJAffineTransform affineTransform;
         int32_t cyclesRequired;
+
+        struct
+        {
+            int32_t left;
+            int32_t right;
+            int32_t top;
+            int32_t bottom;
+        } rect;
       private:
         static OBJAttribute getAttribute(const uint8_t *attributes, uint32_t index);
         static std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(const uint8_t *attributes, uint32_t index);
