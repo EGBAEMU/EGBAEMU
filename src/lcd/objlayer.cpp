@@ -195,26 +195,23 @@ namespace gbaemu::lcd
         return ss.str();
     }
 
-    color_t OBJ::pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, LCDColorPalette& palette, bool use2dMapping) const
+    color_t OBJ::pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, const LCDColorPalette& palette, bool use2dMapping) const
     {
         /* calculating index */
-        int32_t tileX = sx / 8;
-        int32_t tileY = sy / 8;
+        const int32_t tileX = sx / 8;
+        const int32_t tileY = sy / 8;
 
-        int32_t flippedTileX = hFlip ? (width / 8 - 1 - tileX) : tileX;
-        int32_t flippedTileY = vFlip ? (height / 8 - 1 - tileY) : tileY;
+        const int32_t flippedTileX = hFlip ? (width / 8 - 1 - tileX) : tileX;
+        const int32_t flippedTileY = vFlip ? (height / 8 - 1 - tileY) : tileY;
 
-        uint32_t tileIndex;
-
-         if (use2dMapping)
-            tileIndex = tileNumber + flippedTileX + flippedTileY * tilesPerRow;
-        else
-            tileIndex = tileNumber + flippedTileX + flippedTileY * (width / 8);
+        const uint32_t tileIndex = use2dMapping ?
+            (tileNumber + flippedTileX + flippedTileY * tilesPerRow) :
+            (tileNumber + flippedTileX + flippedTileY * (width / 8));
 
         /* finding the actual tile */
         const uint8_t *tile = objTiles + tileIndex * bytesPerTile;
-        int32_t tx = hFlip ? (7 - (sx % 8)) : (sx % 8);
-        int32_t ty = vFlip ? (7 - (sy % 8)) : (sy % 8);
+        const int32_t tx = hFlip ? (7 - (sx % 8)) : (sx % 8);
+        const int32_t ty = vFlip ? (7 - (sy % 8)) : (sy % 8);
 
         if (useColor256) {
             uint32_t paletteIndex = tile[ty * 8 + tx];

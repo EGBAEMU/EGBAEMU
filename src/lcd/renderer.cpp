@@ -174,10 +174,25 @@ namespace gbaemu::lcd
         }
     }
 
+    void Renderer::renderLoop()
+    {
+        while (true) {
+
+        }
+    }
+
     Renderer::Renderer(Memory& mem, InterruptHandler& irq, const LCDIORegs& registers) :
         memory(mem), irqHandler(irq), regs(registers)
     {
         setupLayers();
+
+        renderControl = WAIT;
+        //renderThread = std::thread(&Renderer::renderLoop, this);
+    }
+
+    Renderer::~Renderer()
+    {
+        
     }
 
     void Renderer::drawScanline(int32_t y, color_t *outBuf, int32_t stride)
@@ -185,7 +200,7 @@ namespace gbaemu::lcd
         loadSettings();
         sortLayers();
 
-        int32_t availableCycles = bitGet<uint16_t>(le(regs.DISPCNT), DISPCTL::HBLANK_INTERVAL_FREE_MASK, 0) ? 954 : 1210;
+        //int32_t availableCycles = bitGet<uint16_t>(le(regs.DISPCNT), DISPCTL::HBLANK_INTERVAL_FREE_MASK, 0) ? 954 : 1210;
         auto t = std::chrono::high_resolution_clock::now();
 
         for (const auto& l : layers) {
@@ -225,6 +240,6 @@ namespace gbaemu::lcd
         }
 #endif
 
-        std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count() << std::endl;
+        //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count() << std::endl;
     }
 }

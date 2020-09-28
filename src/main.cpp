@@ -89,15 +89,6 @@ static void CLILoop(gbaemu::debugger::DebugCLI &debugCLI)
 
 int main(int argc, char **argv)
 {
-    uint16_t x = 0b11111111;
-    uint16_t y = 0b111111111;
-    uint16_t z = 0b100000000;
-    std::cout << gbaemu::signExt<int32_t, uint16_t, 9>(x) << std::endl;
-    std::cout << gbaemu::signExt<int32_t, uint16_t, 9>(y) << std::endl;
-    std::cout << gbaemu::signExt<int32_t, uint16_t, 9>(z) << std::endl;
-
-    //return 0;
-
     if (argc <= 1) {
         std::cout << "please provide a ROM file\n";
         return 0;

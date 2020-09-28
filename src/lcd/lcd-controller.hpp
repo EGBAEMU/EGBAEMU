@@ -52,30 +52,15 @@ namespace gbaemu::lcd
         LCDController() = default;
 
       public:
-        enum RenderControl {
-            WAIT,
-            RUN,
-            EXIT
-        };
-
-        enum RenderState {
-            READY,
-            IN_PROGRESS
-        };
+        
 
       private:
         //LCDisplay &display;
         Memory &memory;
         InterruptHandler &irqHandler;
 
-        /* Describes the location and scale in the final canvas. */
-        struct
-        {
-            Canvas<color_t> &target;
-            int32_t x, y;
-            /* used for upscaling */
-            int32_t xStep, yStep;
-        } display;
+        Canvas<color_t>& display;
+        MemoryCanvas<color_t> frameBuffer;
 
         LCDColorPalette palette;
         LCDIORegs regsRef{0};
@@ -84,13 +69,8 @@ namespace gbaemu::lcd
         Renderer renderer;
 
         /* rendering is done in a separate thread */
-        RenderControl renderControl;
-        std::mutex renderControlMutex;
-
         std::mutex *canDrawToScreenMutex;
         bool *canDrawToScreen;
-
-        std::unique_ptr<std::thread> renderThread;
 
         struct
         {
@@ -128,19 +108,23 @@ namespace gbaemu::lcd
 
             *(offset + reinterpret_cast<uint8_t *>(&regsRef)) = value & mask;
         }
-      public:
-        /* call this @ ~16Mhz */
-        void renderTick();
 
         void onVCount();
         void onHBlank();
         void onVBlank();
+        void drawScanline();
+        void present();
+      public:
+        int32_t scale = 3;
 
+        void renderTick(int32_t cyclesPassed = 1);
       public:
         LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) :
-            display{disp, 0, 0, 3, 3}, memory(cpu->state.memory), irqHandler(cpu->irqHandler),
+            display(disp),
+            memory(cpu->state.memory), irqHandler(cpu->irqHandler),
             canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw),
-            renderer(cpu->state.memory, cpu->irqHandler, regs)
+            renderer(cpu->state.memory, cpu->irqHandler, regs),
+            frameBuffer(SCREEN_WIDTH, SCREEN_HEIGHT)
         {
             memory.ioHandler.registerIOMappedDevice(
                 IO_Mapped(
@@ -152,9 +136,6 @@ namespace gbaemu::lcd
                     std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
 
             scanline.buf.resize(SCREEN_WIDTH);
-
-            renderControl = WAIT;
-            //renderThread = std::make_unique<std::thread>(&LCDController::renderLoop, this);
         }
 
         std::string getLayerStatusString() const;

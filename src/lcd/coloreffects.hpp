@@ -1,6 +1,7 @@
 #ifndef COLOREFFECTS_HPP
 #define COLOREFFECTS_HPP
 
+#include <array>
 #include <memory>
 #include "defs.hpp"
 

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <future>
 #include <sstream>
 
 /*
@@ -21,7 +22,7 @@
 
 namespace gbaemu::lcd
 {
-    void LCDController::renderTick()
+    void LCDController::renderTick(int32_t cyclesPassed)
     {
         /*
             [ 960 cycles for 240 dots ][ 272 cycles for hblank ]
@@ -44,8 +45,7 @@ namespace gbaemu::lcd
         if (displayCycle == 197120 && scanline.vblanking) {
             /* on first v-blank cycle */
             onVBlank();
-            /* race conditions are acceptable here */
-            *canDrawToScreen = true;
+            present();
         } else if (!scanline.vblanking) {
             /* h-blank interrupt, scanline rendering, scanline.x increase is only done when not v-blanking */
             if (scanlineCycle == 0 && !scanline.hblanking) {
@@ -53,7 +53,7 @@ namespace gbaemu::lcd
 #if RENDERER_DECOMPOSE_LAYERS == 1
                 renderer.drawScanline(scanline.y, display.target.pixels(), display.target.getWidth());
 #else
-                renderer.drawScanline(scanline.y, display.target.pixels() + display.target.getWidth() * scanline.y);
+                drawScanline();
 #endif
             }
 
@@ -77,7 +77,7 @@ namespace gbaemu::lcd
         stat = bitSet(stat, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t>(scanline.hblanking));
         regsRef.DISPSTAT = le(stat);
 
-        ++scanline.cycle;
+        scanline.cycle += cyclesPassed;
     }
 
     void LCDController::onVCount()
@@ -110,6 +110,34 @@ namespace gbaemu::lcd
         scanline.y = 0;
     }
 
+    void LCDController::drawScanline()
+    {
+        renderer.drawScanline(scanline.y, frameBuffer.pixels() + frameBuffer.getWidth() * scanline.y);
+    }
+
+    void LCDController::present()
+    {
+        color_t *dst = display.pixels();
+        int32_t dstStride = display.getWidth();
+
+        const color_t *src = frameBuffer.pixels();
+        int32_t srcStride = frameBuffer.getWidth();
+
+        for (int32_t y = 0; y < SCREEN_HEIGHT; ++y) {
+            for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+                color_t color = src[y * srcStride + x];
+
+                for (int32_t sy = 0; sy < scale; ++sy) {
+                    for (int32_t sx = 0; sx < scale; ++sx) {
+                        dst[(y * scale + sy) * dstStride + (x * scale + sx)] = color;
+                    }
+                }
+            }
+        }
+
+        /* race conditions are acceptable here */
+        *canDrawToScreen = true;
+    }
  
     std::string LCDController::getLayerStatusString() const
     {

@@ -1,6 +1,7 @@
 #ifndef RENDERER_HPP
 #define RENDERER_HPP
 
+#include <thread>
 #include <io/memory.hpp>
 #include <io/interrupts.hpp>
 #include <lcd/defs.hpp>
@@ -13,6 +14,17 @@
 
 namespace gbaemu::lcd
 {
+    enum RenderControl {
+        WAIT,
+        RUN,
+        EXIT
+    };
+
+    enum RenderState {
+        READY,
+        IN_PROGRESS
+    };
+
     class Renderer
     {
       private:
@@ -32,6 +44,10 @@ namespace gbaemu::lcd
         /* all layers */
         std::array<std::shared_ptr<Layer>, 8> layers;
 
+        RenderControl renderControl;
+        std::mutex renderControlMutex;
+        std::thread renderThread;
+
         void setupLayers();
         void sortLayers();
         void loadSettings();
@@ -39,8 +55,11 @@ namespace gbaemu::lcd
         void blendDefault(color_t *outBuf);
         void blendBrightness(color_t *outBuf);
         void blendAlpha(color_t *outBuf);
+
+        void renderLoop();
       public:
         Renderer(Memory& mem, InterruptHandler& irq, const LCDIORegs& registers);
+        ~Renderer();
         void drawScanline(int32_t y, color_t *outBuf, int32_t stride = 0);
     };
 }

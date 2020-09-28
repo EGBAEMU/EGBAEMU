@@ -60,7 +60,7 @@ namespace gbaemu::lcd
         OBJ() {};
         OBJ(const uint8_t *attributes, int32_t index);
         std::string toString() const;
-        color_t pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, LCDColorPalette& palette, bool use2dMapping) const;
+        color_t pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, const LCDColorPalette& palette, bool use2dMapping) const;
         bool intersectsWithScanline(int32_t y) const;
     };
 
