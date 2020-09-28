@@ -30,30 +30,32 @@ namespace gbaemu::lcd
                 fixedToFloat<uint16_t, 8, 7, common::math::real_t>(d)});
     }
 
-    OBJ::OBJ(const uint8_t *attributes, uint16_t prioFilter, int32_t index)
+    OBJ::OBJ(const uint8_t *attributes, int32_t index)
     {
         /* by default */
         visible = false;
+        enabled = true;
         objIndex = index;
 
         OBJAttribute attr = getAttribute(attributes, objIndex);
         priority = static_cast<uint16_t>(bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PRIORITY_MASK, OBJ_ATTRIBUTE::PRIORITY_OFFSET));
 
         /* this OBJ does not belong on the current layer */
-        if (priority != prioFilter)
-            return;
+        //if (priority != prioFilter)
+        //    return;
 
         bool useRotScale = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::ROT_SCALE_MASK, OBJ_ATTRIBUTE::ROT_SCALE_OFFSET);
 
         if (!useRotScale) {
-            bool disabled = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::DISABLE_MASK, OBJ_ATTRIBUTE::DISABLE_OFFSET);
+            enabled = !bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::DISABLE_MASK, OBJ_ATTRIBUTE::DISABLE_OFFSET);
 
-            if (disabled)
+            if (!enabled)
                 return;
 
             vFlip = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::V_FLIP_MASK, OBJ_ATTRIBUTE::V_FLIP_OFFSET);
             hFlip = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::H_FLIP_MASK, OBJ_ATTRIBUTE::H_FLIP_OFFSET);
         } else {
+            enabled = true;
         }
 
         /* 16x16 palette */
@@ -173,6 +175,8 @@ namespace gbaemu::lcd
         }
 
         visible = true;
+
+        cyclesRequired = width * height * (doubleSized || useRotScale ? 2 : 1) + (doubleSized || useRotScale ? 10 : 0);
     }
 
     std::string OBJ::toString() const
@@ -222,7 +226,67 @@ namespace gbaemu::lcd
         }
     }
 
-    OBJLayer::OBJLayer(Memory& mem, LCDColorPalette& plt, const LCDIORegs& ioRegs, uint16_t prio) : memory(mem), palette(plt), regs(ioRegs), objects(128)
+    bool OBJ::intersectsWithScanline(int32_t y) const
+    {
+        return true;
+    }
+
+    std::vector<OBJ>::const_iterator OBJLayer::getLastRenderedOBJ(int32_t cycleBudget) const
+    {
+        auto it = objects.cbegin();
+        int32_t usedCycles = 0;
+
+        for (; it != objects.cend(); it++) {
+            usedCycles += it->cyclesRequired;
+
+            if (usedCycles > cycleBudget)
+                break;
+        }
+
+        return it;
+    }
+
+    OBJManager::OBJManager() : allObjects(128)
+    {
+
+    }
+
+    void OBJManager::loadOBJs(const uint8_t *attributes)
+    {
+        allObjects.resize(0);
+
+        //for (auto& obj : objectsByPriority)
+        //    obj.resize(0);
+
+        for (int32_t objIndex = 0; objIndex < 128; ++objIndex) {
+            OBJ obj(attributes, objIndex);
+
+            if (!obj.enabled)
+                continue;
+
+            allObjects.push_back(obj);
+            //objectsByPriority[obj.priority].push_back(obj);            
+        }
+    }
+
+    std::vector<OBJ>::const_iterator OBJManager::lastOBJ(int32_t y, int32_t cycleBudget) const
+    {
+        auto it = allObjects.cbegin();
+        int32_t cyclesUsed = 0;
+
+        for (; it != allObjects.cend(); it++) {
+            if (!it->visible || !it->enabled || !it->intersectsWithScanline(y))
+                continue;
+
+            if (cyclesUsed += it->cyclesRequired > cycleBudget)
+                break;
+        }
+
+        return it;
+    }
+
+    OBJLayer::OBJLayer(Memory& mem, LCDColorPalette& plt, const LCDIORegs& ioRegs, OBJManager& objMgr, uint16_t prio) :
+        memory(mem), palette(plt), regs(ioRegs), objManager(objMgr), objects(128)
     {
         /* OBJ layers are always enabled */
         enabled = true;
@@ -266,12 +330,16 @@ namespace gbaemu::lcd
         objects.resize(0);
 
         for (int32_t objIndex = 0; objIndex < 128; ++objIndex) {
-            OBJ obj(attributes, priority, objIndex);
+            OBJ obj(attributes, objIndex);
+
+            if (obj.priority != priority)
+                continue;
 
             if (obj.visible)
                 objects.push_back(obj);
         }
 
+        //objManager.loadOBJs(attributes);
         asFirstTarget = bitGet<uint16_t>(le(regs.BLDCNT), BLDCNT::TARGET_MASK, BLDCNT::OBJ_FIRST_TARGET_OFFSET);
         asSecondTarget = bitGet<uint16_t>(le(regs.BLDCNT), BLDCNT::TARGET_MASK, BLDCNT::OBJ_SECOND_TARGET_OFFSET);
     }
@@ -308,7 +376,6 @@ namespace gbaemu::lcd
                     break;
                 }
             }
-
 
             fx += 1.0;
         }

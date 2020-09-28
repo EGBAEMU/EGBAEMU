@@ -12,10 +12,10 @@ namespace gbaemu::lcd
         backgroundLayers[2] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG2);
         backgroundLayers[3] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG3);
 
-        objLayers[0] = std::make_shared<OBJLayer>(memory, palette, regs, 0);
-        objLayers[1] = std::make_shared<OBJLayer>(memory, palette, regs, 1);
-        objLayers[2] = std::make_shared<OBJLayer>(memory, palette, regs, 2);
-        objLayers[3] = std::make_shared<OBJLayer>(memory, palette, regs, 3);
+        objLayers[0] = std::make_shared<OBJLayer>(memory, palette, regs, objManager, 0);
+        objLayers[1] = std::make_shared<OBJLayer>(memory, palette, regs, objManager, 1);
+        objLayers[2] = std::make_shared<OBJLayer>(memory, palette, regs, objManager, 2);
+        objLayers[3] = std::make_shared<OBJLayer>(memory, palette, regs, objManager, 3);
 
         for (uint32_t i = 0; i < 8; ++i) {
             if (i <= 3)
@@ -185,11 +185,14 @@ namespace gbaemu::lcd
         loadSettings();
         sortLayers();
 
+        int32_t availableCycles = bitGet<uint16_t>(le(regs.DISPCNT), DISPCTL::HBLANK_INTERVAL_FREE_MASK, 0) ? 954 : 1210;
         auto t = std::chrono::high_resolution_clock::now();
 
-        for (const auto& l : layers)
-            if (l->enabled)
+        for (const auto& l : layers) {
+            if (l->enabled) {
                 l->drawScanline(y);
+            }
+        }
 
 #if RENDERER_DECOMPOSE_LAYERS == 1
         {
@@ -222,6 +225,6 @@ namespace gbaemu::lcd
         }
 #endif
 
-        //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count() << std::endl;
+        std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count() << std::endl;
     }
 }

@@ -98,6 +98,17 @@ namespace gbaemu
         IntType result = value % upperBound;
         return (result >= 0) ? result : (result + upperBound);
     }
+
+    template <class IntType>
+    IntType ultraFastMod(IntType value, IntType mod)
+    {
+        if (0 <= value && value < mod)
+            return value;
+        else if (value < 0)
+            return value + mod;
+        else
+            return value - mod;
+    }
 } // namespace gbaemu
 
 template uint16_t gbaemu::bitSet<uint16_t>(uint16_t, uint16_t, uint16_t, uint16_t);
@@ -128,3 +139,5 @@ template double gbaemu::clamp<double>(const double &, const double &, const doub
 template int32_t gbaemu::clamp<int32_t>(const int32_t &, const int32_t &, const int32_t &);
 
 template int32_t gbaemu::fastMod<int32_t>(int32_t, int32_t);
+
+template int32_t gbaemu::ultraFastMod<int32_t>(int32_t, int32_t);

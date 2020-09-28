@@ -49,6 +49,9 @@ namespace gbaemu
     template <class IntType>
     IntType fastMod(IntType value, IntType upperBound);
 
+    template <class IntType>
+    IntType ultraFastMod(IntType value, IntType mod);
+
 #define STRINGIFY(x) (#x)
 
 #define STRINGIFY_CASE_ID(x) \

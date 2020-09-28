@@ -39,6 +39,7 @@ namespace gbaemu::lcd
         int32_t objIndex;
       public:
         bool visible = false;
+        bool enabled;
         
         OBJShape shape;
         OBJMode mode;
@@ -51,14 +52,29 @@ namespace gbaemu::lcd
         uint16_t tilesPerRow;
         uint16_t bytesPerTile;
         OBJAffineTransform affineTransform;
+        int32_t cyclesRequired;
       private:
         static OBJAttribute getAttribute(const uint8_t *attributes, uint32_t index);
         static std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(const uint8_t *attributes, uint32_t index);
       public:
         OBJ() {};
-        OBJ(const uint8_t *attributes, uint16_t prioFilter, int32_t index);
+        OBJ(const uint8_t *attributes, int32_t index);
         std::string toString() const;
         color_t pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, LCDColorPalette& palette, bool use2dMapping) const;
+        bool intersectsWithScanline(int32_t y) const;
+    };
+
+    /* a container class storing all objects in the scene */
+    class OBJManager
+    {
+      public:
+        std::vector<OBJ> allObjects;
+        //std::array<std::vector<OBJ>, 4> objectsByPriority;
+
+        OBJManager();
+        void loadOBJs(const uint8_t *attributes);
+        /* returns the OBJ after the last OBJ that fits into the cycle budget in that scanline */
+        std::vector<OBJ>::const_iterator lastOBJ(int32_t y, int32_t cycleBudget) const;
     };
 
     class OBJLayer : public Layer
@@ -81,11 +97,14 @@ namespace gbaemu::lcd
         Memory& memory;
         LCDColorPalette& palette;
         const LCDIORegs& regs;
+        OBJManager& objManager;
 
         std::vector<OBJ> objects;
 
+        std::vector<OBJ>::const_iterator getLastRenderedOBJ(int32_t cycleBudget) const;
+
       public:
-        OBJLayer(Memory& mem, LCDColorPalette& plt, const LCDIORegs& ioRegs, uint16_t prio);
+        OBJLayer(Memory& mem, LCDColorPalette& plt, const LCDIORegs& ioRegs, OBJManager& objMgr, uint16_t prio);
         void setMode(BGMode bgMode, bool mapping2d);
         void loadOBJs();
         void drawScanline(int32_t y) override;
