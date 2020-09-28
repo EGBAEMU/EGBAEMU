@@ -29,6 +29,11 @@ namespace gbaemu::lcd
         vec2 screenRef{0, 0};
     };
 
+    struct IOBJAffineTransform
+    {
+        common::math::vect<2, int32_t> origin{0, 0}, d{0x80, 0}, dm{0, 0x80}, screenRef{0, 0};
+    };
+
     PACK_STRUCT_DEF(OBJAttribute,
                     uint16_t attribute[3];);
 
@@ -56,12 +61,13 @@ namespace gbaemu::lcd
       private:
         static OBJAttribute getAttribute(const uint8_t *attributes, uint32_t index);
         static std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(const uint8_t *attributes, uint32_t index);
+        static std::tuple<common::math::vect<2, int32_t>, common::math::vect<2, int32_t>> getRotScaleParametersI(const uint8_t *attributes, uint32_t index);
       public:
         OBJ() {};
         OBJ(const uint8_t *attributes, int32_t index);
         std::string toString() const;
         color_t pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, const LCDColorPalette& palette, bool use2dMapping) const;
-        bool intersectsWithScanline(int32_t y) const;
+        bool intersectsWithScanline(real_t fy) const;
     };
 
     /* a container class storing all objects in the scene */
@@ -106,7 +112,7 @@ namespace gbaemu::lcd
       public:
         OBJLayer(Memory& mem, LCDColorPalette& plt, const LCDIORegs& ioRegs, OBJManager& objMgr, uint16_t prio);
         void setMode(BGMode bgMode, bool mapping2d);
-        void loadOBJs();
+        void loadOBJs(int32_t y);
         void drawScanline(int32_t y) override;
         std::string toString() const;
     };

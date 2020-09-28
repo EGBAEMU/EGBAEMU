@@ -48,9 +48,11 @@ namespace gbaemu::lcd
         std::mutex renderControlMutex;
         std::thread renderThread;
 
+        bool drawOdd = true;
+
         void setupLayers();
         void sortLayers();
-        void loadSettings();
+        void loadSettings(int32_t y);
 
         void blendDefault(color_t *outBuf);
         void blendBrightness(color_t *outBuf);

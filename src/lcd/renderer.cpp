@@ -33,7 +33,7 @@ namespace gbaemu::lcd
         });
     }
 
-    void Renderer::loadSettings()
+    void Renderer::loadSettings(int32_t y)
     {
         /* copy registers, they cannot be modified when rendering */
         uint32_t bgMode = le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
@@ -50,7 +50,7 @@ namespace gbaemu::lcd
 
         for (auto& l : objLayers) {
             l->setMode(static_cast<BGMode>(bgMode), use2dMapping);
-            l->loadOBJs();
+            l->loadOBJs(y);
         }
 
         palette.loadPalette(memory);
@@ -176,8 +176,64 @@ namespace gbaemu::lcd
 
     void Renderer::renderLoop()
     {
+        return;
         while (true) {
+            renderControlMutex.lock();
+            auto ctrl = renderControl;
+            
 
+            if (ctrl == WAIT) {
+                renderControlMutex.unlock();
+                continue;
+            }
+
+            if (ctrl == EXIT) {
+                renderControlMutex.unlock();
+                break;
+            }
+
+            if (ctrl == RUN) {
+                auto t = std::chrono::high_resolution_clock::now();
+
+                for (const auto& l : layers) {
+                    if (l->enabled) {
+                        l->drawScanline(0);
+                    }
+                }
+
+#if RENDERER_DECOMPOSE_LAYERS == 1
+                {
+                    int32_t i = 0;
+
+                    for (const auto& l : layers) {
+                        if (l->enabled) {
+                            int32_t yOff = (i / 2) * SCREEN_HEIGHT;
+                            int32_t xOff = (i % 2) * SCREEN_WIDTH;
+
+                            for (int32_t x = 0; x < SCREEN_WIDTH; ++x);
+                                outBuf[(yOff + y) * stride + (x + xOff)] = l->scanline[x].color;
+                        }
+
+                        ++i;
+                    }
+                }
+#else
+                switch (colorEffects.getEffect()) {
+                    case BLDCNT::ColorSpecialEffect::AlphaBlending:
+                        blendAlpha(0);
+                        break;
+                    case BLDCNT::ColorSpecialEffect::BrightnessIncrease:
+                    case BLDCNT::ColorSpecialEffect::BrightnessDecrease:
+                        blendBrightness(0);
+                        break;
+                    default: case BLDCNT::ColorSpecialEffect::None:
+                        blendDefault(0);
+                        break;
+                }
+#endif
+                ctrl = WAIT;
+                renderControlMutex.unlock();
+            }
         }
     }
 
@@ -186,21 +242,28 @@ namespace gbaemu::lcd
     {
         setupLayers();
 
-        renderControl = WAIT;
+        //renderControl = WAIT;
         //renderThread = std::thread(&Renderer::renderLoop, this);
     }
 
     Renderer::~Renderer()
     {
-        
+        //renderThread.join();
     }
 
     void Renderer::drawScanline(int32_t y, color_t *outBuf, int32_t stride)
     {
-        loadSettings();
-        sortLayers();
+        /*
+        if (y == 0)
+            drawOdd = !drawOdd;
 
-        //int32_t availableCycles = bitGet<uint16_t>(le(regs.DISPCNT), DISPCTL::HBLANK_INTERVAL_FREE_MASK, 0) ? 954 : 1210;
+        if (drawOdd == (y % 2 == 0))
+            return;
+         */
+
+        loadSettings(y);
+        sortLayers();
+        
         auto t = std::chrono::high_resolution_clock::now();
 
         for (const auto& l : layers) {
@@ -209,23 +272,6 @@ namespace gbaemu::lcd
             }
         }
 
-#if RENDERER_DECOMPOSE_LAYERS == 1
-        {
-            int32_t i = 0;
-
-            for (const auto& l : layers) {
-                if (l->enabled) {
-                    int32_t yOff = (i / 2) * SCREEN_HEIGHT;
-                    int32_t xOff = (i % 2) * SCREEN_WIDTH;
-
-                    for (int32_t x = 0; x < SCREEN_WIDTH; ++x);
-                        outBuf[(yOff + y) * stride + (x + xOff)] = l->scanline[x].color;
-                }
-
-                ++i;
-            }
-        }
-#else
         switch (colorEffects.getEffect()) {
             case BLDCNT::ColorSpecialEffect::AlphaBlending:
                 blendAlpha(outBuf);
@@ -238,8 +284,7 @@ namespace gbaemu::lcd
                 blendDefault(outBuf);
                 break;
         }
-#endif
 
-        //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count() << std::endl;
+        //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count() << std::endl;
     }
 }

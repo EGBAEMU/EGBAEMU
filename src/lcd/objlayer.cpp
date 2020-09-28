@@ -30,6 +30,25 @@ namespace gbaemu::lcd
                 fixedToFloat<uint16_t, 8, 7, common::math::real_t>(d)});
     }
 
+    std::tuple<common::math::vect<2, int32_t>, common::math::vect<2, int32_t>> OBJ::getRotScaleParametersI(const uint8_t *attributes, uint32_t index)
+    {
+        const uint16_t *uints = reinterpret_cast<const uint16_t *>(attributes);
+        uint32_t group = index * 4 * 4;
+
+        uint16_t a = le(uints[group +      3]);
+        uint16_t c = le(uints[group + 8  + 3]);
+        uint16_t b = le(uints[group + 4  + 3]);
+        uint16_t d = le(uints[group + 12 + 3]);
+
+        return std::make_tuple<common::math::vect<2, int32_t>, common::math::vect<2, int32_t>>(
+            common::math::vect<2, int32_t>{
+                signExt<int32_t, uint16_t>(a, 16),
+                signExt<int32_t, uint16_t>(c, 16)},
+            common::math::vect<2, int32_t>{
+                signExt<int32_t, uint16_t>(b, 16),
+                signExt<int32_t, uint16_t>(d, 16)});
+    }
+
     OBJ::OBJ(const uint8_t *attributes, int32_t index)
     {
         /* by default */
@@ -223,9 +242,69 @@ namespace gbaemu::lcd
         }
     }
 
-    bool OBJ::intersectsWithScanline(int32_t y) const
+    bool OBJ::intersectsWithScanline(real_t fy) const
     {
-        return true;
+        const vec2 temp = affineTransform.dm * (fy - affineTransform.screenRef[1]) + affineTransform.origin;
+        
+        //const vec2 s0 = affineTransform.d * (0 - affineTransform.screenRef[0]) + temp;
+        //const vec2 s1 = affineTransform.d * (SCREEN_WIDTH - 1 - affineTransform.screenRef[0]) + temp;
+
+        const vec2 s0 = affineTransform.d * (0 - affineTransform.screenRef[0]) +
+            affineTransform.dm * (fy - affineTransform.screenRef[1]) +
+            affineTransform.origin;
+        const vec2 s1 = affineTransform.d * (SCREEN_WIDTH - 1 - affineTransform.screenRef[0]) +
+            affineTransform.dm * (fy - affineTransform.screenRef[1]) +
+            affineTransform.origin;
+
+        const vec2 d = s1 - s0;
+        const vec2 ortho{d[1], -d[0]};
+
+        /*
+            (0, 0) = d * (0 - refx) + dm * (y - refy) + orgx
+            -orgx - d * (0 - refx) = y * dm - refy * dm
+            -orgx - d * (0 - refx) + refy * dm = y * dm
+            (-orgx - d * (0 - refx) + refy * dm) * dm^-1 = y
+            (-orgx - d * (0 - refx) * dm^-1) + refy = y
+        */
+
+        /* check if s0 -> s1 intersects with the rectangle [0, 0, width - 1, height - 1] */
+
+        /*
+            s = lerp(s0, s1, t) for 0 <= t <= 1
+
+            sx = w = s0x * (1 - t) + s1x * t = s0x - s0x*t + s1x * t
+
+            s0x - s0x*t + s1x * t = w
+            - s0x*t + s1x * t = w - s0x
+            t * (s1x - s0x) = w - s0x
+            t = (w - s0x) / (s1x - s0x)
+         */
+
+        /*
+        const real_t dx = s1[0] - s0[0];
+        const real_t dy = s1[1] - s0[1];
+
+        const real_t t0 = (width - 1 - s0[0]) / dx;
+        const real_t t1 = (0 - s0[0]) / dx;
+        const real_t t2 = (height - 1 - s0[1]) / dy;
+        const real_t t3 = (0 - s0[1]) / dy;
+
+        return std::max(t1, t3) <= std::min(t0, t2);
+         */
+
+        const real_t dots[] = {
+            (vec2{0, 0} - s0).dot(ortho),
+            (vec2{static_cast<real_t>(width) - 1, 0} - s0).dot(ortho),
+            (vec2{0, static_cast<real_t>(height) - 1} - s0).dot(ortho),
+            (vec2{static_cast<real_t>(width) - 1, static_cast<real_t>(height) - 1} - s0).dot(ortho)
+        };
+
+        const bool negDot = std::any_of(dots, dots + 4, [](real_t r) { return r <= 0; });
+        const bool posDot = std::any_of(dots, dots + 4, [](real_t r) { return r >= 0; });
+
+        //BREAK(!negDot || !posDot);
+
+        return negDot && posDot;
     }
 
     std::vector<OBJ>::const_iterator OBJLayer::getLastRenderedOBJ(int32_t cycleBudget) const
@@ -322,14 +401,15 @@ namespace gbaemu::lcd
         mosaicHeight = bitGet(le(regs.MOSAIC), MOSAIC::OBJ_MOSAIC_VSIZE_MASK, MOSAIC::OBJ_MOSAIC_VSIZE_OFFSET) + 1;
     }
 
-    void OBJLayer::loadOBJs()
+    void OBJLayer::loadOBJs(int32_t y)
     {
+        real_t fy = static_cast<real_t>(y);
         objects.resize(0);
 
         for (int32_t objIndex = 0; objIndex < 128; ++objIndex) {
             OBJ obj(attributes, objIndex);
 
-            if (obj.priority != priority)
+            if (obj.priority != priority || !obj.intersectsWithScanline(fy))
                 continue;
 
             if (obj.visible)
@@ -346,15 +426,28 @@ namespace gbaemu::lcd
         const real_t fy = static_cast<real_t>(y);
         real_t fx = 0;
 
+        /*
+        std::vector<const OBJ *> onScanline;
+        onScanline.reserve(128);
+        for (size_t i = 0; i < objects.size(); ++i)
+            if (objects[i].intersectsWithScanline(fy))
+                onScanline.push_back(objects.data() + i);
+         */
+
         for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
             /* clear */
             scanline[x] = Fragment(TRANSPARENT, asFirstTarget, asSecondTarget, false);
 
             /* iterate over the objects beginning with OBJ0 (on top) */
             for (auto obj = objects.cbegin(); obj != objects.cend(); ++obj) {
+                //const auto obj = *pObj;
                 const vec2 s = obj->affineTransform.d * (fx - obj->affineTransform.screenRef[0]) +
                     obj->affineTransform.dm * (fy - obj->affineTransform.screenRef[1]) +
                     obj->affineTransform.origin;
+
+                //const common::math::vect<2, int32_t> s = obj->affineTransform.d * (x - obj->affineTransform.screenRef[0]) +
+                //    obj->affineTransform.dm * (y - obj->affineTransform.screenRef[1]) +
+                //    obj->affineTransform.origin;
 
                 const int32_t sx = static_cast<int32_t>(s[0]);
                 const int32_t sy = static_cast<int32_t>(s[1]);
