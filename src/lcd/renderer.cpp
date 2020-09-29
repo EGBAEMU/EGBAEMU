@@ -2,7 +2,6 @@
 
 #include <optional>
 
-
 namespace gbaemu::lcd
 {
     void Renderer::setupLayers()
@@ -27,8 +26,7 @@ namespace gbaemu::lcd
 
     void Renderer::sortLayers()
     {
-        std::stable_sort(layers.begin(), layers.end(), [](const std::shared_ptr<Layer>& pa, const std::shared_ptr<Layer>& pb) -> bool
-        {
+        std::stable_sort(layers.begin(), layers.end(), [](const std::shared_ptr<Layer> &pa, const std::shared_ptr<Layer> &pb) -> bool {
             return *pa < *pb;
         });
     }
@@ -48,7 +46,7 @@ namespace gbaemu::lcd
 
         bool use2dMapping = !(le(regs.DISPCNT) & DISPCTL::OBJ_CHAR_VRAM_MAPPING_MASK);
 
-        for (auto& l : objLayers) {
+        for (auto &l : objLayers) {
             l->setMode(static_cast<BGMode>(bgMode), use2dMapping);
             l->loadOBJs(y);
         }
@@ -62,10 +60,10 @@ namespace gbaemu::lcd
 
     void Renderer::blendDefault(color_t *outBuf)
     {
-        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
             color_t finalColor = palette.getBackdropColor();
 
-            for (const auto& l : layers) {
+            for (const auto &l : layers) {
                 if (!l->enabled)
                     continue;
 
@@ -84,10 +82,10 @@ namespace gbaemu::lcd
 
     void Renderer::blendBrightness(color_t *outBuf)
     {
-        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
             color_t finalColor = palette.getBackdropColor();
 
-            for (const auto& l : layers) {
+            for (const auto &l : layers) {
                 if (!l->enabled)
                     continue;
 
@@ -110,7 +108,7 @@ namespace gbaemu::lcd
 
     void Renderer::blendAlpha(color_t *outBuf)
     {
-        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
             auto it = layers.cbegin();
             bool asFirst = false;
             bool asSecond = false;
@@ -119,11 +117,11 @@ namespace gbaemu::lcd
             color_t finalColor = palette.getBackdropColor();
 
             for (; it != layers.cend(); it++) {
-                const auto& l = *it;
+                const auto &l = *it;
 
                 if (!l->enabled)
                     continue;
-                
+
                 Fragment frag = l->scanline[x];
 
                 if (frag.color == TRANSPARENT)
@@ -148,7 +146,7 @@ namespace gbaemu::lcd
             /* find second color */
             if (it != layers.cend()) {
                 for (it++; it != layers.cend(); it++) {
-                    const auto& l = *it;
+                    const auto &l = *it;
 
                     if (!l->enabled)
                         continue;
@@ -180,7 +178,6 @@ namespace gbaemu::lcd
         while (true) {
             renderControlMutex.lock();
             auto ctrl = renderControl;
-            
 
             if (ctrl == WAIT) {
                 renderControlMutex.unlock();
@@ -195,7 +192,7 @@ namespace gbaemu::lcd
             if (ctrl == RUN) {
                 auto t = std::chrono::high_resolution_clock::now();
 
-                for (const auto& l : layers) {
+                for (const auto &l : layers) {
                     if (l->enabled) {
                         l->drawScanline(0);
                     }
@@ -205,13 +202,14 @@ namespace gbaemu::lcd
                 {
                     int32_t i = 0;
 
-                    for (const auto& l : layers) {
+                    for (const auto &l : layers) {
                         if (l->enabled) {
                             int32_t yOff = (i / 2) * SCREEN_HEIGHT;
                             int32_t xOff = (i % 2) * SCREEN_WIDTH;
 
-                            for (int32_t x = 0; x < SCREEN_WIDTH; ++x);
-                                outBuf[(yOff + y) * stride + (x + xOff)] = l->scanline[x].color;
+                            for (int32_t x = 0; x < SCREEN_WIDTH; ++x)
+                                ;
+                            outBuf[(yOff + y) * stride + (x + xOff)] = l->scanline[x].color;
                         }
 
                         ++i;
@@ -226,7 +224,8 @@ namespace gbaemu::lcd
                     case BLDCNT::ColorSpecialEffect::BrightnessDecrease:
                         blendBrightness(0);
                         break;
-                    default: case BLDCNT::ColorSpecialEffect::None:
+                    default:
+                    case BLDCNT::ColorSpecialEffect::None:
                         blendDefault(0);
                         break;
                 }
@@ -237,8 +236,7 @@ namespace gbaemu::lcd
         }
     }
 
-    Renderer::Renderer(Memory& mem, InterruptHandler& irq, const LCDIORegs& registers) :
-        memory(mem), irqHandler(irq), regs(registers)
+    Renderer::Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers) : memory(mem), irqHandler(irq), regs(registers)
     {
         setupLayers();
 
@@ -263,10 +261,10 @@ namespace gbaemu::lcd
 
         loadSettings(y);
         sortLayers();
-        
+
         auto t = std::chrono::high_resolution_clock::now();
 
-        for (const auto& l : layers) {
+        for (const auto &l : layers) {
             if (l->enabled) {
                 l->drawScanline(y);
             }
@@ -280,11 +278,12 @@ namespace gbaemu::lcd
             case BLDCNT::ColorSpecialEffect::BrightnessDecrease:
                 blendBrightness(outBuf);
                 break;
-            default: case BLDCNT::ColorSpecialEffect::None:
+            default:
+            case BLDCNT::ColorSpecialEffect::None:
                 blendDefault(outBuf);
                 break;
         }
 
         //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count() << std::endl;
     }
-}
+} // namespace gbaemu::lcd

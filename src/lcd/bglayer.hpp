@@ -1,24 +1,21 @@
 #ifndef BGLAYER_HPP
 #define BGLAYER_HPP
 
-#include <lcd/palette.hpp>
 #include <io/memory.hpp>
+#include <lcd/palette.hpp>
 
 #include <memory>
 
-
 namespace gbaemu::lcd
 {
-    enum BGIndex
-    {
+    enum BGIndex {
         BG0 = 0,
         BG1,
         BG2,
         BG3
     };
 
-    struct BGAffineTransform
-    {
+    struct BGAffineTransform {
         vec2 d;
         vec2 dm;
         vec2 origin;
@@ -26,8 +23,7 @@ namespace gbaemu::lcd
 
     typedef uint16_t BGMode0Entry;
 
-    struct BGMode0EntryAttributes
-    {
+    struct BGMode0EntryAttributes {
         BGMode0EntryAttributes(BGMode0Entry entry);
 
         uint16_t tileNumber;
@@ -38,7 +34,7 @@ namespace gbaemu::lcd
     class BGLayer : public Layer
     {
       public:
-        BGIndex index;      
+        BGIndex index;
         /* settings */
         bool useOtherFrameBuffer;
         bool mosaicEnabled;
@@ -54,13 +50,13 @@ namespace gbaemu::lcd
 
         /* this is not the actual bg mode, but the mode in which this Background should be rendered */
         BGMode mode;
-        LCDColorPalette& palette;
-        Memory& memory;
+        LCDColorPalette &palette;
+        Memory &memory;
         uint16_t size;
         BGAffineTransform affineTransform;
 
-        BGLayer(LCDColorPalette& plt, Memory& mem, BGIndex idx);
-        ~BGLayer() { }
+        BGLayer(LCDColorPalette &plt, Memory &mem, BGIndex idx);
+        ~BGLayer() {}
         void loadSettings(BGMode bgMode, const LCDIORegs &regs);
         std::string toString() const;
 
@@ -73,8 +69,8 @@ namespace gbaemu::lcd
         void drawScanline(int32_t y) override;
 
         /* used for sorting */
-        bool operator <(const BGLayer& other) const noexcept;
+        bool operator<(const BGLayer &other) const noexcept;
     };
-}
+} // namespace gbaemu::lcd
 
 #endif /* BGLAYER_HPP */

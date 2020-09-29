@@ -2,10 +2,9 @@
 
 #include <sstream>
 
-
 namespace gbaemu::lcd
 {
-    void WindowRegion::load(const LCDIORegs& regs)
+    void WindowRegion::load(const LCDIORegs &regs)
     {
         switch (id) {
             case WIN0:
@@ -19,8 +18,9 @@ namespace gbaemu::lcd
                 break;
             case OUTSIDE:
                 enabled = bitGet<uint16_t>(le(regs.DISPCNT), 1, 13) ||
-                    bitGet<uint16_t>(le(regs.DISPCNT), 1, 14) ||
-                    bitGet<uint16_t>(le(regs.DISPCNT), 1, 15);;
+                          bitGet<uint16_t>(le(regs.DISPCNT), 1, 14) ||
+                          bitGet<uint16_t>(le(regs.DISPCNT), 1, 15);
+                ;
                 break;
         }
 
@@ -62,7 +62,7 @@ namespace gbaemu::lcd
 
         for (int32_t i = 0; i < 4; ++i)
             bg[i] = bitGet<uint16_t>(control, WININOUT::ENABLE_MASK, i + maskOff);
-        
+
         obj = bitGet<uint16_t>(control, WININOUT::ENABLE_MASK, 4 + maskOff);
         colorEffect = bitGet<uint16_t>(control, WININOUT::ENABLE_MASK, 5 + maskOff);
     }
@@ -73,10 +73,18 @@ namespace gbaemu::lcd
         ss << "id: ";
 
         switch (id) {
-            case WIN0: ss << "WIN0"; break;
-            case WIN1: ss << "WIN1"; break;
-            case OBJ_WIN: ss << "OBJ"; break;
-            case OUTSIDE: ss << "OUTSIDE"; break;
+            case WIN0:
+                ss << "WIN0";
+                break;
+            case WIN1:
+                ss << "WIN1";
+                break;
+            case OBJ_WIN:
+                ss << "OBJ";
+                break;
+            case OUTSIDE:
+                ss << "OUTSIDE";
+                break;
         }
 
         ss << '\n';
@@ -96,12 +104,12 @@ namespace gbaemu::lcd
     bool WindowFeature::anyWindowEnabled() const
     {
         return windows[0].enabled ||
-            windows[1].enabled ||
-            windows[2].enabled ||
-            windows[3].enabled;
+               windows[1].enabled ||
+               windows[2].enabled ||
+               windows[3].enabled;
     }
 
-    void WindowFeature::composeTrivialScanline(const std::array<std::shared_ptr<Layer>, 8>& layers, color_t *target)
+    void WindowFeature::composeTrivialScanline(const std::array<std::shared_ptr<Layer>, 8> &layers, color_t *target)
     {
         for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
             color_t finalColor = backdropColor;
@@ -130,25 +138,25 @@ namespace gbaemu::lcd
         windows[3].id = OUTSIDE;
     }
 
-    void WindowFeature::load(const LCDIORegs& regs, color_t bdColor)
+    void WindowFeature::load(const LCDIORegs &regs, color_t bdColor)
     {
-        for (auto& win : windows)
+        for (auto &win : windows)
             win.load(regs);
 
         colorEffects.load(regs);
         backdropColor = bdColor;
     }
 
-    const WindowRegion& WindowFeature::getActiveWindow(int32_t x, int32_t y) const
+    const WindowRegion &WindowFeature::getActiveWindow(int32_t x, int32_t y) const
     {
-        for (const auto& win : windows)
+        for (const auto &win : windows)
             if (win.inside(x, y))
                 return win;
 
         return *windows.crbegin();
     }
 
-    void WindowFeature::composeScanline(const std::array<std::shared_ptr<Layer>, 8>& layers, color_t *target)
+    void WindowFeature::composeScanline(const std::array<std::shared_ptr<Layer>, 8> &layers, color_t *target)
     {
         /*
         if (!anyWindowEnabled()) {
@@ -159,4 +167,4 @@ namespace gbaemu::lcd
          */
         composeTrivialScanline(layers, target);
     }
-}
+} // namespace gbaemu::lcd

@@ -1,7 +1,7 @@
 #include "objlayer.hpp"
 
-#include <sstream>
 #include <array>
+#include <sstream>
 
 namespace gbaemu::lcd
 {
@@ -10,15 +10,15 @@ namespace gbaemu::lcd
         auto uints = reinterpret_cast<const uint16_t *>(attributes + (index * 0x8));
         return OBJAttribute{le(uints[0]), le(uints[1]), le(uints[2])};
     }
-    
+
     std::tuple<common::math::vec<2>, common::math::vec<2>> OBJ::getRotScaleParameters(const uint8_t *attributes, uint32_t index)
     {
         const uint16_t *uints = reinterpret_cast<const uint16_t *>(attributes);
         uint32_t group = index * 4 * 4;
 
-        uint16_t a = le(uints[group +      3]);
-        uint16_t c = le(uints[group + 8  + 3]);
-        uint16_t b = le(uints[group + 4  + 3]);
+        uint16_t a = le(uints[group + 3]);
+        uint16_t c = le(uints[group + 8 + 3]);
+        uint16_t b = le(uints[group + 4 + 3]);
         uint16_t d = le(uints[group + 12 + 3]);
 
         return std::make_tuple<common::math::vec<2>, common::math::vec<2>>(
@@ -35,9 +35,9 @@ namespace gbaemu::lcd
         const uint16_t *uints = reinterpret_cast<const uint16_t *>(attributes);
         uint32_t group = index * 4 * 4;
 
-        uint16_t a = le(uints[group +      3]);
-        uint16_t c = le(uints[group + 8  + 3]);
-        uint16_t b = le(uints[group + 4  + 3]);
+        uint16_t a = le(uints[group + 3]);
+        uint16_t c = le(uints[group + 8 + 3]);
+        uint16_t b = le(uints[group + 4 + 3]);
         uint16_t d = le(uints[group + 12 + 3]);
 
         return std::make_tuple<common::math::vect<2, int32_t>, common::math::vect<2, int32_t>>(
@@ -231,7 +231,7 @@ namespace gbaemu::lcd
         return ss.str();
     }
 
-    color_t OBJ::pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, const LCDColorPalette& palette, bool use2dMapping) const
+    color_t OBJ::pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, const LCDColorPalette &palette, bool use2dMapping) const
     {
         /* calculating index */
         const int32_t tileX = sx / 8;
@@ -240,9 +240,7 @@ namespace gbaemu::lcd
         const int32_t flippedTileX = hFlip ? (width / 8 - 1 - tileX) : tileX;
         const int32_t flippedTileY = vFlip ? (height / 8 - 1 - tileY) : tileY;
 
-        const uint32_t tileIndex = use2dMapping ?
-            (tileNumber + flippedTileX + flippedTileY * tilesPerRow) :
-            (tileNumber + flippedTileX + flippedTileY * (width / 8));
+        const uint32_t tileIndex = use2dMapping ? (tileNumber + flippedTileX + flippedTileY * tilesPerRow) : (tileNumber + flippedTileX + flippedTileY * (width / 8));
 
         /* finding the actual tile */
         const uint8_t *tile = objTiles + tileIndex * bytesPerTile;
@@ -266,16 +264,16 @@ namespace gbaemu::lcd
             return false;
 
         const vec2 temp = affineTransform.dm * (fy - affineTransform.screenRef[1]) + affineTransform.origin;
-        
+
         //const vec2 s0 = affineTransform.d * (0 - affineTransform.screenRef[0]) + temp;
         //const vec2 s1 = affineTransform.d * (SCREEN_WIDTH - 1 - affineTransform.screenRef[0]) + temp;
 
         const vec2 s0 = affineTransform.d * (0 - affineTransform.screenRef[0]) +
-            affineTransform.dm * (fy - affineTransform.screenRef[1]) +
-            affineTransform.origin;
+                        affineTransform.dm * (fy - affineTransform.screenRef[1]) +
+                        affineTransform.origin;
         const vec2 s1 = affineTransform.d * (SCREEN_WIDTH - 1 - affineTransform.screenRef[0]) +
-            affineTransform.dm * (fy - affineTransform.screenRef[1]) +
-            affineTransform.origin;
+                        affineTransform.dm * (fy - affineTransform.screenRef[1]) +
+                        affineTransform.origin;
 
         const vec2 d = s1 - s0;
         const vec2 ortho{d[1], -d[0]};
@@ -318,8 +316,7 @@ namespace gbaemu::lcd
             (vec2{-1, -1} - s0).dot(ortho),
             (vec2{static_cast<real_t>(width), -1} - s0).dot(ortho),
             (vec2{-1, static_cast<real_t>(height)} - s0).dot(ortho),
-            (vec2{static_cast<real_t>(width), static_cast<real_t>(height)} - s0).dot(ortho)
-        };
+            (vec2{static_cast<real_t>(width), static_cast<real_t>(height)} - s0).dot(ortho)};
 
         const bool negDot = std::any_of(dots, dots + 4, [](real_t r) { return r <= 0; });
         const bool posDot = std::any_of(dots, dots + 4, [](real_t r) { return r >= 0; });
@@ -346,7 +343,6 @@ namespace gbaemu::lcd
 
     OBJManager::OBJManager() : allObjects(128)
     {
-
     }
 
     void OBJManager::loadOBJs(const uint8_t *attributes)
@@ -363,7 +359,7 @@ namespace gbaemu::lcd
                 continue;
 
             allObjects.push_back(obj);
-            //objectsByPriority[obj.priority].push_back(obj);            
+            //objectsByPriority[obj.priority].push_back(obj);
         }
     }
 
@@ -383,8 +379,7 @@ namespace gbaemu::lcd
         return it;
     }
 
-    OBJLayer::OBJLayer(Memory& mem, LCDColorPalette& plt, const LCDIORegs& ioRegs, OBJManager& objMgr, uint16_t prio) :
-        memory(mem), palette(plt), regs(ioRegs), objManager(objMgr), objects(128)
+    OBJLayer::OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, OBJManager &objMgr, uint16_t prio) : memory(mem), palette(plt), regs(ioRegs), objManager(objMgr), objects(128)
     {
         /* OBJ layers are always enabled */
         enabled = true;
@@ -407,11 +402,14 @@ namespace gbaemu::lcd
         const uint8_t *oamBase = memory.resolveAddr(Memory::OAM_OFFSET, nullptr, memReg);
 
         switch (mode) {
-            case Mode0: case Mode1: case Mode2:
+            case Mode0:
+            case Mode1:
+            case Mode2:
                 objTiles = vramBase + 0x10000;
                 areaSize = 32 * 1024;
                 break;
-            case Mode3: case Mode4:
+            case Mode3:
+            case Mode4:
                 objTiles = vramBase + 0x14000;
                 areaSize = 16 * 1024;
                 break;
@@ -456,7 +454,7 @@ namespace gbaemu::lcd
                 onScanline.push_back(objects.data() + i);
          */
 
-        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
             /* clear */
             scanline[x] = Fragment(TRANSPARENT, asFirstTarget, asSecondTarget, false);
 
@@ -468,8 +466,8 @@ namespace gbaemu::lcd
 
                 //const auto obj = *pObj;
                 const vec2 s = obj->affineTransform.d * (fx - obj->affineTransform.screenRef[0]) +
-                    obj->affineTransform.dm * (fy - obj->affineTransform.screenRef[1]) +
-                    obj->affineTransform.origin;
+                               obj->affineTransform.dm * (fy - obj->affineTransform.screenRef[1]) +
+                               obj->affineTransform.origin;
 
                 //const common::math::vect<2, int32_t> s = obj->affineTransform.d * (x - obj->affineTransform.screenRef[0]) +
                 //    obj->affineTransform.dm * (y - obj->affineTransform.screenRef[1]) +
@@ -478,7 +476,7 @@ namespace gbaemu::lcd
                 const int32_t sx = static_cast<int32_t>(s[0]);
                 const int32_t sy = static_cast<int32_t>(s[1]);
 
-                if (0 <= sx && sx < obj->width && 0 <= sy && sy < obj->height) {
+                if (0 <= sx && sx < static_cast<int32_t>(obj->width) && 0 <= sy && sy < static_cast<int32_t>(obj->height)) {
                     const int32_t msx = obj->mosaicEnabled ? (sx - (sx % mosaicWidth)) : sx;
                     const int32_t msy = obj->mosaicEnabled ? (sy - (sy % mosaicHeight)) : sy;
                     const color_t color = obj->pixelColor(msx, msy, objTiles, palette, use2dMapping);
@@ -501,10 +499,10 @@ namespace gbaemu::lcd
     {
         std::stringstream ss;
 
-        for (int32_t i = 0; i < objects.size(); ++i) {
+        for (size_t i = 0; i < objects.size(); ++i) {
             ss << objects[i].toString() << '\n';
         }
 
         return ss.str();
     }
-}
+} // namespace gbaemu::lcd
