@@ -3,14 +3,15 @@
 
 #include "cpu/cpu.hpp"
 #include "cpu/cpu_state.hpp"
-#include <lcd/lcd-controller.hpp>
+#include "lcd/lcd-controller.hpp"
+#include "logging.hpp"
 #include <cassert>
 #include <cstring>
-#include <vector>
 #include <memory>
-#include <set>
 #include <mutex>
 #include <optional>
+#include <set>
+#include <vector>
 
 namespace gbaemu::debugger
 {
@@ -135,8 +136,7 @@ namespace gbaemu::debugger
         size_t bitSize;
 
       public:
-        MemoryChangeTrap(uint32_t memAddr, uint32_t minPcOffset, bool *stepMode, uint32_t initialMemValue = 0, size_t _bitSize = 32) :
-            memAddr(memAddr), stepMode(stepMode), minPcOffset(minPcOffset), prevMemValue(initialMemValue), bitSize(_bitSize)
+        MemoryChangeTrap(uint32_t memAddr, uint32_t minPcOffset, bool *stepMode, uint32_t initialMemValue = 0, size_t _bitSize = 32) : memAddr(memAddr), stepMode(stepMode), minPcOffset(minPcOffset), prevMemValue(initialMemValue), bitSize(_bitSize)
         {
             assert(bitSize == 8 || bitSize == 16 || bitSize == 32);
         }
@@ -159,17 +159,17 @@ namespace gbaemu::debugger
         void check(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state);
     };
 
+#ifdef DEBUG_CLI
     class DebugCLI
     {
-    public:
+      public:
         enum State {
             RUNNING,
             STOPPED,
             HALTED
         };
 
-        struct WatchEvent
-        {
+        struct WatchEvent {
             address_t address;
             MemWatch::Condition condition;
             uint32_t oldValue;
@@ -177,8 +177,7 @@ namespace gbaemu::debugger
             uint32_t newValue;
         };
 
-        struct WatchEventCounter
-        {
+        struct WatchEventCounter {
             std::map<address_t, uint32_t> reads;
             std::map<address_t, uint32_t> writes;
 
@@ -198,9 +197,10 @@ namespace gbaemu::debugger
                 ++writes[addr];
             }
         };
-    private:
-        CPU& cpu;
-        lcd::LCDController& lcdController;
+
+      private:
+        CPU &cpu;
+        lcd::LCDController &lcdController;
         State state;
 
         bool exe1Step = false;
@@ -217,13 +217,14 @@ namespace gbaemu::debugger
         /* for code */
         std::set<address_t> breakpoints;
 
-         void executeInput(const std::string& line);
-    public:
-        DebugCLI(CPU& cpuRef, lcd::LCDController& lcdRef);
+        void executeInput(const std::string &line);
+
+      public:
+        DebugCLI(CPU &cpuRef, lcd::LCDController &lcdRef);
         bool step();
         /* These can be called from external threads. */
         State getState() const;
-        void passCommand(const std::string& line);
+        void passCommand(const std::string &line);
 
         /* Use these when accessing memory, they don't trigger watchpoints. */
         uint8_t safeRead8(address_t addr);
@@ -236,6 +237,7 @@ namespace gbaemu::debugger
         std::string getBreakpointInfo() const;
         std::string getWatchEventsInfo() const;
     };
+#endif
 } // namespace gbaemu::debugger
 
 #endif /* DEBUGGER_HPP */

@@ -1,11 +1,26 @@
 #include "cpu.hpp"
 
+#include "cpu_arm_executor.hpp"
+#include "cpu_thumb_executor.hpp"
+#include "decode/inst_arm.hpp"
+#include "decode/inst_thumb.hpp"
+
 #include <algorithm>
 #include <iostream>
 #include <sstream>
 
 namespace gbaemu
 {
+    arm::ArmExecutor CPU::armExecutor;
+    thumb::ThumbExecutor CPU::thumbExecutor;
+
+    InstructionDecoder CPU::armDecoder = [](uint32_t inst) {
+        if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
+            arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
+        }
+    };
+    InstructionDecoder CPU::thumbDecoder = &thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>;
+
     CPU::CPU() : dma0(DMA::DMA0, this), dma1(DMA::DMA1, this), dma2(DMA::DMA2, this), dma3(DMA::DMA3, this), timerGroup(this), irqHandler(this), keypad(this)
     {
         reset();
@@ -15,126 +30,97 @@ namespace gbaemu
     {
         // We need to fill the pipeline to the state where the instruction at PC is ready for execution -> fetched + decoded!
         uint32_t pc = state.accessReg(regs::PC_OFFSET);
-        bool thumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
-        state.accessReg(regs::PC_OFFSET) = pc - (thumbMode ? 4 : 8);
-        fetch();
-        state.accessReg(regs::PC_OFFSET) = pc - (thumbMode ? 2 : 4);
-        fetch();
-        decode();
-        state.accessReg(regs::PC_OFFSET) = pc;
+        bool thumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
+        propagatePipeline(pc - (thumbMode ? 4 : 8));
+        propagatePipeline(pc - (thumbMode ? 2 : 4));
     }
 
-    void CPU::fetch()
+    uint32_t CPU::propagatePipeline(uint32_t pc)
     {
         // propagate pipeline
-        state.pipeline.fetch.lastInstruction = state.pipeline.fetch.instruction;
+        uint32_t currentInst = state.pipeline[1];
+        state.pipeline[1] = state.pipeline[0];
 
-        bool thumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
-
-        uint32_t pc = state.accessReg(regs::PC_OFFSET);
+        bool thumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
 
         //TODO we might need this info? (where nullptr is currently)
         if (thumbMode) {
             pc += 4;
-            state.pipeline.fetch.instruction = state.memory.read16(pc, nullptr, false, true);
+            state.pipeline[0] = state.memory.read16(pc, nullptr, false, true);
         } else {
             pc += 8;
-            state.pipeline.fetch.instruction = state.memory.read32(pc, nullptr, false, true);
+            state.pipeline[0] = state.memory.read32(pc, nullptr, false, true);
 
             // auto update bios state if we are currently executing inside bios!
             if (pc < state.memory.getBiosSize()) {
-                state.memory.setBiosState(state.pipeline.fetch.instruction);
+                state.memory.setBiosState(state.pipeline[0]);
             }
         }
+
+        return currentInst;
     }
 
-    void CPU::decode()
+    CPUExecutionInfoType CPU::step(uint32_t cycles)
     {
-        state.pipeline.decode.lastInstruction = state.pipeline.decode.instruction;
-        state.pipeline.decode.instruction = state.pipeline.fetch.lastInstruction;
-    }
+        cyclesLeft += cycles;
 
-    CPUExecutionInfoType CPU::step()
-    {
-        //TODO is it important if it gets executed first or last?
-        timerGroup.step();
+        if (cyclesLeft > 0) {
+            dma0.step(dmaInfo, cyclesLeft);
+            dma1.step(dmaInfo, cyclesLeft);
+            dma2.step(dmaInfo, cyclesLeft);
+            dma3.step(dmaInfo, cyclesLeft);
 
-        if (dmaInfo.cycleCount == 0) {
-            if (cpuInfo.cycleCount != 0 || (dma0.step(dmaInfo) && dma1.step(dmaInfo) && dma2.step(dmaInfo) && dma3.step(dmaInfo))) {
+            cyclesLeft -= dmaInfo.cycleCount;
+            timerGroup.step(dmaInfo.cycleCount);
+            dmaInfo.cycleCount = 0;
+
+            while (cyclesLeft > 0) {
                 if (cpuInfo.haltCPU) {
                     //TODO this can be removed if we remove swi.cpp
                     cpuInfo.haltCPU = !irqHandler.checkForHaltCondition(cpuInfo.haltCondition);
+                    cpuInfo.cycleCount = 1;
                 } else {
-                    // Execute pipeline only after stall is over
-                    if (cpuInfo.cycleCount == 0) {
-                        irqHandler.checkForInterrupt();
-                        fetch();
-                        decode();
+                    // check if we need to call the irq routine
+                    irqHandler.checkForInterrupt();
 
-                        std::fill_n(reinterpret_cast<char *>(&cpuInfo), sizeof(cpuInfo), 0);
+                    // clear all fields in cpuInfo
+                    const constexpr InstructionExecutionInfo zeroInitExecInfo{0};
+                    cpuInfo = zeroInitExecInfo;
 
-                        uint32_t prevPC = state.getCurrentPC();
-                        execute();
+                    uint32_t prevPC = state.getCurrentPC();
+                    execute(propagatePipeline(prevPC), prevPC);
 
-                        // Current cycle must be removed
-                        --cpuInfo.cycleCount;
+                    if (cpuInfo.hasCausedException) {
+                        //TODO print cause
+                        //TODO set cause in memory class
 
-                        if (cpuInfo.hasCausedException) {
-                            //TODO print cause
-                            //TODO set cause in memory class
+                        //TODO maybe return reason? as this might be needed to exit a game?
+                        // Abort
+                        std::stringstream ss;
+                        ss << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception\n";
 
-                            //TODO maybe return reason? as this might be needed to exit a game?
-                            // Abort
-                            std::stringstream ss;
-                            ss << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception\n";
+                        executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());
 
-                            executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());
-
-                            return CPUExecutionInfoType::EXCEPTION;
-                        }
-                    } else {
-                        --cpuInfo.cycleCount;
+                        return CPUExecutionInfoType::EXCEPTION;
                     }
                 }
+
+                timerGroup.step(cpuInfo.cycleCount);
+
+                cyclesLeft -= cpuInfo.cycleCount;
+
+                dma0.step(dmaInfo, cyclesLeft);
+                dma1.step(dmaInfo, cyclesLeft);
+                dma2.step(dmaInfo, cyclesLeft);
+                dma3.step(dmaInfo, cyclesLeft);
+
+                cyclesLeft -= dmaInfo.cycleCount;
+                timerGroup.step(dmaInfo.cycleCount);
+                dmaInfo.cycleCount = 0;
             }
-        }
-        if (dmaInfo.cycleCount) {
-            --dmaInfo.cycleCount;
         }
 
         return CPUExecutionInfoType::NORMAL;
-    }
-
-    void CPU::setFlags(uint64_t resultValue, bool msbOp1, bool msbOp2, bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry)
-    {
-        /*
-        The arithmetic operations (SUB, RSB, ADD, ADC, SBC, RSC, CMP, CMN) treat each
-        operand as a 32 bit integer (either unsigned or 2’s complement signed, the two are equivalent).
-        the V flag in the CPSR will be set if
-        an overflow occurs into bit 31 of the result; this may be ignored if the operands were
-        considered unsigned, but warns of a possible error if the operands were 2’s
-        complement signed. The C flag will be set to the carry out of bit 31 of the ALU, the Z
-        flag will be set if and only if the result was zero, and the N flag will be set to the value
-        of bit 31 of the result (indicating a negative result if the operands are considered to be
-        2’s complement signed).
-        */
-        bool negative = (resultValue) & (static_cast<uint64_t>(1) << 31);
-        bool zero = (resultValue & 0x0FFFFFFFF) == 0;
-        bool overflow = msbOp1 == msbOp2 && (negative != msbOp1);
-        bool carry = resultValue & (static_cast<uint64_t>(1) << 32);
-
-        if (nFlag)
-            state.setFlag(cpsr_flags::N_FLAG, negative);
-
-        if (zFlag)
-            state.setFlag(cpsr_flags::Z_FLAG, zero);
-
-        if (vFlag)
-            state.setFlag(cpsr_flags::V_FLAG, overflow);
-
-        if (cFlag) {
-            state.setFlag(cpsr_flags::C_FLAG, carry != invertCarry);
-        }
     }
 
     uint32_t CPU::normalizePC(bool thumbMode)
@@ -150,38 +136,21 @@ namespace gbaemu
         return patchedPC;
     }
 
-    void CPU::execute()
+    void CPU::execute(uint32_t inst, uint32_t prevPc)
     {
-        static Instruction inst;
+        const bool prevThumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
 
-        const uint32_t prevPc = state.getCurrentPC();
-        const bool prevThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+        decoder(inst);
 
-        state.decoder->decode(state.pipeline.decode.lastInstruction, inst);
-        if (!inst.isValid()) {
-            std::cout << "ERROR: Decoded instruction is invalid: [" << std::hex << state.pipeline.decode.lastInstruction << "] @ " << state.accessReg(regs::PC_OFFSET);
-            cpuInfo.hasCausedException = true;
-            return;
-        }
-
-        if (inst.isArmInstruction()) {
-            arm::ARMInstruction &armInst = inst.inst.arm;
-            if (conditionSatisfied(armInst.condition, state))
-                armExecuteHandler[inst.inst.arm.cat](armInst, this);
-        } else {
-            thumb::ThumbInstruction &thumbInst = inst.inst.thumb;
-            thumbExecuteHandler[inst.inst.thumb.cat](thumbInst, this);
-        }
-
-        const bool postThumbMode = state.getFlag(cpsr_flags::THUMB_STATE);
+        const bool postThumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
         uint32_t postPc = state.accessReg(regs::PC_OFFSET);
 
         // Change from arm mode to thumb mode or vice versa
         if (prevThumbMode != postThumbMode) {
             if (postThumbMode) {
-                state.decoder = &thumbDecoder;
+                decoder = thumbDecoder;
             } else {
-                state.decoder = &armDecoder;
+                decoder = armDecoder;
             }
             cpuInfo.forceBranch = true;
         }
@@ -204,50 +173,9 @@ namespace gbaemu
         cpuInfo.cycleCount += waitStatesNonSeq * cpuInfo.additionalProgCyclesN;
         cpuInfo.cycleCount += waitStatesSeq * cpuInfo.additionalProgCyclesS;
 
-        /*
-            The Mode Bits M4-M0 contain the current operating mode.
-                    Binary Hex Dec  Expl.
-                    0xx00b 00h 0  - Old User       ;\26bit Backward Compatibility modes
-                    0xx01b 01h 1  - Old FIQ        ; (supported only on ARMv3, except ARMv3G,
-                    0xx10b 02h 2  - Old IRQ        ; and on some non-T variants of ARMv4)
-                    0xx11b 03h 3  - Old Supervisor ;/
-                    10000b 10h 16 - User (non-privileged)
-                    10001b 11h 17 - FIQ
-                    10010b 12h 18 - IRQ
-                    10011b 13h 19 - Supervisor (SWI)
-                    10111b 17h 23 - Abort
-                    11011b 1Bh 27 - Undefined
-                    11111b 1Fh 31 - System (privileged 'User' mode) (ARMv4 and up)
-            Writing any other values into the Mode bits is not allowed. 
-            */
-        uint8_t modeBits = state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK & 0xF;
-        switch (modeBits) {
-            case 0b0000:
-                state.mode = CPUState::UserMode;
-                break;
-            case 0b0001:
-                state.mode = CPUState::FIQ;
-                break;
-            case 0b0010:
-                state.mode = CPUState::IRQ;
-                break;
-            case 0b0011:
-                state.mode = CPUState::SupervisorMode;
-                break;
-            case 0b0111:
-                state.mode = CPUState::AbortMode;
-                break;
-            case 0b1011:
-                state.mode = CPUState::UndefinedMode;
-                break;
-            case 0b1111:
-                state.mode = CPUState::SystemMode;
-                break;
-
-            default:
-                std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK) << " prevPC: 0x" << std::hex << prevPc << std::endl;
-                cpuInfo.hasCausedException = true;
-                break;
+        if (state.updateCPUMode()) {
+            std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK) << " prevPC: 0x" << std::hex << prevPc << std::endl;
+            cpuInfo.hasCausedException = true;
         }
 
         if (executionMemReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
@@ -272,7 +200,9 @@ namespace gbaemu
         irqHandler.reset();
         keypad.reset();
 
-        state.decoder = &armDecoder;
+        decoder = armDecoder;
+        armExecutor.cpu = this;
+        thumbExecutor.cpu = this;
         /*
             Default memory usage at 03007FXX (and mirrored to 03FFFFXX)
               Addr.    Size Expl.
@@ -299,5 +229,7 @@ namespace gbaemu
 
         state.accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
         normalizePC(false);
+
+        cyclesLeft = 0;
     }
 } // namespace gbaemu

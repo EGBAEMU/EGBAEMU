@@ -1,5 +1,6 @@
 #include "cpu_state.hpp"
 
+#include "decode/inst.hpp"
 #include "regs.hpp"
 #include "util.hpp"
 
@@ -22,7 +23,7 @@ namespace gbaemu
 
         // Ensure that system mode is also set in CPSR register!
         regs.CPSR = 0b11111;
-        mode = SystemMode;
+        updateCPUMode();
 
         memory.reset();
     }
@@ -47,20 +48,8 @@ namespace gbaemu
 
     uint32_t CPUState::getCurrentPC() const
     {
-        // TODO: This is somewhat finshy as there are 3 active pc's due to pipelining. As the regs
-        // only get modified by the EXECUTE stage, this will return the pc for the exec stage.
-        // Fetch will be at +8 and decode at +4. Maybe encode this as option or so.
-        return accessReg(regs::PC_OFFSET);
-    }
-
-    uint32_t *const *const CPUState::getCurrentRegs()
-    {
-        return regsHacks[mode];
-    }
-
-    const uint32_t *const *const CPUState::getCurrentRegs() const
-    {
-        return regsHacks[mode];
+        // PC register is not banked!
+        return regs.rx[regs::PC_OFFSET];
     }
 
     uint32_t *const *const CPUState::getModeRegs(CPUMode cpuMode)
@@ -83,17 +72,57 @@ namespace gbaemu
         return *(getCurrentRegs()[offset]);
     }
 
-    void CPUState::setFlag(size_t flag, bool value)
+    bool CPUState::updateCPUMode()
     {
-        if (value)
-            accessReg(regs::CPSR_OFFSET) |= (1 << flag);
-        else
-            accessReg(regs::CPSR_OFFSET) &= ~(1 << flag);
-    }
+        /*
+            The Mode Bits M4-M0 contain the current operating mode.
+                    Binary Hex Dec  Expl.
+                    0xx00b 00h 0  - Old User       ;\26bit Backward Compatibility modes
+                    0xx01b 01h 1  - Old FIQ        ; (supported only on ARMv3, except ARMv3G,
+                    0xx10b 02h 2  - Old IRQ        ; and on some non-T variants of ARMv4)
+                    0xx11b 03h 3  - Old Supervisor ;/
+                    10000b 10h 16 - User (non-privileged)
+                    10001b 11h 17 - FIQ
+                    10010b 12h 18 - IRQ
+                    10011b 13h 19 - Supervisor (SWI)
+                    10111b 17h 23 - Abort
+                    11011b 1Bh 27 - Undefined
+                    11111b 1Fh 31 - System (privileged 'User' mode) (ARMv4 and up)
+            Writing any other values into the Mode bits is not allowed. 
+            */
+        uint8_t modeBits = regs.CPSR & cpsr_flags::MODE_BIT_MASK & 0xF;
+        bool error = false;
+        switch (modeBits) {
+            case 0b0000:
+                mode = CPUState::UserMode;
+                break;
+            case 0b0001:
+                mode = CPUState::FIQ;
+                break;
+            case 0b0010:
+                mode = CPUState::IRQ;
+                break;
+            case 0b0011:
+                mode = CPUState::SupervisorMode;
+                break;
+            case 0b0111:
+                mode = CPUState::AbortMode;
+                break;
+            case 0b1011:
+                mode = CPUState::UndefinedMode;
+                break;
+            case 0b1111:
+                mode = CPUState::SystemMode;
+                break;
 
-    bool CPUState::getFlag(size_t flag) const
-    {
-        return accessReg(regs::CPSR_OFFSET) & (1 << flag);
+            default:
+                error = true;
+                break;
+        }
+
+        currentRegs = regsHacks[mode];
+
+        return error;
     }
 
     std::string CPUState::toString() const
@@ -125,10 +154,13 @@ namespace gbaemu
         }
 
         /* flag registers */
-        ss << "N=" << getFlag(cpsr_flags::N_FLAG) << ' ' << "Z=" << getFlag(cpsr_flags::Z_FLAG) << ' ' << "C=" << getFlag(cpsr_flags::C_FLAG) << ' ' << "V=" << getFlag(cpsr_flags::V_FLAG) << '\n';
+        ss << "N=" << getFlag<cpsr_flags::N_FLAG>() << ' ' << "Z=" << getFlag<cpsr_flags::Z_FLAG>() << ' ' << "C=" << getFlag<cpsr_flags::C_FLAG>() << ' ' << "V=" << getFlag<cpsr_flags::V_FLAG>() << '\n';
         // Cpu Mode
         ss << "CPU Mode: " << cpuModeToString() << '\n';
         ss << "IRQ Req Reg: 0x" << std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x202) << '\n';
+        ss << "IRQ IE Reg: 0x" << std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x200) << '\n';
+        ss << "IRQ EN CPSR: " << ((accessReg(regs::CPSR_OFFSET) & (1 << 7)) == 0) << std::endl;
+        ss << "IRQ EN MASTER: 0x" <<std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x208) << std::endl;
 
         return ss.str();
     }
@@ -153,40 +185,38 @@ namespace gbaemu
     std::string CPUState::disas(uint32_t addr, uint32_t cmds) const
     {
         std::stringstream ss;
+
         ss << std::setfill('0') << std::hex;
 
-        uint32_t startAddr = addr - (cmds / 2) * (getFlag(cpsr_flags::THUMB_STATE) ? 2 : 4);
-        //if (startAddr < Memory::MemoryRegionOffset::EXT_ROM_OFFSET) {
-        //    startAddr = Memory::MemoryRegionOffset::EXT_ROM_OFFSET;
-        //}
+        uint32_t startAddr = addr - (cmds / 2) * (getFlag<cpsr_flags::THUMB_STATE>() ? 2 : 4);
 
         for (uint32_t i = startAddr; cmds > 0; --cmds) {
 
-            /* indicate executed instruction */
+            // indicate executed instruction
             //if (i == addr)
             //    ss << "<- ";
 
-            /* indicate current instruction */
+            // indicate current instruction
             if (i == accessReg(regs::PC_OFFSET))
                 ss << "=> ";
 
-            /* address, pad hex numbers with 0 */
+            // address, pad hex numbers with 0
             ss << "0x" << std::setw(8) << i << "    ";
 
-            if (getFlag(cpsr_flags::THUMB_STATE)) {
+            if (getFlag<cpsr_flags::THUMB_STATE>()) {
                 uint32_t bytes = memory.read16(i, nullptr, false, true);
 
                 uint32_t b0 = bytes & 0x0FF;
                 uint32_t b1 = (bytes >> 8) & 0x0FF;
 
-                Instruction decodedInst;
-                decoder->decode(bytes, decodedInst);
-                auto &inst = decodedInst.inst.thumb;
+                Instruction inst;
+                inst.inst = bytes;
+                inst.isArm = false;
 
-                /* bytes */
+                // bytes
                 ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << " [" << std::setw(4) << bytes << ']';
 
-                /* code */
+                // code
                 ss << "    " << inst.toString() << '\n';
 
                 i += 2;
@@ -198,14 +228,14 @@ namespace gbaemu
                 uint32_t b2 = (bytes >> 16) & 0x0FF;
                 uint32_t b3 = (bytes >> 24) & 0x0FF;
 
-                Instruction decodedInst;
-                decoder->decode(bytes, decodedInst);
-                auto &inst = decodedInst.inst.arm;
+                Instruction inst;
+                inst.inst = bytes;
+                inst.isArm = true;
 
-                /* bytes */
+                // bytes
                 ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << std::setw(2) << b2 << ' ' << std::setw(2) << b3 << " [" << std::setw(8) << bytes << ']';
 
-                /* code */
+                // code
                 ss << "    " << inst.toString() << '\n';
 
                 i += 4;

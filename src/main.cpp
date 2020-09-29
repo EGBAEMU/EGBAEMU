@@ -10,10 +10,10 @@
 #include "debugger.hpp"
 #include "lcd/lcd-controller.hpp"
 #include "lcd/window.hpp"
+#include "logging.hpp"
 
 #include "input/keyboard_control.hpp"
 
-//#define DEBUG_CLI
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5
 #define DEBUG_STACK_PRINT_RANGE 8
@@ -44,7 +44,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
             break;
         }
 #else
-        gbaemu::CPUExecutionInfoType executionInfo = cpu.step();
+        gbaemu::CPUExecutionInfoType executionInfo = cpu.step(1);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
             std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
             break;

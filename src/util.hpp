@@ -34,16 +34,14 @@ namespace gbaemu
     template <class T>
     T clamp(const T &value, const T &mn, const T &mx);
 
-    template <class SignT, class T>
-    SignT signExt(T val, uint8_t usedBits)
-    {
-        return static_cast<SignT>(static_cast<SignT>(val) << (sizeof(SignT) * 8 - usedBits)) / ((static_cast<SignT>(1) << (sizeof(SignT) * 8 - usedBits)));
-    }
-
     template <class SignT, class T, uint8_t usedBits>
     SignT signExt(T val)
     {
-        return static_cast<SignT>(static_cast<SignT>(val) << (sizeof(SignT) * 8 - usedBits)) / ((static_cast<SignT>(1) << (sizeof(SignT) * 8 - usedBits)));
+        // Let the compiler handle the sign extension as it should now whats best for doing so!
+        struct {
+            SignT x : usedBits;
+        } s;
+        return s.x = val;
     }
 
     template <class IntType>

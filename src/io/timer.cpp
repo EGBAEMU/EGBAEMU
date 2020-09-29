@@ -21,7 +21,7 @@ namespace gbaemu
         if (offset >= offsetof(TimerRegs, control))
             return *(offset + reinterpret_cast<uint8_t *>(&regs));
         else {
-            return (counter >> (offset ? 8 : 0)) & 0x0FF;
+            return ((counter >> preShift) >> (offset ? 8 : 0)) & 0x0FF;
         }
     }
 
@@ -30,13 +30,13 @@ namespace gbaemu
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
     }
 
-    void TimerGroup::Timer::receiveOverflowOfPrevTimer()
+    void TimerGroup::Timer::receiveOverflowOfPrevTimer(uint32_t overflowTimes)
     {
         // check if still active
         bool nextActive = le(regs.control) & TIMER_START_MASK;
 
         if (nextActive && active && countUpTiming) {
-            ++counter;
+            counter += overflowTimes;
             checkForOverflow();
         }
     }
@@ -56,60 +56,73 @@ namespace gbaemu
 
     void TimerGroup::Timer::checkForOverflow()
     {
-        if (counter == 0) {
-            // reload value!
-            counter = le(regs.reload);
+        if (counter >= overflowVal) {
 
             if (irq)
                 irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::TIMER_0_OVERFLOW + id));
 
+            uint32_t reloadValue = (static_cast<uint32_t>(le(regs.reload)) << preShift);
+            // We know that we have at least 1 overflow, but there can be more if we have a high reload value
+            // therefore we have to calculate the amount that overflowed the counter aka: counter - overflowVal
+            // this gives us the needed rest to check how many more overflows where triggered
+            // but this needs the difference of overflowVal and reloadValue which represents the count up times needed to trigger an interrupt from the given reload value
+            uint32_t restCounter = counter - overflowVal;
+            uint32_t neededOverflowVal = overflowVal - reloadValue;
+
             // Also inform next timer about overflow
             if (nextTimer != nullptr) {
-                nextTimer->receiveOverflowOfPrevTimer();
+                nextTimer->receiveOverflowOfPrevTimer(restCounter / neededOverflowVal + 1);
             }
+
+            // update the counter
+            counter = (restCounter % neededOverflowVal) + reloadValue;
         }
     }
 
-    void TimerGroup::Timer::step()
+    void TimerGroup::Timer::step(uint32_t cycles)
     {
+        if (cycles == 0)
+            return;
+
         uint16_t controlReg = le(regs.control);
 
         // Update active flag
         bool nextActive = controlReg & TIMER_START_MASK;
 
         if (nextActive) {
-            if (active) {
-                // was previously active
-                // if countUpTiming is true we only increment on overflow of the previous timer!
-                if (!countUpTiming) {
-                    --preCounter;
+            if (!active) {
+                // Was previously disabled -> reconfigure timer
 
-                    // Counter to apply the selected prescale
-                    if (preCounter == 0) {
-                        //TODO are prescale changes allowed during operation???
-                        // reset pre counter
-                        preCounter = prescale;
-
-                        // Increment the real timer counter and check for overflows
-                        ++counter;
-
-                        checkForOverflow();
-                    }
-                }
-            } else {
-                // Was previously disabled
-                counter = le(regs.reload);
-
-                preCounter = prescale = prescales[(controlReg & TIMER_PRESCALE_MASK)];
                 countUpTiming = id != 0 && (controlReg & TIMER_TIMING_MASK);
+                if (countUpTiming) {
+                    preShift = 0;
+                } else {
+                    preShift = preShifts[(controlReg & TIMER_PRESCALE_MASK)];
+                }
+
+                counter = static_cast<uint32_t>(le(regs.reload)) << preShift;
+                overflowVal = (static_cast<uint32_t>(1) << (preShift + 16));
+
                 irq = controlReg & TIMER_IRQ_EN_MASK;
 
                 LOG_TIM(
                     std::cout << "INFO: Enabled TIMER" << std::dec << static_cast<uint32_t>(id) << std::endl;
-                    std::cout << "      Prescale: /" << std::dec << static_cast<uint32_t>(prescale) << std::endl;
+                    std::cout << "      Prescale: /" << std::dec << (static_cast<uint32_t>(1) << preShift) << std::endl;
                     std::cout << "      Count only up on prev Timer overflow: " << countUpTiming << std::endl;
                     std::cout << "      IRQ enable: " << irq << std::endl;
-                    std::cout << "      Counter Value: 0x" << std::hex << static_cast<uint32_t>(counter) << std::endl;);
+                    std::cout << "      Counter Value: 0x" << std::hex << static_cast<uint32_t>(counter >> preShift) << std::endl;);
+
+                //TODO 1 cycle for setup?
+                --cycles;
+            }
+
+            // if countUpTiming is true we only increment on overflow of the previous timer!
+            if (!countUpTiming) {
+
+                // Increment the timer counter and check for overflows
+                counter += cycles;
+
+                checkForOverflow();
             }
         }
 

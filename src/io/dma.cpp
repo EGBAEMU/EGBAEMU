@@ -52,14 +52,18 @@ namespace gbaemu
                 std::bind(&DMA::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
     }
 
-    bool DMA::step(InstructionExecutionInfo &info)
+    void DMA::step(InstructionExecutionInfo &info, uint32_t cycles)
     {
-        bool letCpuExecute = true;
+        // Check if enabled only once, because there can not be state changes, after dma has taken over control!
+        if (checkForUserAbort()) {
+            return;
+        }
 
-        // FSM actions
-        switch (state) {
-            case IDLE:
-                if (extractRegValues()) {
+        do {
+            // FSM actions
+            switch (state) {
+                case IDLE:
+                    extractRegValues();
                     state = conditionSatisfied() ? STARTED : WAITING_PAUSED;
                     LOG_DMA(
                         std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
@@ -102,101 +106,87 @@ namespace gbaemu
                             }
                         }
                     }
-                }
-                break;
 
-            case REPEAT: {
-                if (checkForUserAbort()) {
+                    break;
+
+                case REPEAT: {
+
+                    //TODO reload only after condition is satisfied???
+                    if (dstCnt == INCREMENT_RELOAD) {
+                        destAddr = le(regs.destAddr) & (channel == DMA3 ? 0xFFFFFFF : 0x07FFFFFF);
+                        //TODO is the src address kept?
+                        // srcAddr = le(regs.srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);
+                    }
+
+                    fetchCount();
+
+                    state = WAITING_PAUSED;
+                    // Fall through to check the condition
+                }
+
+                case WAITING_PAUSED: {
+                    state = conditionSatisfied() ? STARTED : WAITING_PAUSED;
                     break;
                 }
 
-                //TODO reload only after condition is satisfied???
-                if (dstCnt == INCREMENT_RELOAD) {
-                    destAddr = le(regs.destAddr) & (channel == DMA3 ? 0xFFFFFFF : 0x07FFFFFF);
-                    //TODO is the src address kept?
-                    // srcAddr = le(regs.srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);
-                }
+                case STARTED: {
+                    state = SEQ_COPY;
 
-                fetchCount();
-
-                state = WAITING_PAUSED;
-                break;
-            }
-
-            case WAITING_PAUSED: {
-                if (checkForUserAbort()) {
-                    break;
-                }
-                state = conditionSatisfied() ? STARTED : WAITING_PAUSED;
-                break;
-            }
-
-            case STARTED: {
-                if (checkForUserAbort()) {
-                    break;
-                }
-                letCpuExecute = false;
-
-                state = SEQ_COPY;
-
-                if (width32Bit) {
-                    uint32_t data = memory.read32(srcAddr, &info, false, false, true);
-                    memory.write32(destAddr, data, &info, false);
-                } else {
-                    uint16_t data = memory.read16(srcAddr, &info, false, false, true);
-                    memory.write16(destAddr, data, &info, false);
-                }
-
-                --count;
-
-                updateAddr(srcAddr, srcCnt);
-                updateAddr(destAddr, dstCnt);
-
-                break;
-            }
-
-            case SEQ_COPY: {
-                letCpuExecute = false;
-
-                if (count == 0) {
-                    state = DONE;
-                } else {
                     if (width32Bit) {
-                        uint32_t data = memory.read32(srcAddr, &info, true, false, true);
-                        memory.write32(destAddr, data, &info, true);
+                        uint32_t data = memory.read32(srcAddr, &info, false, false, true);
+                        memory.write32(destAddr, data, &info, false);
                     } else {
-                        uint16_t data = memory.read16(srcAddr, &info, true, false, true);
-                        memory.write16(destAddr, data, &info, true);
+                        uint16_t data = memory.read16(srcAddr, &info, false, false, true);
+                        memory.write16(destAddr, data, &info, false);
                     }
 
                     --count;
 
                     updateAddr(srcAddr, srcCnt);
                     updateAddr(destAddr, dstCnt);
+
+                    break;
                 }
-                break;
-            }
 
-            case DONE: {
-                if (repeat) {
-                    state = REPEAT;
-                } else {
-                    // return to idle state
-                    state = IDLE;
+                case SEQ_COPY: {
+                    if (count == 0) {
+                        state = DONE;
+                    } else {
+                        if (width32Bit) {
+                            uint32_t data = memory.read32(srcAddr, &info, true, false, true);
+                            memory.write32(destAddr, data, &info, true);
+                        } else {
+                            uint16_t data = memory.read16(srcAddr, &info, true, false, true);
+                            memory.write16(destAddr, data, &info, true);
+                        }
 
-                    // Clear enable bit to indicate that we are done!
-                    regs.cntReg &= ~le(DMA_CNT_REG_EN_MASK);
+                        --count;
 
-                    if (irqOnEnd) {
-                        irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::DMA_0 + channel));
+                        updateAddr(srcAddr, srcCnt);
+                        updateAddr(destAddr, dstCnt);
                     }
+                    break;
                 }
 
-                break;
-            }
-        }
+                case DONE: {
+                    if (repeat) {
+                        state = REPEAT;
+                    } else {
+                        // return to idle state
+                        state = IDLE;
 
-        return letCpuExecute;
+                        // Clear enable bit to indicate that we are done!
+                        regs.cntReg &= ~le(DMA_CNT_REG_EN_MASK);
+
+                        if (irqOnEnd) {
+                            irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::DMA_0 + channel));
+                        }
+                    }
+
+                    break;
+                }
+            }
+        } while (state != IDLE && state != WAITING_PAUSED && info.cycleCount < cycles);
     }
 
     bool DMA::checkForUserAbort()
@@ -224,54 +214,49 @@ namespace gbaemu
         }
     }
 
-    bool DMA::extractRegValues()
+    void DMA::extractRegValues()
     {
         const uint16_t controlReg = le(regs.cntReg);
-        bool enable = controlReg & DMA_CNT_REG_EN_MASK;
 
-        if (enable) {
-            // Extract remaining values
-            repeat = controlReg & DMA_CNT_REG_REPEAT_MASK;
-            gamePakDRQ = controlReg & DMA_CNT_REG_DRQ_MASK;
-            irqOnEnd = controlReg & DMA_CNT_REG_IRQ_MASK;
-            width32Bit = controlReg & DMA_CNT_REG_TYPE_MASK;
-            srcCnt = static_cast<AddrCntType>((controlReg & DMA_CNT_REG_SRC_ADR_CNT_MASK) >> DMA_CNT_REG_SRC_ADR_CNT_OFF);
-            dstCnt = static_cast<AddrCntType>((controlReg & DMA_CNT_REG_DST_ADR_CNT_MASK) >> DMA_CNT_REG_DST_ADR_CNT_OFF);
-            condition = static_cast<StartCondition>((controlReg & DMA_CNT_REG_TIMING_MASK) >> DMA_CNT_REG_TIMING_OFF);
+        // Extract remaining values
+        repeat = controlReg & DMA_CNT_REG_REPEAT_MASK;
+        gamePakDRQ = controlReg & DMA_CNT_REG_DRQ_MASK;
+        irqOnEnd = controlReg & DMA_CNT_REG_IRQ_MASK;
+        width32Bit = controlReg & DMA_CNT_REG_TYPE_MASK;
+        srcCnt = static_cast<AddrCntType>((controlReg & DMA_CNT_REG_SRC_ADR_CNT_MASK) >> DMA_CNT_REG_SRC_ADR_CNT_OFF);
+        dstCnt = static_cast<AddrCntType>((controlReg & DMA_CNT_REG_DST_ADR_CNT_MASK) >> DMA_CNT_REG_DST_ADR_CNT_OFF);
+        condition = static_cast<StartCondition>((controlReg & DMA_CNT_REG_TIMING_MASK) >> DMA_CNT_REG_TIMING_OFF);
 
-            // Mask out ignored bits
-            srcAddr = le(regs.srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);
-            destAddr = le(regs.destAddr) & (channel == DMA3 ? 0xFFFFFFF : 0x07FFFFFF);
-            fetchCount();
+        // Mask out ignored bits
+        srcAddr = le(regs.srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);
+        destAddr = le(regs.destAddr) & (channel == DMA3 ? 0xFFFFFFF : 0x07FFFFFF);
+        fetchCount();
 
-            if (condition == SPECIAL) {
-                LOG_DMA(std::cout << "ERROR: DMA" << std::dec << static_cast<uint32_t>(channel) << " timing: special not yet supported" << std::endl;);
+        if (condition == SPECIAL) {
+            LOG_DMA(std::cout << "ERROR: DMA" << std::dec << static_cast<uint32_t>(channel) << " timing: special not yet supported" << std::endl;);
 
-                //TODO init for special timing!
-                if (channel == DMA1 || channel == DMA2) {
-                    /*
+            //TODO init for special timing!
+            if (channel == DMA1 || channel == DMA2) {
+                /*
                     Sound DMA (FIFO Timing Mode) (DMA1 and DMA2 only)
                     In this mode, the DMA Repeat bit must be set, and the destination address must be FIFO_A (040000A0h) or FIFO_B (040000A4h).
                     Upon DMA request from sound controller, 4 units of 32bits (16 bytes) are transferred (both Word Count register and DMA Transfer Type bit are ignored).
                     The destination address will not be incremented in FIFO mode.
                     */
-                    count = 4;
-                    width32Bit = true;
-                    srcCnt = INCREMENT;
-                    dstCnt = FIXED;
-                } else if (channel == DMA3) {
-                    /*
+                count = 4;
+                width32Bit = true;
+                srcCnt = INCREMENT;
+                dstCnt = FIXED;
+            } else if (channel == DMA3) {
+                /*
                     Video Capture Mode (DMA3 only)
                     Intended to copy a bitmap from memory (or from external hardware/camera) to VRAM. 
                     When using this transfer mode, set the repeat bit, and write the number of data units (per scanline) to the word count register. 
                     Capture works similar like HBlank DMA, however, the transfer is started when VCOUNT=2, 
                     it is then repeated each scanline, and it gets stopped when VCOUNT=162.
                     */
-                }
             }
         }
-
-        return enable;
     }
 
     void DMA::fetchCount()

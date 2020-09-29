@@ -9,6 +9,8 @@
 
 namespace gbaemu
 {
+
+#ifdef DEBUG_CLI
     void MemWatch::registerTrigger(const std::function<void(address_t, Condition, uint32_t, bool, uint32_t)> &trig)
     {
         trigger = trig;
@@ -69,6 +71,7 @@ namespace gbaemu
 
         return ss.str();
     }
+#endif
 
     uint32_t Memory::readOutOfROM(uint32_t addr) const
     {
@@ -112,8 +115,10 @@ namespace gbaemu
             currValue = src[0];
         }
 
+#ifdef DEBUG_CLI
         if (memWatch.isAddressWatched(addr))
             memWatch.addressCheckTrigger(addr, currValue);
+#endif
 
         return currValue;
     }
@@ -174,8 +179,10 @@ namespace gbaemu
                         (static_cast<uint16_t>(src[1]) << 8);
         }
 
+#ifdef DEBUG_CLI
         if (memWatch.isAddressWatched(addr))
             memWatch.addressCheckTrigger(addr, currValue);
+#endif
 
         return currValue;
     }
@@ -223,8 +230,10 @@ namespace gbaemu
                         (static_cast<uint32_t>(src[3]) << 24);
         }
 
+#ifdef DEBUG_CLI
         if (memWatch.isAddressWatched(addr))
             memWatch.addressCheckTrigger(addr, currValue);
+#endif
 
         return currValue;
     }
@@ -308,10 +317,12 @@ namespace gbaemu
             execInfo->cycleCount += memCycles16(addr >> 24, seq);
         }
 
+#ifdef DEBUG_CLI
         if (memWatch.isAddressWatched(addr)) {
             uint32_t currValue = le<uint16_t>(*reinterpret_cast<const uint16_t *>(dst));
             memWatch.addressCheckTrigger(addr, currValue, value);
         }
+#endif
 
         if (memReg == OUT_OF_ROM) {
             LOG_MEM(std::cout << "CRITICAL ERROR: trying to write16 ROM + outside of its bounds!" << std::endl;);
@@ -345,10 +356,12 @@ namespace gbaemu
             execInfo->cycleCount += memCycles32(addr >> 24, seq);
         }
 
+#ifdef DEBUG_CLI
         if (memWatch.isAddressWatched(addr)) {
             uint32_t currValue = le<uint32_t>(*reinterpret_cast<const uint32_t *>(dst));
             memWatch.addressCheckTrigger(addr, currValue, value);
         }
+#endif
 
         if (memReg == OUT_OF_ROM) {
             LOG_MEM(std::cout << "CRITICAL ERROR: trying to write32 ROM + outside of its bounds!" << std::endl;);
