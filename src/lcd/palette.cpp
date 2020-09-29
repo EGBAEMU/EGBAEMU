@@ -1,6 +1,5 @@
 #include "palette.hpp"
 
-
 namespace gbaemu::lcd
 {
     /* LCDColorPalette */
@@ -14,7 +13,7 @@ namespace gbaemu::lcd
         return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
-    void LCDColorPalette::loadPalette(Memory& mem)
+    void LCDColorPalette::loadPalette(Memory &mem)
     {
         Memory::MemoryRegion memReg;
         bgPalette = reinterpret_cast<uint16_t *>(mem.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET, nullptr, memReg));
@@ -73,4 +72,4 @@ namespace gbaemu::lcd
                 target[y * stride + x] = color;
             }
     }
-}
+} // namespace gbaemu::lcd

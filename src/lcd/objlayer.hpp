@@ -1,11 +1,10 @@
 #ifndef OBJLAYER_HPP
 #define OBJLAYER_HPP
 
-#include "palette.hpp"
 #include "packed.h"
+#include "palette.hpp"
 
 #include <io/memory.hpp>
-
 
 namespace gbaemu::lcd
 {
@@ -21,16 +20,14 @@ namespace gbaemu::lcd
         OBJ_WINDOW
     };
 
-    struct OBJAffineTransform
-    {
+    struct OBJAffineTransform {
         vec2 origin{0, 0};
         vec2 d{1, 0};
         vec2 dm{0, 1};
         vec2 screenRef{0, 0};
     };
 
-    struct IOBJAffineTransform
-    {
+    struct IOBJAffineTransform {
         common::math::vect<2, int32_t> origin{0, 0}, d{0x80, 0}, dm{0, 0x80}, screenRef{0, 0};
     };
 
@@ -42,10 +39,11 @@ namespace gbaemu::lcd
     {
       private:
         int32_t objIndex;
+
       public:
         bool visible = false;
         bool enabled;
-        
+
         OBJShape shape;
         OBJMode mode;
         uint16_t priority;
@@ -66,15 +64,17 @@ namespace gbaemu::lcd
             int32_t top;
             int32_t bottom;
         } rect;
+
       private:
         static OBJAttribute getAttribute(const uint8_t *attributes, uint32_t index);
         static std::tuple<common::math::vec<2>, common::math::vec<2>> getRotScaleParameters(const uint8_t *attributes, uint32_t index);
         static std::tuple<common::math::vect<2, int32_t>, common::math::vect<2, int32_t>> getRotScaleParametersI(const uint8_t *attributes, uint32_t index);
+
       public:
-        OBJ() {};
+        OBJ(){};
         OBJ(const uint8_t *attributes, int32_t index);
         std::string toString() const;
-        color_t pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, const LCDColorPalette& palette, bool use2dMapping) const;
+        color_t pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, const LCDColorPalette &palette, bool use2dMapping) const;
         bool intersectsWithScanline(real_t fy) const;
     };
 
@@ -108,22 +108,22 @@ namespace gbaemu::lcd
         int32_t mosaicWidth;
         int32_t mosaicHeight;
 
-        Memory& memory;
-        LCDColorPalette& palette;
-        const LCDIORegs& regs;
-        OBJManager& objManager;
+        Memory &memory;
+        LCDColorPalette &palette;
+        const LCDIORegs &regs;
+        OBJManager &objManager;
 
         std::vector<OBJ> objects;
 
         std::vector<OBJ>::const_iterator getLastRenderedOBJ(int32_t cycleBudget) const;
 
       public:
-        OBJLayer(Memory& mem, LCDColorPalette& plt, const LCDIORegs& ioRegs, OBJManager& objMgr, uint16_t prio);
+        OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, OBJManager &objMgr, uint16_t prio);
         void setMode(BGMode bgMode, bool mapping2d);
         void loadOBJs(int32_t y);
         void drawScanline(int32_t y) override;
         std::string toString() const;
     };
-}
+} // namespace gbaemu::lcd
 
 #endif /* OBJLAYER_HPP */

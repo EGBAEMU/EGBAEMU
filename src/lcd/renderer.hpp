@@ -1,16 +1,15 @@
 #ifndef RENDERER_HPP
 #define RENDERER_HPP
 
-#include <thread>
-#include <io/memory.hpp>
 #include <io/interrupts.hpp>
-#include <lcd/defs.hpp>
-#include <lcd/palette.hpp>
-#include <lcd/coloreffects.hpp>
-#include <lcd/window-regions.hpp>
-#include <lcd/objlayer.hpp>
+#include <io/memory.hpp>
 #include <lcd/bglayer.hpp>
-
+#include <lcd/coloreffects.hpp>
+#include <lcd/defs.hpp>
+#include <lcd/objlayer.hpp>
+#include <lcd/palette.hpp>
+#include <lcd/window-regions.hpp>
+#include <thread>
 
 namespace gbaemu::lcd
 {
@@ -28,9 +27,9 @@ namespace gbaemu::lcd
     class Renderer
     {
       private:
-        const LCDIORegs& regs;
         Memory &memory;
         InterruptHandler &irqHandler;
+        const LCDIORegs &regs;
 
         LCDColorPalette palette;
         WindowFeature windowFeature;
@@ -59,11 +58,12 @@ namespace gbaemu::lcd
         void blendAlpha(color_t *outBuf);
 
         void renderLoop();
+
       public:
-        Renderer(Memory& mem, InterruptHandler& irq, const LCDIORegs& registers);
+        Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers);
         ~Renderer();
         void drawScanline(int32_t y, color_t *outBuf, int32_t stride = 0);
     };
-}
+} // namespace gbaemu::lcd
 
 #endif /* RENDERER_HPP */

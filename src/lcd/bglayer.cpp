@@ -3,7 +3,6 @@
 #include "logging.hpp"
 #include <sstream>
 
-
 namespace gbaemu::lcd
 {
     BGMode0EntryAttributes::BGMode0EntryAttributes(BGMode0Entry entry)
@@ -14,8 +13,7 @@ namespace gbaemu::lcd
         vFlip = bitGet<uint16_t>(entry, 1, 11);
     }
 
-    BGLayer::BGLayer(LCDColorPalette& plt, Memory& mem, BGIndex idx) :
-        palette(plt), memory(mem), index(idx)
+    BGLayer::BGLayer(LCDColorPalette &plt, Memory &mem, BGIndex idx) : index(idx), palette(plt), memory(mem)
     {
         layerID = static_cast<LayerID>(index);
         isBGLayer = true;
@@ -234,7 +232,7 @@ namespace gbaemu::lcd
                     int32_t tileY = relBGMapY / 8;
 
                     BGMode0EntryAttributes attrs(bgMap[tileY * 32 + tileX]);
-                    const uint8_t* tile = reinterpret_cast<const uint8_t *>(tiles) + attrs.tileNumber * (colorPalette256 ? 64 : 32);
+                    const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + attrs.tileNumber * (colorPalette256 ? 64 : 32);
 
                     int32_t tx = attrs.hFlip ? (7 - (relBGMapX % 8)) : (relBGMapX % 8);
                     int32_t ty = attrs.vFlip ? (7 - (relBGMapY % 8)) : (relBGMapY % 8);
@@ -252,7 +250,7 @@ namespace gbaemu::lcd
                 pixelColor = [bgMap, this](int32_t sx, int32_t sy) -> color_t {
                     int32_t msx = sx - (sx % mosaicWidth);
                     int32_t msy = sy - (sy % mosaicHeight);
-                    
+
                     int32_t tileX = msx / 8;
                     int32_t tileY = msy / 8;
                     uint32_t tileNumber = reinterpret_cast<const uint8_t *>(bgMap)[tileY * (width / 8) + tileX];
@@ -262,7 +260,8 @@ namespace gbaemu::lcd
                     return palette.getBgColor(paletteIndex);
                 };
                 break;
-            case Mode3: case Mode5:
+            case Mode3:
+            case Mode5:
                 /* 32768 colors in color16 format */
                 pixelColor = [frameBuffer, this](int32_t sx, int32_t sy) -> color_t {
                     int32_t msx = sx - (sx % mosaicWidth);
@@ -293,11 +292,11 @@ namespace gbaemu::lcd
         auto pixelColor = getPixelColorFunction();
         vec2 s = affineTransform.dm * y + affineTransform.origin;
 
-        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
             int32_t sx = static_cast<int32_t>(s[0]);
             int32_t sy = static_cast<int32_t>(s[1]);
 
-            if (wrap || (0 <= sx && sx < width && 0 <= sy && sy < height)) {
+            if (wrap || (0 <= sx && sx < static_cast<int32_t>(width) && 0 <= sy && sy < static_cast<int32_t>(height))) {
                 if (wrap) {
                     sx = fastMod<int32_t>(sx, width);
                     sy = fastMod<int32_t>(sy, height);
@@ -312,8 +311,8 @@ namespace gbaemu::lcd
         }
     }
 
-    bool BGLayer::operator <(const BGLayer& other) const noexcept
+    bool BGLayer::operator<(const BGLayer &other) const noexcept
     {
         return (priority == other.priority) ? (index < other.index) : (priority < other.priority);
     }
-}
+} // namespace gbaemu::lcd

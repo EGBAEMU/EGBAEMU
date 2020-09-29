@@ -66,12 +66,7 @@ namespace gbaemu::lcd
             }
         }
 
-        /* update vcount */
-        uint16_t vcount = le(regsRef.VCOUNT);
-        vcount = bitSet<uint16_t>(vcount, VCOUNT::CURRENT_SCANLINE_MASK, VCOUNT::CURRENT_SCANLINE_OFFSET, scanline.vCount);
-        regsRef.VCOUNT = le(vcount);
-
-         /* update stat */
+        /* update stat */
         uint16_t stat = le(regsRef.DISPSTAT);
         stat = bitSet(stat, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t>(scanline.vblanking));
         stat = bitSet(stat, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t>(scanline.hblanking));
@@ -82,13 +77,20 @@ namespace gbaemu::lcd
 
     void LCDController::onVCount()
     {
-        /* use regsRef as those settings are crucial timewise */
-        if (bitGet(le(regsRef.DISPSTAT), DISPSTAT::VCOUNTER_IRQ_ENABLE_MASK, DISPSTAT::VCOUNTER_IRQ_ENABLE_OFFSET)) {
-            uint16_t vCountSetting = bitGet(le(regsRef.DISPSTAT), DISPSTAT::VCOUNT_SETTING_MASK, DISPSTAT::VCOUNT_SETTING_OFFSET);
+        /* update vcount */
+        uint16_t vcount = le(regsRef.VCOUNT);
+        vcount = bitSet<uint16_t>(vcount, VCOUNT::CURRENT_SCANLINE_MASK, VCOUNT::CURRENT_SCANLINE_OFFSET, scanline.vCount);
+        regsRef.VCOUNT = le(vcount);
 
-            if (scanline.vCount == vCountSetting)
-                irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_COUNTER_MATCH);
+        /* use regsRef as those settings are crucial timewise */
+        uint16_t stat = le(regsRef.DISPSTAT);
+        uint16_t vCountSetting = bitGet(stat, DISPSTAT::VCOUNT_SETTING_MASK, DISPSTAT::VCOUNT_SETTING_OFFSET);
+        bool vCountMatch = scanline.vCount == vCountSetting;
+        if (vCountMatch && bitGet(stat, DISPSTAT::VCOUNTER_IRQ_ENABLE_MASK, DISPSTAT::VCOUNTER_IRQ_ENABLE_OFFSET)) {
+            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_COUNTER_MATCH);
         }
+
+        regsRef.DISPSTAT = le(bitSet(stat, DISPSTAT::VCOUNTER_FLAG_MASK, DISPSTAT::VCOUNTER_FLAG_OFFSET, bmap<uint16_t>(vCountMatch)));
     }
 
     void LCDController::onHBlank()
@@ -123,8 +125,8 @@ namespace gbaemu::lcd
         const color_t *src = frameBuffer.pixels();
         int32_t srcStride = frameBuffer.getWidth();
 
-        for (int32_t y = 0; y < SCREEN_HEIGHT; ++y) {
-            for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+        for (int32_t y = 0; y < static_cast<int32_t>(SCREEN_HEIGHT); ++y) {
+            for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
                 color_t color = src[y * srcStride + x];
 
                 for (int32_t sy = 0; sy < scale; ++sy) {
@@ -138,7 +140,7 @@ namespace gbaemu::lcd
         /* race conditions are acceptable here */
         *canDrawToScreen = true;
     }
- 
+
     std::string LCDController::getLayerStatusString() const
     {
         std::stringstream ss;

@@ -22,6 +22,8 @@ namespace gbaemu::lcd
                 eva = std::min(16, bldAlpha & 0x1F);
                 evb = std::min(16, (bldAlpha >> 8) & 0x1F);
                 break;
+            case BLDCNT::None:
+                break;
         }
     }
 

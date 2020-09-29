@@ -6,8 +6,8 @@
 
 #include <lcd/canvas.hpp>
 #include <math/mat.hpp>
-#include <util.hpp>
 #include <packed.h>
+#include <util.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -299,16 +299,14 @@ namespace gbaemu::lcd
                     uint16_t BLDY;     // Brightness (Fade-In/Out) Coefficient
     );
 
-    struct Fragment
-    {
+    struct Fragment {
         color_t color = 0;
-        /* asFirstColor, asSecondColor, asFirstAlpha */ 
+        /* asFirstColor, asSecondColor, asFirstAlpha */
         uint8_t props = 0;
 
         Fragment() {}
-        Fragment(color_t col, bool asFirst, bool asSecond, bool asAlpha) :
-            color(col),
-            props((asFirst ? 1 : 0) | (asSecond ? 2 : 0) | (asAlpha ? 4 : 0)) {} 
+        Fragment(color_t col, bool asFirst, bool asSecond, bool asAlpha) : color(col),
+                                                                           props((asFirst ? 1 : 0) | (asSecond ? 2 : 0) | (asAlpha ? 4 : 0)) {}
 
         bool asFirstColor() const { return props & 1; }
         bool asSecondColor() const { return (props >> 1) & 1; }
@@ -316,8 +314,7 @@ namespace gbaemu::lcd
         bool colorEffectEnabled() const { return asFirstColor() || asSecondColor() || asFirstAlpha(); }
     };
 
-    enum LayerID
-    {
+    enum LayerID {
         LAYER_BG0 = 0,
         LAYER_BG1,
         LAYER_BG2,
@@ -352,12 +349,12 @@ namespace gbaemu::lcd
         virtual void drawScanline(int32_t y) = 0;
 
         /* used for sorting */
-        bool operator <(const Layer& other) const noexcept
+        bool operator<(const Layer &other) const noexcept
         {
             bool thisIsOBJ = (layerID == LAYER_OBJ0 || layerID == LAYER_OBJ1 ||
-                layerID == LAYER_OBJ2 || layerID == LAYER_OBJ3);
+                              layerID == LAYER_OBJ2 || layerID == LAYER_OBJ3);
             bool otherIsBG = (layerID == LAYER_BG0 || layerID == LAYER_BG1 ||
-                layerID == LAYER_BG2 || layerID == LAYER_BG3);
+                              layerID == LAYER_BG2 || layerID == LAYER_BG3);
 
             /*
             if (thisIsOBJ && otherIsBG) {
@@ -372,12 +369,12 @@ namespace gbaemu::lcd
             return priority < other.priority || (thisIsOBJ && priority <= other.priority);
         }
 
-        bool operator <=(const Layer& other) const noexcept
+        bool operator<=(const Layer &other) const noexcept
         {
             bool thisIsOBJ = (layerID == LAYER_OBJ0 || layerID == LAYER_OBJ1 ||
-                layerID == LAYER_OBJ2 || layerID == LAYER_OBJ3);
+                              layerID == LAYER_OBJ2 || layerID == LAYER_OBJ3);
             bool otherIsBG = (layerID == LAYER_BG0 || layerID == LAYER_BG1 ||
-                layerID == LAYER_BG2 || layerID == LAYER_BG3);
+                              layerID == LAYER_BG2 || layerID == LAYER_BG3);
 
             if (thisIsOBJ && otherIsBG) {
                 if (priority == other.priority)
@@ -402,8 +399,7 @@ namespace gbaemu::lcd
 
         Features: S)crolling, F)lip, M)osaic, A)lphaBlending, B)rightness, P)riority.
      */
-    enum BGMode
-    {
+    enum BGMode {
         Mode0 = 0,
         Mode1,
         Mode2,
