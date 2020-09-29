@@ -391,7 +391,7 @@ namespace gbaemu::lcd
         objects.reserve(128);
 
         if (prio >= 4)
-            throw new std::runtime_error("0 <= Priority <= 3 is not satisfied");
+            throw std::runtime_error("0 <= Priority <= 3 is not satisfied");
 
         layerID = static_cast<LayerID>(priority + 4);
         isBGLayer = false;

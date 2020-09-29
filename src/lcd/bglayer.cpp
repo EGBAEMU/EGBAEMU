@@ -282,7 +282,7 @@ namespace gbaemu::lcd
                 break;
             default:
                 LOG_LCD(std::cout << "Invalid mode!" << std::endl;);
-                throw new std::runtime_error("Invalid mode!");
+                throw std::runtime_error("Invalid mode!");
         }
 
         return pixelColor;
