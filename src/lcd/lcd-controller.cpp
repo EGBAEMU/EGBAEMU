@@ -40,7 +40,8 @@ namespace gbaemu::lcd
         scanline.hblanking = (scanlineCycle >= 1006);
         scanline.vCount = displayCycle / 1232;
 
-        onVCount();
+        if (scanlineCycle == 0)
+            onVCount();
 
         if (displayCycle == 197120 && scanline.vblanking) {
             /* on first v-blank cycle */
