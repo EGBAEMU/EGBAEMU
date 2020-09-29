@@ -31,20 +31,28 @@ namespace gbaemu::save
         SaveFile saveFile;
 
       public:
-        const uint8_t busWidth;
+        uint8_t busWidth;
 
         void reset()
         {
             state = IDLE;
         }
 
-        EEPROM(const char *path, bool &success, uint8_t busWidth = 6) : saveFile(path, success, (1 << busWidth) * 64), busWidth(busWidth)
+        EEPROM(const char *path, bool &success, uint8_t busWidth = 6) : saveFile(path, success, (1 << busWidth) * sizeof(buffer))
         {
+            this->busWidth = saveFile.getSize() == 0x2000 ? 14 : 6;
             reset();
         }
 
+        void expand(uint8_t busWidth);
+
         void write(uint8_t data);
         uint8_t read();
+
+        bool knowsBitWidth() const
+        {
+            return !saveFile.isNewSaveFile();
+        }
     };
 
 } // namespace gbaemu::save
