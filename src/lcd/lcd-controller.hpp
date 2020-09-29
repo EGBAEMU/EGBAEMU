@@ -8,20 +8,19 @@
 #include "logging.hpp"
 #include "math/mat.hpp"
 
-#include <lcd/defs.hpp>
-#include <lcd/palette.hpp>
-#include <lcd/objlayer.hpp>
 #include <lcd/bglayer.hpp>
 #include <lcd/coloreffects.hpp>
-#include <lcd/window-regions.hpp>
+#include <lcd/defs.hpp>
+#include <lcd/objlayer.hpp>
+#include <lcd/palette.hpp>
 #include <lcd/renderer.hpp>
+#include <lcd/window-regions.hpp>
 
 #include <array>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <thread>
-
 
 namespace gbaemu::lcd
 {
@@ -52,25 +51,22 @@ namespace gbaemu::lcd
         LCDController() = default;
 
       public:
-        
-
       private:
-        //LCDisplay &display;
+        Canvas<color_t> &display;
         Memory &memory;
         InterruptHandler &irqHandler;
 
-        Canvas<color_t>& display;
+        /* rendering is done in a separate thread */
+        std::mutex *canDrawToScreenMutex;
+        bool *canDrawToScreen;
+        Renderer renderer;
+
         MemoryCanvas<color_t> frameBuffer;
 
         LCDColorPalette palette;
         LCDIORegs regsRef{0};
         LCDIORegs regs{0};
 
-        Renderer renderer;
-
-        /* rendering is done in a separate thread */
-        std::mutex *canDrawToScreenMutex;
-        bool *canDrawToScreen;
       public:
         struct
         {
@@ -80,7 +76,7 @@ namespace gbaemu::lcd
             bool oddScanline = true;
             bool hblanking = false;
             bool vblanking = false;
-        
+
             /* the result of drawScanline() */
             std::vector<color_t> buf;
 
@@ -114,17 +110,18 @@ namespace gbaemu::lcd
         void onVBlank();
         void drawScanline();
         void present();
+
       public:
         int32_t scale = 3;
 
         void renderTick();
+
       public:
-        LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) :
-            display(disp),
-            memory(cpu->state.memory), irqHandler(cpu->irqHandler),
-            canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw),
-            renderer(cpu->state.memory, cpu->irqHandler, regs),
-            frameBuffer(SCREEN_WIDTH, SCREEN_HEIGHT)
+        LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) : display(disp),
+                                                                                                        memory(cpu->state.memory), irqHandler(cpu->irqHandler),
+                                                                                                        canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw),
+                                                                                                        renderer(cpu->state.memory, cpu->irqHandler, regs),
+                                                                                                        frameBuffer(SCREEN_WIDTH, SCREEN_HEIGHT)
         {
             memory.ioHandler.registerIOMappedDevice(
                 IO_Mapped(
