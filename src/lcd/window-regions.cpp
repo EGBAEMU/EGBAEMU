@@ -111,7 +111,7 @@ namespace gbaemu::lcd
 
     void WindowFeature::composeTrivialScanline(const std::array<std::shared_ptr<Layer>, 8> &layers, color_t *target)
     {
-        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
             color_t finalColor = backdropColor;
 
             /*
