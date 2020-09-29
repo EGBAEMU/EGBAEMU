@@ -220,9 +220,13 @@ namespace gbaemu
             The user may redefine these addresses and move stacks into other locations, however, the addresses for system data at 7FE0h-7FFFh are fixed.
             */
         // Set default SP values
+
         *state.getModeRegs(CPUState::CPUMode::UserMode)[regs::SP_OFFSET] = 0x03007F00;
-        *state.getModeRegs(CPUState::CPUMode::IRQ)[regs::SP_OFFSET] = 0x3007FA0;
+        *state.getModeRegs(CPUState::CPUMode::FIQ)[regs::SP_OFFSET] = 0x03007F00;
+        *state.getModeRegs(CPUState::CPUMode::AbortMode)[regs::SP_OFFSET] = 0x03007F00;
+        *state.getModeRegs(CPUState::CPUMode::UndefinedMode)[regs::SP_OFFSET] = 0x03007F00;
         *state.getModeRegs(CPUState::CPUMode::SupervisorMode)[regs::SP_OFFSET] = 0x03007FE0;
+        *state.getModeRegs(CPUState::CPUMode::IRQ)[regs::SP_OFFSET] = 0x3007FA0;
 
         std::fill_n(reinterpret_cast<char *>(&cpuInfo), sizeof(cpuInfo), 0);
         std::fill_n(reinterpret_cast<char *>(&dmaInfo), sizeof(dmaInfo), 0);
