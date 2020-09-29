@@ -262,7 +262,6 @@ namespace gbaemu::lcd
          */
 
         loadSettings(y);
-        sortLayers();
         
         auto t = std::chrono::high_resolution_clock::now();
 
@@ -284,6 +283,8 @@ namespace gbaemu::lcd
                 blendDefault(outBuf);
                 break;
         }
+
+        
 
         //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count() << std::endl;
     }
