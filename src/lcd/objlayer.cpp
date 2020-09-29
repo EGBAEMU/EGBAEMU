@@ -42,11 +42,11 @@ namespace gbaemu::lcd
 
         return std::make_tuple<common::math::vect<2, int32_t>, common::math::vect<2, int32_t>>(
             common::math::vect<2, int32_t>{
-                signExt<int32_t, uint16_t>(a, 16),
-                signExt<int32_t, uint16_t>(c, 16)},
+                signExt<int32_t, uint16_t, 16>(a),
+                signExt<int32_t, uint16_t, 16>(c)},
             common::math::vect<2, int32_t>{
-                signExt<int32_t, uint16_t>(b, 16),
-                signExt<int32_t, uint16_t>(d, 16)});
+                signExt<int32_t, uint16_t, 16>(b),
+                signExt<int32_t, uint16_t, 16>(d)});
     }
 
     OBJ::OBJ(const uint8_t *attributes, int32_t index)
