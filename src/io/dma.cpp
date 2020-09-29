@@ -75,6 +75,38 @@ namespace gbaemu
                         std::cout << "      32 bit mode: " << width32Bit << std::endl;
                         std::cout << "      IRQ on end: " << irqOnEnd << std::endl;);
 
+                    // If eeprom does not yet know for sure which bus width it has we can determine it by passing DMA request to it!
+                    if (channel == DMA3 && memory.getBackupType() == Memory::EEPROM_V && !memory.eeprom->knowsBitWidth()) {
+
+                        // We only need changes for 14 Bit buswidth as we default to 8 bit
+                        Memory::MemoryRegion srcMemReg;
+                        memory.resolveAddr(srcAddr, nullptr, srcMemReg);
+
+                        if (srcMemReg == Memory::MemoryRegion::EEPROM_REGION) {
+                            const constexpr uint32_t bus14BitReadExpectedCount = 17;
+                            const constexpr uint32_t bus6BitReadExpectedCount = 9;
+                            if (count == bus14BitReadExpectedCount) {
+                                memory.eeprom->expand(14);
+                                break;
+                            } else if (count == bus6BitReadExpectedCount) {
+                                memory.eeprom->expand(6);
+                                break;
+                            }
+                        }
+
+                        Memory::MemoryRegion dstMemReg;
+                        memory.resolveAddr(destAddr, nullptr, dstMemReg);
+                        if (dstMemReg == Memory::MemoryRegion::EEPROM_REGION) {
+                            const constexpr uint32_t bus14BitWriteExpectedCount = 81;
+                            const constexpr uint32_t bus6BitWriteExpectedCount = 73;
+                            if (count == bus14BitWriteExpectedCount) {
+                                memory.eeprom->expand(14);
+                            } else if (count == bus6BitWriteExpectedCount) {
+                                memory.eeprom->expand(6);
+                            }
+                        }
+                    }
+
                     break;
 
                 case REPEAT: {
