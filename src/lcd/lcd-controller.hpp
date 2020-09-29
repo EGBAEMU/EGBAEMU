@@ -71,7 +71,7 @@ namespace gbaemu::lcd
         /* rendering is done in a separate thread */
         std::mutex *canDrawToScreenMutex;
         bool *canDrawToScreen;
-
+      public:
         struct
         {
             uint32_t cycle = 0;
@@ -117,7 +117,7 @@ namespace gbaemu::lcd
       public:
         int32_t scale = 3;
 
-        void renderTick(int32_t cyclesPassed = 1);
+        void renderTick();
       public:
         LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) :
             display(disp),

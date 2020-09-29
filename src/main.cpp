@@ -13,7 +13,7 @@
 
 #include "input/keyboard_control.hpp"
 
-#define DEBUG_CLI
+//#define DEBUG_CLI
 #define SHOW_WINDOW true
 #define DISAS_CMD_RANGE 5
 #define DEBUG_STACK_PRINT_RANGE 8
@@ -36,7 +36,6 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #endif
 )
 {
-
     std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
 
     for (uint32_t j = 0; doRun; ++j) {
@@ -51,7 +50,6 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
             break;
         }
 #endif
-
         lcdController.renderTick();
 
         if (j >= 100001) {

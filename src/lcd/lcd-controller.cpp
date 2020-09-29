@@ -22,7 +22,7 @@
 
 namespace gbaemu::lcd
 {
-    void LCDController::renderTick(int32_t cyclesPassed)
+    void LCDController::renderTick()
     {
         /*
             [ 960 cycles for 240 dots ][ 272 cycles for hblank ]
@@ -77,7 +77,7 @@ namespace gbaemu::lcd
         stat = bitSet(stat, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t>(scanline.hblanking));
         regsRef.DISPSTAT = le(stat);
 
-        scanline.cycle += cyclesPassed;
+        ++scanline.cycle;
     }
 
     void LCDController::onVCount()

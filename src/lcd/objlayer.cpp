@@ -211,8 +211,8 @@ namespace gbaemu::lcd
 
         rect.left = xOff;
         rect.top = yOff;
-        rect.right = xOff + width;
-        rect.bottom = yOff + height;
+        rect.right = xOff + width * (doubleSized ? 2 : 1);
+        rect.bottom = yOff + height * (doubleSized ? 2 : 1);
     }
 
     std::string OBJ::toString() const
@@ -313,11 +313,12 @@ namespace gbaemu::lcd
         return std::max(t1, t3) <= std::min(t0, t2);
          */
 
+        /* we give a single pixel margin */
         const real_t dots[] = {
-            (vec2{0, 0} - s0).dot(ortho),
-            (vec2{static_cast<real_t>(width) - 1, 0} - s0).dot(ortho),
-            (vec2{0, static_cast<real_t>(height) - 1} - s0).dot(ortho),
-            (vec2{static_cast<real_t>(width) - 1, static_cast<real_t>(height) - 1} - s0).dot(ortho)
+            (vec2{-1, -1} - s0).dot(ortho),
+            (vec2{static_cast<real_t>(width), -1} - s0).dot(ortho),
+            (vec2{-1, static_cast<real_t>(height)} - s0).dot(ortho),
+            (vec2{static_cast<real_t>(width), static_cast<real_t>(height)} - s0).dot(ortho)
         };
 
         const bool negDot = std::any_of(dots, dots + 4, [](real_t r) { return r <= 0; });
