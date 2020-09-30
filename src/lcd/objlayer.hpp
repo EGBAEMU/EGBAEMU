@@ -72,23 +72,10 @@ namespace gbaemu::lcd
 
       public:
         OBJ(){};
-        OBJ(const uint8_t *attributes, int32_t index);
+        OBJ(const uint8_t *attributes, int32_t index, BGMode bgMode);
         std::string toString() const;
         color_t pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, const LCDColorPalette &palette, bool use2dMapping) const;
         bool intersectsWithScanline(real_t fy) const;
-    };
-
-    /* a container class storing all objects in the scene */
-    class OBJManager
-    {
-      public:
-        std::vector<OBJ> allObjects;
-        //std::array<std::vector<OBJ>, 4> objectsByPriority;
-
-        OBJManager();
-        void loadOBJs(const uint8_t *attributes);
-        /* returns the OBJ after the last OBJ that fits into the cycle budget in that scanline */
-        std::vector<OBJ>::const_iterator lastOBJ(int32_t y, int32_t cycleBudget) const;
     };
 
     class OBJLayer : public Layer
@@ -111,14 +98,13 @@ namespace gbaemu::lcd
         Memory &memory;
         LCDColorPalette &palette;
         const LCDIORegs &regs;
-        OBJManager &objManager;
 
         std::vector<OBJ> objects;
 
         std::vector<OBJ>::const_iterator getLastRenderedOBJ(int32_t cycleBudget) const;
 
       public:
-        OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, OBJManager &objMgr, uint16_t prio);
+        OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio);
         void setMode(BGMode bgMode, bool mapping2d);
         void loadOBJs(int32_t y);
         void drawScanline(int32_t y) override;
