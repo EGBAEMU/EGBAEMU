@@ -1,6 +1,7 @@
 #include "window-regions.hpp"
 
 #include <sstream>
+#include "util.hpp"
 
 namespace gbaemu::lcd
 {
@@ -8,19 +9,18 @@ namespace gbaemu::lcd
     {
         switch (id) {
             case WIN0:
-                enabled = bitGet<uint16_t>(le(regs.DISPCNT), 1, 13);
+                enabled = isBitSet<uint16_t, 13>(le(regs.DISPCNT));
                 break;
             case WIN1:
-                enabled = bitGet<uint16_t>(le(regs.DISPCNT), 1, 14);
+                enabled = isBitSet<uint16_t, 14>(le(regs.DISPCNT));
                 break;
             case OBJ_WIN:
-                enabled = bitGet<uint16_t>(le(regs.DISPCNT), 1, 15);
+                enabled = isBitSet<uint16_t, 15>(le(regs.DISPCNT));
                 break;
             case OUTSIDE:
-                enabled = bitGet<uint16_t>(le(regs.DISPCNT), 1, 13) ||
-                          bitGet<uint16_t>(le(regs.DISPCNT), 1, 14) ||
-                          bitGet<uint16_t>(le(regs.DISPCNT), 1, 15);
-                ;
+                enabled = isBitSet<uint16_t, 13>(le(regs.DISPCNT)) ||
+                          isBitSet<uint16_t, 14>(le(regs.DISPCNT)) ||
+                          isBitSet<uint16_t, 15>(le(regs.DISPCNT));
                 break;
         }
 
