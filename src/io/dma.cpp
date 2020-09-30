@@ -14,6 +14,7 @@ namespace gbaemu
 {
     void DMA::reset()
     {
+        enabled = false;
         state = IDLE;
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
     }
