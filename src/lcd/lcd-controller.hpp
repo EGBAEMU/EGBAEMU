@@ -118,10 +118,14 @@ namespace gbaemu::lcd
 
       public:
         LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) : display(disp),
-                                                                                                        memory(cpu->state.memory), irqHandler(cpu->irqHandler),
-                                                                                                        canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw),
-                                                                                                        renderer(cpu->state.memory, cpu->irqHandler, regs),
-                                                                                                        frameBuffer(SCREEN_WIDTH, SCREEN_HEIGHT)
+            memory(cpu->state.memory), irqHandler(cpu->irqHandler),
+            canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw),
+            renderer(cpu->state.memory, cpu->irqHandler, regs, frameBuffer),
+#if (RENDERER_DECOMPOSE_LAYERS == 1)
+            frameBuffer(SCREEN_WIDTH * 2, SCREEN_HEIGHT * 4)
+#else
+            frameBuffer(SCREEN_WIDTH, SCREEN_HEIGHT)
+#endif
         {
             memory.ioHandler.registerIOMappedDevice(
                 IO_Mapped(
@@ -133,6 +137,10 @@ namespace gbaemu::lcd
                     std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
 
             scanline.buf.resize(SCREEN_WIDTH);
+
+#if (RENDERER_DECOMPOSE_LAYERS == 1)
+            scale = 1;
+#endif
         }
 
         std::string getLayerStatusString() const;

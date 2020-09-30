@@ -91,7 +91,7 @@ namespace gbaemu::lcd
                                         SCREEN_DISPLAY_BG1_MASK = 1 << 9,
                                         SCREEN_DISPLAY_BG2_MASK = 1 << 10,
                                         SCREEN_DISPLAY_BG3_MASK = 1 << 11,
-                                        SCREEN_DISPLAY_OBJ_ASMK = 1 << 12,
+                                        SCREEN_DISPLAY_OBJ_MASK = 1 << 12,
                                         WINDOW_0_DISPLAY_FLAG_MASK = 1 << 13,
                                         WINDOW_1_DISPLAY_FLAG_MASK = 1 << 14,
                                         OBJ_WINDOW_DISPLAY_FLAG_MASK = 1 << 15;
@@ -458,6 +458,7 @@ namespace gbaemu::lcd
 
 #define RENDERER_ENABLE_COLOR_EFFECTS 0
 #define RENDERER_DECOMPOSE_LAYERS 0
+#define RENDERER_DECOMPOSE_BG_COLOR 0xFFFF00FF
 
 #define RENDERER_HIGHTLIGHT_OBJ 0
 #define OBJ_HIGHLIGHT_COLOR 0xFF00FF00

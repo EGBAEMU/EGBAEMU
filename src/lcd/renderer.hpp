@@ -43,6 +43,8 @@ namespace gbaemu::lcd
         /* all layers */
         std::array<std::shared_ptr<Layer>, 8> layers;
 
+        Canvas<color_t>& target;
+
         RenderControl renderControl;
         std::mutex renderControlMutex;
         std::thread renderThread;
@@ -53,16 +55,17 @@ namespace gbaemu::lcd
         void sortLayers();
         void loadSettings(int32_t y);
 
-        void blendDefault(color_t *outBuf);
-        void blendBrightness(color_t *outBuf);
-        void blendAlpha(color_t *outBuf);
+        void blendDefault(int32_t y);
+        void blendBrightness(int32_t y);
+        void blendAlpha(int32_t y);
+        void blendDecomposed(int32_t y);
 
         void renderLoop();
 
       public:
-        Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers);
+        Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers, Canvas<color_t>& targetCanvas);
         ~Renderer();
-        void drawScanline(int32_t y, color_t *outBuf, int32_t stride = 0);
+        void drawScanline(int32_t y);
     };
 } // namespace gbaemu::lcd
 

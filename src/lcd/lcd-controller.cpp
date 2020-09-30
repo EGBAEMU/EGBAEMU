@@ -40,7 +40,7 @@ namespace gbaemu::lcd
         scanline.hblanking = (scanlineCycle >= 1006);
         scanline.vCount = displayCycle / 1232;
 
-        if (scanlineCycle == 0)
+        if (scanlineCycle == 1231)
             onVCount();
 
         if (displayCycle == 197120 && scanline.vblanking) {
@@ -51,11 +51,7 @@ namespace gbaemu::lcd
             /* h-blank interrupt, scanline rendering, scanline.x increase is only done when not v-blanking */
             if (scanlineCycle == 0 && !scanline.hblanking) {
                 regs = regsRef;
-#if RENDERER_DECOMPOSE_LAYERS == 1
-                renderer.drawScanline(scanline.y, display.target.pixels(), display.target.getWidth());
-#else
                 drawScanline();
-#endif
             }
 
             /* 4 cycles per pixel */
@@ -115,7 +111,7 @@ namespace gbaemu::lcd
 
     void LCDController::drawScanline()
     {
-        renderer.drawScanline(scanline.y, frameBuffer.pixels() + frameBuffer.getWidth() * scanline.y);
+        renderer.drawScanline(scanline.y);
     }
 
     void LCDController::present()
@@ -126,8 +122,11 @@ namespace gbaemu::lcd
         const color_t *src = frameBuffer.pixels();
         int32_t srcStride = frameBuffer.getWidth();
 
-        for (int32_t y = 0; y < static_cast<int32_t>(SCREEN_HEIGHT); ++y) {
-            for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
+        int32_t h = frameBuffer.getHeight();
+        int32_t w = frameBuffer.getWidth();
+
+        for (int32_t y = 0; y < h; ++y) {
+            for (int32_t x = 0; x < w; ++x) {
                 color_t color = src[y * srcStride + x];
 
                 for (int32_t sy = 0; sy < scale; ++sy) {

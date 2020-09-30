@@ -278,39 +278,6 @@ namespace gbaemu::lcd
         const vec2 d = s1 - s0;
         const vec2 ortho{d[1], -d[0]};
 
-        /*
-            (0, 0) = d * (0 - refx) + dm * (y - refy) + orgx
-            -orgx - d * (0 - refx) = y * dm - refy * dm
-            -orgx - d * (0 - refx) + refy * dm = y * dm
-            (-orgx - d * (0 - refx) + refy * dm) * dm^-1 = y
-            (-orgx - d * (0 - refx) * dm^-1) + refy = y
-        */
-
-        /* check if s0 -> s1 intersects with the rectangle [0, 0, width - 1, height - 1] */
-
-        /*
-            s = lerp(s0, s1, t) for 0 <= t <= 1
-
-            sx = w = s0x * (1 - t) + s1x * t = s0x - s0x*t + s1x * t
-
-            s0x - s0x*t + s1x * t = w
-            - s0x*t + s1x * t = w - s0x
-            t * (s1x - s0x) = w - s0x
-            t = (w - s0x) / (s1x - s0x)
-         */
-
-        /*
-        const real_t dx = s1[0] - s0[0];
-        const real_t dy = s1[1] - s0[1];
-
-        const real_t t0 = (width - 1 - s0[0]) / dx;
-        const real_t t1 = (0 - s0[0]) / dx;
-        const real_t t2 = (height - 1 - s0[1]) / dy;
-        const real_t t3 = (0 - s0[1]) / dy;
-
-        return std::max(t1, t3) <= std::min(t0, t2);
-         */
-
         /* we give a single pixel margin */
         const real_t dots[] = {
             (vec2{-1, -1} - s0).dot(ortho),
@@ -320,8 +287,6 @@ namespace gbaemu::lcd
 
         const bool negDot = std::any_of(dots, dots + 4, [](real_t r) { return r <= 0; });
         const bool posDot = std::any_of(dots, dots + 4, [](real_t r) { return r >= 0; });
-
-        //BREAK(!negDot || !posDot);
 
         return negDot && posDot;
     }
