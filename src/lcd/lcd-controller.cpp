@@ -68,8 +68,8 @@ namespace gbaemu::lcd
 
         /* update stat */
         uint16_t stat = le(regsRef.DISPSTAT);
-        stat = bitSet(stat, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t>(scanline.vblanking));
-        stat = bitSet(stat, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t>(scanline.hblanking));
+        stat = bitSet<uint16_t, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET>(stat, bmap<uint16_t>(scanline.vblanking));
+        stat = bitSet<uint16_t, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET>(stat, bmap<uint16_t>(scanline.hblanking));
         regsRef.DISPSTAT = le(stat);
 
         ++scanline.cycle;
@@ -85,17 +85,17 @@ namespace gbaemu::lcd
         uint16_t vCountSetting = bitGet(stat, DISPSTAT::VCOUNT_SETTING_MASK, DISPSTAT::VCOUNT_SETTING_OFFSET);
         bool vCountMatch = scanline.vCount == vCountSetting;
 
-        regsRef.DISPSTAT = le(bitSet(stat, DISPSTAT::VCOUNTER_FLAG_MASK, DISPSTAT::VCOUNTER_FLAG_OFFSET, bmap<uint16_t>(vCountMatch)));
+        regsRef.DISPSTAT = le(bitSet<uint16_t, DISPSTAT::VCOUNTER_FLAG_MASK, DISPSTAT::VCOUNTER_FLAG_OFFSET>(stat, bmap<uint16_t>(vCountMatch)));
 
-        if (vCountMatch && bitGet(stat, DISPSTAT::VCOUNTER_IRQ_ENABLE_MASK, DISPSTAT::VCOUNTER_IRQ_ENABLE_OFFSET)) {
+        if (vCountMatch && isBitSet<uint16_t, DISPSTAT::VCOUNTER_IRQ_ENABLE_OFFSET>(stat)) {
             irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_COUNTER_MATCH);
-        }       
+        }
     }
 
     void LCDController::onHBlank()
     {
         /* use regsRef as those settings are crucial timewise */
-        if (bitGet(le(regsRef.DISPSTAT), DISPSTAT::HBLANK_IRQ_ENABLE_MASK, DISPSTAT::HBLANK_IRQ_ENABLE_OFFSET))
+        if (isBitSet<uint16_t, DISPSTAT::HBLANK_IRQ_ENABLE_OFFSET>(le(regsRef.DISPSTAT)))
             irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_H_BLANK);
 
         scanline.x = 0;
@@ -105,7 +105,7 @@ namespace gbaemu::lcd
     void LCDController::onVBlank()
     {
         /* use regsRef as those settings are crucial timewise */
-        if (bitGet(le(regsRef.DISPSTAT), DISPSTAT::VBLANK_IRQ_ENABLE_MASK, DISPSTAT::VBLANK_IRQ_ENABLE_OFFSET))
+        if (isBitSet<uint16_t, DISPSTAT::VBLANK_IRQ_ENABLE_OFFSET>(le(regsRef.DISPSTAT)))
             irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_BLANK);
 
         scanline.y = 0;

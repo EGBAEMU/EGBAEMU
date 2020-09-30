@@ -9,8 +9,8 @@ namespace gbaemu::lcd
     {
         tileNumber = bitGet<uint16_t>(entry, 0x3FF, 0);
         paletteNumber = bitGet<uint16_t>(entry, 0xF, 12);
-        hFlip = bitGet<uint16_t>(entry, 1, 10);
-        vFlip = bitGet<uint16_t>(entry, 1, 11);
+        hFlip = isBitSet<uint16_t, 10>(entry);
+        vFlip = isBitSet<uint16_t, 11>(entry);
     }
 
     BGLayer::BGLayer(LCDColorPalette &plt, Memory &mem, BGIndex idx) : index(idx), palette(plt), memory(mem)
