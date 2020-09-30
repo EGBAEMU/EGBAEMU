@@ -9,8 +9,16 @@ namespace gbaemu
     static const constexpr address_t INVALID_ADDRESS = 0xFFFFFFFF;
 
     /* converts from or to little endian regardless of the platform */
+
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
     template <class T>
     T le(T val);
+#else
+    template <class T>
+    constexpr T le(T val) {
+        return val;
+    }
+#endif
 
     template <class T>
     T flipBytes(const T &obj);
@@ -45,13 +53,13 @@ namespace gbaemu
     template <class T>
     T bitGet(T val, T mask, T off);
 
-
     /* maps a true/false to 1/0 for T */
     template <class T>
     T bmap(bool b);
 
     template <class T, bool b>
-    constexpr T bmap() {
+    constexpr T bmap()
+    {
         const constexpr T mapped = static_cast<T>(b ? 1 : 0);
         return mapped;
     }

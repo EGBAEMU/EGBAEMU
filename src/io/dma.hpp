@@ -106,6 +106,8 @@ namespace gbaemu
             SPECIAL = 3      // The 'Special' setting (Start Timing=3) depends on the DMA channel: DMA0=Prohibited, DMA1/DMA2=Sound FIFO, DMA3=Video Capture
         };
 
+        bool enabled;
+
         // Extracted control reg values:
         uint32_t srcAddr;
         uint32_t destAddr;
@@ -134,7 +136,6 @@ namespace gbaemu
         void updateAddr(uint32_t &addr, AddrCntType updateKind) const;
         bool conditionSatisfied() const;
         void fetchCount();
-        bool checkForUserAbort();
 
         static const char *countTypeToStr(AddrCntType updateKind);
     };
