@@ -40,6 +40,10 @@ namespace gbaemu::lcd
         for (uint32_t i = 0; i < 4; ++i)
             backgroundLayers[i]->enabled = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
 
+        /* All background layers can be enabled/disabled with a single flag. */
+        for (uint32_t i = 0; i < 4; ++i)
+            objLayers[i]->enabled = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_OBJ_MASK;
+
         for (uint32_t i = 0; i < 4; ++i)
             if (backgroundLayers[i]->enabled)
                 backgroundLayers[i]->loadSettings(static_cast<BGMode>(bgMode), regs);
@@ -58,8 +62,10 @@ namespace gbaemu::lcd
         sortLayers();
     }
 
-    void Renderer::blendDefault(color_t *outBuf)
+    void Renderer::blendDefault(int32_t y)
     {
+        color_t *outBuf = target.pixels() + y * target.getWidth();
+
         for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
             color_t finalColor = palette.getBackdropColor();
 
@@ -80,8 +86,10 @@ namespace gbaemu::lcd
         }
     }
 
-    void Renderer::blendBrightness(color_t *outBuf)
+    void Renderer::blendBrightness(int32_t y)
     {
+        color_t *outBuf = target.pixels() + y * target.getWidth();
+
         for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
             color_t finalColor = palette.getBackdropColor();
 
@@ -106,8 +114,10 @@ namespace gbaemu::lcd
         }
     }
 
-    void Renderer::blendAlpha(color_t *outBuf)
+    void Renderer::blendAlpha(int32_t y)
     {
+        color_t *outBuf = target.pixels() + y * target.getWidth();
+
         for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
             auto it = layers.cbegin();
             bool asFirst = false;
@@ -172,6 +182,30 @@ namespace gbaemu::lcd
         }
     }
 
+    void Renderer::blendDecomposed(int32_t y)
+    {
+        for (int32_t i = 0; i < layers.size(); ++i) {
+            const auto& l = layers[i];
+
+            if (!l->enabled)
+                continue;
+
+            int32_t xOff = (i % 2) * SCREEN_WIDTH;
+            int32_t yOff = (i / 2) * SCREEN_HEIGHT;
+
+            color_t *outBuf = target.pixels() + (y + yOff) * target.getWidth() + xOff;
+
+            for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+                color_t color = l->scanline[x].color;
+                
+                if (color == TRANSPARENT)
+                    color = RENDERER_DECOMPOSE_BG_COLOR;
+
+                outBuf[x] = color;
+            }
+        }
+    }
+
     void Renderer::renderLoop()
     {
         return;
@@ -199,22 +233,6 @@ namespace gbaemu::lcd
                 }
 
 #if RENDERER_DECOMPOSE_LAYERS == 1
-                {
-                    int32_t i = 0;
-
-                    for (const auto &l : layers) {
-                        if (l->enabled) {
-                            int32_t yOff = (i / 2) * SCREEN_HEIGHT;
-                            int32_t xOff = (i % 2) * SCREEN_WIDTH;
-
-                            for (int32_t x = 0; x < SCREEN_WIDTH; ++x)
-                                ;
-                            outBuf[(yOff + y) * stride + (x + xOff)] = l->scanline[x].color;
-                        }
-
-                        ++i;
-                    }
-                }
 #else
                 switch (colorEffects.getEffect()) {
                     case BLDCNT::ColorSpecialEffect::AlphaBlending:
@@ -236,7 +254,8 @@ namespace gbaemu::lcd
         }
     }
 
-    Renderer::Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers) : memory(mem), irqHandler(irq), regs(registers)
+    Renderer::Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers, Canvas<color_t>& targetCanvas) :
+        memory(mem), irqHandler(irq), regs(registers), target(targetCanvas)
     {
         setupLayers();
 
@@ -249,7 +268,7 @@ namespace gbaemu::lcd
         //renderThread.join();
     }
 
-    void Renderer::drawScanline(int32_t y, color_t *outBuf, int32_t stride)
+    void Renderer::drawScanline(int32_t y)
     {
         /*
         if (y == 0)
@@ -269,21 +288,23 @@ namespace gbaemu::lcd
             }
         }
 
+#if (RENDERER_DECOMPOSE_LAYERS == 1)
+        blendDecomposed(y);
+#else
         switch (colorEffects.getEffect()) {
             case BLDCNT::ColorSpecialEffect::AlphaBlending:
-                blendAlpha(outBuf);
+                blendAlpha(y);
                 break;
             case BLDCNT::ColorSpecialEffect::BrightnessIncrease:
             case BLDCNT::ColorSpecialEffect::BrightnessDecrease:
-                blendBrightness(outBuf);
+                blendBrightness(y);
                 break;
             default:
             case BLDCNT::ColorSpecialEffect::None:
-                blendDefault(outBuf);
+                blendDefault(y);
                 break;
         }
-
-        
+#endif
 
         //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count() << std::endl;
     }
