@@ -70,12 +70,12 @@ namespace gbaemu::lcd
       public:
         struct
         {
-            uint32_t cycle = 0;
-            int32_t x = 0, y = 0;
+            // uint32_t cycle = 0;
+            int32_t /*x = 0, */y = 0;
             /* interlacing */
             bool oddScanline = true;
-            bool hblanking = false;
-            bool vblanking = false;
+            // bool hblanking = false;
+            // bool vblanking = false;
 
             /* the result of drawScanline() */
             std::vector<color_t> buf;
@@ -110,11 +110,10 @@ namespace gbaemu::lcd
         void onVBlank();
         void drawScanline();
         void present();
+        void clearBlankFlags();
 
       public:
         int32_t scale = 3;
-
-        void renderTick();
 
       public:
         LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) : display(disp),

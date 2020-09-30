@@ -29,6 +29,41 @@ static void handleSignal(int signum)
     }
 }
 
+static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
+{
+    for (int i = 0; i < 160; ++i) {
+        gbaemu::CPUExecutionInfoType executionInfo = cpu.step(960);
+        if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
+            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            return true;
+        }
+        lcdController.drawScanline();
+        lcdController.onHBlank();
+        executionInfo = cpu.step(272);
+        if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
+            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            return true;
+        }
+        lcdController.onVCount();
+    }
+
+    lcdController.onVBlank();
+
+    for (int i = 0; i < 68; ++i) {
+        gbaemu::CPUExecutionInfoType executionInfo = cpu.step(1232);
+        if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
+            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            return true;
+        }
+        lcdController.onVCount();
+    }
+
+    lcdController.clearBlankFlags();
+    lcdController.present();
+
+    return false;
+}
+
 static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #ifdef DEBUG_CLI
                     ,
@@ -36,9 +71,11 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #endif
 )
 {
-    std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
 
+    /*
+    std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
     for (uint32_t j = 0; doRun; ++j) {
+
 #ifdef DEBUG_CLI
         if (debugCLI.step()) {
             break;
@@ -62,6 +99,15 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
             j = 0;
             t = std::chrono::high_resolution_clock::now();
         }
+    }
+    */
+    for (;doRun;) {
+        std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
+        if (frame(cpu, lcdController)) {
+            break;
+        }
+        double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
+        std::cout << "Current FPS: " << (1000000 / dt) << std::endl;
     }
 
     doRun = false;
