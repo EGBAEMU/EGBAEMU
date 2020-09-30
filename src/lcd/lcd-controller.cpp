@@ -155,11 +155,10 @@ namespace gbaemu::lcd
 
     bool LCDController::canAccessPPUMemory(bool isOAMRegion) const
     {
-        if (le(regsRef.DISPCNT) & DISPCTL::FORCED_BLANK_MASK)
-            return true;
-
+        bool forcedBlank = le(regsRef.DISPCNT) & DISPCTL::FORCED_BLANK_MASK;
         bool hblankIntervalFree = le(regsRef.DISPCNT) & DISPCTL::HBLANK_INTERVAL_FREE_MASK;
-        return scanline.vblanking || ((!isOAMRegion || hblankIntervalFree) && scanline.hblanking);
+
+        return scanline.vblanking || ((!isOAMRegion || hblankIntervalFree) && scanline.hblanking) || forcedBlank;
     }
 
     std::string LCDController::getLayerStatusString() const
