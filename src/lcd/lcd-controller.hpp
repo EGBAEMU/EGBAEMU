@@ -120,7 +120,7 @@ namespace gbaemu::lcd
         LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) : display(disp),
             memory(cpu->state.memory), irqHandler(cpu->irqHandler),
             canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw),
-            renderer(cpu->state.memory, cpu->irqHandler, regs, frameBuffer),
+            renderer(cpu->state.memory, cpu->irqHandler, regsRef, frameBuffer),
 #if (RENDERER_DECOMPOSE_LAYERS == 1)
             frameBuffer(SCREEN_WIDTH * 2, SCREEN_HEIGHT * 4)
 #else
@@ -143,6 +143,7 @@ namespace gbaemu::lcd
 #endif
         }
 
+        bool canAccessPPUMemory(bool isOAMRegion = false) const;
         std::string getLayerStatusString() const;
     };
 

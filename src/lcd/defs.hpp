@@ -86,7 +86,7 @@ namespace gbaemu::lcd
                                         DISPLAY_FRAME_SELECT_MASK = 1 << 4,
                                         HBLANK_INTERVAL_FREE_MASK = 1 << 5,
                                         OBJ_CHAR_VRAM_MAPPING_MASK = 1 << 6,
-                                        FORCES_BLANK_MASK = 1 << 7,
+                                        FORCED_BLANK_MASK = 1 << 7,
                                         SCREEN_DISPLAY_BG0_MASK = 1 << 8,
                                         SCREEN_DISPLAY_BG1_MASK = 1 << 9,
                                         SCREEN_DISPLAY_BG2_MASK = 1 << 10,
