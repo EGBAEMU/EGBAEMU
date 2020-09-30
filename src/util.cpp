@@ -32,12 +32,6 @@ namespace gbaemu
     }
 
     template <class T>
-    T bitSet(T val, T mask, T off, T insVal)
-    {
-        return (val & ~(mask << off)) | ((insVal & mask) << off);
-    }
-
-    template <class T>
     T bitGet(T val, T mask, T off)
     {
         return (val >> off) & mask;
@@ -110,8 +104,6 @@ namespace gbaemu
             return value - mod;
     }
 } // namespace gbaemu
-
-template uint16_t gbaemu::bitSet<uint16_t>(uint16_t, uint16_t, uint16_t, uint16_t);
 
 template uint16_t gbaemu::bitGet<uint16_t>(uint16_t, uint16_t, uint16_t);
 

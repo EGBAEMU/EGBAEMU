@@ -29,16 +29,16 @@ namespace gbaemu::lcd
         uint16_t stat = le(regsRef.DISPSTAT);
         uint16_t vCountSetting = bitGet(stat, DISPSTAT::VCOUNT_SETTING_MASK, DISPSTAT::VCOUNT_SETTING_OFFSET);
         bool vCountMatch = scanline.vCount == vCountSetting;
-        if (vCountMatch && bitGet(stat, DISPSTAT::VCOUNTER_IRQ_ENABLE_MASK, DISPSTAT::VCOUNTER_IRQ_ENABLE_OFFSET)) {
+        if (vCountMatch && isBitSet<uint16_t, DISPSTAT::VCOUNTER_IRQ_ENABLE_OFFSET>(stat)) {
             irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_COUNTER_MATCH);
         }
 
-        regsRef.DISPSTAT = le(bitSet(stat, DISPSTAT::VCOUNTER_FLAG_MASK, DISPSTAT::VCOUNTER_FLAG_OFFSET, bmap<uint16_t>(vCountMatch)));
+        regsRef.DISPSTAT = le(bitSet<uint16_t, DISPSTAT::VCOUNTER_FLAG_MASK, DISPSTAT::VCOUNTER_FLAG_OFFSET>(stat, bmap<uint16_t>(vCountMatch)));
 
         /* update vcount */
         scanline.vCount = (scanline.vCount + 1) % 228;
         uint16_t vcount = le(regsRef.VCOUNT);
-        vcount = bitSet<uint16_t>(vcount, VCOUNT::CURRENT_SCANLINE_MASK, VCOUNT::CURRENT_SCANLINE_OFFSET, scanline.vCount);
+        vcount = bitSet<uint16_t, VCOUNT::CURRENT_SCANLINE_MASK, VCOUNT::CURRENT_SCANLINE_OFFSET>(vcount, scanline.vCount);
         regsRef.VCOUNT = le(vcount);
     }
 
@@ -46,12 +46,12 @@ namespace gbaemu::lcd
     {
         /* update stat */
         uint16_t stat = le(regsRef.DISPSTAT);
-        stat = bitSet(stat, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t>(false));
-        stat = bitSet(stat, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t>(true));
+        stat = bitSet<uint16_t, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t, false>()>(stat);
+        stat = bitSet<uint16_t, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t, true>()>(stat);
         regsRef.DISPSTAT = le(stat);
 
         /* use regsRef as those settings are crucial timewise */
-        if (bitGet(stat, DISPSTAT::HBLANK_IRQ_ENABLE_MASK, DISPSTAT::HBLANK_IRQ_ENABLE_OFFSET))
+        if (isBitSet<uint16_t, DISPSTAT::HBLANK_IRQ_ENABLE_OFFSET>(stat))
             irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_H_BLANK);
 
         // scanline.x = 0;
@@ -62,12 +62,12 @@ namespace gbaemu::lcd
     {
         /* update stat */
         uint16_t stat = le(regsRef.DISPSTAT);
-        stat = bitSet(stat, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t>(true));
-        stat = bitSet(stat, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t>(false));
+        stat = bitSet<uint16_t, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t, true>()>(stat);
+        stat = bitSet<uint16_t, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t, false>()>(stat);
         regsRef.DISPSTAT = le(stat);
 
         /* use regsRef as those settings are crucial timewise */
-        if (bitGet(stat, DISPSTAT::VBLANK_IRQ_ENABLE_MASK, DISPSTAT::VBLANK_IRQ_ENABLE_OFFSET))
+        if (isBitSet<uint16_t, DISPSTAT::VBLANK_IRQ_ENABLE_OFFSET>(stat))
             irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_BLANK);
 
         scanline.y = 0;
@@ -77,7 +77,7 @@ namespace gbaemu::lcd
     {
         /* clear stat */
         uint16_t stat = le(regsRef.DISPSTAT);
-        stat = stat & ~(DISPSTAT::VBLANK_FLAG_MASK << DISPSTAT::VBLANK_FLAG_OFFSET) & ~(DISPSTAT::HBLANK_FLAG_MASK << DISPSTAT::HBLANK_FLAG_OFFSET);
+        stat = stat & ~((DISPSTAT::VBLANK_FLAG_MASK << DISPSTAT::VBLANK_FLAG_OFFSET) | (DISPSTAT::HBLANK_FLAG_MASK << DISPSTAT::HBLANK_FLAG_OFFSET));
         regsRef.DISPSTAT = le(stat);
     }
 

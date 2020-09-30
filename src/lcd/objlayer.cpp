@@ -56,29 +56,29 @@ namespace gbaemu::lcd
         enabled = true;
         objIndex = index;
 
-        OBJAttribute attr = getAttribute(attributes, objIndex);
+        const OBJAttribute attr = getAttribute(attributes, objIndex);
         priority = static_cast<uint16_t>(bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PRIORITY_MASK, OBJ_ATTRIBUTE::PRIORITY_OFFSET));
 
         /* this OBJ does not belong on the current layer */
         //if (priority != prioFilter)
         //    return;
 
-        bool useRotScale = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::ROT_SCALE_MASK, OBJ_ATTRIBUTE::ROT_SCALE_OFFSET);
+        bool useRotScale = isBitSet<uint16_t, OBJ_ATTRIBUTE::ROT_SCALE_OFFSET>(attr.attribute[0]);
 
         if (!useRotScale) {
-            enabled = !bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::DISABLE_MASK, OBJ_ATTRIBUTE::DISABLE_OFFSET);
+            enabled = !isBitSet<uint16_t, OBJ_ATTRIBUTE::DISABLE_OFFSET>(attr.attribute[0]);
 
             if (!enabled)
                 return;
 
-            vFlip = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::V_FLIP_MASK, OBJ_ATTRIBUTE::V_FLIP_OFFSET);
-            hFlip = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::H_FLIP_MASK, OBJ_ATTRIBUTE::H_FLIP_OFFSET);
+            vFlip = isBitSet<uint16_t, OBJ_ATTRIBUTE::V_FLIP_OFFSET>(attr.attribute[1]);
+            hFlip = isBitSet<uint16_t, OBJ_ATTRIBUTE::H_FLIP_OFFSET>(attr.attribute[1]);
         } else {
             enabled = true;
         }
 
         /* 16x16 palette */
-        useColor256 = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::COLOR_PALETTE_MASK, OBJ_ATTRIBUTE::COLOR_PALETTE_OFFSET);
+        useColor256 = isBitSet<uint16_t, OBJ_ATTRIBUTE::COLOR_PALETTE_OFFSET>(attr.attribute[0]);
 
         yOff = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::Y_COORD_MASK, OBJ_ATTRIBUTE::Y_COORD_OFFSET);
         xOff = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::X_COORD_MASK, OBJ_ATTRIBUTE::X_COORD_OFFSET);
@@ -87,13 +87,12 @@ namespace gbaemu::lcd
         OBJShape shape = static_cast<OBJShape>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_SHAPE_MASK, OBJ_ATTRIBUTE::OBJ_SHAPE_OFFSET));
         uint16_t size = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::OBJ_SIZE_MASK, OBJ_ATTRIBUTE::OBJ_SIZE_OFFSET);
         tileNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::CHAR_NAME_MASK, OBJ_ATTRIBUTE::CHAR_NAME_OFFSET);
-        mosaicEnabled = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MOSAIC_MASK, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET);
+        mosaicEnabled = isBitSet<uint16_t, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET>(attr.attribute[0]);
         mode = static_cast<OBJMode>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MODE_MASK, OBJ_ATTRIBUTE::OBJ_MODE_OFFSET));
 
         if (useColor256)
             tileNumber /= 2;
 
-        bool useMosaic = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MOSAIC_MASK, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET);
         OBJMode mode = static_cast<OBJMode>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MODE_MASK, OBJ_ATTRIBUTE::OBJ_MODE_OFFSET));
 
         if (3 <= mode && mode <= 5 && tileNumber < 512)
@@ -162,7 +161,7 @@ namespace gbaemu::lcd
         paletteNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PALETTE_NUMBER_MASK, OBJ_ATTRIBUTE::PALETTE_NUMBER_OFFSET);
         tilesPerRow = useColor256 ? 16 : 32;
         bytesPerTile = useColor256 ? 64 : 32;
-        doubleSized = useRotScale && bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::DOUBLE_SIZE_MASK, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET);
+        doubleSized = useRotScale && isBitSet<uint16_t, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET>(attr.attribute[0]);
 
         if (useRotScale) {
             uint16_t index = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::ROT_SCALE_PARAM_MASK, OBJ_ATTRIBUTE::ROT_SCALE_PARAM_OFFSET);
@@ -437,8 +436,8 @@ namespace gbaemu::lcd
         }
 
         //objManager.loadOBJs(attributes);
-        asFirstTarget = bitGet<uint16_t>(le(regs.BLDCNT), BLDCNT::TARGET_MASK, BLDCNT::OBJ_FIRST_TARGET_OFFSET);
-        asSecondTarget = bitGet<uint16_t>(le(regs.BLDCNT), BLDCNT::TARGET_MASK, BLDCNT::OBJ_SECOND_TARGET_OFFSET);
+        asFirstTarget = isBitSet<uint16_t, BLDCNT::OBJ_FIRST_TARGET_OFFSET>(le(regs.BLDCNT));
+        asSecondTarget = isBitSet<uint16_t, BLDCNT::OBJ_SECOND_TARGET_OFFSET>(le(regs.BLDCNT));
     }
 
     void OBJLayer::drawScanline(int32_t y)
