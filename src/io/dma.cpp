@@ -37,6 +37,11 @@ namespace gbaemu
     void DMA::write8ToReg(uint32_t offset, uint8_t value)
     {
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+
+        if (offset == offsetof(DMARegs, cntReg) + sizeof(regs.cntReg) - 1) {
+            enabled = isBitSet<uint8_t, DMA_CNT_REG_EN_OFF - (sizeof(regs.cntReg) - 1) * 8>(value);
+            state = IDLE;
+        }
     }
 
     DMA::DMA(DMAChannel channel, CPU *cpu) : channel(channel), memory(cpu->state.memory), irqHandler(cpu->irqHandler)
@@ -55,7 +60,7 @@ namespace gbaemu
     void DMA::step(InstructionExecutionInfo &info, uint32_t cycles)
     {
         // Check if enabled only once, because there can not be state changes, after dma has taken over control!
-        if (checkForUserAbort()) {
+        if (!enabled) {
             return;
         }
 
@@ -177,6 +182,7 @@ namespace gbaemu
 
                         // Clear enable bit to indicate that we are done!
                         regs.cntReg &= ~le(DMA_CNT_REG_EN_MASK);
+                        enabled = false;
 
                         if (irqOnEnd) {
                             irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::DMA_0 + channel));
@@ -187,15 +193,6 @@ namespace gbaemu
                 }
             }
         } while (state != IDLE && state != WAITING_PAUSED && info.cycleCount < cycles);
-    }
-
-    bool DMA::checkForUserAbort()
-    { // Still enabled? else go back to IDLE
-        if ((le(regs.cntReg) & DMA_CNT_REG_EN_MASK) == 0) {
-            state = IDLE;
-            return true;
-        }
-        return false;
     }
 
     void DMA::updateAddr(uint32_t &addr, AddrCntType updateKind) const
