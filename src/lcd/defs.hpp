@@ -18,7 +18,12 @@ namespace gbaemu::lcd
     typedef uint32_t color_t;
     static const constexpr color_t TRANSPARENT = 0x00000000,
                                    BLACK = 0xFF000000,
-                                   WHITE = 0xFFFFFFFF;
+                                   WHITE = 0xFFFFFFFF,
+                                   RED = 0xFFFF0000,
+                                   GREEN = 0xFF00FF00,
+                                   BLUE = 0xFF0000FF,
+                                   MAGENTA = RED | BLUE,
+                                   CYAN = GREEN | BLUE;
 
     /* channel wise color addition */
     static color_t colAdd(color_t a, color_t b)

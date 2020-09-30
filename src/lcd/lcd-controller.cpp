@@ -24,10 +24,8 @@ namespace gbaemu::lcd
 {
     void LCDController::renderTick()
     {
-        /*
-        if (le(regsRef.DISPCNT) & DISPCTL::HBLANK_INTERVAL_FREE_MASK)
-            std::cout << "Unsupported feature: HBLANK FREE." << std::endl;
-         */
+        //if (le(regsRef.DISPCNT) & DISPCTL::HBLANK_INTERVAL_FREE_MASK)
+        //    throw std::runtime_error("Unsupported feature: HBLANK FREE.");
 
         /*
             [ 960 cycles for 240 dots ][ 272 cycles for hblank ]

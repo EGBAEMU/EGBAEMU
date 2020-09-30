@@ -38,7 +38,6 @@ namespace gbaemu::lcd
         /* backdrop layer, BG0-BG4, OBJ0-OBJ4 */
         std::array<std::shared_ptr<BGLayer>, 4> backgroundLayers;
         /* each priority (0-3) gets its own layer */
-        OBJManager objManager;
         std::array<std::shared_ptr<OBJLayer>, 4> objLayers;
         /* all layers */
         std::array<std::shared_ptr<Layer>, 8> layers;

@@ -49,7 +49,7 @@ namespace gbaemu::lcd
                 signExt<int32_t, uint16_t, 16>(d)});
     }
 
-    OBJ::OBJ(const uint8_t *attributes, int32_t index)
+    OBJ::OBJ(const uint8_t *attributes, int32_t index, BGMode bgMode)
     {
         /* by default */
         visible = false;
@@ -96,7 +96,8 @@ namespace gbaemu::lcd
         bool useMosaic = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MOSAIC_MASK, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET);
         OBJMode mode = static_cast<OBJMode>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MODE_MASK, OBJ_ATTRIBUTE::OBJ_MODE_OFFSET));
 
-        if (3 <= mode && mode <= 5 && tileNumber < 512)
+        /* bitmap modes */
+        if (Mode3 <= bgMode && bgMode <= Mode5 && tileNumber < 512)
             return;
 
         /*
@@ -306,45 +307,8 @@ namespace gbaemu::lcd
         return it;
     }
 
-    OBJManager::OBJManager() : allObjects(128)
-    {
-    }
-
-    void OBJManager::loadOBJs(const uint8_t *attributes)
-    {
-        allObjects.resize(0);
-
-        //for (auto& obj : objectsByPriority)
-        //    obj.resize(0);
-
-        for (int32_t objIndex = 0; objIndex < 128; ++objIndex) {
-            OBJ obj(attributes, objIndex);
-
-            if (!obj.enabled)
-                continue;
-
-            allObjects.push_back(obj);
-            //objectsByPriority[obj.priority].push_back(obj);
-        }
-    }
-
-    std::vector<OBJ>::const_iterator OBJManager::lastOBJ(int32_t y, int32_t cycleBudget) const
-    {
-        auto it = allObjects.cbegin();
-        int32_t cyclesUsed = 0;
-
-        for (; it != allObjects.cend(); it++) {
-            if (!it->visible || !it->enabled || !it->intersectsWithScanline(y))
-                continue;
-
-            if (cyclesUsed += it->cyclesRequired > cycleBudget)
-                break;
-        }
-
-        return it;
-    }
-
-    OBJLayer::OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, OBJManager &objMgr, uint16_t prio) : memory(mem), palette(plt), regs(ioRegs), objManager(objMgr), objects(128)
+    OBJLayer::OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio) :
+        memory(mem), palette(plt), regs(ioRegs), objects(128)
     {
         /* OBJ layers are always enabled */
         enabled = true;
@@ -365,17 +329,13 @@ namespace gbaemu::lcd
         Memory::MemoryRegion memReg;
         const uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, memReg);
         const uint8_t *oamBase = memory.resolveAddr(Memory::OAM_OFFSET, nullptr, memReg);
+        objTiles = vramBase + 0x10000;
 
         switch (mode) {
-            case Mode0:
-            case Mode1:
-            case Mode2:
-                objTiles = vramBase + 0x10000;
+            case Mode0: case Mode1: case Mode2:
                 areaSize = 32 * 1024;
                 break;
-            case Mode3:
-            case Mode4:
-                objTiles = vramBase + 0x14000;
+            case Mode3: case Mode4:
                 areaSize = 16 * 1024;
                 break;
         }
@@ -392,7 +352,7 @@ namespace gbaemu::lcd
         objects.resize(0);
 
         for (int32_t objIndex = 0; objIndex < 128; ++objIndex) {
-            OBJ obj(attributes, objIndex);
+            OBJ obj(attributes, objIndex, mode);
 
             if (obj.priority != priority || !obj.intersectsWithScanline(fy))
                 continue;
@@ -401,7 +361,6 @@ namespace gbaemu::lcd
                 objects.push_back(obj);
         }
 
-        //objManager.loadOBJs(attributes);
         asFirstTarget = bitGet<uint16_t>(le(regs.BLDCNT), BLDCNT::TARGET_MASK, BLDCNT::OBJ_FIRST_TARGET_OFFSET);
         asSecondTarget = bitGet<uint16_t>(le(regs.BLDCNT), BLDCNT::TARGET_MASK, BLDCNT::OBJ_SECOND_TARGET_OFFSET);
     }

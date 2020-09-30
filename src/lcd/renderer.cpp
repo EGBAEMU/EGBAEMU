@@ -11,10 +11,10 @@ namespace gbaemu::lcd
         backgroundLayers[2] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG2);
         backgroundLayers[3] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG3);
 
-        objLayers[0] = std::make_shared<OBJLayer>(memory, palette, regs, objManager, 0);
-        objLayers[1] = std::make_shared<OBJLayer>(memory, palette, regs, objManager, 1);
-        objLayers[2] = std::make_shared<OBJLayer>(memory, palette, regs, objManager, 2);
-        objLayers[3] = std::make_shared<OBJLayer>(memory, palette, regs, objManager, 3);
+        objLayers[0] = std::make_shared<OBJLayer>(memory, palette, regs, 0);
+        objLayers[1] = std::make_shared<OBJLayer>(memory, palette, regs, 1);
+        objLayers[2] = std::make_shared<OBJLayer>(memory, palette, regs, 2);
+        objLayers[3] = std::make_shared<OBJLayer>(memory, palette, regs, 3);
 
         for (uint32_t i = 0; i < 8; ++i) {
             if (i <= 3)
