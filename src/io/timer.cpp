@@ -2,6 +2,7 @@
 #include "cpu/cpu.hpp"
 #include "interrupts.hpp"
 #include "logging.hpp"
+#include "util.hpp"
 
 #include <algorithm>
 #include <functional>
@@ -14,6 +15,7 @@ namespace gbaemu
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
         counter = 0;
         active = false;
+        nextActive = false;
     }
 
     uint8_t TimerGroup::Timer::read8FromReg(uint32_t offset)
@@ -28,13 +30,18 @@ namespace gbaemu
     void TimerGroup::Timer::write8ToReg(uint32_t offset, uint8_t value)
     {
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+
+        if (offset == offsetof(TimerRegs, control)) {
+            nextActive = isBitSet<uint8_t, TIMER_START_OFFSET>(value);
+            // if the active bit is set again this won't have a effect on the active flag
+            // else if deactivated active will be set to false as well -> on reenable still false
+            active = active && nextActive;
+        }
     }
 
     void TimerGroup::Timer::receiveOverflowOfPrevTimer(uint32_t overflowTimes)
     {
-        // check if still active
-        bool nextActive = le(regs.control) & TIMER_START_MASK;
-
+        // check if active & configured
         if (nextActive && active && countUpTiming) {
             counter += overflowTimes;
             checkForOverflow();
@@ -81,52 +88,47 @@ namespace gbaemu
 
     void TimerGroup::Timer::step(uint32_t cycles)
     {
-        if (cycles == 0)
+        if (cycles == 0 || !nextActive)
             return;
 
-        uint16_t controlReg = le(regs.control);
+        if (!active) {
+            // Was previously disabled -> reconfigure timer
+            uint16_t controlReg = le(regs.control);
 
-        // Update active flag
-        bool nextActive = controlReg & TIMER_START_MASK;
-
-        if (nextActive) {
-            if (!active) {
-                // Was previously disabled -> reconfigure timer
-
-                countUpTiming = id != 0 && (controlReg & TIMER_TIMING_MASK);
-                if (countUpTiming) {
-                    preShift = 0;
-                } else {
-                    preShift = preShifts[(controlReg & TIMER_PRESCALE_MASK)];
-                }
-
-                counter = static_cast<uint32_t>(le(regs.reload)) << preShift;
-                overflowVal = (static_cast<uint32_t>(1) << (preShift + 16));
-
-                irq = controlReg & TIMER_IRQ_EN_MASK;
-
-                LOG_TIM(
-                    std::cout << "INFO: Enabled TIMER" << std::dec << static_cast<uint32_t>(id) << std::endl;
-                    std::cout << "      Prescale: /" << std::dec << (static_cast<uint32_t>(1) << preShift) << std::endl;
-                    std::cout << "      Count only up on prev Timer overflow: " << countUpTiming << std::endl;
-                    std::cout << "      IRQ enable: " << irq << std::endl;
-                    std::cout << "      Counter Value: 0x" << std::hex << static_cast<uint32_t>(counter >> preShift) << std::endl;);
-
-                //TODO 1 cycle for setup?
-                --cycles;
+            countUpTiming = id != 0 && (controlReg & TIMER_TIMING_MASK);
+            if (countUpTiming) {
+                preShift = 0;
+            } else {
+                preShift = preShifts[(controlReg & TIMER_PRESCALE_MASK)];
             }
 
-            // if countUpTiming is true we only increment on overflow of the previous timer!
-            if (!countUpTiming) {
+            counter = static_cast<uint32_t>(le(regs.reload)) << preShift;
+            overflowVal = (static_cast<uint32_t>(1) << (preShift + 16));
 
-                // Increment the timer counter and check for overflows
-                counter += cycles;
+            irq = controlReg & TIMER_IRQ_EN_MASK;
 
-                checkForOverflow();
-            }
+            LOG_TIM(
+                std::cout << "INFO: Enabled TIMER" << std::dec << static_cast<uint32_t>(id) << std::endl;
+                std::cout << "      Prescale: /" << std::dec << (static_cast<uint32_t>(1) << preShift) << std::endl;
+                std::cout << "      Count only up on prev Timer overflow: " << countUpTiming << std::endl;
+                std::cout << "      IRQ enable: " << irq << std::endl;
+                std::cout << "      Counter Value: 0x" << std::hex << static_cast<uint32_t>(counter >> preShift) << std::endl;);
+
+            //TODO 1 cycle for setup?
+            --cycles;
         }
 
-        active = nextActive;
+        // if countUpTiming is true we only increment on overflow of the previous timer!
+        if (!countUpTiming) {
+
+            // Increment the timer counter and check for overflows
+            counter += cycles;
+
+            checkForOverflow();
+        }
+
+        // Update active flag
+        active = true;
     }
 
     TimerGroup::TimerGroup(CPU *cpu) : tim0(cpu->state.memory, cpu->irqHandler, 0, &tim1), tim1(cpu->state.memory, cpu->irqHandler, 1, &tim2), tim2(cpu->state.memory, cpu->irqHandler, 2, &tim3), tim3(cpu->state.memory, cpu->irqHandler, 3, nullptr)

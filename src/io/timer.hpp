@@ -32,11 +32,12 @@ namespace gbaemu
         {
           private:
             static const constexpr uint32_t TIMER_REGS_BASE_OFFSET = Memory::IO_REGS_OFFSET + 0x100;
+            static const constexpr uint8_t TIMER_START_OFFSET = 7;
 
             static const constexpr uint16_t TIMER_PRESCALE_MASK = 0x3;
             static const constexpr uint16_t TIMER_TIMING_MASK = static_cast<uint16_t>(1) << 2;
             static const constexpr uint16_t TIMER_IRQ_EN_MASK = static_cast<uint16_t>(1) << 6;
-            static const constexpr uint16_t TIMER_START_MASK = static_cast<uint16_t>(1) << 7;
+            static const constexpr uint16_t TIMER_START_MASK = static_cast<uint16_t>(1) << TIMER_START_OFFSET;
 
             // prescale = 1 << preShift -> prescale values are: 1, 64, 256, 1024
             static const constexpr uint8_t preShifts[] = {0, 6, 8, 10};
@@ -53,6 +54,7 @@ namespace gbaemu
             uint32_t counter;
             uint32_t overflowVal;
             uint8_t preShift;
+            bool nextActive;
             bool active;
             bool countUpTiming;
             bool irq;
