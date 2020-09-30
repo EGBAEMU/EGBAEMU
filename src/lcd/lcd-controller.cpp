@@ -25,6 +25,11 @@ namespace gbaemu::lcd
     void LCDController::renderTick()
     {
         /*
+        if (le(regsRef.DISPCNT) & DISPCTL::HBLANK_INTERVAL_FREE_MASK)
+            std::cout << "Unsupported feature: HBLANK FREE." << std::endl;
+         */
+
+        /*
             [ 960 cycles for 240 dots ][ 272 cycles for hblank ]
             ...
             [ 960 cycles for 240 dots ][ 272 cycles for hblank ]
@@ -51,11 +56,7 @@ namespace gbaemu::lcd
             /* h-blank interrupt, scanline rendering, scanline.x increase is only done when not v-blanking */
             if (scanlineCycle == 0 && !scanline.hblanking) {
                 regs = regsRef;
-#if RENDERER_DECOMPOSE_LAYERS == 1
-                renderer.drawScanline(scanline.y, display.target.pixels(), display.target.getWidth());
-#else
                 drawScanline();
-#endif
             }
 
             /* 4 cycles per pixel */
@@ -79,19 +80,18 @@ namespace gbaemu::lcd
     void LCDController::onVCount()
     {
         /* update vcount */
-        uint16_t vcount = le(regsRef.VCOUNT);
-        vcount = bitSet<uint16_t, VCOUNT::CURRENT_SCANLINE_MASK, VCOUNT::CURRENT_SCANLINE_OFFSET>(vcount, scanline.vCount);
-        regsRef.VCOUNT = le(vcount);
+        regsRef.VCOUNT = le(scanline.vCount);
 
         /* use regsRef as those settings are crucial timewise */
         uint16_t stat = le(regsRef.DISPSTAT);
         uint16_t vCountSetting = bitGet(stat, DISPSTAT::VCOUNT_SETTING_MASK, DISPSTAT::VCOUNT_SETTING_OFFSET);
         bool vCountMatch = scanline.vCount == vCountSetting;
+
+        regsRef.DISPSTAT = le(bitSet<uint16_t, DISPSTAT::VCOUNTER_FLAG_MASK, DISPSTAT::VCOUNTER_FLAG_OFFSET>(stat, bmap<uint16_t>(vCountMatch)));
+
         if (vCountMatch && isBitSet<uint16_t, DISPSTAT::VCOUNTER_IRQ_ENABLE_OFFSET>(stat)) {
             irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_COUNTER_MATCH);
         }
-
-        regsRef.DISPSTAT = le(bitSet<uint16_t, DISPSTAT::VCOUNTER_FLAG_MASK, DISPSTAT::VCOUNTER_FLAG_OFFSET>(stat, bmap<uint16_t>(vCountMatch)));
     }
 
     void LCDController::onHBlank()
@@ -115,7 +115,15 @@ namespace gbaemu::lcd
 
     void LCDController::drawScanline()
     {
-        renderer.drawScanline(scanline.y, frameBuffer.pixels() + frameBuffer.getWidth() * scanline.y);
+        /* If this bit is set, white lines are displayed. */
+        if (le(regsRef.DISPCNT) & DISPCTL::FORCED_BLANK_MASK) {
+            color_t *outBuf = frameBuffer.pixels() + scanline.y * frameBuffer.getWidth();
+
+            for (int32_t x = 0; x < SCREEN_WIDTH; ++x)
+                outBuf[x] = WHITE;
+        } else {
+            renderer.drawScanline(scanline.y);
+        }
     }
 
     void LCDController::present()
@@ -126,8 +134,11 @@ namespace gbaemu::lcd
         const color_t *src = frameBuffer.pixels();
         int32_t srcStride = frameBuffer.getWidth();
 
-        for (int32_t y = 0; y < static_cast<int32_t>(SCREEN_HEIGHT); ++y) {
-            for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
+        int32_t h = frameBuffer.getHeight();
+        int32_t w = frameBuffer.getWidth();
+
+        for (int32_t y = 0; y < h; ++y) {
+            for (int32_t x = 0; x < w; ++x) {
                 color_t color = src[y * srcStride + x];
 
                 for (int32_t sy = 0; sy < scale; ++sy) {
@@ -140,6 +151,14 @@ namespace gbaemu::lcd
 
         /* race conditions are acceptable here */
         *canDrawToScreen = true;
+    }
+
+    bool LCDController::canAccessPPUMemory(bool isOAMRegion) const
+    {
+        bool forcedBlank = le(regsRef.DISPCNT) & DISPCTL::FORCED_BLANK_MASK;
+        bool hblankIntervalFree = le(regsRef.DISPCNT) & DISPCTL::HBLANK_INTERVAL_FREE_MASK;
+
+        return scanline.vblanking || ((!isOAMRegion || hblankIntervalFree) && scanline.hblanking) || forcedBlank;
     }
 
     std::string LCDController::getLayerStatusString() const
