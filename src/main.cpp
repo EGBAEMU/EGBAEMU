@@ -14,10 +14,7 @@
 
 #include "input/keyboard_control.hpp"
 
-#define SHOW_WINDOW true
-#define DISAS_CMD_RANGE 5
-#define DEBUG_STACK_PRINT_RANGE 8
-#define SDL_EVENT_POLL_INTERVALL 16384
+#define PRINT_FPS true
 
 static volatile bool doRun = true;
 
@@ -29,32 +26,74 @@ static void handleSignal(int signum)
     }
 }
 
-static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController)
+static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
+#ifdef DEBUG_CLI
+                  ,
+                  gbaemu::debugger::DebugCLI &debugCLI
+#endif
+)
 {
+    // gbaemu::debugger::ExecutionHistory history(100);
+
+    // uint32_t prevPC = cpu.state.getCurrentPC();
+
     for (int i = 0; i < 160; ++i) {
+#ifndef DEBUG_CLI
         gbaemu::CPUExecutionInfoType executionInfo = cpu.step(960);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
             std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
             return true;
         }
+#else
+        for (int j = 0; j < 960; ++j) {
+            // if (prevPC != cpu.state.getCurrentPC())
+                // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
+            if (debugCLI.step()) {
+                // history.dumpHistory();
+                return true;
+            }
+        }
+#endif
         lcdController.drawScanline();
         lcdController.onHBlank();
+#ifndef DEBUG_CLI
         executionInfo = cpu.step(272);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
             std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
             return true;
         }
+#else
+        for (int j = 0; j < 272; ++j) {
+            // if (prevPC != cpu.state.getCurrentPC())
+                // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
+            if (debugCLI.step()) {
+                // history.dumpHistory();
+                return true;
+            }
+        }
+#endif
         lcdController.onVCount();
     }
 
     lcdController.onVBlank();
 
     for (int i = 0; i < 68; ++i) {
+#ifndef DEBUG_CLI
         gbaemu::CPUExecutionInfoType executionInfo = cpu.step(1232);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
             std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
             return true;
         }
+#else
+        for (int j = 0; j < 960; ++j) {
+            // if (prevPC != cpu.state.getCurrentPC())
+                // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
+            if (debugCLI.step()) {
+                // history.dumpHistory();
+                return true;
+            }
+        }
+#endif
         lcdController.onVCount();
     }
 
@@ -72,42 +111,21 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 )
 {
 
-    /*
-    std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
-    for (uint32_t j = 0; doRun; ++j) {
-
-#ifdef DEBUG_CLI
-        if (debugCLI.step()) {
-            break;
-        }
-#else
-        gbaemu::CPUExecutionInfoType executionInfo = cpu.step(1);
-        if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
-            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
-            break;
-        }
-#endif
-        lcdController.renderTick();
-
-        if (j >= 100001) {
-            double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
-            // dt = us * 1000, us for a single instruction = dt / 1000
-            double mhz = (1000000 / (dt / 100000)) / 1000000;
-
-            //std::cout << std::dec << dt << "us for 100000 cycles => ~" << mhz << "MHz" << std::endl;
-
-            j = 0;
-            t = std::chrono::high_resolution_clock::now();
-        }
-    }
-    */
     for (; doRun;) {
         std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
-        if (frame(cpu, lcdController)) {
+        if (frame(cpu, lcdController
+#ifdef DEBUG_CLI
+                  ,
+                  debugCLI
+#endif
+                  )) {
             break;
         }
         double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
+
+#if !defined(DEBUG_CLI) && PRINT_FPS
         std::cout << "Current FPS: " << (1000000 / dt) << std::endl;
+#endif
     }
 
     doRun = false;
