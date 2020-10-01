@@ -11,10 +11,10 @@ namespace gbaemu::lcd
         backgroundLayers[2] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG2);
         backgroundLayers[3] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG3);
 
-        objLayers[0] = std::make_shared<OBJLayer>(memory, palette, regs, 0);
-        objLayers[1] = std::make_shared<OBJLayer>(memory, palette, regs, 1);
-        objLayers[2] = std::make_shared<OBJLayer>(memory, palette, regs, 2);
-        objLayers[3] = std::make_shared<OBJLayer>(memory, palette, regs, 3);
+        objLayers[0] = std::make_shared<OBJLayer>(memory, palette, regs, 0, objManager);
+        objLayers[1] = std::make_shared<OBJLayer>(memory, palette, regs, 1, objManager);
+        objLayers[2] = std::make_shared<OBJLayer>(memory, palette, regs, 2, objManager);
+        objLayers[3] = std::make_shared<OBJLayer>(memory, palette, regs, 3, objManager);
 
         for (uint32_t i = 0; i < 8; ++i) {
             if (i <= 3)
@@ -34,7 +34,7 @@ namespace gbaemu::lcd
     void Renderer::loadSettings(int32_t y)
     {
         /* copy registers, they cannot be modified when rendering */
-        uint32_t bgMode = le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
+        BGMode bgMode = static_cast<BGMode>(le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK);
 
         /* Which background layers are enabled to begin with? */
         for (uint32_t i = 0; i < 4; ++i)
@@ -46,12 +46,18 @@ namespace gbaemu::lcd
 
         for (uint32_t i = 0; i < 4; ++i)
             if (backgroundLayers[i]->enabled)
-                backgroundLayers[i]->loadSettings(static_cast<BGMode>(bgMode), regs);
+                backgroundLayers[i]->loadSettings(bgMode, regs);
 
         bool use2dMapping = !(le(regs.DISPCNT) & DISPCTL::OBJ_CHAR_VRAM_MAPPING_MASK);
 
+        /* load objects */
+        Memory::MemoryRegion memReg;
+        const uint8_t *oamBase = memory.resolveAddr(Memory::OAM_OFFSET, nullptr, memReg);
+        objManager->load(oamBase, bgMode);
+
+        /* load objects for each layer */
         for (auto &l : objLayers) {
-            l->setMode(static_cast<BGMode>(bgMode), use2dMapping);
+            l->setMode(bgMode, use2dMapping);
             l->loadOBJs(y);
         }
 
@@ -255,7 +261,7 @@ namespace gbaemu::lcd
     }
 
     Renderer::Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers, Canvas<color_t>& targetCanvas) :
-        memory(mem), irqHandler(irq), regs(registers), target(targetCanvas)
+        memory(mem), irqHandler(irq), regs(registers), target(targetCanvas), objManager(std::make_shared<OBJManager>())
     {
         setupLayers();
 
@@ -306,6 +312,16 @@ namespace gbaemu::lcd
         }
 #endif
 
+#if (RENDERER_ENABLED_WINDOWS == 1)
+
+        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+            const WindowRegion& activeWindow = windowFeature.getActiveWindow(x, y);
+
+
+
+        }
+
+#endif
         //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count() << std::endl;
     }
 } // namespace gbaemu::lcd

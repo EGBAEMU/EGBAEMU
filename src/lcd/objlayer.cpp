@@ -291,6 +291,18 @@ namespace gbaemu::lcd
         return negDot && posDot;
     }
 
+    OBJManager::OBJManager()
+    {
+        for (auto& obj : objects)
+            obj.enabled = false;
+    }
+
+    void OBJManager::load(const uint8_t *attributes, BGMode bgMode)
+    {
+        for (int32_t i = 0; i < 128; ++i)
+            objects[i] = OBJ(attributes, i, bgMode);
+    }
+
     std::vector<OBJ>::const_iterator OBJLayer::getLastRenderedOBJ(int32_t cycleBudget) const
     {
         auto it = objects.cbegin();
@@ -306,8 +318,8 @@ namespace gbaemu::lcd
         return it;
     }
 
-    OBJLayer::OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio) :
-        memory(mem), palette(plt), regs(ioRegs), objects(128)
+    OBJLayer::OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio, const std::shared_ptr<OBJManager>& manager) :
+        memory(mem), palette(plt), regs(ioRegs), objects(128), objManager(manager)
     {
         /* OBJ layers are always enabled */
         enabled = true;
@@ -350,10 +362,20 @@ namespace gbaemu::lcd
         real_t fy = static_cast<real_t>(y);
         objects.resize(0);
 
+        /*
         for (int32_t objIndex = 0; objIndex < 128; ++objIndex) {
             OBJ obj(attributes, objIndex, mode);
 
-            if (obj.priority != priority || !obj.intersectsWithScanline(fy))
+            if (obj.priority != priority || obj.mode == OBJ_WINDOW || !obj.intersectsWithScanline(fy))
+                continue;
+
+            if (obj.visible)
+                objects.push_back(obj);
+        }
+         */
+
+        for (const auto& obj : objManager->objects) {
+            if (obj.priority != priority || !obj.visible || !obj.intersectsWithScanline(fy))
                 continue;
 
             if (obj.visible)

@@ -470,4 +470,6 @@ namespace gbaemu::lcd
 
 #define RENDERER_OBJ_ENABLE_DEBUG_CANVAS 0
 
+#define RENDERER_ENABLED_WINDOWS 1
+
 #endif /* DEFS_HPP */
