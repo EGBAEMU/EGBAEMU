@@ -160,7 +160,7 @@ namespace gbaemu
         ss << "IRQ Req Reg: 0x" << std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x202) << '\n';
         ss << "IRQ IE Reg: 0x" << std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x200) << '\n';
         ss << "IRQ EN CPSR: " << ((accessReg(regs::CPSR_OFFSET) & (1 << 7)) == 0) << std::endl;
-        ss << "IRQ EN MASTER: 0x" <<std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x208) << std::endl;
+        ss << "IRQ EN MASTER: 0x" << std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x208) << std::endl;
 
         return ss.str();
     }
@@ -236,7 +236,7 @@ namespace gbaemu
                 ss << std::setw(2) << b0 << ' ' << std::setw(2) << b1 << ' ' << std::setw(2) << b2 << ' ' << std::setw(2) << b3 << " [" << std::setw(8) << bytes << ']';
 
                 // code
-                ss << "    " << inst.toString() << '\n';
+                ss << "    " << '(' << conditionCodeToString(static_cast<ConditionOPCode>(b3 >> 4)) << ") " << inst.toString() << '\n';
 
                 i += 4;
             }

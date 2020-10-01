@@ -43,7 +43,6 @@ namespace gbaemu
 
         How long each stall is depends on which region of memory is being accessed.
         The GBA refers to these stalls as “wait states”.
-        //TODO seems like we have to consider memory accesses for cycles -> integrate into Memory class & pass InstructionExecutionInfo to Memory methods
         */
         uint32_t cycleCount;
 
