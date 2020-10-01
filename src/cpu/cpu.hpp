@@ -73,7 +73,8 @@ namespace gbaemu
         InstructionExecutionInfo dmaInfo;
 
         // Execute phase variables
-        Memory::MemoryRegion executionMemReg;
+        //TODO this can probably replace the additional N & S cycle fields
+        InstructionExecutionInfo fetchInfo;
         uint8_t waitStatesSeq;
         uint8_t waitStatesNonSeq;
 

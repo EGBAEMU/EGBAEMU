@@ -27,7 +27,8 @@ namespace gbaemu
         reset();
     }
 
-    void CPU::setLCDController(const lcd::LCDController *lcdController) {
+    void CPU::setLCDController(const lcd::LCDController *lcdController)
+    {
         dmaGroup.setLCDController(lcdController);
     }
 
@@ -51,10 +52,10 @@ namespace gbaemu
         //TODO we might need this info? (where nullptr is currently)
         if (thumbMode) {
             pc += 4;
-            state.pipeline[0] = state.memory.read16(pc, nullptr, false, true);
+            state.pipeline[0] = state.memory.read16(pc, fetchInfo, false, true);
         } else {
             pc += 8;
-            state.pipeline[0] = state.memory.read32(pc, nullptr, false, true);
+            state.pipeline[0] = state.memory.read32(pc, fetchInfo, false, true);
 
             // auto update bios state if we are currently executing inside bios!
             if (pc < state.memory.getBiosSize()) {
@@ -124,13 +125,13 @@ namespace gbaemu
 
     uint32_t CPU::normalizePC(bool thumbMode)
     {
-        uint32_t patchedPC = state.accessReg(regs::PC_OFFSET) = state.memory.normalizeAddress(state.accessReg(regs::PC_OFFSET) & (thumbMode ? 0xFFFFFFFE : 0xFFFFFFFC), executionMemReg);
+        uint32_t patchedPC = state.accessReg(regs::PC_OFFSET) = state.memory.normalizeAddress(state.accessReg(regs::PC_OFFSET) & (thumbMode ? 0xFFFFFFFE : 0xFFFFFFFC), fetchInfo);
         if (thumbMode) {
-            waitStatesSeq = state.memory.memCycles16(executionMemReg, true);
-            waitStatesNonSeq = state.memory.memCycles16(executionMemReg, false);
+            waitStatesSeq = state.memory.memCycles16(fetchInfo.memReg, true);
+            waitStatesNonSeq = state.memory.memCycles16(fetchInfo.memReg, false);
         } else {
-            waitStatesSeq = state.memory.memCycles32(executionMemReg, true);
-            waitStatesNonSeq = state.memory.memCycles32(executionMemReg, false);
+            waitStatesSeq = state.memory.memCycles32(fetchInfo.memReg, true);
+            waitStatesNonSeq = state.memory.memCycles32(fetchInfo.memReg, false);
         }
         return patchedPC;
     }
@@ -175,13 +176,13 @@ namespace gbaemu
         if (state.updateCPUMode()) {
             std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK) << " prevPC: 0x" << std::hex << prevPc << std::endl;
             cpuInfo.hasCausedException = true;
+            return;
         }
-
-        if (executionMemReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
+        if (fetchInfo.memReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
             std::cout << "CRITIAL ERROR: PC points to bios address outside of our code! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
             cpuInfo.hasCausedException = true;
             return;
-        } else if (executionMemReg == Memory::OUT_OF_ROM) {
+        } else if (fetchInfo.memReg == Memory::OUT_OF_ROM) {
             std::cout << "CRITIAL ERROR: PC points out to address out of its ROM bounds! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
             cpuInfo.hasCausedException = true;
             return;
@@ -200,21 +201,21 @@ namespace gbaemu
         armExecutor.cpu = this;
         thumbExecutor.cpu = this;
         /*
-            Default memory usage at 03007FXX (and mirrored to 03FFFFXX)
-              Addr.    Size Expl.
-              3007FFCh 4    Pointer to user IRQ handler (32bit ARM code)
-              3007FF8h 2    Interrupt Check Flag (for IntrWait/VBlankIntrWait functions)
-              3007FF4h 4    Allocated Area
-              3007FF0h 4    Pointer to Sound Buffer
-              3007FE0h 16   Allocated Area
-              3007FA0h 64   Default area for SP_svc Supervisor Stack (4 words/time)
-              3007F00h 160  Default area for SP_irq Interrupt Stack (6 words/time)
-            Memory below 7F00h is free for User Stack and user data. The three stack pointers are initially initialized at the TOP of the respective areas:
-              SP_svc=03007FE0h
-              SP_irq=03007FA0h
-              SP_usr=03007F00h
-            The user may redefine these addresses and move stacks into other locations, however, the addresses for system data at 7FE0h-7FFFh are fixed.
-            */
+        Default memory usage at 03007FXX (and mirrored to 03FFFFXX)
+          Addr.    Size Expl.
+          3007FFCh 4    Pointer to user IRQ handler (32bit ARM code)
+          3007FF8h 2    Interrupt Check Flag (for IntrWait/VBlankIntrWait functions)
+          3007FF4h 4    Allocated Area
+          3007FF0h 4    Pointer to Sound Buffer
+          3007FE0h 16   Allocated Area
+          3007FA0h 64   Default area for SP_svc Supervisor Stack (4 words/time)
+          3007F00h 160  Default area for SP_irq Interrupt Stack (6 words/time)
+        Memory below 7F00h is free for User Stack and user data. The three stack pointers are initially initialized at the TOP of the respective areas:
+          SP_svc=03007FE0h
+          SP_irq=03007FA0h
+          SP_usr=03007F00h
+        The user may redefine these addresses and move stacks into other locations, however, the addresses for system data at 7FE0h-7FFFh are fixed.
+        */
         // Set default SP values
 
         *state.getModeRegs(CPUState::CPUMode::UserMode)[regs::SP_OFFSET] = 0x03007F00;
@@ -226,9 +227,12 @@ namespace gbaemu
 
         std::fill_n(reinterpret_cast<char *>(&cpuInfo), sizeof(cpuInfo), 0);
         std::fill_n(reinterpret_cast<char *>(&dmaInfo), sizeof(dmaInfo), 0);
+        std::fill_n(reinterpret_cast<char *>(&fetchInfo), sizeof(fetchInfo), 0);
 
         state.accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
-        normalizePC(false);
+        fetchInfo.memReg = Memory::MemoryRegion::EXT_ROM1;
+        waitStatesSeq = state.memory.memCycles32(fetchInfo.memReg, true);
+        waitStatesNonSeq = state.memory.memCycles32(fetchInfo.memReg, false);
 
         cyclesLeft = 0;
     }

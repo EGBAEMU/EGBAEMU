@@ -47,7 +47,7 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #else
         for (int j = 0; j < 960; ++j) {
             // if (prevPC != cpu.state.getCurrentPC())
-                // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
+            // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
             if (debugCLI.step()) {
                 // history.dumpHistory();
                 return true;
@@ -65,7 +65,7 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #else
         for (int j = 0; j < 272; ++j) {
             // if (prevPC != cpu.state.getCurrentPC())
-                // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
+            // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
             if (debugCLI.step()) {
                 // history.dumpHistory();
                 return true;
@@ -87,7 +87,7 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #else
         for (int j = 0; j < 960; ++j) {
             // if (prevPC != cpu.state.getCurrentPC())
-                // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
+            // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
             if (debugCLI.step()) {
                 // history.dumpHistory();
                 return true;
@@ -210,19 +210,20 @@ int main(int argc, char **argv)
 
     cpu.setLCDController(&controller);
 
+    gbaemu::InstructionExecutionInfo _info;
     std::cout << "Game Title: ";
     for (uint32_t i = 0; i < 12; ++i) {
-        std::cout << static_cast<char>(cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0A0 + i, nullptr));
+        std::cout << static_cast<char>(cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0A0 + i, _info));
     }
     std::cout << std::endl;
     std::cout << "Game Code: ";
     for (uint32_t i = 0; i < 4; ++i) {
-        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0AC + i, nullptr) << " ";
+        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0AC + i, _info) << " ";
     }
     std::cout << std::endl;
     std::cout << "Maker Code: ";
     for (uint32_t i = 0; i < 2; ++i) {
-        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0B0 + i, nullptr) << " ";
+        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0B0 + i, _info) << " ";
     }
     std::cout << std::endl;
 

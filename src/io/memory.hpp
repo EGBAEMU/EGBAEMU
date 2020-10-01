@@ -1,7 +1,6 @@
 #ifndef MEMORY_HPP
 #define MEMORY_HPP
 
-#include "decode/inst.hpp"
 #include "io/io_regs.hpp"
 #include "logging.hpp"
 #include "save/eeprom.hpp"
@@ -13,6 +12,8 @@
 
 namespace gbaemu
 {
+    struct InstructionExecutionInfo;
+
     typedef uint32_t address_t;
 
 #ifdef DEBUG_CLI
@@ -117,6 +118,7 @@ namespace gbaemu
             EEPROM_REGION = 0x43, // Virtual memory region to signal EEPROM usage
             FLASH_REGION = 0x44,  // Virtual memory region to signal flash usage
             SRAM_REGION = 0x45,   // Virtual memory region to signal sram usage
+            UNUSED_MEMORY = 0x46 // Virtual memory region to signal the address points to unmapped & unused memory!
         };
 
         enum MemoryRegionOffset : uint32_t {
@@ -176,10 +178,13 @@ namespace gbaemu
 
         uint8_t *wram;
         uint8_t *iwram;
+
+      public:
         uint8_t *bg_obj_ram;
         uint8_t *vram;
         uint8_t *oam;
 
+      private:
         uint8_t *rom;
         size_t romSize;
 
@@ -510,20 +515,16 @@ namespace gbaemu
             return romSize;
         }
 
-        uint8_t read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false) const;
-        uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
-        uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
-        void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq = false);
-        void write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo, bool seq = false);
-        void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo, bool seq = false);
+        uint8_t read8(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq = false, bool readInstruction = false) const;
+        uint16_t read16(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
+        uint32_t read32(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
+        void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo &execInfo, bool seq = false);
+        void write16(uint32_t addr, uint16_t value, InstructionExecutionInfo &execInfo, bool seq = false);
+        void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo &execInfo, bool seq = false);
 
         // This is needed to handle memory mirroring
-        const uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const;
-        const uint8_t *resolveAddrRef(uint32_t &addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const;
-        uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg);
-        uint8_t *resolveAddrRef(uint32_t &addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg);
-        void normalizeAddressRef(uint32_t &addr, MemoryRegion &memReg) const;
-        uint32_t normalizeAddress(uint32_t addr, MemoryRegion &memReg) const;
+        void normalizeAddressRef(uint32_t &addr, InstructionExecutionInfo &execInfo) const;
+        uint32_t normalizeAddress(uint32_t addr, InstructionExecutionInfo &execInfo) const;
 
         uint8_t memCycles32(uint8_t reg, bool seq) const
         {
@@ -551,8 +552,14 @@ namespace gbaemu
         }
 
       private:
+        MemoryRegion extractMemoryRegion(uint32_t addr) const;
         void scanROMForBackupID();
         uint32_t readOutOfROM(uint32_t addr) const;
+
+        template <uint8_t bytes>
+        uint8_t *resolveAddrRef(uint32_t &addr, InstructionExecutionInfo &execInfo) const;
+        template <bool read, uint8_t bytes>
+        const uint8_t *resolveAddrRef(uint32_t &addr, InstructionExecutionInfo &execInfo) const;
     }; // namespace gbaemu
 } // namespace gbaemu
 

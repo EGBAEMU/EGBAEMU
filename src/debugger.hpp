@@ -25,7 +25,7 @@ namespace gbaemu::debugger
         }
 
         void collect(CPU *cpu, uint32_t address);
-        void dumpHistory(CPU *cpu) const;
+        void dumpHistory() const;
 
       private:
         uint32_t historySize;

@@ -1,13 +1,14 @@
 #ifndef INST_HPP
 #define INST_HPP
 
+#include "io/memory.hpp"
+
 #include <cstdint>
 #include <functional>
 #include <string>
 
 namespace gbaemu
 {
-
     struct CPUState;
 
     /*
@@ -59,6 +60,20 @@ namespace gbaemu
         // CPU halting
         bool haltCPU;
         uint32_t haltCondition;
+
+        // Memory resolve caching: expects the address to be normalized!
+        bool resolvedAddr;
+        // Indicate that no offset should be added to the address
+        bool noOffset;
+        // resolved Memory Region
+        Memory::MemoryRegion memReg;
+        // pointer to start of the corresponding memory region!
+        const uint8_t *readBaseAddr;
+        uint8_t *writeBaseAddr;
+        // inclusively
+        uint32_t lowerBound;
+        // exclusively
+        uint32_t upperBound;
     };
 
     enum ConditionOPCode : uint8_t {

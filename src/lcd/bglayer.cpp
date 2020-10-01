@@ -149,8 +149,7 @@ namespace gbaemu::lcd
 
         /* 32x32 tiles, arrangement depends on resolution */
         /* TODO: not sure about this one */
-        Memory::MemoryRegion memReg;
-        uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, memReg);
+        uint8_t *vramBase = memory.vram;
         bgMapBase = vramBase + screenBaseBlock * 0x800;
 
         /* tile addresses in steps of 0x4000 */
@@ -195,8 +194,7 @@ namespace gbaemu::lcd
     const void *BGLayer::getFrameBuffer() const
     {
         size_t fbOff = ((mode == Mode5 || mode == Mode4) && useOtherFrameBuffer) ? 0xA000 : 0;
-        Memory::MemoryRegion memReg;
-        return memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET + fbOff, nullptr, memReg);
+        return memory.vram + fbOff;
     }
 
     std::function<color_t(int32_t, int32_t)> BGLayer::getPixelColorFunction()

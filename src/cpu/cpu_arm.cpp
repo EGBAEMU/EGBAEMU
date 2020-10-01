@@ -166,17 +166,17 @@ namespace gbaemu
         cpuInfo.cycleCount = 1;
 
         if (b) {
-            uint8_t memVal = state.memory.read8(memAddr, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
-            state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF), &cpuInfo);
+            uint8_t memVal = state.memory.read8(memAddr, cpuInfo, false, this->fetchInfo.memReg == Memory::MemoryRegion::BIOS);
+            state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF), cpuInfo);
             *currentRegs[rd] = static_cast<uint32_t>(memVal);
         } else {
             // LDR part
-            uint32_t alignedWord = state.memory.read32(memAddr, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
+            uint32_t alignedWord = state.memory.read32(memAddr, cpuInfo, false, this->fetchInfo.memReg == Memory::MemoryRegion::BIOS);
             alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memAddr & 0x03) * 8, false, false) & 0xFFFFFFFF;
             *currentRegs[rd] = alignedWord;
 
             // STR part
-            state.memory.write32(memAddr, newMemVal, &cpuInfo);
+            state.memory.write32(memAddr, newMemVal, cpuInfo);
         }
     }
 
@@ -556,22 +556,22 @@ namespace gbaemu
 
                 if (load) {
                     if (currentIdx == regs::PC_OFFSET) {
-                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, &cpuInfo, nonSeqAccDone, this->executionMemReg == Memory::MemoryRegion::BIOS);
+                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, cpuInfo, nonSeqAccDone, this->fetchInfo.memReg == Memory::MemoryRegion::BIOS);
                         // Special case for pipeline refill
                         cpuInfo.additionalProgCyclesN = 1;
                         cpuInfo.additionalProgCyclesS = 1;
 
                         // More special cases
                         /*
-                            When S Bit is set (S=1)
-                            If instruction is LDM and R15 is in the list: (Mode Changes)
-                              While R15 loaded, additionally: CPSR=SPSR_<current mode>
-                            */
+                        When S Bit is set (S=1)
+                        If instruction is LDM and R15 is in the list: (Mode Changes)
+                          While R15 loaded, additionally: CPSR=SPSR_<current mode>
+                        */
                         if (forceUserRegisters) {
                             *currentRegs[regs::CPSR_OFFSET] = *state.getCurrentRegs()[regs::SPSR_OFFSET];
                         }
                     } else {
-                        *currentRegs[currentIdx] = state.memory.read32(address, &cpuInfo, nonSeqAccDone, this->executionMemReg == Memory::MemoryRegion::BIOS);
+                        *currentRegs[currentIdx] = state.memory.read32(address, cpuInfo, nonSeqAccDone, this->fetchInfo.memReg == Memory::MemoryRegion::BIOS);
                     }
                 } else {
                     // Shady hack to make edge case treatment easier
@@ -580,7 +580,7 @@ namespace gbaemu
                     }
 
                     // Edge case of storing PC -> PC + 12 will be stored
-                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb ? 6 : 12) : 0), &cpuInfo, nonSeqAccDone);
+                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb ? 6 : 12) : 0), cpuInfo, nonSeqAccDone);
                 }
 
                 nonSeqAccDone = true;
@@ -603,8 +603,9 @@ namespace gbaemu
             if (!load) {
                 // Check if there are any registers that were written first to memory
                 if (rList & ((1 << rn) - 1)) {
+                    InstructionExecutionInfo info = cpuInfo;
                     // We need to patch mem
-                    state.memory.write32(patchMemAddr, address, nullptr);
+                    state.memory.write32(patchMemAddr, address, info);
                 }
 
                 // Also do the write back to the register!
@@ -723,7 +724,7 @@ namespace gbaemu
         /* transfer */
         if (load) {
             if (byte) {
-                *currentRegs[rd] = state.memory.read8(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
+                *currentRegs[rd] = state.memory.read8(memoryAddress, cpuInfo, false, this->fetchInfo.memReg == Memory::MemoryRegion::BIOS);
             } else {
                 // More edge case:
                 /*
@@ -733,16 +734,16 @@ namespace gbaemu
                 However, by isolating lower bits this may be used to read a halfword from memory. 
                 (Above applies to little endian mode, as used in GBA.)
                 */
-                uint32_t alignedWord = state.memory.read32(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
+                uint32_t alignedWord = state.memory.read32(memoryAddress, cpuInfo, false, this->fetchInfo.memReg == Memory::MemoryRegion::BIOS);
                 alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
                 *currentRegs[rd] = alignedWord;
             }
         } else {
             if (byte) {
-                state.memory.write8(memoryAddress, rdValue, &cpuInfo);
+                state.memory.write8(memoryAddress, rdValue, cpuInfo);
             } else {
                 // Mask out unaligned bits!
-                state.memory.write32(memoryAddress, rdValue, &cpuInfo);
+                state.memory.write32(memoryAddress, rdValue, cpuInfo);
             }
         }
 
@@ -840,11 +841,11 @@ namespace gbaemu
                 // Handle misaligned address
                 if (sign && memoryAddress & 1) {
                     // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]         ;sign-expand BYTE value
-                    readData = signExt<int32_t, uint32_t, 8>(state.memory.read8(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS));
+                    readData = signExt<int32_t, uint32_t, 8>(state.memory.read8(memoryAddress, cpuInfo, false, this->fetchInfo.memReg == Memory::MemoryRegion::BIOS));
                 } else {
                     // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
                     // LDRH with ROR (see LDR with non word aligned)
-                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS));
+                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, cpuInfo, false, this->fetchInfo.memReg == Memory::MemoryRegion::BIOS));
                     readData = shifts::shift(readData, shifts::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
 
                     if (sign) {
@@ -852,7 +853,7 @@ namespace gbaemu
                     }
                 }
             } else {
-                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS));
+                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, cpuInfo, false, this->fetchInfo.memReg == Memory::MemoryRegion::BIOS));
 
                 if (sign) {
                     readData = signExt<int32_t, uint32_t, transferSize>(readData);
@@ -862,9 +863,9 @@ namespace gbaemu
             state.accessReg(rd) = readData;
         } else {
             if (transferSize == 16) {
-                state.memory.write16(memoryAddress, rdValue, &cpuInfo);
+                state.memory.write16(memoryAddress, rdValue, cpuInfo);
             } else {
-                state.memory.write8(memoryAddress, rdValue, &cpuInfo);
+                state.memory.write8(memoryAddress, rdValue, cpuInfo);
             }
         }
 

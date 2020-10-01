@@ -171,10 +171,13 @@ namespace gbaemu
         ss << std::setfill('0') << std::hex;
 
         ss << "Stack:\n";
+
+        InstructionExecutionInfo info;
+        info.resolvedAddr = false;
         for (uint32_t stackAddr = accessReg(regs::SP_OFFSET); words > 0; --words) {
             /* address, pad hex numbers with 0 */
             ss << "0x" << std::setw(8) << stackAddr << ":    "
-               << "0x" << std::setw(8) << memory.read32(stackAddr, nullptr) << '\n';
+               << "0x" << std::setw(8) << memory.read32(stackAddr, info) << '\n';
 
             stackAddr += 4;
         }
@@ -190,6 +193,8 @@ namespace gbaemu
 
         uint32_t startAddr = addr - (cmds / 2) * (getFlag<cpsr_flags::THUMB_STATE>() ? 2 : 4);
 
+        InstructionExecutionInfo info;
+        info.resolvedAddr = false;
         for (uint32_t i = startAddr; cmds > 0; --cmds) {
 
             // indicate executed instruction
@@ -204,7 +209,7 @@ namespace gbaemu
             ss << "0x" << std::setw(8) << i << "    ";
 
             if (getFlag<cpsr_flags::THUMB_STATE>()) {
-                uint32_t bytes = memory.read16(i, nullptr, false, true);
+                uint32_t bytes = memory.read16(i, info, false, true);
 
                 uint32_t b0 = bytes & 0x0FF;
                 uint32_t b1 = (bytes >> 8) & 0x0FF;
@@ -221,7 +226,7 @@ namespace gbaemu
 
                 i += 2;
             } else {
-                uint32_t bytes = memory.read32(i, nullptr, false, true);
+                uint32_t bytes = memory.read32(i, info, false, true);
 
                 uint32_t b0 = bytes & 0x0FF;
                 uint32_t b1 = (bytes >> 8) & 0x0FF;

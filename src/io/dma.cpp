@@ -88,10 +88,8 @@ namespace gbaemu
                     if (channel == DMA3 && memory.getBackupType() == Memory::EEPROM_V && !memory.eeprom->knowsBitWidth()) {
 
                         // We only need changes for 14 Bit buswidth as we default to 8 bit
-                        Memory::MemoryRegion srcMemReg;
-                        memory.resolveAddr(srcAddr, nullptr, srcMemReg);
-
-                        if (srcMemReg == Memory::MemoryRegion::EEPROM_REGION) {
+                        memory.normalizeAddressRef(srcAddr, info);
+                        if (info.memReg == Memory::MemoryRegion::EEPROM_REGION) {
                             const constexpr uint32_t bus14BitReadExpectedCount = 17;
                             const constexpr uint32_t bus6BitReadExpectedCount = 9;
                             if (count == bus14BitReadExpectedCount) {
@@ -103,9 +101,8 @@ namespace gbaemu
                             }
                         }
 
-                        Memory::MemoryRegion dstMemReg;
-                        memory.resolveAddr(destAddr, nullptr, dstMemReg);
-                        if (dstMemReg == Memory::MemoryRegion::EEPROM_REGION) {
+                        memory.normalizeAddressRef(destAddr, info);
+                        if (info.memReg == Memory::MemoryRegion::EEPROM_REGION) {
                             const constexpr uint32_t bus14BitWriteExpectedCount = 81;
                             const constexpr uint32_t bus6BitWriteExpectedCount = 73;
                             if (count == bus14BitWriteExpectedCount) {
@@ -142,11 +139,11 @@ namespace gbaemu
                     state = SEQ_COPY;
 
                     if (width32Bit) {
-                        uint32_t data = memory.read32(srcAddr, &info, false, false, true);
-                        memory.write32(destAddr, data, &info, false);
+                        uint32_t data = memory.read32(srcAddr, info, false, false, true);
+                        memory.write32(destAddr, data, info, false);
                     } else {
-                        uint16_t data = memory.read16(srcAddr, &info, false, false, true);
-                        memory.write16(destAddr, data, &info, false);
+                        uint16_t data = memory.read16(srcAddr, info, false, false, true);
+                        memory.write16(destAddr, data, info, false);
                     }
 
                     --count;
@@ -162,11 +159,11 @@ namespace gbaemu
                         state = DONE;
                     } else {
                         if (width32Bit) {
-                            uint32_t data = memory.read32(srcAddr, &info, true, false, true);
-                            memory.write32(destAddr, data, &info, true);
+                            uint32_t data = memory.read32(srcAddr, info, true, false, true);
+                            memory.write32(destAddr, data, info, true);
                         } else {
-                            uint16_t data = memory.read16(srcAddr, &info, true, false, true);
-                            memory.write16(destAddr, data, &info, true);
+                            uint16_t data = memory.read16(srcAddr, info, true, false, true);
+                            memory.write16(destAddr, data, info, true);
                         }
 
                         --count;
