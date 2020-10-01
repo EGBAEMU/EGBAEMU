@@ -15,6 +15,7 @@
 #include "input/keyboard_control.hpp"
 
 #define PRINT_FPS true
+#define LIMIT_FPS true
 
 static volatile bool doRun = true;
 
@@ -111,8 +112,11 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 )
 {
 
+    using frames = std::chrono::duration<int64_t, std::ratio<1, 60>>; // 60Hz
+    auto nextFrame = std::chrono::system_clock::now() + frames{0};
+    auto lastFrame = nextFrame - frames{1};
+
     for (; doRun;) {
-        std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
         if (frame(cpu, lcdController
 #ifdef DEBUG_CLI
                   ,
@@ -121,11 +125,18 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
                   )) {
             break;
         }
-        double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
+
+#if LIMIT_FPS
+        std::this_thread::sleep_until(nextFrame);
+#endif
 
 #if !defined(DEBUG_CLI) && PRINT_FPS
-        std::cout << "Current FPS: " << (1000000 / dt) << std::endl;
+        auto dt = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - lastFrame);
+        std::cout << "Current FPS: " << (1000000.0 / dt.count()) << std::endl;
 #endif
+
+        lastFrame = nextFrame;
+        nextFrame += frames{1};
     }
 
     doRun = false;
