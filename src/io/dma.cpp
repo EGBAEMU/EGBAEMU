@@ -2,6 +2,7 @@
 #include "dma.hpp"
 #include "cpu/cpu.hpp"
 #include "interrupts.hpp"
+#include "lcd/lcd-controller.hpp"
 #include "logging.hpp"
 #include "memory.hpp"
 #include "util.hpp"
@@ -12,14 +13,14 @@
 
 namespace gbaemu
 {
-    void DMA::reset()
+    template <DMAGroup::DMAChannel channel>
+    void DMAGroup::DMA<channel>::reset()
     {
-        enabled = false;
         state = IDLE;
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
     }
 
-    const char *DMA::countTypeToStr(AddrCntType updateKind)
+    const char *DMAGroup::countTypeToStr(AddrCntType updateKind)
     {
         switch (updateKind) {
             STRINGIFY_CASE_ID(INCREMENT_RELOAD);
@@ -30,51 +31,53 @@ namespace gbaemu
         return "";
     }
 
-    uint8_t DMA::read8FromReg(uint32_t offset)
+    template <DMAGroup::DMAChannel channel>
+    uint8_t DMAGroup::DMA<channel>::read8FromReg(uint32_t offset)
     {
         return *(offset + reinterpret_cast<uint8_t *>(&regs));
     }
 
-    void DMA::write8ToReg(uint32_t offset, uint8_t value)
+    template <DMAGroup::DMAChannel channel>
+    void DMAGroup::DMA<channel>::write8ToReg(uint32_t offset, uint8_t value)
     {
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
 
         if (offset == offsetof(DMARegs, cntReg) + sizeof(regs.cntReg) - 1) {
-            enabled = isBitSet<uint8_t, DMA_CNT_REG_EN_OFF - (sizeof(regs.cntReg) - 1) * 8>(value);
+            // Update the enable bitset to signal if dma is enabled or not!
+            dmaGroup.dmaEnableBitset = bitSet<uint8_t, 1, channel>(dmaGroup.dmaEnableBitset, bmap<uint8_t>(isBitSet<uint8_t, DMA_CNT_REG_EN_OFF - (sizeof(regs.cntReg) - 1) * 8>(value)));
             state = IDLE;
         }
     }
 
-    DMA::DMA(DMAChannel channel, CPU *cpu) : channel(channel), memory(cpu->state.memory), irqHandler(cpu->irqHandler)
+    template <DMAGroup::DMAChannel channel>
+    DMAGroup::DMA<channel>::DMA(CPU *cpu, DMAGroup &dmaGroup) : memory(cpu->state.memory), irqHandler(cpu->irqHandler), dmaGroup(dmaGroup)
     {
-        reset();
         memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
                 DMA_BASE_ADDRESSES[channel],
                 DMA_BASE_ADDRESSES[channel] + sizeof(regs) - 1,
-                std::bind(&DMA::read8FromReg, this, std::placeholders::_1),
-                std::bind(&DMA::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
-                std::bind(&DMA::read8FromReg, this, std::placeholders::_1),
-                std::bind(&DMA::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
+                std::bind(&DMAGroup::DMA<channel>::read8FromReg, this, std::placeholders::_1),
+                std::bind(&DMAGroup::DMA<channel>::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
+                std::bind(&DMAGroup::DMA<channel>::read8FromReg, this, std::placeholders::_1),
+                std::bind(&DMAGroup::DMA<channel>::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
     }
 
-    void DMA::step(InstructionExecutionInfo &info, uint32_t cycles)
+    template <DMAGroup::DMAChannel channel>
+    void DMAGroup::DMA<channel>::step(InstructionExecutionInfo &info, uint32_t cycles)
     {
         // Check if enabled only once, because there can not be state changes, after dma has taken over control!
-        if (!enabled) {
-            return;
-        }
+        // We can safely assume that this function does not get called if dma is disabled!
 
         do {
             // FSM actions
             switch (state) {
                 case IDLE:
                     extractRegValues();
-                    state = conditionSatisfied() ? STARTED : WAITING_PAUSED;
+                    state = dmaGroup.conditionSatisfied(condition) ? STARTED : WAITING_PAUSED;
                     LOG_DMA(
                         std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
-                        std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << countTypeToStr(srcCnt) << std::endl;
-                        std::cout << "      Dest Addr:   0x" << std::hex << destAddr << " Type: " << countTypeToStr(dstCnt) << std::endl;
+                        std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << DMAGroup::countTypeToStr(srcCnt) << std::endl;
+                        std::cout << "      Dest Addr:   0x" << std::hex << destAddr << " Type: " << DMAGroup::countTypeToStr(dstCnt) << std::endl;
                         std::cout << "      Words: 0x" << std::hex << count << std::endl;
                         std::cout << "      Repeat: " << repeat << std::endl;
                         std::cout << "      GamePak DRQ: " << gamePakDRQ << std::endl;
@@ -131,7 +134,7 @@ namespace gbaemu
                 }
 
                 case WAITING_PAUSED: {
-                    state = conditionSatisfied() ? STARTED : WAITING_PAUSED;
+                    state = dmaGroup.conditionSatisfied(condition) ? STARTED : WAITING_PAUSED;
                     break;
                 }
 
@@ -183,7 +186,7 @@ namespace gbaemu
 
                         // Clear enable bit to indicate that we are done!
                         regs.cntReg &= ~le(DMA_CNT_REG_EN_MASK);
-                        enabled = false;
+                        dmaGroup.dmaEnableBitset &= ~(1 << channel);
 
                         if (irqOnEnd) {
                             irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::DMA_0 + channel));
@@ -196,7 +199,8 @@ namespace gbaemu
         } while (state != IDLE && state != WAITING_PAUSED && info.cycleCount < cycles);
     }
 
-    void DMA::updateAddr(uint32_t &addr, AddrCntType updateKind) const
+    template <DMAGroup::DMAChannel channel>
+    void DMAGroup::DMA<channel>::updateAddr(uint32_t &addr, AddrCntType updateKind) const
     {
         switch (updateKind) {
             case INCREMENT_RELOAD:
@@ -212,7 +216,8 @@ namespace gbaemu
         }
     }
 
-    void DMA::extractRegValues()
+    template <DMAGroup::DMAChannel channel>
+    void DMAGroup::DMA<channel>::extractRegValues()
     {
         const uint16_t controlReg = le(regs.cntReg);
 
@@ -257,28 +262,25 @@ namespace gbaemu
         }
     }
 
-    void DMA::fetchCount()
+    template <DMAGroup::DMAChannel channel>
+    void DMAGroup::DMA<channel>::fetchCount()
     {
         count = le(regs.count) & (channel == DMA3 ? 0x0FFFF : 0x3FFF);
         // 0 is used for the max value possible
         count = count == 0 ? (channel == DMA3 ? 0x10000 : 0x4000) : count;
     }
 
-    bool DMA::conditionSatisfied() const
+    bool DMAGroup::conditionSatisfied(StartCondition condition) const
     {
-        uint16_t dispstat = memory.ioHandler.externalRead16(0x04000004);
-        bool vBlank = dispstat & 1;
-        bool hBlank = dispstat & 2;
-
         switch (condition) {
             case NO_COND:
                 // Nothing to do here
                 break;
             case WAIT_VBLANK:
                 // Wait for VBLANK
-                return vBlank;
+                return lcdController->isVBlank();
             case WAIT_HBLANK:
-                return hBlank;
+                return lcdController->isHBlank();
             case SPECIAL:
                 //TODO find out what to do
                 // The 'Special' setting (Start Timing=3) depends on the DMA channel: DMA0=Prohibited, DMA1/DMA2=Sound FIFO, DMA3=Video Capture
@@ -287,5 +289,10 @@ namespace gbaemu
 
         return true;
     }
+
+    template class DMAGroup::DMA<DMAGroup::DMA0>;
+    template class DMAGroup::DMA<DMAGroup::DMA1>;
+    template class DMAGroup::DMA<DMAGroup::DMA2>;
+    template class DMAGroup::DMA<DMAGroup::DMA3>;
 
 } // namespace gbaemu

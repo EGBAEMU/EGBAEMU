@@ -42,6 +42,10 @@ namespace gbaemu
     {
         class ThumbExecutor;
     }
+    namespace lcd
+    {
+        class LCDController;
+    }
 
     class CPU
     {
@@ -55,10 +59,7 @@ namespace gbaemu
         CPUState state;
         InstructionDecoder decoder;
 
-        DMA dma0;
-        DMA dma1;
-        DMA dma2;
-        DMA dma3;
+        DMAGroup dmaGroup;
 
         TimerGroup timerGroup;
 
@@ -79,6 +80,8 @@ namespace gbaemu
         int32_t cyclesLeft;
 
         CPU();
+
+        void setLCDController(const lcd::LCDController* lcdController);
 
         uint32_t normalizePC(bool thumbMode);
 

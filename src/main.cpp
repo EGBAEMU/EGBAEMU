@@ -101,7 +101,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
         }
     }
     */
-    for (;doRun;) {
+    for (; doRun;) {
         std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
         if (frame(cpu, lcdController)) {
             break;
@@ -189,6 +189,8 @@ int main(int argc, char **argv)
     std::mutex canDrawToScreenMutex;
     bool canDrawToScreen = false;
     gbaemu::lcd::LCDController controller(windowCanvas, &cpu, &canDrawToScreenMutex, &canDrawToScreen);
+
+    cpu.setLCDController(&controller);
 
     std::cout << "Game Title: ";
     for (uint32_t i = 0; i < 12; ++i) {
