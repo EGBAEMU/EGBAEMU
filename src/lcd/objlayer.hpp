@@ -118,7 +118,7 @@ namespace gbaemu::lcd
       public:
         OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio, const std::shared_ptr<OBJManager>& manager);
         void setMode(BGMode bgMode, bool mapping2d);
-        void loadOBJs(int32_t y);
+        void loadOBJs(int32_t y, const std::function<bool(const OBJ&, real_t, uint16_t)>& filter);
         void drawScanline(int32_t y) override;
         std::string toString() const;
     };

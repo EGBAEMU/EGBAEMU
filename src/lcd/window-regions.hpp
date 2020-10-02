@@ -6,16 +6,46 @@
 #include <lcd/coloreffects.hpp>
 #include <lcd/defs.hpp>
 #include <lcd/palette.hpp>
+#include <lcd/objlayer.hpp>
 #include <memory>
+#include <bitset>
 
 namespace gbaemu::lcd
 {
+    typedef uint8_t WindowSettingsFlag;
+
+    inline WindowSettingsFlag createFlag(bool bg0, bool bg1, bool bg2, bool bg3, bool obj, bool cfx)
+    {
+        return (bg0 ? 1  : 0) |
+               (bg1 ? 2  : 0) |
+               (bg2 ? 4  : 0) |
+               (bg3 ? 8  : 0) |
+               (obj ? 16 : 0) |
+               (cfx ? 32 : 0);
+    }
+
+    inline bool flagLayerEnabled(WindowSettingsFlag flag, LayerID id)
+    {
+        return (flag >> static_cast<uint32_t>((id > LAYER_OBJ0) ? LAYER_OBJ0 : id)) & 1;
+    }
+
+    inline bool flagCFXEnabled(WindowSettingsFlag flag)
+    {
+        return isBitSet<uint8_t, 5>(flag);
+    }
+
+    struct EnabledMask
+    {
+        std::array<uint8_t, SCREEN_WIDTH> mask;
+    };
+
     enum WindowID {
         WIN0 = 0,
         WIN1,
         OBJ_WIN,
         /* is enabled if any of the windows above are enabled */
-        OUTSIDE
+        OUTSIDE,
+        DEFAULT_WIN
     };
 
     class WindowRegion
@@ -23,37 +53,51 @@ namespace gbaemu::lcd
       public:
         WindowID id;
         bool enabled;
-        int32_t left;
-        int32_t right;
-        int32_t top;
-        int32_t bottom;
-        /* enabled in window? */
-        std::array<bool, 4> bg;
-        bool obj;
-        bool colorEffect;
+        WindowSettingsFlag flag;
+        Rect rect;
 
+        std::string toString() const;
+    };
+
+    /* Usually you would do this with polymorphism but we need that sweet compile time optimization. */
+    class NormalWindow : public WindowRegion
+    {
+      public:
+        
+        void load(const LCDIORegs &regs);
+        bool inside(int32_t x, int32_t y) const noexcept;
+    };
+
+    class OBJWindow : public WindowRegion
+    {
+      public:
+        std::shared_ptr<OBJLayer> objLayer;
+
+        void load(const LCDIORegs &regs);
+        bool inside(int32_t x, int32_t y) const noexcept;
+    };
+
+    class OutsideWindow : public WindowRegion
+    {
       public:
         void load(const LCDIORegs &regs);
-        std::string toString() const;
-        bool inside(int32_t x, int32_t y) const noexcept;
     };
 
     class WindowFeature
     {
-      private:
+      public:
         /* ordered in descending priority */
-        std::array<WindowRegion, 4> windows;
+        NormalWindow normalWindows[2];
+        OBJWindow objWindow;
+        OutsideWindow outsideWindow;
+
         ColorEffects colorEffects;
         color_t backdropColor;
-
-        bool anyWindowEnabled() const;
-        void composeTrivialScanline(const std::array<std::shared_ptr<Layer>, 8> &layers, color_t *target);
-
       public:
+        EnabledMask enabledMask;
+
         WindowFeature();
-        void load(const LCDIORegs &regs, color_t bdColor);
-        const WindowRegion &getActiveWindow(int32_t x, int32_t y) const;
-        void composeScanline(const std::array<std::shared_ptr<Layer>, 8> &layers, color_t *target);
+        void load(const LCDIORegs &regs, int32_t y, color_t bdColor);
     };
 } // namespace gbaemu::lcd
 
