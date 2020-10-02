@@ -4,6 +4,7 @@
 #include "cpu_thumb_executor.hpp"
 #include "decode/inst_arm.hpp"
 #include "decode/inst_thumb.hpp"
+#include "lcd/lcd-controller.hpp"
 
 #include <algorithm>
 #include <iostream>
@@ -21,9 +22,13 @@ namespace gbaemu
     };
     InstructionDecoder CPU::thumbDecoder = &thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>;
 
-    CPU::CPU() : dma0(DMA::DMA0, this), dma1(DMA::DMA1, this), dma2(DMA::DMA2, this), dma3(DMA::DMA3, this), timerGroup(this), irqHandler(this), keypad(this)
+    CPU::CPU() : dmaGroup(this), timerGroup(this), irqHandler(this), keypad(this)
     {
         reset();
+    }
+
+    void CPU::setLCDController(const lcd::LCDController *lcdController) {
+        dmaGroup.setLCDController(lcdController);
     }
 
     void CPU::initPipeline()
@@ -65,10 +70,7 @@ namespace gbaemu
         cyclesLeft += cycles;
 
         if (cyclesLeft > 0) {
-            dma0.step(dmaInfo, cyclesLeft);
-            dma1.step(dmaInfo, cyclesLeft);
-            dma2.step(dmaInfo, cyclesLeft);
-            dma3.step(dmaInfo, cyclesLeft);
+            dmaGroup.step(dmaInfo, cyclesLeft);
 
             cyclesLeft -= dmaInfo.cycleCount;
             timerGroup.step(dmaInfo.cycleCount);
@@ -109,10 +111,7 @@ namespace gbaemu
 
                 cyclesLeft -= cpuInfo.cycleCount;
 
-                dma0.step(dmaInfo, cyclesLeft);
-                dma1.step(dmaInfo, cyclesLeft);
-                dma2.step(dmaInfo, cyclesLeft);
-                dma3.step(dmaInfo, cyclesLeft);
+                dmaGroup.step(dmaInfo, cyclesLeft);
 
                 cyclesLeft -= dmaInfo.cycleCount;
                 timerGroup.step(dmaInfo.cycleCount);
@@ -192,10 +191,7 @@ namespace gbaemu
     void CPU::reset()
     {
         state.reset();
-        dma0.reset();
-        dma1.reset();
-        dma2.reset();
-        dma3.reset();
+        dmaGroup.reset();
         timerGroup.reset();
         irqHandler.reset();
         keypad.reset();
@@ -220,9 +216,13 @@ namespace gbaemu
             The user may redefine these addresses and move stacks into other locations, however, the addresses for system data at 7FE0h-7FFFh are fixed.
             */
         // Set default SP values
+
         *state.getModeRegs(CPUState::CPUMode::UserMode)[regs::SP_OFFSET] = 0x03007F00;
-        *state.getModeRegs(CPUState::CPUMode::IRQ)[regs::SP_OFFSET] = 0x3007FA0;
+        *state.getModeRegs(CPUState::CPUMode::FIQ)[regs::SP_OFFSET] = 0x03007F00;
+        *state.getModeRegs(CPUState::CPUMode::AbortMode)[regs::SP_OFFSET] = 0x03007F00;
+        *state.getModeRegs(CPUState::CPUMode::UndefinedMode)[regs::SP_OFFSET] = 0x03007F00;
         *state.getModeRegs(CPUState::CPUMode::SupervisorMode)[regs::SP_OFFSET] = 0x03007FE0;
+        *state.getModeRegs(CPUState::CPUMode::IRQ)[regs::SP_OFFSET] = 0x3007FA0;
 
         std::fill_n(reinterpret_cast<char *>(&cpuInfo), sizeof(cpuInfo), 0);
         std::fill_n(reinterpret_cast<char *>(&dmaInfo), sizeof(dmaInfo), 0);

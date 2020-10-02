@@ -6,8 +6,8 @@
 
 #include <lcd/canvas.hpp>
 #include <math/mat.hpp>
-#include <util.hpp>
 #include <packed.h>
+#include <util.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -18,7 +18,12 @@ namespace gbaemu::lcd
     typedef uint32_t color_t;
     static const constexpr color_t TRANSPARENT = 0x00000000,
                                    BLACK = 0xFF000000,
-                                   WHITE = 0xFFFFFFFF;
+                                   WHITE = 0xFFFFFFFF,
+                                   RED = 0xFFFF0000,
+                                   GREEN = 0xFF00FF00,
+                                   BLUE = 0xFF0000FF,
+                                   MAGENTA = RED | BLUE,
+                                   CYAN = GREEN | BLUE;
 
     /* channel wise color addition */
     static color_t colAdd(color_t a, color_t b)
@@ -60,7 +65,7 @@ namespace gbaemu::lcd
         color_t result = 0;
 
         for (uint32_t i = 0; i < 4; ++i) {
-            color_t ca = std::min(a >> (i * 8), 255u);
+            color_t ca = (a >> (i * 8)) & 0xFF; //std::min(a >> (i * 8), 255u);
             color_t cs = (ca * scalar) / 16;
 
             result |= (cs << (i * 8));
@@ -71,6 +76,7 @@ namespace gbaemu::lcd
 
     /* This type is also used to represent 5-5-5 bit colors. */
     typedef uint16_t color16_t;
+    typedef common::math::real_t real_t;
     typedef common::math::vec<2> vec2;
     typedef common::math::vec<3> vec3;
     typedef common::math::mat<3, 3> mat3x3;
@@ -85,12 +91,12 @@ namespace gbaemu::lcd
                                         DISPLAY_FRAME_SELECT_MASK = 1 << 4,
                                         HBLANK_INTERVAL_FREE_MASK = 1 << 5,
                                         OBJ_CHAR_VRAM_MAPPING_MASK = 1 << 6,
-                                        FORCES_BLANK_MASK = 1 << 7,
+                                        FORCED_BLANK_MASK = 1 << 7,
                                         SCREEN_DISPLAY_BG0_MASK = 1 << 8,
                                         SCREEN_DISPLAY_BG1_MASK = 1 << 9,
                                         SCREEN_DISPLAY_BG2_MASK = 1 << 10,
                                         SCREEN_DISPLAY_BG3_MASK = 1 << 11,
-                                        SCREEN_DISPLAY_OBJ_ASMK = 1 << 12,
+                                        SCREEN_DISPLAY_OBJ_MASK = 1 << 12,
                                         WINDOW_0_DISPLAY_FLAG_MASK = 1 << 13,
                                         WINDOW_1_DISPLAY_FLAG_MASK = 1 << 14,
                                         OBJ_WINDOW_DISPLAY_FLAG_MASK = 1 << 15;
@@ -181,15 +187,15 @@ namespace gbaemu::lcd
 
     namespace MOSAIC
     {
-        static const constexpr uint32_t BG_MOSAIC_HSIZE_OFFSET = 0,
+        static const constexpr uint16_t BG_MOSAIC_HSIZE_OFFSET = 0,
                                         BG_MOSAIC_VSIZE_OFFSET = 4,
                                         OBJ_MOSAIC_HSIZE_OFFSET = 8,
                                         OBJ_MOSAIC_VSIZE_OFFSET = 12;
 
-        static const constexpr uint32_t BG_MOSAIC_HSIZE_MASK = 0xF << BG_MOSAIC_HSIZE_OFFSET,
-                                        BG_MOSAIC_VSIZE_MASK = 0xF << BG_MOSAIC_VSIZE_OFFSET,
-                                        OBJ_MOSAIC_HSIZE_MASK = 0xF << OBJ_MOSAIC_HSIZE_OFFSET,
-                                        OBJ_MOSAIC_VSIZE_MASK = 0xF << OBJ_MOSAIC_VSIZE_OFFSET;
+        static const constexpr uint16_t BG_MOSAIC_HSIZE_MASK = 0xF,
+                                        BG_MOSAIC_VSIZE_MASK = 0xF,
+                                        OBJ_MOSAIC_HSIZE_MASK = 0xF,
+                                        OBJ_MOSAIC_VSIZE_MASK = 0xF;
     } // namespace MOSAIC
 
     namespace OBJ_ATTRIBUTE
@@ -298,32 +304,113 @@ namespace gbaemu::lcd
                     uint16_t BLDY;     // Brightness (Fade-In/Out) Coefficient
     );
 
+    struct Fragment {
+        color_t color = 0;
+        /* asFirstColor, asSecondColor, asFirstAlpha */
+        uint8_t props = 0;
+
+        Fragment() {}
+        Fragment(color_t col, bool asFirst, bool asSecond, bool asAlpha) : color(col),
+                                                                           props((asFirst ? 1 : 0) | (asSecond ? 2 : 0) | (asAlpha ? 4 : 0)) {}
+
+        bool asFirstColor() const { return props & 1; }
+        bool asSecondColor() const { return (props >> 1) & 1; }
+        bool asFirstAlpha() const { return (props >> 2) & 1; }
+        bool colorEffectEnabled() const { return asFirstColor() || asSecondColor() || asFirstAlpha(); }
+    };
+
+    enum LayerID {
+        LAYER_BG0 = 0,
+        LAYER_BG1,
+        LAYER_BG2,
+        LAYER_BG3,
+        LAYER_OBJ0,
+        LAYER_OBJ1,
+        LAYER_OBJ2,
+        LAYER_OBJ3
+    };
+
+    const char *layerIDToString(LayerID id);
+
     class Layer
     {
       public:
-        enum LayerId : int32_t {
-            BG0,
-            BG1,
-            BG2,
-            BG3,
-            OBJ0,
-            OBJ1,
-            OBJ2,
-            OBJ3,
-            BD
-        };
-
-        /* Contains the final image of the layer. Has the same size as the display. */
-        MemoryCanvas<color_t> canvas;
-        /* What layer are we talking about? */
-        LayerId id;
         bool enabled;
-
         uint16_t priority;
+        /* contains the final pixels */
+        std::vector<Fragment> scanline;
+
         bool asFirstTarget;
         bool asSecondTarget;
 
-        Layer(LayerId _id) : canvas(SCREEN_WIDTH, SCREEN_HEIGHT), id(_id), enabled(false) {}
+        LayerID layerID;
+
+        bool isBGLayer;
+
+        Layer() : enabled(false), scanline(SCREEN_WIDTH)
+        {
+        }
+
+        virtual void drawScanline(int32_t y) = 0;
+
+        /* used for sorting */
+        bool operator<(const Layer &other) const noexcept
+        {
+            bool thisIsOBJ = (layerID == LAYER_OBJ0 || layerID == LAYER_OBJ1 ||
+                              layerID == LAYER_OBJ2 || layerID == LAYER_OBJ3);
+            bool otherIsBG = (layerID == LAYER_BG0 || layerID == LAYER_BG1 ||
+                              layerID == LAYER_BG2 || layerID == LAYER_BG3);
+
+            /*
+            if (thisIsOBJ && otherIsBG) {
+                if (priority == other.priority)
+                    return true;
+            } else if (!thisIsOBJ && !otherIsBG) {
+                if (priority == other.priority)
+                    return false;
+            }
+             */
+
+            return priority < other.priority || (thisIsOBJ && priority <= other.priority);
+        }
+
+        bool operator<=(const Layer &other) const noexcept
+        {
+            bool thisIsOBJ = (layerID == LAYER_OBJ0 || layerID == LAYER_OBJ1 ||
+                              layerID == LAYER_OBJ2 || layerID == LAYER_OBJ3);
+            bool otherIsBG = (layerID == LAYER_BG0 || layerID == LAYER_BG1 ||
+                              layerID == LAYER_BG2 || layerID == LAYER_BG3);
+
+            if (thisIsOBJ && otherIsBG) {
+                if (priority == other.priority)
+                    return true;
+            } else if (!thisIsOBJ && !otherIsBG) {
+                if (priority == other.priority)
+                    return false;
+            }
+
+            return priority <= other.priority;
+        }
+    };
+
+    /*
+        Mode  Rot/Scal Layers Size               Tiles Colors       Features
+        0     No       0123   256x256..512x515   1024  16/16..256/1 SFMABP
+        1     Mixed    012-   (BG0,BG1 as above Mode 0, BG2 as below Mode 2)
+        2     Yes      --23   128x128..1024x1024 256   256/1        S-MABP
+        3     Yes      --2-   240x160            1     32768        --MABP
+        4     Yes      --2-   240x160            2     256/1        --MABP
+        5     Yes      --2-   160x128            2     32768        --MABP
+
+        Features: S)crolling, F)lip, M)osaic, A)lphaBlending, B)rightness, P)riority.
+     */
+    enum BGMode {
+        Mode0 = 0,
+        Mode1,
+        Mode2,
+        Mode3,
+        Mode4,
+        Mode5
     };
 } /* namespace gbaemu::lcd */
 
@@ -374,10 +461,11 @@ namespace gbaemu::lcd
 #endif
 #endif
 
-#define RENDERER_ENABLE_COLOR_EFFECTS 1
+#define RENDERER_ENABLE_COLOR_EFFECTS 0
 #define RENDERER_DECOMPOSE_LAYERS 0
+#define RENDERER_DECOMPOSE_BG_COLOR 0xFFFF00FF
 
-#define RENDERER_HIGHTLIGHT_OBJ 1
+#define RENDERER_HIGHTLIGHT_OBJ 0
 #define OBJ_HIGHLIGHT_COLOR 0xFF00FF00
 
 #define RENDERER_OBJ_ENABLE_DEBUG_CANVAS 0

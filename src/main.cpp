@@ -36,9 +36,6 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #endif
 )
 {
-
-    lcdController.updateReferences();
-
     std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
 
     for (uint32_t j = 0; doRun; ++j) {
@@ -53,18 +50,14 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
             break;
         }
 #endif
-        lcdController.tick();
+        lcdController.renderTick();
 
-
-        if (j >= 1001) {
+        if (j >= 100001) {
             double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
             // dt = us * 1000, us for a single instruction = dt / 1000
-            double mhz = (1000000 / (dt / 1000)) / 1000000;
+            double mhz = (1000000 / (dt / 100000)) / 1000000;
 
-            /*
-            if (mhz < 16)
-                std::cout << std::dec << dt << "us for 1000 cycles => ~" << mhz << "MHz" << std::endl;
-             */
+            //std::cout << std::dec << dt << "us for 100000 cycles => ~" << mhz << "MHz" << std::endl;
 
             j = 0;
             t = std::chrono::high_resolution_clock::now();
@@ -94,15 +87,6 @@ static void CLILoop(gbaemu::debugger::DebugCLI &debugCLI)
 
 int main(int argc, char **argv)
 {
-    uint16_t x = 0b11111111;
-    uint16_t y = 0b111111111;
-    uint16_t z = 0b100000000;
-    std::cout << gbaemu::signExt<int32_t, uint16_t, 9>(x) << std::endl;
-    std::cout << gbaemu::signExt<int32_t, uint16_t, 9>(y) << std::endl;
-    std::cout << gbaemu::signExt<int32_t, uint16_t, 9>(z) << std::endl;
-
-    //return 0;
-
     if (argc <= 1) {
         std::cout << "please provide a ROM file\n";
         return 0;
@@ -159,6 +143,8 @@ int main(int argc, char **argv)
     std::mutex canDrawToScreenMutex;
     bool canDrawToScreen = false;
     gbaemu::lcd::LCDController controller(windowCanvas, &cpu, &canDrawToScreenMutex, &canDrawToScreen);
+
+    cpu.setLCDController(&controller);
 
     std::cout << "Game Title: ";
     for (uint32_t i = 0; i < 12; ++i) {
@@ -220,17 +206,13 @@ int main(int argc, char **argv)
                     std::cout << "OBJ hightlight index: " << std::dec << objIndex << std::endl;
                 }
 
-                controller.objHightlightSetIndex(objIndex);
+                //controller.objHightlightSetIndex(objIndex);
             }
         }
 
-        if (canDrawToScreenMutex.try_lock()) {
-            if (canDrawToScreen) {
-                window.present();
-            }
-
+        if (canDrawToScreen) {
+            window.present();
             canDrawToScreen = false;
-            canDrawToScreenMutex.unlock();
         }
     }
 
@@ -238,7 +220,7 @@ int main(int argc, char **argv)
     std::cout << "window closed" << std::endl;
 
     /* kill LCDController thread and wait */
-    controller.exitThread();
+    //controller.exitThread();
     /* wait for cpu thread to exit */
     cpuThread.join();
 

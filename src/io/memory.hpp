@@ -336,6 +336,11 @@ namespace gbaemu
             reset();
         }
 
+        BackupID getBackupType() const
+        {
+            return backupType;
+        }
+
         void reset()
         {
             GBA_MEM_CLEAR(oam, OAM);
@@ -468,8 +473,8 @@ namespace gbaemu
                 // Allocate needed memory
                 ext_sram = new save::SaveFile(saveFilePath, loadSuccessful, backupSizes[backupType]);
             } else if (backupType == EEPROM_V) {
-                //TODO how to find out the eeprom size???
-                this->eeprom = new save::EEPROM(saveFilePath, loadSuccessful /*, romSize >= 0x01000000 ? 14 : 6*/);
+                // EEPROM size is determinable via the size of the dma requests
+                this->eeprom = new save::EEPROM(saveFilePath, loadSuccessful);
             } else if (backupType >= FLASH_V) {
                 this->flash = new save::FLASH(saveFilePath, loadSuccessful, backupSizes[backupType]);
             }

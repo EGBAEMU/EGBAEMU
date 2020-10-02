@@ -5,6 +5,12 @@
 
 namespace gbaemu::save
 {
+    void EEPROM::expand(uint8_t busWidth)
+    {
+        this->busWidth = busWidth;
+        // For bus width of 14 only the lower 10 bits are actually used
+        saveFile.expandSaveFileSize((1 << (busWidth == 14 ? 10 : 6)) * sizeof(buffer));
+    }
 
     void EEPROM::write(uint8_t data)
     {
@@ -25,7 +31,7 @@ namespace gbaemu::save
                     LOG_SAVE(std::cout << "EEPROM: write request detected!" << std::endl;);
                 } else {
                     // Invalid request!
-                    std::cout << "ERROR: invalid EEPROM request!" << std::endl;
+                    std::cout << "ERROR: invalid EEPROM request! 0x" << std::hex << static_cast<uint32_t>(buffer) << std::endl;
                     state = IDLE;
                 }
                 buffer = 0;
@@ -37,7 +43,8 @@ namespace gbaemu::save
                 buffer |= data & 0x1;
                 ++counter;
                 if (counter == busWidth) {
-                    addr = static_cast<uint16_t>(buffer);
+                    // Ensure that at max. 10 bit address are used (needed for 14 bit buswidth)
+                    addr = static_cast<uint16_t>(buffer) & 0x3FF;
                     buffer = 0;
                     counter = 0;
                     state = static_cast<EEPROM_State>(state + 1);
@@ -48,7 +55,7 @@ namespace gbaemu::save
             case READ_RECV_ADDR_ACK:
                 state = READ_WASTE;
                 //TODO endianess or make save states device dependent?
-                saveFile.read(addr * 64, reinterpret_cast<char *>(&buffer), sizeof(buffer));
+                saveFile.read(addr * sizeof(buffer), reinterpret_cast<char *>(&buffer), sizeof(buffer));
                 break;
 
             case WRITE:
@@ -61,7 +68,7 @@ namespace gbaemu::save
             case WRITE_ACK:
                 state = IDLE;
                 //TODO endianess or make save states device dependent?
-                saveFile.write(addr * 64, reinterpret_cast<char *>(&buffer), sizeof(buffer));
+                saveFile.write(addr * sizeof(buffer), reinterpret_cast<char *>(&buffer), sizeof(buffer));
                 LOG_SAVE(std::cout << "EEPROM: write done!" << std::endl;);
                 break;
 
