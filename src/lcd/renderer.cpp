@@ -152,7 +152,7 @@ namespace gbaemu::lcd
             for (; it != layers.cend(); it++) {
                 const auto &l = *it;
 
-                if (!l->enabled)// || !flagLayerEnabled(windowFeature.enabledMask.mask[x], l->layerID))
+                if (!l->enabled || !flagLayerEnabled(windowFeature.enabledMask.mask[x], l->layerID))
                     continue;
 
                 Fragment frag = l->scanline[x];
@@ -181,7 +181,7 @@ namespace gbaemu::lcd
                 for (it++; it != layers.cend(); it++) {
                     const auto &l = *it;
 
-                    if (!l->enabled)// || !flagLayerEnabled(windowFeature.enabledMask.mask[x], l->layerID))
+                    if (!l->enabled || !flagLayerEnabled(windowFeature.enabledMask.mask[x], l->layerID))
                         continue;
 
                     Fragment frag = l->scanline[x];
