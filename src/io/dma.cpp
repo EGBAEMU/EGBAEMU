@@ -31,6 +31,16 @@ namespace gbaemu
         return "";
     }
 
+    const char *DMAGroup::startCondToStr(StartCondition condition) {
+        switch (condition) {
+            STRINGIFY_CASE_ID(NO_COND);
+            STRINGIFY_CASE_ID(WAIT_HBLANK);
+            STRINGIFY_CASE_ID(WAIT_VBLANK);
+            STRINGIFY_CASE_ID(SPECIAL);
+        }
+        return "";
+    }
+
     template <DMAGroup::DMAChannel channel>
     uint8_t DMAGroup::DMA<channel>::read8FromReg(uint32_t offset)
     {
@@ -78,6 +88,7 @@ namespace gbaemu
                         std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
                         std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << DMAGroup::countTypeToStr(srcCnt) << std::endl;
                         std::cout << "      Dest Addr:   0x" << std::hex << destAddr << " Type: " << DMAGroup::countTypeToStr(dstCnt) << std::endl;
+                        std::cout << "      Timing: " << DMAGroup::startCondToStr(condition) << std::endl;
                         std::cout << "      Words: 0x" << std::hex << count << std::endl;
                         std::cout << "      Repeat: " << repeat << std::endl;
                         std::cout << "      GamePak DRQ: " << gamePakDRQ << std::endl;

@@ -53,6 +53,7 @@ namespace gbaemu
 
         bool conditionSatisfied(StartCondition condition) const;
         static const char *countTypeToStr(AddrCntType updateKind);
+        static const char *startCondToStr(StartCondition condition);
 
         template <DMAChannel channel>
         class DMA
