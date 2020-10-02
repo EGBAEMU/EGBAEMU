@@ -6,6 +6,7 @@
 
 #include <io/memory.hpp>
 #include <memory>
+#include <array>
 
 namespace gbaemu::lcd
 {
