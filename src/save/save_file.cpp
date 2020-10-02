@@ -1,11 +1,13 @@
 #include "save_file.hpp"
 
+#include <iostream>
+
 namespace gbaemu::save
 {
 
-    SaveFile::SaveFile(const char *path, bool &success, uint32_t size) : size(size)
+    SaveFile::SaveFile(const char *path, bool &success, uint32_t fallBackSize) : size(fallBackSize)
     {
-        bool isNewFile = !std::ifstream(path).good();
+        isNewFile = !std::ifstream(path).good();
 
         if (isNewFile) {
             std::ofstream out(path, std::ios::binary);
@@ -15,7 +17,9 @@ namespace gbaemu::save
         file.open(path, std::ios::binary | std::ios::in | std::ios::out);
         success = file.is_open();
 
-        if (success && isNewFile) {
+        if (!isNewFile) {
+            extractSaveFileSize();
+        } else if (success && isNewFile) {
             eraseAll();
         }
     }
@@ -28,10 +32,30 @@ namespace gbaemu::save
         }
     }
 
+    void SaveFile::extractSaveFileSize()
+    {
+        file.seekg(0, file.end);
+        size = file.tellg();
+    }
+
+    void SaveFile::expandSaveFileSize(uint32_t newSize)
+    {
+        if (newSize > size) {
+            erase(size, newSize - size);
+            size = newSize;
+            isNewFile = false;
+        } else if (newSize < size) {
+            size = newSize;
+            std::cout << "WARNING: save file shrinking not supported!" << std::endl;
+        } else {
+            isNewFile = false;
+        }
+    }
+
     void SaveFile::fill(uint32_t offset, uint32_t size, char value)
     {
         // seek to offset
-        file.seekp(file.beg + offset);
+        file.seekp(offset, file.beg);
 
         // Fill with needed size!
         const auto prevWidth = file.width();
@@ -57,13 +81,13 @@ namespace gbaemu::save
 
     void SaveFile::read(uint32_t offset, char *readBuf, uint32_t size)
     {
-        file.seekg(file.beg + offset);
+        file.seekg(offset, file.beg);
         file.read(readBuf, size);
     }
 
     void SaveFile::write(uint32_t offset, const char *writeBuf, uint32_t size)
     {
-        file.seekp(file.beg + offset);
+        file.seekp(offset, file.beg);
         file.write(writeBuf, size);
         file.flush();
     }

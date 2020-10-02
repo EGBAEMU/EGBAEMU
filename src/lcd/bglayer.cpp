@@ -1,23 +1,46 @@
 #include "bglayer.hpp"
 
 #include "logging.hpp"
-
+#include <sstream>
 
 namespace gbaemu::lcd
 {
-    void Background::loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory)
+    BGMode0EntryAttributes::BGMode0EntryAttributes(BGMode0Entry entry)
+    {
+        tileNumber = bitGet<uint16_t>(entry, 0x3FF, 0);
+        paletteNumber = bitGet<uint16_t>(entry, 0xF, 12);
+        hFlip = isBitSet<uint16_t, 10>(entry);
+        vFlip = isBitSet<uint16_t, 11>(entry);
+    }
+
+    BGLayer::BGLayer(LCDColorPalette &plt, Memory &mem, BGIndex idx) : index(idx), palette(plt), memory(mem)
+    {
+        layerID = static_cast<LayerID>(index);
+        isBGLayer = true;
+    }
+
+    void BGLayer::loadSettings(BGMode bgMode, const LCDIORegs &regs)
     {
         if (!enabled)
             return;
 
-        uint16_t size = (le(regs.BGCNT[bgIndex]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
+        size = (le(regs.BGCNT[index]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
+        mode = bgMode;
+
+        /* mixed mode, layers 0, 1 are drawn in mode 0, layer 2 is drawn in mode 2 */
+        if (mode == Mode1) {
+            if (index == BG0 || index == BG1)
+                mode = Mode0;
+            else
+                mode = Mode2;
+        }
 
         /* TODO: not entirely correct */
-        if (bgMode == 0 || (bgMode == 1 && bgIndex <= 1)) {
+        if (bgMode == 0 || (bgMode == 1 && index <= 1)) {
             /* text mode */
             height = (size <= 1) ? 256 : 512;
             width = (size % 2 == 0) ? 256 : 512;
-        } else if (bgMode == 2 || (bgMode == 1 && bgIndex == 2)) {
+        } else if (bgMode == 2 || (bgMode == 1 && index == 2)) {
             switch (size) {
                 case 0:
                     width = 128;
@@ -52,13 +75,22 @@ namespace gbaemu::lcd
             height = 128;
         }
 
-        mosaicEnabled = le(regs.BGCNT[bgIndex]) & BGCNT::MOSAIC_MASK;
+        mosaicEnabled = le(regs.BGCNT[index]) & BGCNT::MOSAIC_MASK;
+
+        if (mosaicEnabled) {
+            mosaicWidth = bitGet(le(regs.MOSAIC), MOSAIC::BG_MOSAIC_HSIZE_MASK, MOSAIC::BG_MOSAIC_HSIZE_OFFSET) + 1;
+            mosaicHeight = bitGet(le(regs.MOSAIC), MOSAIC::BG_MOSAIC_VSIZE_MASK, MOSAIC::BG_MOSAIC_VSIZE_OFFSET) + 1;
+        } else {
+            mosaicWidth = 1;
+            mosaicHeight = 1;
+        }
+
         /* if true tiles have 8 bit color depth, 4 bit otherwise */
-        colorPalette256 = le(regs.BGCNT[bgIndex]) & BGCNT::COLORS_PALETTES_MASK;
-        priority = le(regs.BGCNT[bgIndex]) & BGCNT::BG_PRIORITY_MASK;
+        colorPalette256 = le(regs.BGCNT[index]) & BGCNT::COLORS_PALETTES_MASK;
+        priority = le(regs.BGCNT[index]) & BGCNT::BG_PRIORITY_MASK;
         /* offsets */
-        uint32_t charBaseBlock = (le(regs.BGCNT[bgIndex]) & BGCNT::CHARACTER_BASE_BLOCK_MASK) >> 2;
-        uint32_t screenBaseBlock = (le(regs.BGCNT[bgIndex]) & BGCNT::SCREEN_BASE_BLOCK_MASK) >> 8;
+        uint32_t charBaseBlock = (le(regs.BGCNT[index]) & BGCNT::CHARACTER_BASE_BLOCK_MASK) >> 2;
+        uint32_t screenBaseBlock = (le(regs.BGCNT[index]) & BGCNT::SCREEN_BASE_BLOCK_MASK) >> 8;
 
         /* select which frame buffer to use */
         if (bgMode == 4 || bgMode == 5)
@@ -69,56 +101,50 @@ namespace gbaemu::lcd
         /* wrapping */
         if (bgMode == 0) {
             wrap = true;
-        } else if (bgIndex == 2 || bgIndex == 3) {
-            wrap = le(regs.BGCNT[bgIndex]) & BGCNT::DISPLAY_AREA_OVERFLOW_MASK;
+        } else if (index == 2 || index == 3) {
+            wrap = le(regs.BGCNT[index]) & BGCNT::DISPLAY_AREA_OVERFLOW_MASK;
         } else {
             wrap = false;
         }
 
         /* scaling, rotation, only for bg2, bg3 */
-        if (bgMode != 0 && (bgIndex == 2 || bgIndex == 3)) {
-            if (bgIndex == 2) {
-                step.origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2X));
-                step.origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2Y));
+        if (bgMode != 0 && (index == 2 || index == 3)) {
+            if (index == 2) {
+                affineTransform.origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2X));
+                affineTransform.origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2Y));
 
-                step.d[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[0]));
-                step.dm[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[1]));
-                step.d[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[2]));
-                step.dm[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[3]));
-
-                //std::cout << regs.BG2X << "    " << regs.BG2Y << std::endl;
-                //std::cout << step.origin << "    " << step.d << "    " << step.dm << std::endl;
+                affineTransform.d[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[0]));
+                affineTransform.dm[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[1]));
+                affineTransform.d[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[2]));
+                affineTransform.dm[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[3]));
             } else {
-                step.origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3X));
-                step.origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3Y));
+                affineTransform.origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3X));
+                affineTransform.origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3Y));
 
-                step.d[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[0]));
-                step.dm[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[1]));
-                step.d[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[2]));
-                step.dm[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[3]));
+                affineTransform.d[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[0]));
+                affineTransform.dm[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[1]));
+                affineTransform.d[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[2]));
+                affineTransform.dm[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[3]));
             }
 
-            if (step.d[0] == 0 && step.d[1] == 0) {
-                step.d[0] = 1;
-                step.d[1] = 0;
+            if (affineTransform.d[0] == 0 && affineTransform.d[1] == 0) {
+                affineTransform.d[0] = 1;
+                affineTransform.d[1] = 0;
             }
 
-            if (step.dm[0] == 0 && step.dm[1] == 0) {
-                step.dm[0] = 0;
-                step.dm[1] = 1;
+            if (affineTransform.dm[0] == 0 && affineTransform.dm[1] == 0) {
+                affineTransform.dm[0] = 0;
+                affineTransform.dm[1] = 1;
             }
         } else {
             /* use scrolling parameters */
-            step.origin[0] = static_cast<common::math::real_t>(le(regs.BGOFS[bgIndex].h) & 0x1FF);
-            step.origin[1] = static_cast<common::math::real_t>(le(regs.BGOFS[bgIndex].v) & 0x1FF);
+            affineTransform.origin[0] = static_cast<common::math::real_t>(le(regs.BGOFS[index].h) & 0x1FF);
+            affineTransform.origin[1] = static_cast<common::math::real_t>(le(regs.BGOFS[index].v) & 0x1FF);
 
-            //if (bgIndex == 1)
-            //    std::cout << step.origin[0] << std::endl;
-
-            step.d[0] = 1;
-            step.d[1] = 0;
-            step.dm[0] = 0;
-            step.dm[1] = 1;
+            affineTransform.d[0] = 1;
+            affineTransform.d[1] = 0;
+            affineTransform.dm[0] = 0;
+            affineTransform.dm[1] = 1;
         }
 
         /* 32x32 tiles, arrangement depends on resolution */
@@ -127,234 +153,166 @@ namespace gbaemu::lcd
         uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, memReg);
         bgMapBase = vramBase + screenBaseBlock * 0x800;
 
-        if (bgMode == 0) {
-            std::fill_n(scInUse, 4, true);
-        } else if (bgMode == 3) {
-            scInUse[0] = false;
-            scInUse[1] = false;
-            scInUse[2] = true;
-            scInUse[3] = false;
-        }
-
-        switch (size) {
-            case 0:
-                scCount = 1;
-                break;
-            case 1:
-                scCount = 2;
-                break;
-            case 2:
-                scCount = 2;
-                break;
-            case 3:
-                scCount = 4;
-                break;
-        }
         /* tile addresses in steps of 0x4000 */
         /* 8x8, also called characters */
         tiles = vramBase + charBaseBlock * 0x4000;
 
-        /*
-            size = 0:
-            +-----+
-            | SC0 |
-            +-----+
-
-            size = 1:
-            +---------+
-            | SC0 SC1 |
-            +---------+
-        
-            size = 2:
-            +-----+
-            | SC0 |
-            | SC1 |
-            +-----+
-
-            size = 3:
-            +---------+
-            | SC0 SC1 |
-            | SC2 SC3 |
-            +---------+
-         */
-        /* always 0 */
-        scXOffset[0] = 0;
-        scYOffset[0] = 0;
-
-        scXOffset[1] = (size % 2 == 1) ? 256 : 0;
-        scYOffset[1] = (size == 2) ? 256 : 0;
-
-        /* only available in size = 3 */
-        scXOffset[2] = 0;
-        scYOffset[2] = 256;
-
-        /* only available in size = 3 */
-        scXOffset[3] = 256;
-        scYOffset[3] = 256;
+        asFirstTarget = bitGet<uint16_t>(le(regs.BLDCNT), BLDCNT::TARGET_MASK, BLDCNT::BG_FIRST_TARGET_OFFSET(static_cast<uint16_t>(index)));
+        asSecondTarget = bitGet<uint16_t>(le(regs.BLDCNT), BLDCNT::TARGET_MASK, BLDCNT::BG_SECOND_TARGET_OFFSET(static_cast<uint16_t>(index)));
     }
 
-    void Background::renderBG0(LCDColorPalette &palette)
+    std::string BGLayer::toString() const
     {
-        if (!enabled)
-            return;
+        std::stringstream ss;
 
-        auto pixels = tempCanvas.pixels();
-        auto stride = tempCanvas.getWidth();
+        ss << "enabled: " << (enabled ? "yes" : "no") << '\n';
+        ss << "width height: " << width << 'x' << height << '\n';
+        ss << "origin: " << affineTransform.origin << '\n';
+        ss << "d dm: " << affineTransform.d << ' ' << affineTransform.dm << '\n';
 
+        return ss.str();
+    }
 
-        for (uint32_t scIndex = 0; scIndex < scCount; ++scIndex) {
-            uint16_t *bgMap = reinterpret_cast<uint16_t *>(bgMapBase + scIndex * 0x800);
+    const void *BGLayer::getBGMap(int32_t sx, int32_t sy) const
+    {
+        switch (mode) {
+            case Mode0: {
+                int32_t scIndex = (sx / 256) + (sy / 256) * 2;
 
-            for (uint32_t mapIndex = 0; mapIndex < 32 * 32; ++mapIndex) {
-                uint16_t entry = bgMap[mapIndex];
+                /* only exception */
+                if (size == 2 && scIndex == 2)
+                    scIndex = 1;
 
-                /* tile info */
-                uint32_t tileNumber = entry & 0x3FF;
-                uint32_t paletteNumber = (entry >> 12) & 0xF;
+                return bgMapBase + scIndex * 0x800;
+            }
+            case Mode2:
+                return bgMapBase;
+            default:
+                return nullptr;
+        }
+    }
 
-                int32_t tileX = scXOffset[scIndex] / 8 + (mapIndex % 32);
-                int32_t tileY = scYOffset[scIndex] / 8 + (mapIndex / 32);
+    const void *BGLayer::getFrameBuffer() const
+    {
+        size_t fbOff = ((mode == Mode5 || mode == Mode4) && useOtherFrameBuffer) ? 0xA000 : 0;
+        Memory::MemoryRegion memReg;
+        return memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET + fbOff, nullptr, memReg);
+    }
 
-                int32_t offX = colorPalette256 ? scXOffset[scIndex] : 0;
-                int32_t offY = colorPalette256 ? scYOffset[scIndex] : 0;
+    std::function<color_t(int32_t, int32_t)> BGLayer::getPixelColorFunction()
+    {
+        const void *bgMap = getBGMap();
+        const void *frameBuffer = getFrameBuffer();
 
-                /* TODO: flipping */
-                bool hFlip = (entry >> 10) & 1;
-                bool vFlip = (entry >> 11) & 1;
+        std::function<color_t(int32_t, int32_t)> pixelColor;
 
-                size_t tileByteSize = colorPalette256 ? 64 : 32;
-                const uint8_t *tilePtr = tiles + tileNumber * tileByteSize;
+        /* select pixel color function */
+        switch (mode) {
+            case Mode0:
+                /*
+                    +-----------+
+                    | SC0 | SC1 |
+                    +-----+-----+
+                    | SC2 | SC3 |
+                    +-----+-----+
 
-                for (uint32_t ty = 0; ty < 8; ++ty) {
-                    uint32_t srcTy = vFlip ? (7 - ty) : ty;
-                    uint32_t row = reinterpret_cast<const uint32_t *>(tilePtr)[srcTy];
+                    Every bg map is at (bg base) + (sc index) * 0x800.
+                    Every SC has size 256x256 (32x32 tiles).
+                 */
+                pixelColor = [this](int32_t sx, int32_t sy) -> color_t {
+                    const BGMode0Entry *bgMap = reinterpret_cast<const BGMode0Entry *>(getBGMap(sx, sy));
 
-                    for (uint32_t tx = 0; tx < 8; ++tx) {
-                        uint32_t srcTx = hFlip ? (7 - tx) : tx;
-                        color_t color;
+                    int32_t msx = sx - (sx % mosaicWidth);
+                    int32_t msy = sy - (sy % mosaicHeight);
 
-                        if (!colorPalette256) {
-                            uint32_t paletteIndex = (row & (0xF << (srcTx * 4))) >> (srcTx * 4);
-                            color = palette.getBgColor(paletteNumber, paletteIndex);
-                        } else {
-                            color = palette.getBgColor(tilePtr[srcTy * 8 + srcTx]);
-                        }
+                    /* sx, sy relative to the current bg map (size 32x32) */
+                    int32_t relBGMapX = msx % 256;
+                    int32_t relBGMapY = msy % 256;
+                    int32_t tileX = relBGMapX / 8;
+                    int32_t tileY = relBGMapY / 8;
 
-                        pixels[(tileY * 8 + offY + ty) * stride + (tileX * 8 + offX + tx)] = color;
+                    BGMode0EntryAttributes attrs(bgMap[tileY * 32 + tileX]);
+                    const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + attrs.tileNumber * (colorPalette256 ? 64 : 32);
+
+                    int32_t tx = attrs.hFlip ? (7 - (relBGMapX % 8)) : (relBGMapX % 8);
+                    int32_t ty = attrs.vFlip ? (7 - (relBGMapY % 8)) : (relBGMapY % 8);
+
+                    if (colorPalette256) {
+                        return palette.getBgColor(tile[ty * 8 + tx]);
+                    } else {
+                        uint32_t row = reinterpret_cast<const uint32_t *>(tile)[ty];
+                        uint32_t paletteIndex = (row >> (tx * 4)) & 0xF;
+                        return palette.getBgColor(attrs.paletteNumber, paletteIndex);
                     }
+                };
+                break;
+            case Mode2:
+                pixelColor = [bgMap, this](int32_t sx, int32_t sy) -> color_t {
+                    int32_t msx = sx - (sx % mosaicWidth);
+                    int32_t msy = sy - (sy % mosaicHeight);
+
+                    int32_t tileX = msx / 8;
+                    int32_t tileY = msy / 8;
+                    uint32_t tileNumber = reinterpret_cast<const uint8_t *>(bgMap)[tileY * (width / 8) + tileX];
+                    const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + (tileNumber * 64);
+                    uint32_t paletteIndex = tile[(msy % 8) * 8 + (msx % 8)];
+
+                    return palette.getBgColor(paletteIndex);
+                };
+                break;
+            case Mode3:
+            case Mode5:
+                /* 32768 colors in color16 format */
+                pixelColor = [frameBuffer, this](int32_t sx, int32_t sy) -> color_t {
+                    int32_t msx = sx - (sx % mosaicWidth);
+                    int32_t msy = sy - (sy % mosaicHeight);
+
+                    return LCDColorPalette::toR8G8B8(reinterpret_cast<const color16_t *>(frameBuffer)[msy * width + msx]);
+                };
+                break;
+            case Mode4:
+                /* 256 indexed colors */
+                pixelColor = [frameBuffer, this](int32_t sx, int32_t sy) -> color_t {
+                    int32_t msx = sx - (sx % mosaicWidth);
+                    int32_t msy = sy - (sy % mosaicHeight);
+
+                    return palette.getBgColor(reinterpret_cast<const uint8_t *>(frameBuffer)[msy * width + msx]);
+                };
+                break;
+            default:
+                LOG_LCD(std::cout << "Invalid mode!" << std::endl;);
+                throw std::runtime_error("Invalid mode!");
+        }
+
+        return pixelColor;
+    }
+
+    void BGLayer::drawScanline(int32_t y)
+    {
+        auto pixelColor = getPixelColorFunction();
+        vec2 s = affineTransform.dm * y + affineTransform.origin;
+
+        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
+            int32_t sx = static_cast<int32_t>(s[0]);
+            int32_t sy = static_cast<int32_t>(s[1]);
+
+            if (wrap || (0 <= sx && sx < static_cast<int32_t>(width) && 0 <= sy && sy < static_cast<int32_t>(height))) {
+                if (wrap) {
+                    sx = fastMod<int32_t>(sx, width);
+                    sy = fastMod<int32_t>(sy, height);
                 }
+
+                scanline[x] = Fragment(pixelColor(sx, sy), asFirstTarget, asSecondTarget, false);
+            } else {
+                scanline[x] = Fragment(TRANSPARENT, asFirstTarget, asSecondTarget, false);
             }
+
+            s += affineTransform.d;
         }
     }
 
-    void Background::renderBG2(LCDColorPalette &palette)
+    bool BGLayer::operator<(const BGLayer &other) const noexcept
     {
-        if (!enabled)
-            return;
-
-        uint8_t *bgMap = reinterpret_cast<uint8_t *>(bgMapBase);
-        auto pixels = tempCanvas.pixels();
-        auto stride = tempCanvas.getWidth();
-
-        for (uint32_t mapIndex = 0; mapIndex < (width / 8) * (height / 8); ++mapIndex) {
-            uint8_t tileNumber = bgMap[mapIndex];
-
-            int32_t tileX = mapIndex % (width / 8);
-            int32_t tileY = mapIndex / (height / 8);
-
-            uint8_t *tile = tiles + (tileNumber * 64);
-
-            for (uint32_t ty = 0; ty < 8; ++ty) {
-                for (uint32_t tx = 0; tx < 8; ++tx) {
-                    uint32_t j = ty * 8 + tx;
-                    uint32_t k = tile[j];
-                    uint32_t color = palette.getBgColor(k);
-                    pixels[(tileY * 8 + ty) * stride + (tileX * 8 + tx)] = color;
-                }
-            }
-        }
+        return (priority == other.priority) ? (index < other.index) : (priority < other.priority);
     }
-
-    void Background::renderBG3(Memory &memory)
-    {
-        if (!enabled)
-            return;
-
-        auto pixels = tempCanvas.pixels();
-        auto stride = tempCanvas.getWidth();
-        Memory::MemoryRegion memReg;
-        const uint16_t *srcPixels = reinterpret_cast<const uint16_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET, nullptr, memReg));
-
-        for (int32_t y = 0; y < 160; ++y) {
-            for (int32_t x = 0; x < 240; ++x) {
-                uint16_t color = srcPixels[y * 240 + x];
-                pixels[y * stride + x] = LCDColorPalette::toR8G8B8(color);
-            }
-        }
-    }
-
-    void Background::renderBG4(LCDColorPalette &palette, Memory &memory)
-    {
-        if (!enabled)
-            return;
-
-        auto pixels = tempCanvas.pixels();
-        auto stride = tempCanvas.getWidth();
-        Memory::MemoryRegion memReg;
-        uint32_t fbOff;
-
-        if (useOtherFrameBuffer)
-            fbOff = 0xA000;
-        else
-            fbOff = 0;
-
-        const uint8_t *srcPixels = reinterpret_cast<const uint8_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET + fbOff, nullptr, memReg));
-
-        for (int32_t y = 0; y < 160; ++y) {
-            for (int32_t x = 0; x < 240; ++x) {
-                uint16_t color = srcPixels[y * 240 + x];
-                pixels[y * stride + x] = palette.getBgColor(color);
-            }
-        }
-    }
-
-    void Background::renderBG5(LCDColorPalette &palette, Memory &memory)
-    {
-        if (!enabled)
-            return;
-
-        auto pixels = tempCanvas.pixels();
-        auto stride = tempCanvas.getWidth();
-        Memory::MemoryRegion memReg;
-        uint32_t fbOff;
-
-        if (useOtherFrameBuffer)
-            fbOff = 0xA000;
-        else
-            fbOff = 0;
-
-        const uint16_t *srcPixels = reinterpret_cast<const uint16_t *>(memory.resolveAddr(gbaemu::Memory::VRAM_OFFSET + fbOff, nullptr, memReg));
-
-        for (int32_t y = 0; y < 128; ++y) {
-            for (int32_t x = 0; x < 160; ++x) {
-                uint16_t color = srcPixels[y * 160 + x];
-                pixels[y * stride + x] = LCDColorPalette::toR8G8B8(color);
-            }
-        }
-    }
-
-    void Background::draw()
-    {
-        if (!enabled)
-            return;
-
-        canvas.clear(TRANSPARENT);
-        const common::math::vec<2> screenRef{0, 0};
-        canvas.drawSprite(tempCanvas.pixels(), width, height, tempCanvas.getWidth(),
-                          step.origin, step.d, step.dm, screenRef, wrap);
-
-        if (id == 2) {
-            //std::cout << step.origin << ' ' << step.d << ' ' << step.dm << ' ' << screenRef << std::endl;
-        }
-    }
-}
+} // namespace gbaemu::lcd

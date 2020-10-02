@@ -361,7 +361,7 @@ namespace gbaemu::debugger
         }
 
         if (words[0] == "lcd") {
-            std::cout << lcdController.getLayerStatus() << std::endl;
+            std::cout << lcdController.getLayerStatusString() << std::endl;
             return;
         }
 
@@ -372,7 +372,18 @@ namespace gbaemu::debugger
             }
 
             uint32_t objIndex = std::stol(words[1]);
-            std::cout << lcdController.getOBJLayerString(objIndex) << std::endl;
+            //std::cout << lcdController.getOBJLayerString(objIndex) << std::endl;
+            return;
+        }
+
+        if (words[0] == "bg") {
+            if (words.size() < 2) {
+                std::cout << "DebugCLI: Missing bg index parameter!" << std::endl;
+                return;
+            }
+
+            uint32_t bgIndex = std::stol(words[1]);
+            //std::cout << lcdController.getBGLayerString(bgIndex) << std::endl;
             return;
         }
 

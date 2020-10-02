@@ -14,8 +14,6 @@ namespace gbaemu
 {
     namespace swi
     {
-        gbaemu::lcd::Background *pBackground = nullptr;
-
         const char *swiToString(uint8_t index)
         {
             if (index < sizeof(biosCallHandlerStr) / sizeof(biosCallHandlerStr[0])) {
