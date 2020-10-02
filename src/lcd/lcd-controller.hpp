@@ -70,8 +70,8 @@ namespace gbaemu::lcd
       public:
         struct
         {
-            // uint32_t cycle = 0;
-            int32_t /*x = 0, */y = 0;
+            uint32_t cycle = 0;
+            int32_t x = 0, y = 0;
             /* interlacing */
             bool oddScanline = true;
             bool hblanking = false;
@@ -110,7 +110,12 @@ namespace gbaemu::lcd
         void onVBlank();
         void drawScanline();
         void present();
+
+#ifndef LEGACY_RENDERING
         void clearBlankFlags();
+#else
+        void renderTick();
+#endif
 
         bool isHBlank() const
         {

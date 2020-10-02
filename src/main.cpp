@@ -27,6 +27,7 @@ static void handleSignal(int signum)
     }
 }
 
+#ifndef LEGACY_RENDERING
 static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #ifdef DEBUG_CLI
                   ,
@@ -103,6 +104,7 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 
     return false;
 }
+#endif
 
 static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #ifdef DEBUG_CLI
@@ -111,7 +113,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #endif
 )
 {
-
+#ifndef LEGACY_RENDERING
     using frames = std::chrono::duration<int64_t, std::ratio<1, 60>>; // 60Hz
     auto nextFrame = std::chrono::system_clock::now() + frames{0};
     auto lastFrame = nextFrame - frames{1};
@@ -140,6 +142,38 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
     }
 
     doRun = false;
+#else
+
+    std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
+
+    for (uint32_t j = 0; doRun; ++j) {
+#ifdef DEBUG_CLI
+        if (debugCLI.step()) {
+            break;
+        }
+#else
+        gbaemu::CPUExecutionInfoType executionInfo = cpu.step(1);
+        if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
+            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            break;
+        }
+#endif
+        lcdController.renderTick();
+
+        if (j >= 100001) {
+            double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
+            // dt = us * 1000, us for a single instruction = dt / 1000
+            double mhz = (1000000 / (dt / 100000)) / 1000000;
+
+            //std::cout << std::dec << dt << "us for 100000 cycles => ~" << mhz << "MHz" << std::endl;
+
+            j = 0;
+            t = std::chrono::high_resolution_clock::now();
+        }
+    }
+
+    doRun = false;
+#endif
 }
 
 #ifdef DEBUG_CLI
