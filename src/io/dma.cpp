@@ -189,7 +189,8 @@ namespace gbaemu
                 }
 
                 case DONE: {
-                    if (repeat) {
+                    // Handle edge case: repeat enabled but no start condition -> infinite DMA transfers
+                    if (repeat && condition != NO_COND) {
                         state = REPEAT;
                     } else {
                         // return to idle state
