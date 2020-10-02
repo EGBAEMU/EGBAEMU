@@ -95,6 +95,9 @@ namespace gbaemu
                         std::cout << "      32 bit mode: " << width32Bit << std::endl;
                         std::cout << "      IRQ on end: " << irqOnEnd << std::endl;);
 
+                    // Initialization takes at least 2 cycles
+                    info.cycleCount += 2;
+
                     // If eeprom does not yet know for sure which bus width it has we can determine it by passing DMA request to it!
                     if (channel == DMA3 && memory.getBackupType() == Memory::EEPROM_V && !memory.eeprom->knowsBitWidth()) {
 
