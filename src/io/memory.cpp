@@ -605,7 +605,7 @@ namespace gbaemu
 
             default:
                 // invalid address!
-                LOG_MEM(std::cout << "ERROR: trying to access unused memory address: " << std::hex << addr << std::endl;);
+                LOG_MEM(std::cout << "ERROR: trying to access unused memory address: 0x" << std::hex << addr << std::endl;);
                 execInfo.hasCausedException = true;
                 execInfo.noOffset = true;
                 execInfo.resolvedAddr = false;
