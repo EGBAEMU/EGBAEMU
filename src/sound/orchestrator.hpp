@@ -105,8 +105,11 @@ namespace gbaemu
             ~SoundOrchestrator();
 
             void refresh();
-
+            
+            // Callback for SDL2 Mixer  
             void onChannelDoneCallback(int channel);
+            // Callback for Channels
+            void onChannelCompleted(uint8_t channel);
 
     };
 }

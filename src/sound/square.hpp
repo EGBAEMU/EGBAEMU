@@ -1,6 +1,7 @@
 #ifndef SQUARE_CHANNEL_HPP
 #define SQUARE_CHANNEL_HPP
 
+#include <chrono>
 #include "orchestrator.hpp"
 
 namespace gbaemu 
@@ -53,22 +54,45 @@ namespace gbaemu
 
             ~SquareWaveChannel();
 
-            void refresh();
+
+            void onRegisterUpdated();
+
+            void onCheckForAdjustment();
 
         private:
 
+            // The superordinate sound orchestrator
             SoundOrchestrator* orchestrator;
-            
             // The sound channel to use
-            int channelID;
+            uint8_t channel;
 
+            // Wether some register value was updated and now the sound needs an update
+            bool update;
             // Pointers to the corresponding control registers
-            uint16_t *registers[3]; 
+            uint16_t* registers[2] = {
+                0x0000,
+                0x0000
+            }; 
 
-            // If this channel supports sweeps
-            bool sweeps = false;
+            // Env 
+            // The last time we update the envelope of this channel
+            std::chrono::steady_clock::time_point envelopeLastUpdateTime;
             // The last mix chunk used as container for each sample
             Mix_Chunk* chunk;
+
+            // The extracted register values for reg 1
+            uint8_t reg_soundLength;
+            uint8_t reg_dutyCycle;
+            uint8_t reg_envStepTime;
+            bool    reg_envMode;
+            uint8_t reg_envInitVal;
+
+            // The extracted register values for reg 2
+            uint16_t reg_frequency;
+            bool     reg_timed;
+            bool     reg_reset;
+
+            void getRegisterValues();
 
     };
 
