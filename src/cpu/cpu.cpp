@@ -52,10 +52,10 @@ namespace gbaemu
         //TODO we might need this info? (where nullptr is currently)
         if (thumbMode) {
             pc += 4;
-            state.pipeline[0] = state.memory.read16(pc, fetchInfo, false, true);
+            state.pipeline[0] = state.memory.read16(pc, fetchInfo, true, true);
         } else {
             pc += 8;
-            state.pipeline[0] = state.memory.read32(pc, fetchInfo, false, true);
+            state.pipeline[0] = state.memory.read32(pc, fetchInfo, true, true);
 
             // auto update bios state if we are currently executing inside bios!
             if (pc < state.memory.getBiosSize()) {
@@ -159,8 +159,17 @@ namespace gbaemu
 
         // We have a branch, return or something that changed our PC
         if (cpuInfo.forceBranch || prevPc != postPc) {
+            // If an instruction jumps to a different memory area,
+            // then all code cycles for that opcode are having waitstate characteristics
+            // of the NEW memory area (except Thumb BL which still executes 1S in OLD area).
+            // -> we have to undo the fetch added cycles and add it again after initPipeline
+            cpuInfo.cycleCount -= state.memory.memCycles16(fetchInfo.memReg, true);
             postPc = normalizePC(postThumbMode);
             initPipeline();
+            // Replace first S cycle of pipeline fetch by an N cycle as its random access!
+            cpuInfo.cycleCount += state.memory.memCycles16(fetchInfo.memReg, false) - state.memory.memCycles16(fetchInfo.memReg, true);
+            // Also apply additional 1S into new region
+            cpuInfo.cycleCount += state.memory.memCycles16(fetchInfo.memReg, true);
         } else {
             // Increment the pc counter to the next instruction
             state.accessReg(regs::PC_OFFSET) = postPc + (postThumbMode ? 2 : 4);
@@ -168,13 +177,15 @@ namespace gbaemu
 
         // Add 1S cycle needed to fetch a instruction if not other requested
         // Handle wait cycles!
-        if (!cpuInfo.noDefaultSCycle) {
-            cpuInfo.cycleCount += waitStatesSeq;
+        cpuInfo.cycleCount += fetchInfo.cycleCount;
+        fetchInfo.cycleCount = 0;
+
+        if (cpuInfo.noDefaultSCycle) {
+            // Fetch S cycle needs to be a N cycle -> add difference off N and S Cycle count to our cycle count
+            cpuInfo.cycleCount += state.memory.memCycles16(fetchInfo.memReg, false) - state.memory.memCycles16(fetchInfo.memReg, true);
         }
 
-        cpuInfo.cycleCount += waitStatesNonSeq * cpuInfo.additionalProgCyclesN;
-        cpuInfo.cycleCount += waitStatesSeq * cpuInfo.additionalProgCyclesS;
-
+        // sanity checks
         if (state.updateCPUMode()) {
             std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK) << " prevPC: 0x" << std::hex << prevPc << std::endl;
             cpuInfo.hasCausedException = true;

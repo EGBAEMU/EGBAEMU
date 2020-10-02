@@ -198,10 +198,6 @@ namespace gbaemu
         state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(pc) + 8 + offset);
 
         // Execution Time: 2S + 1N
-
-        cpuInfo.additionalProgCyclesN = 1;
-        cpuInfo.additionalProgCyclesS = 1;
-
         // This is a branch instruction so we need to consider self branches!
         cpuInfo.forceBranch = true;
     }
@@ -224,10 +220,6 @@ namespace gbaemu
         state.accessReg(regs::PC_OFFSET) = rnValue & 0xFFFFFFFE;
 
         // Execution Time: 2S + 1N
-
-        cpuInfo.additionalProgCyclesN = 1;
-        cpuInfo.additionalProgCyclesS = 1;
-
         // This is a branch instruction so we need to consider self branches!
         cpuInfo.forceBranch = true;
     }
@@ -466,8 +458,7 @@ namespace gbaemu
             state.accessReg(rd) = static_cast<uint32_t>(resultValue);
 
         if (destPC) {
-            cpuInfo.additionalProgCyclesN = 1;
-            cpuInfo.additionalProgCyclesS = 1;
+            cpuInfo.forceBranch = true;
         }
         if (shiftByReg) {
             cpuInfo.cycleCount += 1;
@@ -499,7 +490,6 @@ namespace gbaemu
         } else {
             // same edge case as for STR
             cpuInfo.noDefaultSCycle = true;
-            cpuInfo.additionalProgCyclesN = 1;
         }
 
         // The first read / write is non sequential but afterwards all accesses are sequential
@@ -558,8 +548,7 @@ namespace gbaemu
                     if (currentIdx == regs::PC_OFFSET) {
                         *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, cpuInfo, nonSeqAccDone, this->fetchInfo.memReg == Memory::MemoryRegion::BIOS);
                         // Special case for pipeline refill
-                        cpuInfo.additionalProgCyclesN = 1;
-                        cpuInfo.additionalProgCyclesS = 1;
+                        cpuInfo.forceBranch = true;
 
                         // More special cases
                         /*
@@ -677,11 +666,10 @@ namespace gbaemu
 
             // additional delays needed if PC gets loaded
             if (rd == regs::PC_OFFSET) {
-                cpuInfo.additionalProgCyclesN = 1;
-                cpuInfo.additionalProgCyclesS = 1;
+                cpuInfo.forceBranch = true;
             }
         } else {
-            cpuInfo.additionalProgCyclesN = 1;
+            // same edge case as for STR
             cpuInfo.noDefaultSCycle = true;
         }
 
@@ -806,14 +794,12 @@ namespace gbaemu
             // 1N is handled by Memory class & 1S is handled globally
             cpuInfo.cycleCount = 1;
             // will PC be updated? if so we need an additional Prog N & S cycle
-            if (load && rd == regs::PC_OFFSET) {
-                cpuInfo.additionalProgCyclesN = 1;
-                cpuInfo.additionalProgCyclesS = 1;
+            if (rd == regs::PC_OFFSET) {
+                cpuInfo.forceBranch = true;
             }
         } else {
             // same edge case as for STR
             cpuInfo.noDefaultSCycle = true;
-            cpuInfo.additionalProgCyclesN = 1;
         }
 
         uint32_t rnValue = state.accessReg(rn);

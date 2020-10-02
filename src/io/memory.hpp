@@ -394,17 +394,21 @@ namespace gbaemu
                     cycles32Bit[0][EXT_SRAM] = cycles32Bit[0][EXT_SRAM_] =
                         cycles32Bit[1][EXT_SRAM] = cycles32Bit[1][EXT_SRAM_] = waitCycles_n[sramWaitCnt];
 
-            cycles16Bit[0][EXT_ROM1] = cycles16Bit[0][EXT_ROM1_] = waitCycles_n[wait0_n];
-            cycles16Bit[0][EXT_ROM2] = cycles16Bit[0][EXT_ROM2_] = waitCycles_n[wait1_n];
-            cycles16Bit[0][EXT_ROM3] = cycles16Bit[0][EXT_ROM3_] = waitCycles_n[wait2_n];
+            // First Access (Non-sequential) and Second Access (Sequential) define the waitstates for N and S cycles
+            // the actual access time is 1 clock cycle PLUS the number of waitstates.
+            cycles16Bit[0][EXT_ROM1] = cycles16Bit[0][EXT_ROM1_] = 1 + waitCycles_n[wait0_n];
+            cycles16Bit[0][EXT_ROM2] = cycles16Bit[0][EXT_ROM2_] = 1 + waitCycles_n[wait1_n];
+            cycles16Bit[0][EXT_ROM3] = cycles16Bit[0][EXT_ROM3_] = 1 + waitCycles_n[wait2_n];
 
-            cycles16Bit[1][EXT_ROM1] = cycles16Bit[1][EXT_ROM1_] = waitCycles0_s[wait0_s];
-            cycles16Bit[1][EXT_ROM2] = cycles16Bit[1][EXT_ROM2_] = waitCycles1_s[wait1_s];
-            cycles16Bit[1][EXT_ROM3] = cycles16Bit[1][EXT_ROM3_] = waitCycles2_s[wait2_s];
+            cycles16Bit[1][EXT_ROM1] = cycles16Bit[1][EXT_ROM1_] = 1 + waitCycles0_s[wait0_s];
+            cycles16Bit[1][EXT_ROM2] = cycles16Bit[1][EXT_ROM2_] = 1 + waitCycles1_s[wait1_s];
+            cycles16Bit[1][EXT_ROM3] = cycles16Bit[1][EXT_ROM3_] = 1 + waitCycles2_s[wait2_s];
 
-            cycles32Bit[0][EXT_ROM1] = cycles32Bit[0][EXT_ROM1_] = 2 * cycles16Bit[0][EXT_ROM1];
-            cycles32Bit[0][EXT_ROM2] = cycles32Bit[0][EXT_ROM2_] = 2 * cycles16Bit[0][EXT_ROM2];
-            cycles32Bit[0][EXT_ROM3] = cycles32Bit[0][EXT_ROM3_] = 2 * cycles16Bit[0][EXT_ROM3];
+            // GamePak uses 16bit data bus, so that a 32bit access is split into TWO 16bit accesses 
+            // (of which, the second fragment is always sequential, even if the first fragment was non-sequential)
+            cycles32Bit[0][EXT_ROM1] = cycles32Bit[0][EXT_ROM1_] = cycles16Bit[0][EXT_ROM1] + cycles16Bit[1][EXT_ROM1];
+            cycles32Bit[0][EXT_ROM2] = cycles32Bit[0][EXT_ROM2_] = cycles16Bit[0][EXT_ROM2] + cycles16Bit[1][EXT_ROM2];
+            cycles32Bit[0][EXT_ROM3] = cycles32Bit[0][EXT_ROM3_] = cycles16Bit[0][EXT_ROM3] + cycles16Bit[1][EXT_ROM3];
             cycles32Bit[1][EXT_ROM1] = cycles32Bit[1][EXT_ROM1_] = 2 * cycles16Bit[1][EXT_ROM1];
             cycles32Bit[1][EXT_ROM2] = cycles32Bit[1][EXT_ROM2_] = 2 * cycles16Bit[1][EXT_ROM2];
             cycles32Bit[1][EXT_ROM3] = cycles32Bit[1][EXT_ROM3_] = 2 * cycles16Bit[1][EXT_ROM3];
