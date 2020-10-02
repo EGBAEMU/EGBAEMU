@@ -112,11 +112,13 @@ namespace gbaemu
 
                 cyclesLeft -= cpuInfo.cycleCount;
 
-                dmaGroup.step(dmaInfo, cyclesLeft);
+                if (cyclesLeft > 0) {
+                    dmaGroup.step(dmaInfo, cyclesLeft);
 
-                cyclesLeft -= dmaInfo.cycleCount;
-                timerGroup.step(dmaInfo.cycleCount);
-                dmaInfo.cycleCount = 0;
+                    cyclesLeft -= dmaInfo.cycleCount;
+                    timerGroup.step(dmaInfo.cycleCount);
+                    dmaInfo.cycleCount = 0;
+                }
             }
         }
 
