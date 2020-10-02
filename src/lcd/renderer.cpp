@@ -11,10 +11,10 @@ namespace gbaemu::lcd
         backgroundLayers[2] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG2);
         backgroundLayers[3] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG3);
 
-        objLayers[0] = std::make_shared<OBJLayer>(memory, palette, regs, 0);
-        objLayers[1] = std::make_shared<OBJLayer>(memory, palette, regs, 1);
-        objLayers[2] = std::make_shared<OBJLayer>(memory, palette, regs, 2);
-        objLayers[3] = std::make_shared<OBJLayer>(memory, palette, regs, 3);
+        objLayers[0] = std::make_shared<OBJLayer>(memory, palette, regs, 0, objManager);
+        objLayers[1] = std::make_shared<OBJLayer>(memory, palette, regs, 1, objManager);
+        objLayers[2] = std::make_shared<OBJLayer>(memory, palette, regs, 2, objManager);
+        objLayers[3] = std::make_shared<OBJLayer>(memory, palette, regs, 3, objManager);
 
         for (uint32_t i = 0; i < 8; ++i) {
             if (i <= 3)
@@ -22,6 +22,9 @@ namespace gbaemu::lcd
             else
                 layers[i] = backgroundLayers[i - 4];
         }
+
+        windowOBJLayer = std::make_shared<OBJLayer>(memory, palette, regs, 0, objManager);
+        windowFeature.objWindow.objLayer = windowOBJLayer;
     }
 
     void Renderer::sortLayers()
@@ -34,7 +37,7 @@ namespace gbaemu::lcd
     void Renderer::loadSettings(int32_t y)
     {
         /* copy registers, they cannot be modified when rendering */
-        uint32_t bgMode = le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK;
+        BGMode bgMode = static_cast<BGMode>(le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK);
 
         /* Which background layers are enabled to begin with? */
         for (uint32_t i = 0; i < 4; ++i)
@@ -46,31 +49,48 @@ namespace gbaemu::lcd
 
         for (uint32_t i = 0; i < 4; ++i)
             if (backgroundLayers[i]->enabled)
-                backgroundLayers[i]->loadSettings(static_cast<BGMode>(bgMode), regs);
+                backgroundLayers[i]->loadSettings(bgMode, regs);
 
         bool use2dMapping = !(le(regs.DISPCNT) & DISPCTL::OBJ_CHAR_VRAM_MAPPING_MASK);
 
+        /* load objects */
+        Memory::MemoryRegion memReg;
+        const uint8_t *oamBase = memory.resolveAddr(Memory::OAM_OFFSET, nullptr, memReg);
+        objManager->load(oamBase, bgMode);
+
+        /* load objects for each layer */
         for (auto &l : objLayers) {
-            l->setMode(static_cast<BGMode>(bgMode), use2dMapping);
-            l->loadOBJs(y);
+            l->setMode(bgMode, use2dMapping);
+            l->loadOBJs(y, [](const OBJ& obj, real_t fy, uint16_t priority) -> bool {
+                return obj.priority == priority &&
+                       obj.visible &&
+                       obj.mode != OBJ_WINDOW &&
+                       obj.intersectsWithScanline(fy); });
         }
 
+        /* window objects */
+        windowOBJLayer->setMode(bgMode, use2dMapping);
+        windowOBJLayer->loadOBJs(y, [](const OBJ& obj, real_t fy, uint16_t priority) -> bool {
+            return obj.visible &&
+                   obj.mode == OBJ_WINDOW &&
+                   obj.intersectsWithScanline(fy); });
+
         palette.loadPalette(memory);
-        windowFeature.load(regs, palette.getBackdropColor());
+        windowFeature.load(regs, y, palette.getBackdropColor());
         colorEffects.load(regs);
 
         sortLayers();
     }
 
-    void Renderer::blendDefault(int32_t y)
+    void Renderer::blendDefault(int32_t y, int32_t xTo)
     {
         color_t *outBuf = target.pixels() + y * target.getWidth();
 
-        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
+        for (int32_t x = 0; x < xTo; ++x) {
             color_t finalColor = palette.getBackdropColor();
 
             for (const auto &l : layers) {
-                if (!l->enabled)
+                if (!l->enabled || !flagLayerEnabled(windowFeature.enabledMask.mask[x], l->layerID))
                     continue;
 
                 color_t color = l->scanline[x].color;
@@ -86,15 +106,17 @@ namespace gbaemu::lcd
         }
     }
 
-    void Renderer::blendBrightness(int32_t y)
+    void Renderer::blendBrightness(int32_t y, int32_t xTo)
     {
         color_t *outBuf = target.pixels() + y * target.getWidth();
+        std::function<color_t(color_t, color_t)> applyColorEffect = colorEffects.getBlendingFunction();
 
-        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
+        for (int32_t x = 0; x < xTo; ++x) {
             color_t finalColor = palette.getBackdropColor();
+            uint8_t windowMask = windowFeature.enabledMask.mask[x];
 
             for (const auto &l : layers) {
-                if (!l->enabled)
+                if (!l->enabled || !flagLayerEnabled(windowMask, l->layerID))
                     continue;
 
                 color_t color = l->scanline[x].color;
@@ -102,9 +124,9 @@ namespace gbaemu::lcd
                 if (color == TRANSPARENT)
                     continue;
 
-                if (l->scanline[x].asFirstColor())
-                    finalColor = colorEffects.apply(color);
-                else
+                if (l->scanline[x].asFirstColor() && flagCFXEnabled(windowMask)) {
+                    finalColor = applyColorEffect(color, TRANSPARENT);
+                } else
                     finalColor = color;
 
                 break;
@@ -114,11 +136,12 @@ namespace gbaemu::lcd
         }
     }
 
-    void Renderer::blendAlpha(int32_t y)
+    void Renderer::blendAlpha(int32_t y, int32_t xTo)
     {
         color_t *outBuf = target.pixels() + y * target.getWidth();
+        std::function<color_t(color_t, color_t)> applyColorEffect = colorEffects.getBlendingFunction();
 
-        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
+        for (int32_t x = 0; x < xTo; ++x) {
             auto it = layers.cbegin();
             bool asFirst = false;
             bool asSecond = false;
@@ -129,7 +152,7 @@ namespace gbaemu::lcd
             for (; it != layers.cend(); it++) {
                 const auto &l = *it;
 
-                if (!l->enabled)
+                if (!l->enabled || !flagLayerEnabled(windowFeature.enabledMask.mask[x], l->layerID))
                     continue;
 
                 Fragment frag = l->scanline[x];
@@ -158,7 +181,7 @@ namespace gbaemu::lcd
                 for (it++; it != layers.cend(); it++) {
                     const auto &l = *it;
 
-                    if (!l->enabled)
+                    if (!l->enabled || !flagLayerEnabled(windowFeature.enabledMask.mask[x], l->layerID))
                         continue;
 
                     Fragment frag = l->scanline[x];
@@ -176,7 +199,7 @@ namespace gbaemu::lcd
 
             /* blend */
             if (asSecond)
-                outBuf[x] = colorEffects.apply(firstColor, secondColor);
+                outBuf[x] = applyColorEffect(firstColor, secondColor);
             else
                 outBuf[x] = firstColor;
         }
@@ -255,7 +278,7 @@ namespace gbaemu::lcd
     }
 
     Renderer::Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers, Canvas<color_t>& targetCanvas) :
-        memory(mem), irqHandler(irq), regs(registers), target(targetCanvas)
+        memory(mem), irqHandler(irq), regs(registers), target(targetCanvas), objManager(std::make_shared<OBJManager>())
     {
         setupLayers();
 
@@ -282,11 +305,11 @@ namespace gbaemu::lcd
 
         auto t = std::chrono::high_resolution_clock::now();
 
-        for (const auto &l : layers) {
-            if (l->enabled) {
+        for (const auto &l : layers)
+            if (l->enabled)
                 l->drawScanline(y);
-            }
-        }
+
+        windowOBJLayer->drawScanline(y);
 
 #if (RENDERER_DECOMPOSE_LAYERS == 1)
         blendDecomposed(y);
@@ -305,6 +328,19 @@ namespace gbaemu::lcd
                 break;
         }
 #endif
+
+        //if (colorEffects.getEffect() != BLDCNT::ColorSpecialEffect::None)
+        //    std::cout << std::dec << colorEffects.getEffect() << std::endl;
+
+        /*
+        color_t *outBuf = target.pixels() + y * target.getWidth();
+        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+            color_t color = windowOBJLayer->scanline[x].color;
+
+            if (color != TRANSPARENT)
+                outBuf[x] = color;
+        }
+         */
 
         //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count() << std::endl;
     }

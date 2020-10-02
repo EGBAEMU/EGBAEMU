@@ -84,6 +84,19 @@ namespace gbaemu::lcd
     static const constexpr uint32_t SCREEN_WIDTH = 240;
     static const constexpr uint32_t SCREEN_HEIGHT = 160;
 
+    struct Rect
+    {
+        int32_t left;
+        int32_t top;
+        int32_t right;
+        int32_t bottom;
+
+        constexpr bool inside(int32_t x, int32_t y) const noexcept
+        {
+            return (left <= x && x < right) && (top <= y && y < bottom);
+        }
+    };
+
     namespace DISPCTL
     {
         static const constexpr uint32_t BG_MODE_MASK = 0b111,
@@ -335,7 +348,10 @@ namespace gbaemu::lcd
     class Layer
     {
       public:
+        /* this is a flag determined by the io control registers */
         bool enabled;
+        /* this can be used to disable the layer in disregards of the above flag */
+        bool overrideEnabled = true;
         uint16_t priority;
         /* contains the final pixels */
         std::vector<Fragment> scanline;
@@ -469,5 +485,7 @@ namespace gbaemu::lcd
 #define OBJ_HIGHLIGHT_COLOR 0xFF00FF00
 
 #define RENDERER_OBJ_ENABLE_DEBUG_CANVAS 0
+
+#define RENDERER_ENABLE_WINDOWS 1
 
 #endif /* DEFS_HPP */

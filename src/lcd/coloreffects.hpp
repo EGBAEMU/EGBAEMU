@@ -12,7 +12,7 @@ namespace gbaemu::lcd
       public:
         typedef std::array<std::shared_ptr<Layer>, 8>::const_iterator iterator;
 
-      private:
+      public:
         BLDCNT::ColorSpecialEffect effect;
         uint32_t eva;
         uint32_t evb;
@@ -20,7 +20,7 @@ namespace gbaemu::lcd
 
       public:
         void load(const LCDIORegs &regs) noexcept;
-        color_t apply(color_t first, color_t second = TRANSPARENT) const;
+        std::function<color_t(color_t, color_t)> getBlendingFunction() const;
         bool secondColorRequired() const;
         BLDCNT::ColorSpecialEffect getEffect() const;
     };

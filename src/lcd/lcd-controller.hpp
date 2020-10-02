@@ -121,6 +121,15 @@ namespace gbaemu::lcd
             return scanline.vblanking;
         }
 
+        bool isHBlank() const
+        {
+            return scanline.hblanking;
+        }
+        bool isVBlank() const
+        {
+            return scanline.vblanking;
+        }
+
       public:
         int32_t scale = 3;
 

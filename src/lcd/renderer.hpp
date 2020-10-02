@@ -34,6 +34,7 @@ namespace gbaemu::lcd
         LCDColorPalette palette;
         WindowFeature windowFeature;
         ColorEffects colorEffects;
+        std::shared_ptr<OBJManager> objManager;
 
         /* backdrop layer, BG0-BG4, OBJ0-OBJ4 */
         std::array<std::shared_ptr<BGLayer>, 4> backgroundLayers;
@@ -41,6 +42,7 @@ namespace gbaemu::lcd
         std::array<std::shared_ptr<OBJLayer>, 4> objLayers;
         /* all layers */
         std::array<std::shared_ptr<Layer>, 8> layers;
+        std::shared_ptr<OBJLayer> windowOBJLayer;
 
         Canvas<color_t>& target;
 
@@ -54,9 +56,9 @@ namespace gbaemu::lcd
         void sortLayers();
         void loadSettings(int32_t y);
 
-        void blendDefault(int32_t y);
-        void blendBrightness(int32_t y);
-        void blendAlpha(int32_t y);
+        void blendDefault(int32_t y, int32_t xTo = SCREEN_WIDTH);
+        void blendBrightness(int32_t y, int32_t xTo = SCREEN_WIDTH);
+        void blendAlpha(int32_t y, int32_t xTo = SCREEN_WIDTH);
         void blendDecomposed(int32_t y);
 
         void renderLoop();
