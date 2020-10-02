@@ -10,6 +10,7 @@
 #define DEBUG_TIM
 #define DEBUG_LCD
 #define DEBUG_MEM
+#define DEBUG_IO
 #define DEBUG_SAVE
 #define DEBUG_SWI
 #endif
@@ -65,6 +66,17 @@
     } while (0)
 #else
 #define LOG_MEM(body) \
+    do {              \
+    } while (0)
+#endif
+
+#ifdef DEBUG_IO
+#define LOG_IO(body) \
+    do {              \
+        body          \
+    } while (0)
+#else
+#define LOG_IO(body) \
     do {              \
     } while (0)
 #endif
