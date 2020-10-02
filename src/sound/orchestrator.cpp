@@ -1,15 +1,40 @@
 #include "orchestrator.hpp"
 #include "cpu/cpu.hpp"
 #include "cpu/regs.hpp"
+#include "io/memory.hpp"
 #include "logging.hpp"
-#include "memory.hpp"
 #include "util.hpp"
 
+#include <iostream>
+
+#ifdef __clang__
+/*code specific to clang compiler*/
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_mixer.h>
+#elif __GNUC__
+/*code for GNU C compiler */
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_mixer.h>
+#elif _MSC_VER
+/*usually has the version number in _MSC_VER*/
+/*code specific to MSVC compiler*/
+#include <SDL.h>
+#include <SDL_mixer.h>
+#elif __MINGW32__
+/*code specific to mingw compilers*/
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_mixer.h>
+#else
+#error "unsupported compiler!"
+#endif
 
 namespace gbaemu
 {
+    //TODO callback is registered with function pointer... not sure if this excludes usage with Methods as they have an implicit additional argument (this pointer)
+    static void onChannelDoneCallback(int channel)
+    {
+        std::cout << "Channel " << channel << " completed playback!" << std::endl;
+    }
 
     // TODO: Correct offset (First is at 0x04000060)
     const uint32_t SoundOrchestrator::SOUND_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x200;
@@ -21,12 +46,12 @@ namespace gbaemu
 
     void SoundOrchestrator::internalWrite8ToReg(uint32_t offset, uint8_t value)
     {
-        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;    
+        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
     }
 
     void SoundOrchestrator::externalWrite8ToReg(uint32_t offset, uint8_t value)
     {
-        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value; 
+        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
     }
 
     SoundOrchestrator::SoundOrchestrator(CPU *cpu) : cpu(cpu)
@@ -51,7 +76,6 @@ namespace gbaemu
         // Set the callback for playback completion
         Mix_ChannelFinished(onChannelDoneCallback);
 
-
         cpu->state.memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
                 SOUND_CONTROL_REG_ADDR,
@@ -63,21 +87,15 @@ namespace gbaemu
     }
 
     SoundOrchestrator::~SoundOrchestrator()
-    {   
+    {
         // Shutdown the mixer API
         Mix_CloseAudio();
         // Indicate desire to unload dll's
         Mix_Quit();
     }
 
-    void SoundOrchestrator::onChannelDoneCallback(int channel)
-    {
-        printf("Channel %i completed playback!", channel);
-    }
-
     void SoundOrchestrator::refresh()
     {
-        
     }
 
-}
+} // namespace gbaemu

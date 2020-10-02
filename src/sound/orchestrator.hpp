@@ -3,28 +3,28 @@
 
 #include "packed.h"
 
+#include <cstdint>
+
 namespace gbaemu
 {
     class CPU;
 
     class SoundOrchestrator
     {
-        public:
+      public:
+        enum ChannelType : uint8_t {
+            SOUND_1_SQUARE,
+            SOUND_2_SQUARE,
+            SOUND_3_WAVE,
+            SOUND_4_NOISE,
+            SOUND_5_FIFO_A,
+            SOUND_6_FIFO_B
+        };
 
-            enum ChannelType : uint8_t {
-                SOUND_1_SQUARE,
-                SOUND_2_SQUARE,
-                SOUND_3_WAVE,
-                SOUND_4_NOISE,
-                SOUND_5_FIFO_A,
-                SOUND_6_FIFO_B
-            };
+      private:
+        CPU *cpu;
 
-        
-        private:
-            CPU *cpu;
-
-            /*
+        /*
             0x04000060 	REG_SOUND1CNT_L 	Sound 1 Sweep control
             0x04000062 	REG_SOUND1CNT_H 	Sound 1 Lenght, wave duty and envelope control
             0x04000064 	REG_SOUND1CNT_X 	Sound 1 Frequency, reset and loop control
@@ -53,65 +53,62 @@ namespace gbaemu
             0x040000A6 	REG_FIFO_B_H 	Direct Sound channel B samples 2-3
             */
 
-            PACK_STRUCT(SoundControlRegs, regs,
-                // Control regs for channel 1
-                uint16_t sound1CntL;
-                uint16_t sound1CntH;
-                uint16_t sound1CntX;
-                // Control regs for channel 2
-                uint16_t sound2CntL;
-                uint16_t sound2CntH;
-                // Control regs for channel 3
-                uint16_t sound3CntL;
-                uint16_t sound3CntH;
-                uint16_t sound3CntX;
-                // Control regs for channel 4
-                uint16_t sound4CntL;
-                uint16_t sound4CntH;
-                // Master control regs
-                uint16_t soundCntL;
-                uint16_t soundCntH;
-                uint16_t soundCntX;
-                uint16_t soundBias;
-                // Sample registers for channel 3
-                uint16_t waveRam0L;
-                uint16_t waveRam0H;
-                uint16_t waveRam1L;
-                uint16_t waveRam1H;
-                uint16_t waveRam2L;
-                uint16_t waveRam2H;
-                uint16_t waveRam3L;
-                uint16_t waveRam3H;
-                // FIFO regs for channel 5
-                uint16_t fifoAL;
-                uint16_t fifoAH;
-                // FIFO regs for channel 6
-                uint16_t fifoBL;
-                uint16_t fifoBH;
-            );
+        PACK_STRUCT(SoundControlRegs, regs,
+                    // Control regs for channel 1
+                    uint16_t sound1CntL;
+                    uint16_t sound1CntH;
+                    uint16_t sound1CntX;
+                    // Control regs for channel 2
+                    uint16_t sound2CntL;
+                    uint16_t sound2CntH;
+                    // Control regs for channel 3
+                    uint16_t sound3CntL;
+                    uint16_t sound3CntH;
+                    uint16_t sound3CntX;
+                    // Control regs for channel 4
+                    uint16_t sound4CntL;
+                    uint16_t sound4CntH;
+                    // Master control regs
+                    uint16_t soundCntL;
+                    uint16_t soundCntH;
+                    uint16_t soundCntX;
+                    uint16_t soundBias;
+                    // Sample registers for channel 3
+                    uint16_t waveRam0L;
+                    uint16_t waveRam0H;
+                    uint16_t waveRam1L;
+                    uint16_t waveRam1H;
+                    uint16_t waveRam2L;
+                    uint16_t waveRam2H;
+                    uint16_t waveRam3L;
+                    uint16_t waveRam3H;
+                    // FIFO regs for channel 5
+                    uint16_t fifoAL;
+                    uint16_t fifoAH;
+                    // FIFO regs for channel 6
+                    uint16_t fifoBL;
+                    uint16_t fifoBH;);
 
-            uint8_t read8FromReg(uint32_t offset) const;
+        uint8_t read8FromReg(uint32_t offset) const;
 
-            void internalWrite8ToReg(uint32_t offset, uint8_t value);
+        void internalWrite8ToReg(uint32_t offset, uint8_t value);
 
-            void externalWrite8ToReg(uint32_t offset, uint8_t value);
+        void externalWrite8ToReg(uint32_t offset, uint8_t value);
 
-        public:
+      public:
+        static const uint32_t SOUND_CONTROL_REG_ADDR;
 
-            static const uint32_t SOUND_CONTROL_REG_ADDR;
+        SoundOrchestrator(CPU *cpu);
 
-            SoundOrchestrator(CPU* cpu);
+        ~SoundOrchestrator();
 
-            ~SoundOrchestrator();
+        void refresh();
 
-            void refresh();
-            
-            // Callback for SDL2 Mixer  
-            void onChannelDoneCallback(int channel);
-            // Callback for Channels
-            void onChannelCompleted(uint8_t channel);
-
+        // Callback for SDL2 Mixer
+        // void onChannelDoneCallback(int channel);
+        // Callback for Channels
+        void onChannelCompleted(uint8_t channel);
     };
-}
+} // namespace gbaemu
 
 #endif

@@ -7,9 +7,9 @@ MSC_BUILDDIR := msc_build
 CC := g++
 CCFLAGS := -std=c++17 -ffast-math -Wall -I$(SRC)
 ifeq ($(OS),Windows_NT)
-  LDFLAGS := -lmingw32 -lSDL2main -lSDL2 -pthread
+  LDFLAGS := -lmingw32 -lSDL2main -lSDL2 -lSDL2_mixer -pthread
 else
-  LDFLAGS := -lSDL2 -pthread
+  LDFLAGS := -lSDL2 -lSDL2_mixer -pthread
 endif
 
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
@@ -45,13 +45,17 @@ CMakeLists.txt:
 	echo "project(gbaemu)" >> CMakeLists.txt
 	echo "set (CMAKE_CXX_STANDARD 17)" >> CMakeLists.txt
 	echo "find_package(SDL2 REQUIRED)" >> CMakeLists.txt
+	echo "find_package(SDL_MIXER REQUIRED)" >> CMakeLists.txt
 	echo -n "include_directories($$" >> CMakeLists.txt
 	echo "{SDL2_INCLUDE_DIRS} $(SRC))" >> CMakeLists.txt
+#	echo -n "{SDL2_INCLUDE_DIRS} $$" >> CMakeLists.txt
+#	echo "{SDL_MIXER_INCLUDE_DIRS} $(SRC))" >> CMakeLists.txt
 	echo "add_executable(gbaemu $(srcs))" >> CMakeLists.txt
 	echo -n "target_link_libraries(gbaemu " >> CMakeLists.txt
-	echo "SDL2main SDL2)" >> CMakeLists.txt
+	echo "SDL2main SDL2 SDL2_mixer)" >> CMakeLists.txt
 #	echo -n "target_link_libraries(gbaemu $$" >> CMakeLists.txt
-#	echo "{SDL2_LIBRARIES})" >> CMakeLists.txt
+#	echo -n "{SDL2_LIBRARIES} $$" >> CMakeLists.txt
+#	echo "{SDL_MIXER_LIBRARIES})" >> CMakeLists.txt
 
 windows: CMakeLists.txt
 	rm -rf $(MSC_BUILDDIR) && \
