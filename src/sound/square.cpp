@@ -49,7 +49,7 @@ namespace gbaemu
                     env_value += 1;
                     // If we reaced the maximum value we do not need to step any longer
                     if (env_value == 0xFF)
-                        env_active = true;
+                        env_active = false;
 
                 } else {
                     // Decrease env by one
@@ -133,10 +133,16 @@ namespace gbaemu
         reg_timed = static_cast<uint8_t>((regCntX & SOUND_SQUARE_CHANNEL_X_TIME_MODE_MASK) >> SOUND_SQUARE_CHANNEL_X_TIME_MODE_OFF);
         reg_reset = static_cast<uint8_t>((regCntX & SOUND_SQUARE_CHANNEL_X_RESET_MASK) >> SOUND_SQUARE_CHANNEL_X_RESET_OFF);
 
-        // Update the env step delta. A update may occur after (reg_value * 1 / 64) seconds.
-        env_updateThreshold = std::chrono::microseconds{ static_cast<uint32_t>(reg_envStepTime) * 15625 }
-
-
+        // If the step time is 0 the env is disabled
+        if (reg_envStepTime == 0) {
+            // Disable check for stepping
+            env_active = false;
+            // Tie the amplitude to max (Envelope value has 4 bits)
+            env_value = 0xF;
+        } else {
+            // Update the env step delta. A update may occur after (reg_value * 1 / 64) seconds.
+            env_updateThreshold = std::chrono::microseconds{ static_cast<uint32_t>(reg_envStepTime) * 15625 }
+        }
 
     }
 
