@@ -4,7 +4,7 @@
 // #define DEBUG_CLI
 // #define DEBUG_ALL
 
-#define LEGACY_RENDERING
+// #define LEGACY_RENDERING
 
 #ifdef DEBUG_ALL
 #define DEBUG_DMA
