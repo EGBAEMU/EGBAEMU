@@ -80,7 +80,7 @@ namespace gbaemu::lcd
             /* the result of drawScanline() */
             std::vector<color_t> buf;
 
-            uint16_t vCount;
+            uint16_t vCount = 0;
         } scanline;
 
         uint8_t read8FromReg(uint32_t offset)
