@@ -5,13 +5,14 @@
 #include "util.hpp"
 
 #include <algorithm>
+#include <functional>
 #include <iomanip>
 #include <sstream>
 
 namespace gbaemu
 {
 
-    CPUState::CPUState()
+    CPUState::CPUState() : memory(std::bind(&CPUState::handleReadUnused, this))
     {
         reset();
     }

@@ -118,7 +118,7 @@ namespace gbaemu
             EEPROM_REGION = 0x43, // Virtual memory region to signal EEPROM usage
             FLASH_REGION = 0x44,  // Virtual memory region to signal flash usage
             SRAM_REGION = 0x45,   // Virtual memory region to signal sram usage
-            UNUSED_MEMORY = 0x46 // Virtual memory region to signal the address points to unmapped & unused memory!
+            UNUSED_MEMORY = 0x46  // Virtual memory region to signal the address points to unmapped & unused memory!
         };
 
         enum MemoryRegionOffset : uint32_t {
@@ -191,6 +191,9 @@ namespace gbaemu
         const uint8_t *bios;
         size_t externalBiosSize;
         uint8_t biosState[4];
+
+        // needed to handle read from unused memory regions
+        const std::function<uint32_t()> readUnusedHandle;
 
         BackupID backupType;
 
@@ -322,7 +325,7 @@ namespace gbaemu
         MemWatch memWatch;
 #endif
 
-        Memory()
+        Memory(std::function<uint32_t()> readUnusedHandle) : readUnusedHandle(readUnusedHandle)
         {
             wram = GBA_ALLOC_MEM_REG(WRAM);
             iwram = GBA_ALLOC_MEM_REG(IWRAM);
@@ -404,7 +407,7 @@ namespace gbaemu
             cycles16Bit[1][EXT_ROM2] = cycles16Bit[1][EXT_ROM2_] = 1 + waitCycles1_s[wait1_s];
             cycles16Bit[1][EXT_ROM3] = cycles16Bit[1][EXT_ROM3_] = 1 + waitCycles2_s[wait2_s];
 
-            // GamePak uses 16bit data bus, so that a 32bit access is split into TWO 16bit accesses 
+            // GamePak uses 16bit data bus, so that a 32bit access is split into TWO 16bit accesses
             // (of which, the second fragment is always sequential, even if the first fragment was non-sequential)
             cycles32Bit[0][EXT_ROM1] = cycles32Bit[0][EXT_ROM1_] = cycles16Bit[0][EXT_ROM1] + cycles16Bit[1][EXT_ROM1];
             cycles32Bit[0][EXT_ROM2] = cycles32Bit[0][EXT_ROM2_] = cycles16Bit[0][EXT_ROM2] + cycles16Bit[1][EXT_ROM2];

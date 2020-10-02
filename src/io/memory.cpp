@@ -136,25 +136,50 @@ namespace gbaemu
 
         const uint8_t *src = resolveAddrRef<true, sizeof(uint8_t)>(addr, execInfo);
 
-        if (readInstruction && execInfo.memReg == BIOS && addr < getBiosSize()) {
-            // For instructions we are allowed to read from bios
-            src = bios + addr;
-        }
-
         uint8_t currValue;
 
-        if (execInfo.memReg == OUT_OF_ROM) {
-            currValue = readOutOfROM(unchangedAddr);
-        } else if (execInfo.memReg == IO_REGS) {
-            currValue = ioHandler.externalRead8(addr);
-        } else if (execInfo.memReg == EEPROM_REGION) {
-            currValue = eeprom->read();
-        } else if (execInfo.memReg == FLASH_REGION) {
-            currValue = flash->read(addr);
-        } else if (execInfo.memReg == SRAM_REGION) {
-            ext_sram->read(addr & 0x00007FFF, reinterpret_cast<char *>(&currValue), 1);
-        } else {
-            currValue = src[0];
+        switch (execInfo.memReg) {
+            case UNUSED_MEMORY: {
+                currValue = readUnusedHandle();
+                // get the selected byte
+                currValue >>= ((addr & 3) << 3);
+                break;
+            }
+            case OUT_OF_ROM: {
+                // get the selected byte
+                currValue = readOutOfROM(unchangedAddr) >> ((unchangedAddr & 3) << 3);
+                break;
+            }
+            case IO_REGS: {
+                currValue = ioHandler.externalRead8(addr);
+                break;
+            }
+            case EEPROM_REGION: {
+                currValue = eeprom->read();
+                break;
+            }
+            case FLASH_REGION: {
+                currValue = flash->read(addr);
+                break;
+            }
+            case SRAM_REGION: {
+                ext_sram->read(addr & 0x00007FFF, reinterpret_cast<char *>(&currValue), 1);
+                break;
+            }
+            case BIOS: {
+                if (readInstruction && addr < getBiosSize()) {
+                    // For instructions we are allowed to read from bios
+                    src = bios + addr;
+                } else {
+                    // We need to apply the offset!
+                    src += addr & 3;
+                }
+                // Fall through to read the data
+            }
+            default: {
+                currValue = src[0];
+                break;
+            }
         }
 
 #ifdef DEBUG_CLI
@@ -186,33 +211,58 @@ namespace gbaemu
 
         const uint8_t *src = resolveAddrRef<true, sizeof(uint16_t)>(alignedAddr, execInfo);
 
-        if (readInstruction && execInfo.memReg == BIOS && alignedAddr < getBiosSize()) {
-            // For instructions we are allowed to read from bios
-            src = bios + alignedAddr;
-        }
-
         uint16_t currValue;
 
-        if (execInfo.memReg == OUT_OF_ROM) {
-            currValue = readOutOfROM(addr);
-        } else if (execInfo.memReg == IO_REGS) {
-            currValue = ioHandler.externalRead16(alignedAddr);
-        } else if (execInfo.memReg == EEPROM_REGION) {
-            if (dmaRequest) {
-                currValue = static_cast<uint16_t>(eeprom->read());
-            } else {
-                currValue = 0x1;
+        switch (execInfo.memReg) {
+            case UNUSED_MEMORY: {
+                currValue = readUnusedHandle();
+                // Get the selected HW
+                currValue >>= ((addr & 2) << 3);
+                break;
             }
-        } else if (execInfo.memReg == FLASH_REGION) {
-            currValue = flash->read(addr);
-            currValue |= (currValue << 8);
-        } else if (execInfo.memReg == SRAM_REGION) {
-            uint8_t data;
-            ext_sram->read(addr & 0x00007FFF, reinterpret_cast<char *>(&data), 1);
-            currValue = data | (data << 8);
-        } else {
-            currValue = (static_cast<uint16_t>(src[0]) << 0) |
-                        (static_cast<uint16_t>(src[1]) << 8);
+            case OUT_OF_ROM: {
+                // Get the selected HW
+                currValue = readOutOfROM(addr) >> ((addr & 2) << 3);
+                break;
+            }
+            case IO_REGS: {
+                currValue = ioHandler.externalRead16(alignedAddr);
+                break;
+            }
+            case EEPROM_REGION: {
+                if (dmaRequest) {
+                    currValue = static_cast<uint16_t>(eeprom->read());
+                } else {
+                    currValue = 0x1;
+                }
+                break;
+            }
+            case FLASH_REGION: {
+                currValue = flash->read(addr);
+                currValue |= (currValue << 8);
+                break;
+            }
+            case SRAM_REGION: {
+                uint8_t data;
+                ext_sram->read(addr & 0x00007FFF, reinterpret_cast<char *>(&data), 1);
+                currValue = data | (data << 8);
+                break;
+            }
+            case BIOS: {
+                if (readInstruction && addr < getBiosSize()) {
+                    // For instructions we are allowed to read from bios
+                    src = bios + addr;
+                } else {
+                    // We need to apply the offset!
+                    src += addr & 2;
+                }
+                // Fall through to read the data
+            }
+            default: {
+                currValue = (static_cast<uint16_t>(src[0]) << 0) |
+                            (static_cast<uint16_t>(src[1]) << 8);
+                break;
+            }
         }
 
 #ifdef DEBUG_CLI
@@ -237,28 +287,45 @@ namespace gbaemu
 
         uint32_t currValue;
 
-        if (execInfo.memReg == OUT_OF_ROM) {
-            currValue = readOutOfROM(addr);
-        } else if (execInfo.memReg == IO_REGS) {
-            currValue = ioHandler.externalRead32(alignedAddr);
-        } else if (execInfo.memReg == EEPROM_REGION) {
-            if (dmaRequest) {
-                currValue = static_cast<uint32_t>(eeprom->read());
-            } else {
-                currValue = 0x1;
+        switch (execInfo.memReg) {
+            case UNUSED_MEMORY: {
+                currValue = readUnusedHandle();
+                break;
             }
-        } else if (execInfo.memReg == FLASH_REGION) {
-            currValue = flash->read(addr);
-            currValue |= (currValue << 8) | (currValue << 16) | (currValue << 24);
-        } else if (execInfo.memReg == SRAM_REGION) {
-            uint8_t data;
-            ext_sram->read(addr & 0x00007FFF, reinterpret_cast<char *>(&data), 1);
-            currValue = data | (data << 8) | (data << 16) | (data << 24);
-        } else {
-            currValue = (static_cast<uint32_t>(src[0]) << 0) |
-                        (static_cast<uint32_t>(src[1]) << 8) |
-                        (static_cast<uint32_t>(src[2]) << 16) |
-                        (static_cast<uint32_t>(src[3]) << 24);
+            case OUT_OF_ROM: {
+                currValue = readOutOfROM(addr);
+                break;
+            }
+            case IO_REGS: {
+                currValue = ioHandler.externalRead32(alignedAddr);
+                break;
+            }
+            case EEPROM_REGION: {
+                if (dmaRequest) {
+                    currValue = static_cast<uint32_t>(eeprom->read());
+                } else {
+                    currValue = 0x1;
+                }
+                break;
+            }
+            case FLASH_REGION: {
+                currValue = flash->read(addr);
+                currValue |= (currValue << 8) | (currValue << 16) | (currValue << 24);
+                break;
+            }
+            case SRAM_REGION: {
+                uint8_t data;
+                ext_sram->read(addr & 0x00007FFF, reinterpret_cast<char *>(&data), 1);
+                currValue = data | (data << 8) | (data << 16) | (data << 24);
+                break;
+            }
+            default: {
+                currValue = (static_cast<uint32_t>(src[0]) << 0) |
+                            (static_cast<uint32_t>(src[1]) << 8) |
+                            (static_cast<uint32_t>(src[2]) << 16) |
+                            (static_cast<uint32_t>(src[3]) << 24);
+                break;
+            }
         }
 
 #ifdef DEBUG_CLI
@@ -605,8 +672,8 @@ namespace gbaemu
 
             default:
                 // invalid address!
-                LOG_MEM(std::cout << "ERROR: trying to access unused memory address: 0x" << std::hex << addr << std::endl;);
-                execInfo.hasCausedException = true;
+                LOG_MEM(std::cout << "WARNING: trying to access unused memory address: 0x" << std::hex << addr << std::endl;);
+                // execInfo.hasCausedException = true;
                 execInfo.noOffset = true;
                 execInfo.resolvedAddr = false;
                 execInfo.memReg = UNUSED_MEMORY;
