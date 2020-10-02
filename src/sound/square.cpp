@@ -19,12 +19,57 @@ namespace gbaemu
 
     void SquareWaveChannel::onRegisterUpdated()
     {
+        // All parameters can be changed dynamically while the sound is playing!
+        // Thus remember that some update has occured and adjust in next cycle.
         update = true;
     }
 
     void SquareWaveChannel::onCheckForAdjustment()
     {
+
+        bool trigger = update;
         
+        // Only check env if its active! 
+        if (env_active) {
+
+            // The current time
+            auto timeCurrent = std::chrono::high_resolution_clock::now();
+            // The elapsed time since the start if the current env
+            uint32_t timeElapsed = std::chrono::duration_cast<chrono::microseconds>(timeCurrent - env_lastUpdate).count();
+            
+            // The current env step has expired! Advance to the next one!
+            if (timeElapsed >= env_updateThreshold) {
+
+                // Make sure we update the sound later on
+                trigger = true;
+
+                // Upate the env value
+                if (reg_envMode) {
+                    // Increase env value to the next value
+                    env_value += 1;
+                    // If we reaced the maximum value we do not need to step any longer
+                    if (env_value == 0xFF)
+                        env_active = true;
+
+                } else {
+                    // Decrease env by one
+                    env_value -= 1;
+                    // If we reached the minimum value we do not need to step any longer
+                    if (env_value == 0)
+                        env_active = false;
+                }
+
+            }
+
+        }
+
+        // Fetch register values if some value has been refreshed
+        if (update) 
+            getRegisterValues();
+        
+        
+        
+
     }
 
     void SquareWaveChannel::refresh()
@@ -41,7 +86,6 @@ namespace gbaemu
         float duty = DUTY_CYCLES[reg_dutyCycle];
         // How many samples should be high in the current square
         uint32_t samplesHigh = static_cast<uint32_t>(samples * duty);
-
 
         Mix_Chunk* chunk = (Mix_Chunk*) malloc(sizeof(Mix_Chunk));
         // Free the sample data buffer automatically when the chunk is freed.
@@ -83,6 +127,9 @@ namespace gbaemu
         reg_frequency = static_cast<uint16_t>((regCntX & SOUND_SQUARE_CHANNEL_X_SOUND_FREQ_MASK) >> SOUND_SQUARE_CHANNEL_X_SOUND_FREQ_OFF);
         reg_timed = static_cast<uint8_t>((regCntX & SOUND_SQUARE_CHANNEL_X_TIME_MODE_MASK) >> SOUND_SQUARE_CHANNEL_X_TIME_MODE_OFF);
         reg_reset = static_cast<uint8_t>((regCntX & SOUND_SQUARE_CHANNEL_X_RESET_MASK) >> SOUND_SQUARE_CHANNEL_X_RESET_OFF);
+
+        // Update the env step delta. A update may occur after (reg_value * 1 / 64) seconds.
+        env_updateThreshold = std::chrono::microseconds{ static_cast<uint32_t>(reg_envStepTime) * 15625 }
 
     }
 

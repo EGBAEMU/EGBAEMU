@@ -74,9 +74,15 @@ namespace gbaemu
                 0x0000
             }; 
 
-            // Env 
+            // The current env value
+            uint8_t env_value;
+            // Wheather stepping the current env is okay
+            bool    env_active;
             // The last time we update the envelope of this channel
-            std::chrono::steady_clock::time_point envelopeLastUpdateTime;
+            std::chrono::steady_clock::time_point env_lastUpdate;
+            // The current threshold after wich the env steps
+            std::chrono::microseconds             env_updateThreshold;
+
             // The last mix chunk used as container for each sample
             Mix_Chunk* chunk;
 
