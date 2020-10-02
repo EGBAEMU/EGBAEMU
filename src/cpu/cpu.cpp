@@ -37,33 +37,8 @@ namespace gbaemu
         // We need to fill the pipeline to the state where the instruction at PC is ready for execution -> fetched + decoded!
         uint32_t pc = state.accessReg(regs::PC_OFFSET);
         bool thumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
-        propagatePipeline(pc - (thumbMode ? 4 : 8));
-        propagatePipeline(pc - (thumbMode ? 2 : 4));
-    }
-
-    uint32_t CPU::propagatePipeline(uint32_t pc)
-    {
-        // propagate pipeline
-        uint32_t currentInst = state.pipeline[1];
-        state.pipeline[1] = state.pipeline[0];
-
-        bool thumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
-
-        //TODO we might need this info? (where nullptr is currently)
-        if (thumbMode) {
-            pc += 4;
-            state.pipeline[0] = state.memory.read16(pc, fetchInfo, true, true);
-        } else {
-            pc += 8;
-            state.pipeline[0] = state.memory.read32(pc, fetchInfo, true, true);
-
-            // auto update bios state if we are currently executing inside bios!
-            if (pc < state.memory.getBiosSize()) {
-                state.memory.setBiosState(state.pipeline[0]);
-            }
-        }
-
-        return currentInst;
+        state.propagatePipeline(pc - (thumbMode ? 4 : 8));
+        state.propagatePipeline(pc - (thumbMode ? 2 : 4));
     }
 
     CPUExecutionInfoType CPU::step(uint32_t cycles)
@@ -71,29 +46,29 @@ namespace gbaemu
         cyclesLeft += cycles;
 
         if (cyclesLeft > 0) {
-            dmaGroup.step(dmaInfo, cyclesLeft);
+            dmaGroup.step(state.dmaInfo, cyclesLeft);
 
-            cyclesLeft -= dmaInfo.cycleCount;
-            timerGroup.step(dmaInfo.cycleCount);
-            dmaInfo.cycleCount = 0;
+            cyclesLeft -= state.dmaInfo.cycleCount;
+            timerGroup.step(state.dmaInfo.cycleCount);
+            state.dmaInfo.cycleCount = 0;
 
             while (cyclesLeft > 0) {
-                if (cpuInfo.haltCPU) {
+                if (state.cpuInfo.haltCPU) {
                     //TODO this can be removed if we remove swi.cpp
-                    cpuInfo.haltCPU = !irqHandler.checkForHaltCondition(cpuInfo.haltCondition);
-                    cpuInfo.cycleCount = 1;
+                    state.cpuInfo.haltCPU = !irqHandler.checkForHaltCondition(state.cpuInfo.haltCondition);
+                    state.cpuInfo.cycleCount = 1;
                 } else {
                     // check if we need to call the irq routine
                     irqHandler.checkForInterrupt();
 
                     // clear all fields in cpuInfo
                     const constexpr InstructionExecutionInfo zeroInitExecInfo{0};
-                    cpuInfo = zeroInitExecInfo;
+                    state.cpuInfo = zeroInitExecInfo;
 
                     uint32_t prevPC = state.getCurrentPC();
-                    execute(propagatePipeline(prevPC), prevPC);
+                    execute(state.propagatePipeline(prevPC), prevPC);
 
-                    if (cpuInfo.hasCausedException) {
+                    if (state.cpuInfo.hasCausedException) {
                         //TODO print cause
                         //TODO set cause in memory class
 
@@ -108,34 +83,21 @@ namespace gbaemu
                     }
                 }
 
-                timerGroup.step(cpuInfo.cycleCount);
+                timerGroup.step(state.cpuInfo.cycleCount);
 
-                cyclesLeft -= cpuInfo.cycleCount;
+                cyclesLeft -= state.cpuInfo.cycleCount;
 
                 if (cyclesLeft > 0) {
-                    dmaGroup.step(dmaInfo, cyclesLeft);
+                    dmaGroup.step(state.dmaInfo, cyclesLeft);
 
-                    cyclesLeft -= dmaInfo.cycleCount;
-                    timerGroup.step(dmaInfo.cycleCount);
-                    dmaInfo.cycleCount = 0;
+                    cyclesLeft -= state.dmaInfo.cycleCount;
+                    timerGroup.step(state.dmaInfo.cycleCount);
+                    state.dmaInfo.cycleCount = 0;
                 }
             }
         }
 
         return CPUExecutionInfoType::NORMAL;
-    }
-
-    uint32_t CPU::normalizePC(bool thumbMode)
-    {
-        uint32_t patchedPC = state.accessReg(regs::PC_OFFSET) = state.memory.normalizeAddress(state.accessReg(regs::PC_OFFSET) & (thumbMode ? 0xFFFFFFFE : 0xFFFFFFFC), fetchInfo);
-        if (thumbMode) {
-            waitStatesSeq = state.memory.memCycles16(fetchInfo.memReg, true);
-            waitStatesNonSeq = state.memory.memCycles16(fetchInfo.memReg, false);
-        } else {
-            waitStatesSeq = state.memory.memCycles32(fetchInfo.memReg, true);
-            waitStatesNonSeq = state.memory.memCycles32(fetchInfo.memReg, false);
-        }
-        return patchedPC;
     }
 
     void CPU::execute(uint32_t inst, uint32_t prevPc)
@@ -154,22 +116,22 @@ namespace gbaemu
             } else {
                 decoder = armDecoder;
             }
-            cpuInfo.forceBranch = true;
+            state.cpuInfo.forceBranch = true;
         }
 
         // We have a branch, return or something that changed our PC
-        if (cpuInfo.forceBranch || prevPc != postPc) {
+        if (state.cpuInfo.forceBranch || prevPc != postPc) {
             // If an instruction jumps to a different memory area,
             // then all code cycles for that opcode are having waitstate characteristics
             // of the NEW memory area (except Thumb BL which still executes 1S in OLD area).
             // -> we have to undo the fetch added cycles and add it again after initPipeline
-            cpuInfo.cycleCount -= state.memory.memCycles16(fetchInfo.memReg, true);
-            postPc = normalizePC(postThumbMode);
+            state.cpuInfo.cycleCount -= state.memory.memCycles16(state.fetchInfo.memReg, true);
+            postPc = state.normalizePC(postThumbMode);
             initPipeline();
             // Replace first S cycle of pipeline fetch by an N cycle as its random access!
-            cpuInfo.cycleCount += state.memory.memCycles16(fetchInfo.memReg, false) - state.memory.memCycles16(fetchInfo.memReg, true);
+            state.cpuInfo.cycleCount += state.memory.memCycles16(state.fetchInfo.memReg, false) - state.memory.memCycles16(state.fetchInfo.memReg, true);
             // Also apply additional 1S into new region
-            cpuInfo.cycleCount += state.memory.memCycles16(fetchInfo.memReg, true);
+            state.cpuInfo.cycleCount += state.memory.memCycles16(state.fetchInfo.memReg, true);
         } else {
             // Increment the pc counter to the next instruction
             state.accessReg(regs::PC_OFFSET) = postPc + (postThumbMode ? 2 : 4);
@@ -177,27 +139,27 @@ namespace gbaemu
 
         // Add 1S cycle needed to fetch a instruction if not other requested
         // Handle wait cycles!
-        cpuInfo.cycleCount += fetchInfo.cycleCount;
-        fetchInfo.cycleCount = 0;
+        state.cpuInfo.cycleCount += state.fetchInfo.cycleCount;
+        state.fetchInfo.cycleCount = 0;
 
-        if (cpuInfo.noDefaultSCycle) {
+        if (state.cpuInfo.noDefaultSCycle) {
             // Fetch S cycle needs to be a N cycle -> add difference off N and S Cycle count to our cycle count
-            cpuInfo.cycleCount += state.memory.memCycles16(fetchInfo.memReg, false) - state.memory.memCycles16(fetchInfo.memReg, true);
+            state.cpuInfo.cycleCount += state.memory.memCycles16(state.fetchInfo.memReg, false) - state.memory.memCycles16(state.fetchInfo.memReg, true);
         }
 
         // sanity checks
         if (state.updateCPUMode()) {
             std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK) << " prevPC: 0x" << std::hex << prevPc << std::endl;
-            cpuInfo.hasCausedException = true;
+            state.cpuInfo.hasCausedException = true;
             return;
         }
-        if (fetchInfo.memReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
+        if (state.fetchInfo.memReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
             std::cout << "CRITIAL ERROR: PC points to bios address outside of our code! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
-            cpuInfo.hasCausedException = true;
+            state.cpuInfo.hasCausedException = true;
             return;
-        } else if (fetchInfo.memReg == Memory::OUT_OF_ROM) {
+        } else if (state.fetchInfo.memReg == Memory::OUT_OF_ROM) {
             std::cout << "CRITIAL ERROR: PC points out to address out of its ROM bounds! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
-            cpuInfo.hasCausedException = true;
+            state.cpuInfo.hasCausedException = true;
             return;
         }
     }
@@ -213,39 +175,6 @@ namespace gbaemu
         decoder = armDecoder;
         armExecutor.cpu = this;
         thumbExecutor.cpu = this;
-        /*
-        Default memory usage at 03007FXX (and mirrored to 03FFFFXX)
-          Addr.    Size Expl.
-          3007FFCh 4    Pointer to user IRQ handler (32bit ARM code)
-          3007FF8h 2    Interrupt Check Flag (for IntrWait/VBlankIntrWait functions)
-          3007FF4h 4    Allocated Area
-          3007FF0h 4    Pointer to Sound Buffer
-          3007FE0h 16   Allocated Area
-          3007FA0h 64   Default area for SP_svc Supervisor Stack (4 words/time)
-          3007F00h 160  Default area for SP_irq Interrupt Stack (6 words/time)
-        Memory below 7F00h is free for User Stack and user data. The three stack pointers are initially initialized at the TOP of the respective areas:
-          SP_svc=03007FE0h
-          SP_irq=03007FA0h
-          SP_usr=03007F00h
-        The user may redefine these addresses and move stacks into other locations, however, the addresses for system data at 7FE0h-7FFFh are fixed.
-        */
-        // Set default SP values
-
-        *state.getModeRegs(CPUState::CPUMode::UserMode)[regs::SP_OFFSET] = 0x03007F00;
-        *state.getModeRegs(CPUState::CPUMode::FIQ)[regs::SP_OFFSET] = 0x03007F00;
-        *state.getModeRegs(CPUState::CPUMode::AbortMode)[regs::SP_OFFSET] = 0x03007F00;
-        *state.getModeRegs(CPUState::CPUMode::UndefinedMode)[regs::SP_OFFSET] = 0x03007F00;
-        *state.getModeRegs(CPUState::CPUMode::SupervisorMode)[regs::SP_OFFSET] = 0x03007FE0;
-        *state.getModeRegs(CPUState::CPUMode::IRQ)[regs::SP_OFFSET] = 0x3007FA0;
-
-        std::fill_n(reinterpret_cast<char *>(&cpuInfo), sizeof(cpuInfo), 0);
-        std::fill_n(reinterpret_cast<char *>(&dmaInfo), sizeof(dmaInfo), 0);
-        std::fill_n(reinterpret_cast<char *>(&fetchInfo), sizeof(fetchInfo), 0);
-
-        state.accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
-        fetchInfo.memReg = Memory::MemoryRegion::EXT_ROM1;
-        waitStatesSeq = state.memory.memCycles32(fetchInfo.memReg, true);
-        waitStatesNonSeq = state.memory.memCycles32(fetchInfo.memReg, false);
 
         cyclesLeft = 0;
     }

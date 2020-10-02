@@ -69,27 +69,15 @@ namespace gbaemu
         /* If an error has occured more information can be found here. */
         CPUExecutionInfo executionInfo;
 
-        InstructionExecutionInfo cpuInfo;
-        InstructionExecutionInfo dmaInfo;
-
-        // Execute phase variables
-        //TODO this can probably replace the additional N & S cycle fields
-        InstructionExecutionInfo fetchInfo;
-        uint8_t waitStatesSeq;
-        uint8_t waitStatesNonSeq;
-
         int32_t cyclesLeft;
 
         CPU();
 
         void setLCDController(const lcd::LCDController* lcdController);
 
-        uint32_t normalizePC(bool thumbMode);
-
         void reset();
 
         void initPipeline();
-        uint32_t propagatePipeline(uint32_t pc);
         void execute(uint32_t inst, uint32_t pc);
         CPUExecutionInfoType step(uint32_t cycles);
 
@@ -97,16 +85,16 @@ namespace gbaemu
         void setFlags(uint64_t resultValue, bool msbOp1, bool msbOp2)
         {
             /*
-        The arithmetic operations (SUB, RSB, ADD, ADC, SBC, RSC, CMP, CMN) treat each
-        operand as a 32 bit integer (either unsigned or 2’s complement signed, the two are equivalent).
-        the V flag in the CPSR will be set if
-        an overflow occurs into bit 31 of the result; this may be ignored if the operands were
-        considered unsigned, but warns of a possible error if the operands were 2’s
-        complement signed. The C flag will be set to the carry out of bit 31 of the ALU, the Z
-        flag will be set if and only if the result was zero, and the N flag will be set to the value
-        of bit 31 of the result (indicating a negative result if the operands are considered to be
-        2’s complement signed).
-        */
+            The arithmetic operations (SUB, RSB, ADD, ADC, SBC, RSC, CMP, CMN) treat each
+            operand as a 32 bit integer (either unsigned or 2’s complement signed, the two are equivalent).
+            the V flag in the CPSR will be set if
+            an overflow occurs into bit 31 of the result; this may be ignored if the operands were
+            considered unsigned, but warns of a possible error if the operands were 2’s
+            complement signed. The C flag will be set to the carry out of bit 31 of the ALU, the Z
+            flag will be set if and only if the result was zero, and the N flag will be set to the value
+            of bit 31 of the result (indicating a negative result if the operands are considered to be
+            2’s complement signed).
+            */
             bool negative = (resultValue) & (static_cast<uint64_t>(1) << 31);
             bool zero = (resultValue & 0x0FFFFFFFF) == 0;
             bool overflow = msbOp1 == msbOp2 && (negative != msbOp1);

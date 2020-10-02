@@ -23,7 +23,7 @@ namespace gbaemu
 
             // pipeline flush -> additional cycles needed
             // This is a branch instruction so we need to consider self branches!
-            cpuInfo.forceBranch = true;
+            state.cpuInfo.forceBranch = true;
         } else {
             // First instruction
             extendedAddr <<= 12;
@@ -40,7 +40,7 @@ namespace gbaemu
 
         // Unconditional branches take 2S + 1N
         // This is a branch instruction so we need to consider self branches!
-        cpuInfo.forceBranch = true;
+        state.cpuInfo.forceBranch = true;
     }
 
     void CPU::handleThumbConditionalBranch(uint8_t cond, int8_t offset)
@@ -53,7 +53,7 @@ namespace gbaemu
 
             // If branch executed: 2S+1N
             // This is a branch instruction so we need to consider self branches!
-            cpuInfo.forceBranch = true;
+            state.cpuInfo.forceBranch = true;
         }
     }
 
@@ -137,7 +137,7 @@ namespace gbaemu
         uint32_t rdValue = *currentRegs[rd] + (rd == regs::PC_OFFSET ? 4 : 0);
 
         if (rd == regs::PC_OFFSET && (id == ADD || id == MOV)) {
-            cpuInfo.forceBranch = true;
+            state.cpuInfo.forceBranch = true;
         }
 
         switch (id) {
@@ -180,7 +180,7 @@ namespace gbaemu
                 state.accessReg(regs::PC_OFFSET) = rsValue & ~1;
 
                 // This is a branch instruction so we need to consider self branches!
-                cpuInfo.forceBranch = true;
+                state.cpuInfo.forceBranch = true;
 
                 break;
             }

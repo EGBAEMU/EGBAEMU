@@ -453,7 +453,7 @@ namespace gbaemu
 
     static const uint8_t noBackupMedia[] = {0xFF, 0xFF, 0xFF, 0xFF};
 
-    Memory::MemoryRegion Memory::extractMemoryRegion(uint32_t addr) const
+    Memory::MemoryRegion Memory::extractMemoryRegion(uint32_t addr)
     {
         return static_cast<MemoryRegion>((addr >> 24) & 0x0F);
     }

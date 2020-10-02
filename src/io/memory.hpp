@@ -555,8 +555,8 @@ namespace gbaemu
             biosState[3] = (inst >> 24) & 0x0FF;
         }
 
+        static MemoryRegion extractMemoryRegion(uint32_t addr);
       private:
-        MemoryRegion extractMemoryRegion(uint32_t addr) const;
         void scanROMForBackupID();
         uint32_t readOutOfROM(uint32_t addr) const;
 
