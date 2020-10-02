@@ -19,7 +19,7 @@ namespace gbaemu::debugger
         }
     }
 
-    void ExecutionHistory::dumpHistory(CPU *cpu) const
+    void ExecutionHistory::dumpHistory() const
     {
         // Just dump every stuff
         for (const auto &inst : entries) {
@@ -77,13 +77,14 @@ namespace gbaemu::debugger
 
         uint32_t value = 0;
 
+        InstructionExecutionInfo execInfo{0};
         switch (bitSize) {
             case 8:
-                value = state.memory.read8(memAddr, nullptr);
+                value = state.memory.read8(memAddr, execInfo);
             case 16:
-                value = state.memory.read16(memAddr, nullptr);
+                value = state.memory.read16(memAddr, execInfo);
             case 32:
-                value = state.memory.read32(memAddr, nullptr);
+                value = state.memory.read32(memAddr, execInfo);
         }
 
         prevMemValue = value;
@@ -94,13 +95,14 @@ namespace gbaemu::debugger
     {
         uint32_t value;
 
+        InstructionExecutionInfo execInfo{0};
         switch (bitSize) {
             case 8:
-                value = state.memory.read8(memAddr, nullptr);
+                value = state.memory.read8(memAddr, execInfo);
             case 16:
-                value = state.memory.read16(memAddr, nullptr);
+                value = state.memory.read16(memAddr, execInfo);
             case 32:
-                value = state.memory.read32(memAddr, nullptr);
+                value = state.memory.read32(memAddr, execInfo);
             default:
                 return false;
         }
@@ -121,9 +123,9 @@ namespace gbaemu::debugger
     void ExecutionRegionTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
     {
         if (!*setStepMode) {
-            Memory::MemoryRegion memReg;
-            state.memory.normalizeAddress(postPC, memReg);
-            *setStepMode = memReg == trapRegion;
+            InstructionExecutionInfo execInfo{0};
+            state.memory.normalizeAddressRef(postPC, execInfo);
+            *setStepMode = execInfo.memReg == trapRegion;
         }
     }
 
@@ -496,7 +498,8 @@ namespace gbaemu::debugger
     uint8_t DebugCLI::safeRead8(address_t addr)
     {
         WatchEvent backup = watchEvent;
-        auto value = cpu.state.memory.read8(addr, nullptr);
+        InstructionExecutionInfo execInfo{0};
+        auto value = cpu.state.memory.read8(addr, execInfo);
         watchEvent = backup;
         return value;
     }
@@ -504,7 +507,8 @@ namespace gbaemu::debugger
     uint16_t DebugCLI::safeRead16(address_t addr)
     {
         WatchEvent backup = watchEvent;
-        auto value = cpu.state.memory.read16(addr, nullptr);
+        InstructionExecutionInfo execInfo{0};
+        auto value = cpu.state.memory.read16(addr, execInfo);
         watchEvent = backup;
         return value;
     }
@@ -512,7 +516,8 @@ namespace gbaemu::debugger
     uint32_t DebugCLI::safeRead32(address_t addr)
     {
         WatchEvent backup = watchEvent;
-        auto value = cpu.state.memory.read32(addr, nullptr);
+        InstructionExecutionInfo execInfo{0};
+        auto value = cpu.state.memory.read32(addr, execInfo);
         watchEvent = backup;
         return value;
     }
@@ -520,21 +525,24 @@ namespace gbaemu::debugger
     void DebugCLI::safeWrite8(address_t addr, uint8_t value)
     {
         WatchEvent backup = watchEvent;
-        cpu.state.memory.write8(addr, value, nullptr);
+        InstructionExecutionInfo execInfo{0};
+        cpu.state.memory.write8(addr, value, execInfo);
         watchEvent = backup;
     }
 
     void DebugCLI::safeWrite16(address_t addr, uint16_t value)
     {
         WatchEvent backup = watchEvent;
-        cpu.state.memory.write16(addr, value, nullptr);
+        InstructionExecutionInfo execInfo{0};
+        cpu.state.memory.write16(addr, value, execInfo);
         watchEvent = backup;
     }
 
     void DebugCLI::safeWrite32(address_t addr, uint32_t value)
     {
         WatchEvent backup = watchEvent;
-        cpu.state.memory.write32(addr, value, nullptr);
+        InstructionExecutionInfo execInfo{0};
+        cpu.state.memory.write32(addr, value, execInfo);
         watchEvent = backup;
     }
 

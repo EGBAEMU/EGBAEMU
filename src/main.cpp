@@ -14,10 +14,8 @@
 
 #include "input/keyboard_control.hpp"
 
-#define SHOW_WINDOW true
-#define DISAS_CMD_RANGE 5
-#define DEBUG_STACK_PRINT_RANGE 8
-#define SDL_EVENT_POLL_INTERVALL 16384
+#define PRINT_FPS true
+#define LIMIT_FPS true
 
 static volatile bool doRun = true;
 
@@ -29,6 +27,85 @@ static void handleSignal(int signum)
     }
 }
 
+#ifndef LEGACY_RENDERING
+static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
+#ifdef DEBUG_CLI
+                  ,
+                  gbaemu::debugger::DebugCLI &debugCLI
+#endif
+)
+{
+    // gbaemu::debugger::ExecutionHistory history(100);
+
+    // uint32_t prevPC = cpu.state.getCurrentPC();
+
+    for (int i = 0; i < 160; ++i) {
+#ifndef DEBUG_CLI
+        gbaemu::CPUExecutionInfoType executionInfo = cpu.step(960);
+        if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
+            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            return true;
+        }
+#else
+        for (int j = 0; j < 960; ++j) {
+            // if (prevPC != cpu.state.getCurrentPC())
+            // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
+            if (debugCLI.step()) {
+                // history.dumpHistory();
+                return true;
+            }
+        }
+#endif
+        lcdController.drawScanline();
+        lcdController.onHBlank();
+#ifndef DEBUG_CLI
+        executionInfo = cpu.step(272);
+        if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
+            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            return true;
+        }
+#else
+        for (int j = 0; j < 272; ++j) {
+            // if (prevPC != cpu.state.getCurrentPC())
+            // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
+            if (debugCLI.step()) {
+                // history.dumpHistory();
+                return true;
+            }
+        }
+#endif
+        lcdController.onVCount();
+    }
+
+    lcdController.onVBlank();
+
+    for (int i = 0; i < 68; ++i) {
+#ifndef DEBUG_CLI
+        gbaemu::CPUExecutionInfoType executionInfo = cpu.step(1232);
+        if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
+            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            return true;
+        }
+#else
+        for (int j = 0; j < 960; ++j) {
+            // if (prevPC != cpu.state.getCurrentPC())
+            // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
+            if (debugCLI.step()) {
+                // history.dumpHistory();
+                return true;
+            }
+        }
+#endif
+        lcdController.onVCount();
+    }
+
+    lcdController.clearBlankFlags();
+    lcdController.present();
+
+    return false;
+}
+#endif
+
 static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #ifdef DEBUG_CLI
                     ,
@@ -36,6 +113,37 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #endif
 )
 {
+#ifndef LEGACY_RENDERING
+    using frames = std::chrono::duration<int64_t, std::ratio<1, 60>>; // 60Hz
+    auto nextFrame = std::chrono::system_clock::now() + frames{0};
+    auto lastFrame = nextFrame - frames{1};
+
+    for (; doRun;) {
+        if (frame(cpu, lcdController
+#ifdef DEBUG_CLI
+                  ,
+                  debugCLI
+#endif
+                  )) {
+            break;
+        }
+
+#if LIMIT_FPS
+        std::this_thread::sleep_until(nextFrame);
+#endif
+
+#if !defined(DEBUG_CLI) && PRINT_FPS
+        auto dt = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - lastFrame);
+        std::cout << "Current FPS: " << (1000000.0 / dt.count()) << std::endl;
+#endif
+
+        lastFrame = nextFrame;
+        nextFrame += frames{1};
+    }
+
+    doRun = false;
+#else
+
     std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
 
     for (uint32_t j = 0; doRun; ++j) {
@@ -65,6 +173,7 @@ static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
     }
 
     doRun = false;
+#endif
 }
 
 #ifdef DEBUG_CLI
@@ -146,19 +255,20 @@ int main(int argc, char **argv)
 
     cpu.setLCDController(&controller);
 
+    gbaemu::InstructionExecutionInfo _info;
     std::cout << "Game Title: ";
     for (uint32_t i = 0; i < 12; ++i) {
-        std::cout << static_cast<char>(cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0A0 + i, nullptr));
+        std::cout << static_cast<char>(cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0A0 + i, _info));
     }
     std::cout << std::endl;
     std::cout << "Game Code: ";
     for (uint32_t i = 0; i < 4; ++i) {
-        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0AC + i, nullptr) << " ";
+        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0AC + i, _info) << " ";
     }
     std::cout << std::endl;
     std::cout << "Maker Code: ";
     for (uint32_t i = 0; i < 2; ++i) {
-        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0B0 + i, nullptr) << " ";
+        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0B0 + i, _info) << " ";
     }
     std::cout << std::endl;
 

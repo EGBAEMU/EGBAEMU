@@ -80,7 +80,7 @@ namespace gbaemu::lcd
             /* the result of drawScanline() */
             std::vector<color_t> buf;
 
-            uint16_t vCount;
+            uint16_t vCount = 0;
         } scanline;
 
         uint8_t read8FromReg(uint32_t offset)
@@ -111,6 +111,12 @@ namespace gbaemu::lcd
         void drawScanline();
         void present();
 
+#ifndef LEGACY_RENDERING
+        void clearBlankFlags();
+#else
+        void renderTick();
+#endif
+
         bool isHBlank() const
         {
             return scanline.hblanking;
@@ -122,8 +128,6 @@ namespace gbaemu::lcd
 
       public:
         int32_t scale = 3;
-
-        void renderTick();
 
       public:
         LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) : display(disp),

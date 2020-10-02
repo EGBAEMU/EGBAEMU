@@ -1,13 +1,14 @@
 #ifndef INST_HPP
 #define INST_HPP
 
+#include "io/memory.hpp"
+
 #include <cstdint>
 #include <functional>
 #include <string>
 
 namespace gbaemu
 {
-
     struct CPUState;
 
     /*
@@ -43,23 +44,34 @@ namespace gbaemu
 
         How long each stall is depends on which region of memory is being accessed.
         The GBA refers to these stalls as “wait states”.
-        //TODO seems like we have to consider memory accesses for cycles -> integrate into Memory class & pass InstructionExecutionInfo to Memory methods
         */
         uint32_t cycleCount;
 
-        // Those should only be set != 0 if there were reads needed at program location, i.e. pipeline flush or PC loaded causing 1S + 1N
-        uint32_t additionalProgCyclesS;
-        uint32_t additionalProgCyclesN;
-        // Do not add 1S cycle (only relevant for STR AFAIK)
+        // Convert instruction fetch S cycle into N cycle (only relevant for STR AFAIK)
         bool noDefaultSCycle;
 
         // Needed for infinite loops caused by branching to current PC value -> no PC change would otherwise be interpreted as normal instruction and execution continues at PC + 4
         bool forceBranch;
+        // Invalid operation executed -> abort
         bool hasCausedException;
 
         // CPU halting
         bool haltCPU;
         uint32_t haltCondition;
+
+        // Memory resolve caching: expects the address to be normalized!
+        bool resolvedAddr;
+        // Indicate that no offset should be added to the address
+        bool noOffset;
+        // resolved Memory Region
+        Memory::MemoryRegion memReg;
+        // pointer to start of the corresponding memory region!
+        const uint8_t *readBaseAddr;
+        uint8_t *writeBaseAddr;
+        // inclusively
+        uint32_t lowerBound;
+        // exclusively
+        uint32_t upperBound;
     };
 
     enum ConditionOPCode : uint8_t {

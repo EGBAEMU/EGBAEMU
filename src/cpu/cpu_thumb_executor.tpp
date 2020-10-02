@@ -11,7 +11,7 @@ namespace gbaemu::thumb
     {
         static_assert(id == INVALID);
         std::cout << "ERROR: Thumb executor: trying to execute invalid instruction!" << std::endl;
-        cpu->cpuInfo.hasCausedException = true;
+        cpu->state.cpuInfo.hasCausedException = true;
     }
 
     template <>

@@ -14,7 +14,7 @@ namespace gbaemu::arm
     {
         static_assert(id == INVALID);
         std::cout << "ERROR: Arm executor: trying to execute invalid instruction!" << std::endl;
-        cpu->cpuInfo.hasCausedException = true;
+        cpu->state.cpuInfo.hasCausedException = true;
     }
 
     template <>

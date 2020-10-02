@@ -46,7 +46,7 @@ namespace gbaemu
             // Offset to the swi routine
             cpu->state.accessReg(regs::PC_OFFSET) = Memory::BIOS_SWI_HANDLER_OFFSET;
 
-            cpu->cpuInfo.forceBranch = true;
+            cpu->state.cpuInfo.forceBranch = true;
         }
 
         void softReset(CPU *cpu)
@@ -87,9 +87,9 @@ namespace gbaemu
 
             cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
 
-            cpu->cpuInfo.haltCPU = true;
+            cpu->state.cpuInfo.haltCPU = true;
             // load IE
-            cpu->cpuInfo.haltCondition = cpu->state.memory.ioHandler.internalRead16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR);
+            cpu->state.cpuInfo.haltCondition = cpu->state.memory.ioHandler.internalRead16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR);
         }
         void intrWait(CPU *cpu)
         {
@@ -98,19 +98,19 @@ namespace gbaemu
             // The function forcefully sets IME=1
             cpu->state.memory.ioHandler.externalWrite8(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 8, 0x1);
 
-            cpu->cpuInfo.haltCondition = cpu->state.accessReg(regs::R1_OFFSET);
+            cpu->state.cpuInfo.haltCondition = cpu->state.accessReg(regs::R1_OFFSET);
 
             if (cpu->state.accessReg(regs::R0_OFFSET)) {
                 // r0 = 1 = Discard old flags, wait until a NEW flag becomes set
                 // Discard current requests! : write into IF
-                cpu->cpuInfo.haltCPU = true;
+                cpu->state.cpuInfo.haltCPU = true;
 
                 //TODO only discard in R1 selected ones or all??
-                cpu->state.memory.ioHandler.externalWrite16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 2, cpu->cpuInfo.haltCondition);
+                cpu->state.memory.ioHandler.externalWrite16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 2, cpu->state.cpuInfo.haltCondition);
             } else {
                 //0=Return immediately if an old flag was already set
                 // check if condition is currently satisfied and if so return else cause halt
-                cpu->cpuInfo.haltCPU = !cpu->irqHandler.checkForHaltCondition(cpu->cpuInfo.haltCondition);
+                cpu->state.cpuInfo.haltCPU = !cpu->irqHandler.checkForHaltCondition(cpu->state.cpuInfo.haltCondition);
             }
         }
         void vBlankIntrWait(CPU *cpu)
@@ -162,7 +162,7 @@ namespace gbaemu
 
             int32_t numerator = static_cast<int32_t>(*currentRegs[regs::R0_OFFSET]);
             int32_t denominator = static_cast<int32_t>(*currentRegs[regs::R1_OFFSET]);
-            _div(cpu->cpuInfo, currentRegs, numerator, denominator);
+            _div(cpu->state.cpuInfo, currentRegs, numerator, denominator);
         }
 
         void divArm(CPU *cpu)
@@ -172,7 +172,7 @@ namespace gbaemu
 
             int32_t numerator = static_cast<int32_t>(*currentRegs[regs::R1_OFFSET]);
             int32_t denominator = static_cast<int32_t>(*currentRegs[regs::R0_OFFSET]);
-            _div(cpu->cpuInfo, currentRegs, numerator, denominator);
+            _div(cpu->state.cpuInfo, currentRegs, numerator, denominator);
         }
 
         void sqrt(CPU *cpu)
@@ -341,21 +341,21 @@ namespace gbaemu
 
             for (uint32_t i = 0; i < iterationCount; ++i) {
                 uint32_t off = i * 20;
-                float ox = m.read32(off + sourceAddr, &cpu->cpuInfo, true) / 256.f;
-                float oy = m.read32(off + sourceAddr + 4, &cpu->cpuInfo, true) / 256.f;
-                float cx = m.read16(off + sourceAddr + 8, &cpu->cpuInfo, true);
-                float cy = m.read16(off + sourceAddr + 10, &cpu->cpuInfo, true);
-                float sx = m.read16(off + sourceAddr + 12, &cpu->cpuInfo, true) / 256.f;
-                float sy = m.read16(off + sourceAddr + 14, &cpu->cpuInfo, true) / 256.f;
-                float theta = (m.read32(sourceAddr + 16, &cpu->cpuInfo, true) >> 8) / 128.f * M_PI;
+                float ox = m.read32(off + sourceAddr, cpu->state.cpuInfo, true) / 256.f;
+                float oy = m.read32(off + sourceAddr + 4, cpu->state.cpuInfo, true) / 256.f;
+                float cx = m.read16(off + sourceAddr + 8, cpu->state.cpuInfo, true);
+                float cy = m.read16(off + sourceAddr + 10, cpu->state.cpuInfo, true);
+                float sx = m.read16(off + sourceAddr + 12, cpu->state.cpuInfo, true) / 256.f;
+                float sy = m.read16(off + sourceAddr + 14, cpu->state.cpuInfo, true) / 256.f;
+                float theta = (m.read32(sourceAddr + 16, cpu->state.cpuInfo, true) >> 8) / 128.f * M_PI;
 
                 /*
-                common::math::real_t ox = fixedToFloat<uint32_t, 8, 19>(m.read32(off + sourceAddr,     &cpu->cpuInfo, true));
-                common::math::real_t oy = fixedToFloat<uint32_t, 8, 19>(m.read32(off + sourceAddr + 4, &cpu->cpuInfo, true));
-                common::math::real_t cx = static_cast<common::math::real_t>(m.read16(off + sourceAddr + 8, &cpu->cpuInfo, true));
-                common::math::real_t cy = static_cast<common::math::real_t>(m.read16(off + sourceAddr + 10, &cpu->cpuInfo, true));
-                common::math::real_t sx = fixedToFloat<uint16_t, 8, 7>(m.read16(off + sourceAddr + 12, &cpu->cpuInfo, true));
-                common::math::real_t sy = fixedToFloat<uint16_t, 8, 7>(m.read16(off + sourceAddr + 14, &cpu->cpuInfo, true));
+                common::math::real_t ox = fixedToFloat<uint32_t, 8, 19>(m.read32(off + sourceAddr,     cpu->state.cpuInfo, true));
+                common::math::real_t oy = fixedToFloat<uint32_t, 8, 19>(m.read32(off + sourceAddr + 4, cpu->state.cpuInfo, true));
+                common::math::real_t cx = static_cast<common::math::real_t>(m.read16(off + sourceAddr + 8, cpu->state.cpuInfo, true));
+                common::math::real_t cy = static_cast<common::math::real_t>(m.read16(off + sourceAddr + 10, cpu->state.cpuInfo, true));
+                common::math::real_t sx = fixedToFloat<uint16_t, 8, 7>(m.read16(off + sourceAddr + 12, cpu->state.cpuInfo, true));
+                common::math::real_t sy = fixedToFloat<uint16_t, 8, 7>(m.read16(off + sourceAddr + 14, cpu->state.cpuInfo, true));
                  */
 
                 /* F* THIS. This is taken from mgba. */
@@ -372,12 +372,12 @@ namespace gbaemu
                 ry = oy - (c * cx + d * cy);
 
                 uint32_t dstOff = i * 16;
-                m.write16(dstOff + destAddr, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(a), &cpu->cpuInfo, i != 0);
-                m.write16(dstOff + destAddr + 2, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(b), &cpu->cpuInfo, true);
-                m.write16(dstOff + destAddr + 4, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(c), &cpu->cpuInfo, true);
-                m.write16(dstOff + destAddr + 6, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(d), &cpu->cpuInfo, true);
-                m.write32(dstOff + destAddr + 8, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(rx), &cpu->cpuInfo, true);
-                m.write32(dstOff + destAddr + 12, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(ry), &cpu->cpuInfo, true);
+                m.write16(dstOff + destAddr, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(a), cpu->state.cpuInfo, i != 0);
+                m.write16(dstOff + destAddr + 2, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(b), cpu->state.cpuInfo, true);
+                m.write16(dstOff + destAddr + 4, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(c), cpu->state.cpuInfo, true);
+                m.write16(dstOff + destAddr + 6, gbaemu::floatToFixed<uint16_t, 8, 7, common::math::real_t>(d), cpu->state.cpuInfo, true);
+                m.write32(dstOff + destAddr + 8, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(rx), cpu->state.cpuInfo, true);
+                m.write32(dstOff + destAddr + 12, gbaemu::floatToFixed<uint32_t, 8, 19, common::math::real_t>(ry), cpu->state.cpuInfo, true);
             }
         }
 
@@ -419,11 +419,11 @@ namespace gbaemu
 
             for (uint32_t i = 0; i < iterationCount; ++i) {
                 uint32_t srcOff = i * 8;
-                //float sx = m.read16(sourceAddr, &cpu->cpuInfo, i != 0) / 256.f;
-                //float sy = m.read16(sourceAddr + 2, &cpu->cpuInfo, true) / 256.f;
-                uint16_t orgTheta = m.read16(sourceAddr + 4, &cpu->cpuInfo, true);
-                uint16_t orgSx = m.read16(sourceAddr, &cpu->cpuInfo, i != 0);
-                uint16_t orgSy = m.read16(sourceAddr + 2, &cpu->cpuInfo, i != 0);
+                //float sx = m.read16(sourceAddr, cpu->state.cpuInfo, i != 0) / 256.f;
+                //float sy = m.read16(sourceAddr + 2, cpu->state.cpuInfo, true) / 256.f;
+                uint16_t orgTheta = m.read16(sourceAddr + 4, cpu->state.cpuInfo, true);
+                uint16_t orgSx = m.read16(sourceAddr, cpu->state.cpuInfo, i != 0);
+                uint16_t orgSy = m.read16(sourceAddr + 2, cpu->state.cpuInfo, i != 0);
 
                 float theta = (orgTheta >> 8) / 128.f * M_PI;
 
@@ -441,10 +441,10 @@ namespace gbaemu
                 c *= sy;
                 d *= sy;
 
-                m.write16(destAddr, floatToFixed<uint16_t, 8, 7>(a), &cpu->cpuInfo, i != 0);
-                m.write16(destAddr + diff, floatToFixed<uint16_t, 8, 7>(b), &cpu->cpuInfo, true);
-                m.write16(destAddr + diff * 2, floatToFixed<uint16_t, 8, 7>(c), &cpu->cpuInfo, true);
-                m.write16(destAddr + diff * 3, floatToFixed<uint16_t, 8, 7>(d), &cpu->cpuInfo, true);
+                m.write16(destAddr, floatToFixed<uint16_t, 8, 7>(a), cpu->state.cpuInfo, i != 0);
+                m.write16(destAddr + diff, floatToFixed<uint16_t, 8, 7>(b), cpu->state.cpuInfo, true);
+                m.write16(destAddr + diff * 2, floatToFixed<uint16_t, 8, 7>(c), cpu->state.cpuInfo, true);
+                m.write16(destAddr + diff * 3, floatToFixed<uint16_t, 8, 7>(d), cpu->state.cpuInfo, true);
                 destAddr += diff * 4;
             }
         }
@@ -476,10 +476,10 @@ namespace gbaemu
 
             //TODO proper time calculation
 
-            uint16_t srcByteCount = cpu->state.memory.read16(unpackFormatPtr, &cpu->cpuInfo, false);
-            const uint8_t srcUnitWidth = cpu->state.memory.read8(unpackFormatPtr + 2, &cpu->cpuInfo, true);
-            const uint8_t destUnitWidth = cpu->state.memory.read8(unpackFormatPtr + 3, &cpu->cpuInfo, true);
-            uint32_t dataOffset = cpu->state.memory.read32(unpackFormatPtr + 4, &cpu->cpuInfo, true);
+            uint16_t srcByteCount = cpu->state.memory.read16(unpackFormatPtr, cpu->state.cpuInfo, false);
+            const uint8_t srcUnitWidth = cpu->state.memory.read8(unpackFormatPtr + 2, cpu->state.cpuInfo, true);
+            const uint8_t destUnitWidth = cpu->state.memory.read8(unpackFormatPtr + 3, cpu->state.cpuInfo, true);
+            uint32_t dataOffset = cpu->state.memory.read32(unpackFormatPtr + 4, cpu->state.cpuInfo, true);
             const bool zeroDataOff = dataOffset & (static_cast<uint32_t>(1) << 31);
             dataOffset &= 0x7FFFFFF;
 
@@ -491,7 +491,7 @@ namespace gbaemu
             bool firstWriteDone = false;
 
             for (; srcByteCount > 0; --srcByteCount) {
-                uint8_t srcUnits = cpu->state.memory.read8(sourceAddr++, &cpu->cpuInfo, firstReadDone);
+                uint8_t srcUnits = cpu->state.memory.read8(sourceAddr++, cpu->state.cpuInfo, firstReadDone);
                 firstReadDone = true;
 
                 // units of size < 8 will be concatenated so we need to extract them before storing
@@ -516,7 +516,7 @@ namespace gbaemu
                     // if there is no more space for another unit we have to flush our buffer
                     // flushing is also needed if this is the very last unit!
                     if (writeBufOffset + destUnitWidth > 32 || (srcByteCount == 1 && srcUnitBitsLeft <= srcUnitWidth)) {
-                        cpu->state.memory.write32(destAddr, writeBuf, &cpu->cpuInfo, firstWriteDone);
+                        cpu->state.memory.write32(destAddr, writeBuf, cpu->state.cpuInfo, firstWriteDone);
                         destAddr += 4;
                         writeBuf = 0;
                         writeBufOffset = 0;
@@ -566,7 +566,7 @@ namespace gbaemu
 
             //TODO proper time calculation
 
-            const uint32_t dataHeader = cpu->state.memory.read32(sourceAddr, &cpu->cpuInfo, false);
+            const uint32_t dataHeader = cpu->state.memory.read32(sourceAddr, cpu->state.cpuInfo, false);
             sourceAddr += 4;
 
             const uint8_t compressedType = (dataHeader >> 4) & 0x0F;
@@ -580,7 +580,7 @@ namespace gbaemu
             bool firstWriteDone = false;
 
             while (decompressedSize > 0) {
-                const uint8_t typeBitset = cpu->state.memory.read8(sourceAddr++, &cpu->cpuInfo, true);
+                const uint8_t typeBitset = cpu->state.memory.read8(sourceAddr++, cpu->state.cpuInfo, true);
 
                 // process each block
                 for (uint8_t i = 0; i < 8; ++i) {
@@ -588,7 +588,7 @@ namespace gbaemu
 
                     if (type1) {
                         // Type 1 uses previously written data as lookup source
-                        uint16_t type1Desc = cpu->state.memory.read16(sourceAddr, &cpu->cpuInfo, true);
+                        uint16_t type1Desc = cpu->state.memory.read16(sourceAddr, cpu->state.cpuInfo, true);
                         sourceAddr += 2;
 
                         uint16_t disp = (((type1Desc & 0x0F) << 8) | ((type1Desc >> 8) & 0x0FF)) + 1;
@@ -600,14 +600,14 @@ namespace gbaemu
                         // Copy N Bytes from Dest-Disp to Dest (+3 and - 1 already applied)
                         uint32_t readAddr = destAddr - disp;
                         for (; n > 0; --n) {
-                            cpu->state.memory.write8(destAddr++, cpu->state.memory.read8(readAddr++, &cpu->cpuInfo, true), &cpu->cpuInfo, firstWriteDone);
+                            cpu->state.memory.write8(destAddr++, cpu->state.memory.read8(readAddr++, cpu->state.cpuInfo, true), cpu->state.cpuInfo, firstWriteDone);
                             firstWriteDone = true;
                         }
                     } else {
                         // Type 0 is one uncompressed byte of data
-                        uint8_t data = cpu->state.memory.read8(sourceAddr++, &cpu->cpuInfo, true);
+                        uint8_t data = cpu->state.memory.read8(sourceAddr++, cpu->state.cpuInfo, true);
                         --decompressedSize;
-                        cpu->state.memory.write8(destAddr++, data, &cpu->cpuInfo, firstWriteDone);
+                        cpu->state.memory.write8(destAddr++, data, cpu->state.cpuInfo, firstWriteDone);
                         firstWriteDone = true;
                     }
                 }
@@ -661,7 +661,7 @@ namespace gbaemu
 
             //TODO proper time calculation
 
-            uint32_t dataHeader = cpu->state.memory.read32(sourceAddr, &cpu->cpuInfo, false);
+            uint32_t dataHeader = cpu->state.memory.read32(sourceAddr, cpu->state.cpuInfo, false);
             sourceAddr += 4;
 
             int32_t decompressedBits = ((dataHeader >> 8) & 0x00FFFFFF) * 8;
@@ -680,7 +680,7 @@ namespace gbaemu
                 LOG_SWI(std::cout << "ERROR: Invalid call of huffUnComp!" << std::endl;);
             }
 
-            uint8_t treeSize = cpu->state.memory.read8(sourceAddr, &cpu->cpuInfo, true);
+            uint8_t treeSize = cpu->state.memory.read8(sourceAddr, cpu->state.cpuInfo, true);
             sourceAddr += 1;
 
             const uint32_t treeRoot = sourceAddr;
@@ -691,7 +691,7 @@ namespace gbaemu
             uint8_t writeBufOffset = 0;
 
             // as bits needed for decompressions varies we need to keep track of bits left in the read buffer
-            uint32_t readBuf = cpu->state.memory.read32(sourceAddr, &cpu->cpuInfo, true);
+            uint32_t readBuf = cpu->state.memory.read32(sourceAddr, cpu->state.cpuInfo, true);
             sourceAddr += 4;
             uint8_t readBufBitsLeft = 32;
 
@@ -709,7 +709,7 @@ namespace gbaemu
                 // Bit wise tree walk
                 for (;;) {
                     // Probably non sequential
-                    uint8_t node = cpu->state.memory.read8(currentParsingAddr, &cpu->cpuInfo, false);
+                    uint8_t node = cpu->state.memory.read8(currentParsingAddr, cpu->state.cpuInfo, false);
 
                     if (isDataNode) {
                         writeBuf |= (static_cast<uint32_t>(node) << writeBufOffset);
@@ -730,7 +730,7 @@ namespace gbaemu
 
                     // Fill empty read buffer again
                     if (readBufBitsLeft == 0) {
-                        readBuf = cpu->state.memory.read32(sourceAddr, &cpu->cpuInfo, true);
+                        readBuf = cpu->state.memory.read32(sourceAddr, cpu->state.cpuInfo, true);
                         sourceAddr += 4;
                         readBufBitsLeft = 32;
                     }
@@ -738,7 +738,7 @@ namespace gbaemu
 
                 // Is there is no more space left for decompressed data or we are done decompressing(only dataSize bits left) then we have to flush our buffer
                 if (writeBufOffset + dataSize > 32 || decompressedBits == dataSize) {
-                    cpu->state.memory.write32(destAddr, writeBuf, &cpu->cpuInfo, firstWriteDone);
+                    cpu->state.memory.write32(destAddr, writeBuf, cpu->state.cpuInfo, firstWriteDone);
                     destAddr += 4;
                     // Reset buf state
                     writeBufOffset = 0;
@@ -780,7 +780,7 @@ namespace gbaemu
 
             //TODO proper time calculation
 
-            const uint32_t dataHeader = cpu->state.memory.read32(sourceAddr, &cpu->cpuInfo, false);
+            const uint32_t dataHeader = cpu->state.memory.read32(sourceAddr, cpu->state.cpuInfo, false);
             sourceAddr += 4;
 
             const uint8_t compressedType = (dataHeader >> 4) & 0x0F;
@@ -794,7 +794,7 @@ namespace gbaemu
             bool firstWriteDone = false;
 
             while (decompressedSize > 0) {
-                uint8_t flagData = cpu->state.memory.read8(sourceAddr++, &cpu->cpuInfo, true);
+                uint8_t flagData = cpu->state.memory.read8(sourceAddr++, cpu->state.cpuInfo, true);
 
                 bool compressed = (flagData >> 7) & 0x1;
                 uint8_t decompressedDataLength = (flagData & 0x7F) + (compressed ? 3 : 1);
@@ -804,11 +804,11 @@ namespace gbaemu
                 }
                 decompressedSize -= decompressedDataLength;
 
-                uint8_t data = cpu->state.memory.read8(sourceAddr++, &cpu->cpuInfo, true);
+                uint8_t data = cpu->state.memory.read8(sourceAddr++, cpu->state.cpuInfo, true);
 
                 // write read data byte N times for decompression
                 for (; decompressedDataLength > 0; --decompressedDataLength) {
-                    cpu->state.memory.write8(destAddr++, data, &cpu->cpuInfo, firstWriteDone);
+                    cpu->state.memory.write8(destAddr++, data, cpu->state.cpuInfo, firstWriteDone);
                     firstWriteDone = true;
                 }
             }
@@ -855,7 +855,7 @@ namespace gbaemu
 
             //TODO proper time calculation considering bit width!
 
-            uint32_t header = cpu->state.memory.read32(srcAddr, &cpu->cpuInfo, false);
+            uint32_t header = cpu->state.memory.read32(srcAddr, cpu->state.cpuInfo, false);
             srcAddr += 4;
 
             //TODO not sure if we need those... maybe for sanity checks
@@ -869,9 +869,9 @@ namespace gbaemu
             uint16_t current = 0;
             bool firstWriteDone = false;
             do {
-                uint16_t diff = bits8 ? cpu->state.memory.read8(srcAddr, &cpu->cpuInfo, false) : cpu->state.memory.read16(srcAddr, &cpu->cpuInfo, false);
+                uint16_t diff = bits8 ? cpu->state.memory.read8(srcAddr, cpu->state.cpuInfo, false) : cpu->state.memory.read16(srcAddr, cpu->state.cpuInfo, false);
                 current += diff;
-                bits8 ? cpu->state.memory.write8(destAddr, static_cast<uint8_t>(current & 0x0FF), &cpu->cpuInfo, firstWriteDone) : cpu->state.memory.write16(srcAddr, current, &cpu->cpuInfo, firstWriteDone);
+                bits8 ? cpu->state.memory.write8(destAddr, static_cast<uint8_t>(current & 0x0FF), cpu->state.cpuInfo, firstWriteDone) : cpu->state.memory.write16(srcAddr, current, cpu->state.cpuInfo, firstWriteDone);
                 destAddr += addressInc;
                 srcAddr += addressInc;
                 firstWriteDone = true;

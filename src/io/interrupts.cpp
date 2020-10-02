@@ -152,7 +152,7 @@ namespace gbaemu
             cpu->state.accessReg(regs::PC_OFFSET) = Memory::BIOS_IRQ_HANDLER_OFFSET;
 
             // Flush the pipeline
-            cpu->normalizePC(false);
+            cpu->state.normalizePC(false);
             cpu->initPipeline();
 
             // After irq we need to execute at least one instruction before another irq may be handled!

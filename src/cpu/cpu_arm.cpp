@@ -52,16 +52,16 @@ namespace gbaemu
         That is m=1 for Bit 31-8, m=2 for Bit 31-16, m=3 for Bit 31-24, and m=4 otherwise.
         */
         // bool a decides if it is a MLAL instruction or MULL
-        cpuInfo.cycleCount = (a ? 1 : 0);
+        state.cpuInfo.cycleCount = (a ? 1 : 0);
 
         if (((rsVal >> 8) & 0x00FFFFFF) == 0 || ((rsVal >> 8) & 0x00FFFFFF) == 0x00FFFFFF) {
-            cpuInfo.cycleCount += 1;
+            state.cpuInfo.cycleCount += 1;
         } else if (((rsVal >> 16) & 0x0000FFFF) == 0 || ((rsVal >> 16) & 0x0000FFFF) == 0x0000FFFF) {
-            cpuInfo.cycleCount += 2;
+            state.cpuInfo.cycleCount += 2;
         } else if (((rsVal >> 24) & 0x000000FF) == 0 || ((rsVal >> 24) & 0x000000FF) == 0x000000FF) {
-            cpuInfo.cycleCount += 3;
+            state.cpuInfo.cycleCount += 3;
         } else {
-            cpuInfo.cycleCount += 4;
+            state.cpuInfo.cycleCount += 4;
         }
     }
 
@@ -134,16 +134,16 @@ namespace gbaemu
         That is m=1 for Bit31-8, m=2 for Bit31-16, m=3 for Bit31-24, and m=4 otherwise.
         */
         // bool a decides if it is a MLAL instruction or MULL
-        cpuInfo.cycleCount = (a ? 2 : 1);
+        state.cpuInfo.cycleCount = (a ? 2 : 1);
 
         if (((unExtRsVal >> 8) & 0x00FFFFFF) == 0 || (signMul && ((unExtRsVal >> 8) & 0x00FFFFFF) == 0x00FFFFFF)) {
-            cpuInfo.cycleCount += 1;
+            state.cpuInfo.cycleCount += 1;
         } else if (((unExtRsVal >> 16) & 0x0000FFFF) == 0 || (signMul && ((unExtRsVal >> 16) & 0x0000FFFF) == 0x0000FFFF)) {
-            cpuInfo.cycleCount += 2;
+            state.cpuInfo.cycleCount += 2;
         } else if (((unExtRsVal >> 24) & 0x000000FF) == 0 || (signMul && ((unExtRsVal >> 24) & 0x000000FF) == 0x000000FF)) {
-            cpuInfo.cycleCount += 3;
+            state.cpuInfo.cycleCount += 3;
         } else {
-            cpuInfo.cycleCount += 4;
+            state.cpuInfo.cycleCount += 4;
         }
     }
 
@@ -163,20 +163,20 @@ namespace gbaemu
 
         // Execution Time: 1S+2N+1I. That is, 2N data cycles (added through Memory class), 1S code cycle, plus 1I(initial value)
 
-        cpuInfo.cycleCount = 1;
+        state.cpuInfo.cycleCount = 1;
 
         if (b) {
-            uint8_t memVal = state.memory.read8(memAddr, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
-            state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF), &cpuInfo);
+            uint8_t memVal = state.memory.read8(memAddr, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS);
+            state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF), state.cpuInfo);
             *currentRegs[rd] = static_cast<uint32_t>(memVal);
         } else {
             // LDR part
-            uint32_t alignedWord = state.memory.read32(memAddr, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
+            uint32_t alignedWord = state.memory.read32(memAddr, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS);
             alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memAddr & 0x03) * 8, false, false) & 0xFFFFFFFF;
             *currentRegs[rd] = alignedWord;
 
             // STR part
-            state.memory.write32(memAddr, newMemVal, &cpuInfo);
+            state.memory.write32(memAddr, newMemVal, state.cpuInfo);
         }
     }
 
@@ -198,12 +198,8 @@ namespace gbaemu
         state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(pc) + 8 + offset);
 
         // Execution Time: 2S + 1N
-
-        cpuInfo.additionalProgCyclesN = 1;
-        cpuInfo.additionalProgCyclesS = 1;
-
         // This is a branch instruction so we need to consider self branches!
-        cpuInfo.forceBranch = true;
+        state.cpuInfo.forceBranch = true;
     }
 
     // Executes instructions belonging to the branch and execute subsection
@@ -224,12 +220,8 @@ namespace gbaemu
         state.accessReg(regs::PC_OFFSET) = rnValue & 0xFFFFFFFE;
 
         // Execution Time: 2S + 1N
-
-        cpuInfo.additionalProgCyclesN = 1;
-        cpuInfo.additionalProgCyclesS = 1;
-
         // This is a branch instruction so we need to consider self branches!
-        cpuInfo.forceBranch = true;
+        state.cpuInfo.forceBranch = true;
     }
 
 #define CREATE_CONSTEXPR_GETTER(Name, ...)                              \
@@ -437,7 +429,7 @@ namespace gbaemu
 
             default:
                 std::cout << "ERROR: execDataProc can not handle instruction: " << instructionIDToString(id) << std::endl;
-                cpuInfo.hasCausedException = true;
+                state.cpuInfo.hasCausedException = true;
                 break;
         }
 
@@ -466,11 +458,10 @@ namespace gbaemu
             state.accessReg(rd) = static_cast<uint32_t>(resultValue);
 
         if (destPC) {
-            cpuInfo.additionalProgCyclesN = 1;
-            cpuInfo.additionalProgCyclesS = 1;
+            state.cpuInfo.forceBranch = true;
         }
         if (shiftByReg) {
-            cpuInfo.cycleCount += 1;
+            state.cpuInfo.cycleCount += 1;
         }
     }
 
@@ -495,11 +486,10 @@ namespace gbaemu
 
         if (load) {
             // handle +1I
-            cpuInfo.cycleCount = 1;
+            state.cpuInfo.cycleCount = 1;
         } else {
             // same edge case as for STR
-            cpuInfo.noDefaultSCycle = true;
-            cpuInfo.additionalProgCyclesN = 1;
+            state.cpuInfo.noDefaultSCycle = true;
         }
 
         // The first read / write is non sequential but afterwards all accesses are sequential
@@ -556,22 +546,21 @@ namespace gbaemu
 
                 if (load) {
                     if (currentIdx == regs::PC_OFFSET) {
-                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, &cpuInfo, nonSeqAccDone, this->executionMemReg == Memory::MemoryRegion::BIOS);
+                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS);
                         // Special case for pipeline refill
-                        cpuInfo.additionalProgCyclesN = 1;
-                        cpuInfo.additionalProgCyclesS = 1;
+                        state.cpuInfo.forceBranch = true;
 
                         // More special cases
                         /*
-                            When S Bit is set (S=1)
-                            If instruction is LDM and R15 is in the list: (Mode Changes)
-                              While R15 loaded, additionally: CPSR=SPSR_<current mode>
-                            */
+                        When S Bit is set (S=1)
+                        If instruction is LDM and R15 is in the list: (Mode Changes)
+                          While R15 loaded, additionally: CPSR=SPSR_<current mode>
+                        */
                         if (forceUserRegisters) {
                             *currentRegs[regs::CPSR_OFFSET] = *state.getCurrentRegs()[regs::SPSR_OFFSET];
                         }
                     } else {
-                        *currentRegs[currentIdx] = state.memory.read32(address, &cpuInfo, nonSeqAccDone, this->executionMemReg == Memory::MemoryRegion::BIOS);
+                        *currentRegs[currentIdx] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS);
                     }
                 } else {
                     // Shady hack to make edge case treatment easier
@@ -580,7 +569,7 @@ namespace gbaemu
                     }
 
                     // Edge case of storing PC -> PC + 12 will be stored
-                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb ? 6 : 12) : 0), &cpuInfo, nonSeqAccDone);
+                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb ? 6 : 12) : 0), state.cpuInfo, nonSeqAccDone);
                 }
 
                 nonSeqAccDone = true;
@@ -603,8 +592,9 @@ namespace gbaemu
             if (!load) {
                 // Check if there are any registers that were written first to memory
                 if (rList & ((1 << rn) - 1)) {
+                    InstructionExecutionInfo info = state.cpuInfo;
                     // We need to patch mem
-                    state.memory.write32(patchMemAddr, address, nullptr);
+                    state.memory.write32(patchMemAddr, address, info);
                 }
 
                 // Also do the write back to the register!
@@ -672,16 +662,15 @@ namespace gbaemu
 
         if (load) {
             // 1 I for beeing complex
-            cpuInfo.cycleCount = 1;
+            state.cpuInfo.cycleCount = 1;
 
             // additional delays needed if PC gets loaded
             if (rd == regs::PC_OFFSET) {
-                cpuInfo.additionalProgCyclesN = 1;
-                cpuInfo.additionalProgCyclesS = 1;
+                state.cpuInfo.forceBranch = true;
             }
         } else {
-            cpuInfo.additionalProgCyclesN = 1;
-            cpuInfo.noDefaultSCycle = true;
+            // same edge case as for STR
+            state.cpuInfo.noDefaultSCycle = true;
         }
 
         /* offset is calculated differently, depending on the I-bit */
@@ -723,7 +712,7 @@ namespace gbaemu
         /* transfer */
         if (load) {
             if (byte) {
-                *currentRegs[rd] = state.memory.read8(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
+                *currentRegs[rd] = state.memory.read8(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS);
             } else {
                 // More edge case:
                 /*
@@ -733,16 +722,16 @@ namespace gbaemu
                 However, by isolating lower bits this may be used to read a halfword from memory. 
                 (Above applies to little endian mode, as used in GBA.)
                 */
-                uint32_t alignedWord = state.memory.read32(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS);
+                uint32_t alignedWord = state.memory.read32(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS);
                 alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
                 *currentRegs[rd] = alignedWord;
             }
         } else {
             if (byte) {
-                state.memory.write8(memoryAddress, rdValue, &cpuInfo);
+                state.memory.write8(memoryAddress, rdValue, state.cpuInfo);
             } else {
                 // Mask out unaligned bits!
-                state.memory.write32(memoryAddress, rdValue, &cpuInfo);
+                state.memory.write32(memoryAddress, rdValue, state.cpuInfo);
             }
         }
 
@@ -803,16 +792,14 @@ namespace gbaemu
         // both instructions have a + 1I for being complex
         if (load) {
             // 1N is handled by Memory class & 1S is handled globally
-            cpuInfo.cycleCount = 1;
+            state.cpuInfo.cycleCount = 1;
             // will PC be updated? if so we need an additional Prog N & S cycle
-            if (load && rd == regs::PC_OFFSET) {
-                cpuInfo.additionalProgCyclesN = 1;
-                cpuInfo.additionalProgCyclesS = 1;
+            if (rd == regs::PC_OFFSET) {
+                state.cpuInfo.forceBranch = true;
             }
         } else {
             // same edge case as for STR
-            cpuInfo.noDefaultSCycle = true;
-            cpuInfo.additionalProgCyclesN = 1;
+            state.cpuInfo.noDefaultSCycle = true;
         }
 
         uint32_t rnValue = state.accessReg(rn);
@@ -840,11 +827,11 @@ namespace gbaemu
                 // Handle misaligned address
                 if (sign && memoryAddress & 1) {
                     // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]         ;sign-expand BYTE value
-                    readData = signExt<int32_t, uint32_t, 8>(state.memory.read8(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS));
+                    readData = signExt<int32_t, uint32_t, 8>(state.memory.read8(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS));
                 } else {
                     // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
                     // LDRH with ROR (see LDR with non word aligned)
-                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS));
+                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS));
                     readData = shifts::shift(readData, shifts::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
 
                     if (sign) {
@@ -852,7 +839,7 @@ namespace gbaemu
                     }
                 }
             } else {
-                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, &cpuInfo, false, this->executionMemReg == Memory::MemoryRegion::BIOS));
+                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS));
 
                 if (sign) {
                     readData = signExt<int32_t, uint32_t, transferSize>(readData);
@@ -862,9 +849,9 @@ namespace gbaemu
             state.accessReg(rd) = readData;
         } else {
             if (transferSize == 16) {
-                state.memory.write16(memoryAddress, rdValue, &cpuInfo);
+                state.memory.write16(memoryAddress, rdValue, state.cpuInfo);
             } else {
-                state.memory.write8(memoryAddress, rdValue, &cpuInfo);
+                state.memory.write8(memoryAddress, rdValue, state.cpuInfo);
             }
         }
 

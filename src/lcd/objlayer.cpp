@@ -93,8 +93,6 @@ namespace gbaemu::lcd
         if (useColor256)
             tileNumber /= 2;
 
-        OBJMode mode = static_cast<OBJMode>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MODE_MASK, OBJ_ATTRIBUTE::OBJ_MODE_OFFSET));
-
         /* bitmap modes */
         if (Mode3 <= bgMode && bgMode <= Mode5 && tileNumber < 512)
             return;
@@ -249,11 +247,11 @@ namespace gbaemu::lcd
 
         if (useColor256) {
             uint32_t paletteIndex = tile[ty * 8 + tx];
-            return palette.getObjColor(paletteIndex);
+            return (mode == OBJ_WINDOW) ? (paletteIndex == 0 ? TRANSPARENT : BLACK) : palette.getObjColor(paletteIndex);
         } else {
             uint32_t row = reinterpret_cast<const uint32_t *>(tile)[ty];
             uint32_t paletteIndex = (row >> (tx * 4)) & 0xF;
-            return palette.getObjColor(paletteNumber, paletteIndex);
+            return (mode == OBJ_WINDOW) ? (paletteIndex == 0 ? TRANSPARENT : BLACK) : palette.getObjColor(paletteNumber, paletteIndex);
         }
     }
 
@@ -291,6 +289,18 @@ namespace gbaemu::lcd
         return negDot && posDot;
     }
 
+    OBJManager::OBJManager()
+    {
+        for (auto& obj : objects)
+            obj.enabled = false;
+    }
+
+    void OBJManager::load(const uint8_t *attributes, BGMode bgMode)
+    {
+        for (int32_t i = 0; i < 128; ++i)
+            objects[i] = OBJ(attributes, i, bgMode);
+    }
+
     std::vector<OBJ>::const_iterator OBJLayer::getLastRenderedOBJ(int32_t cycleBudget) const
     {
         auto it = objects.cbegin();
@@ -306,8 +316,8 @@ namespace gbaemu::lcd
         return it;
     }
 
-    OBJLayer::OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio) :
-        memory(mem), palette(plt), regs(ioRegs), objects(128)
+    OBJLayer::OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio, const std::shared_ptr<OBJManager>& manager) :
+        memory(mem), palette(plt), regs(ioRegs), objects(128), objManager(manager)
     {
         /* OBJ layers are always enabled */
         enabled = true;
@@ -325,9 +335,8 @@ namespace gbaemu::lcd
     {
         mode = bgMode;
 
-        Memory::MemoryRegion memReg;
-        const uint8_t *vramBase = memory.resolveAddr(Memory::VRAM_OFFSET, nullptr, memReg);
-        const uint8_t *oamBase = memory.resolveAddr(Memory::OAM_OFFSET, nullptr, memReg);
+        const uint8_t *vramBase = memory.vram;
+        const uint8_t *oamBase = memory.oam;
         objTiles = vramBase + 0x10000;
 
         switch (mode) {
@@ -345,22 +354,22 @@ namespace gbaemu::lcd
         mosaicHeight = bitGet(le(regs.MOSAIC), MOSAIC::OBJ_MOSAIC_VSIZE_MASK, MOSAIC::OBJ_MOSAIC_VSIZE_OFFSET) + 1;
     }
 
-    void OBJLayer::loadOBJs(int32_t y)
+    void OBJLayer::loadOBJs(int32_t y, const std::function<bool(const OBJ&, real_t, uint16_t)>& filter)
     {
         real_t fy = static_cast<real_t>(y);
         objects.resize(0);
 
-        for (int32_t objIndex = 0; objIndex < 128; ++objIndex) {
-            OBJ obj(attributes, objIndex, mode);
+        for (const auto& obj : objManager->objects) {
+            // if (obj.priority != priority || !obj.visible || obj.mode == OBJ_WINDOW || !obj.intersectsWithScanline(fy))
+            //     continue;
 
-            if (obj.priority != priority || !obj.intersectsWithScanline(fy))
+            if (!filter(obj, fy, priority))
                 continue;
 
             if (obj.visible)
                 objects.push_back(obj);
         }
 
-        //objManager.loadOBJs(attributes);
         asFirstTarget = isBitSet<uint16_t, BLDCNT::OBJ_FIRST_TARGET_OFFSET>(le(regs.BLDCNT));
         asSecondTarget = isBitSet<uint16_t, BLDCNT::OBJ_SECOND_TARGET_OFFSET>(le(regs.BLDCNT));
     }
@@ -369,14 +378,6 @@ namespace gbaemu::lcd
     {
         const real_t fy = static_cast<real_t>(y);
         real_t fx = 0;
-
-        /*
-        std::vector<const OBJ *> onScanline;
-        onScanline.reserve(128);
-        for (size_t i = 0; i < objects.size(); ++i)
-            if (objects[i].intersectsWithScanline(fy))
-                onScanline.push_back(objects.data() + i);
-         */
 
         for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
             /* clear */
@@ -404,6 +405,7 @@ namespace gbaemu::lcd
                     const int32_t msx = obj->mosaicEnabled ? (sx - (sx % mosaicWidth)) : sx;
                     const int32_t msy = obj->mosaicEnabled ? (sy - (sy % mosaicHeight)) : sy;
                     const color_t color = obj->pixelColor(msx, msy, objTiles, palette, use2dMapping);
+                    //obj->pixelColor(msx, msy, objTiles, palette, use2dMapping);
 
                     if (color == TRANSPARENT)
                         continue;

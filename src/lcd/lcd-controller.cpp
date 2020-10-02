@@ -22,6 +22,8 @@
 
 namespace gbaemu::lcd
 {
+
+#ifdef LEGACY_RENDERING
     void LCDController::renderTick()
     {
         //if (le(regsRef.DISPCNT) & DISPCTL::HBLANK_INTERVAL_FREE_MASK)
@@ -123,6 +125,85 @@ namespace gbaemu::lcd
             renderer.drawScanline(scanline.y);
         }
     }
+#else
+
+    void LCDController::onVCount()
+    {
+        // use regsRef as those settings are crucial timewise
+        uint16_t stat = le(regsRef.DISPSTAT);
+        uint16_t vCountSetting = bitGet(stat, DISPSTAT::VCOUNT_SETTING_MASK, DISPSTAT::VCOUNT_SETTING_OFFSET);
+        bool vCountMatch = scanline.vCount == vCountSetting;
+
+        regsRef.DISPSTAT = le(bitSet<uint16_t, DISPSTAT::VCOUNTER_FLAG_MASK, DISPSTAT::VCOUNTER_FLAG_OFFSET>(stat, bmap<uint16_t>(vCountMatch)));
+
+        if (vCountMatch && isBitSet<uint16_t, DISPSTAT::VCOUNTER_IRQ_ENABLE_OFFSET>(stat)) {
+            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_COUNTER_MATCH);
+        }
+
+        // update vcount
+        scanline.vCount = (scanline.vCount + 1) % 228;
+        regsRef.VCOUNT = le(scanline.vCount);
+    }
+
+    void LCDController::onHBlank()
+    {
+        // update stat
+        uint16_t stat = le(regsRef.DISPSTAT);
+        stat = bitSet<uint16_t, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t, false>()>(stat);
+        stat = bitSet<uint16_t, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t, true>()>(stat);
+        regsRef.DISPSTAT = le(stat);
+        scanline.vblanking = false;
+        scanline.hblanking = true;
+
+        // use regsRef as those settings are crucial timewise
+        if (isBitSet<uint16_t, DISPSTAT::HBLANK_IRQ_ENABLE_OFFSET>(stat))
+            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_H_BLANK);
+
+        // scanline.x = 0;
+        ++scanline.y;
+    }
+
+    void LCDController::onVBlank()
+    {
+        // update stat
+        uint16_t stat = le(regsRef.DISPSTAT);
+        stat = bitSet<uint16_t, DISPSTAT::VBLANK_FLAG_MASK, DISPSTAT::VBLANK_FLAG_OFFSET, bmap<uint16_t, true>()>(stat);
+        stat = bitSet<uint16_t, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t, false>()>(stat);
+        regsRef.DISPSTAT = le(stat);
+        scanline.vblanking = true;
+        scanline.hblanking = false;
+
+        // use regsRef as those settings are crucial timewise
+        if (isBitSet<uint16_t, DISPSTAT::VBLANK_IRQ_ENABLE_OFFSET>(stat))
+            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_BLANK);
+
+        scanline.y = 0;
+    }
+
+    void LCDController::clearBlankFlags()
+    {
+        /* clear stat */
+        uint16_t stat = le(regsRef.DISPSTAT);
+        stat = stat & ~((DISPSTAT::VBLANK_FLAG_MASK << DISPSTAT::VBLANK_FLAG_OFFSET) | (DISPSTAT::HBLANK_FLAG_MASK << DISPSTAT::HBLANK_FLAG_OFFSET));
+        regsRef.DISPSTAT = le(stat);
+        scanline.vblanking = false;
+        scanline.hblanking = false;
+    }
+
+    void LCDController::drawScanline()
+    {
+        regs = regsRef;
+        //If this bit is set, white lines are displayed.
+        if (le(regsRef.DISPCNT) & DISPCTL::FORCED_BLANK_MASK) {
+            color_t *outBuf = frameBuffer.pixels() + scanline.y * frameBuffer.getWidth();
+
+            for (int32_t x = 0; x < SCREEN_WIDTH; ++x)
+                outBuf[x] = WHITE;
+        } else {
+            renderer.drawScanline(scanline.y);
+        }
+    }
+#endif
 
     void LCDController::present()
     {

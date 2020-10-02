@@ -31,6 +31,16 @@ namespace gbaemu
         return "";
     }
 
+    const char *DMAGroup::startCondToStr(StartCondition condition) {
+        switch (condition) {
+            STRINGIFY_CASE_ID(NO_COND);
+            STRINGIFY_CASE_ID(WAIT_HBLANK);
+            STRINGIFY_CASE_ID(WAIT_VBLANK);
+            STRINGIFY_CASE_ID(SPECIAL);
+        }
+        return "";
+    }
+
     template <DMAGroup::DMAChannel channel>
     uint8_t DMAGroup::DMA<channel>::read8FromReg(uint32_t offset)
     {
@@ -78,20 +88,22 @@ namespace gbaemu
                         std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
                         std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << DMAGroup::countTypeToStr(srcCnt) << std::endl;
                         std::cout << "      Dest Addr:   0x" << std::hex << destAddr << " Type: " << DMAGroup::countTypeToStr(dstCnt) << std::endl;
+                        std::cout << "      Timing: " << DMAGroup::startCondToStr(condition) << std::endl;
                         std::cout << "      Words: 0x" << std::hex << count << std::endl;
                         std::cout << "      Repeat: " << repeat << std::endl;
                         std::cout << "      GamePak DRQ: " << gamePakDRQ << std::endl;
                         std::cout << "      32 bit mode: " << width32Bit << std::endl;
                         std::cout << "      IRQ on end: " << irqOnEnd << std::endl;);
 
+                    // Initialization takes at least 2 cycles
+                    info.cycleCount += 2;
+
                     // If eeprom does not yet know for sure which bus width it has we can determine it by passing DMA request to it!
                     if (channel == DMA3 && memory.getBackupType() == Memory::EEPROM_V && !memory.eeprom->knowsBitWidth()) {
 
                         // We only need changes for 14 Bit buswidth as we default to 8 bit
-                        Memory::MemoryRegion srcMemReg;
-                        memory.resolveAddr(srcAddr, nullptr, srcMemReg);
-
-                        if (srcMemReg == Memory::MemoryRegion::EEPROM_REGION) {
+                        memory.normalizeAddressRef(srcAddr, info);
+                        if (info.memReg == Memory::MemoryRegion::EEPROM_REGION) {
                             const constexpr uint32_t bus14BitReadExpectedCount = 17;
                             const constexpr uint32_t bus6BitReadExpectedCount = 9;
                             if (count == bus14BitReadExpectedCount) {
@@ -103,9 +115,8 @@ namespace gbaemu
                             }
                         }
 
-                        Memory::MemoryRegion dstMemReg;
-                        memory.resolveAddr(destAddr, nullptr, dstMemReg);
-                        if (dstMemReg == Memory::MemoryRegion::EEPROM_REGION) {
+                        memory.normalizeAddressRef(destAddr, info);
+                        if (info.memReg == Memory::MemoryRegion::EEPROM_REGION) {
                             const constexpr uint32_t bus14BitWriteExpectedCount = 81;
                             const constexpr uint32_t bus6BitWriteExpectedCount = 73;
                             if (count == bus14BitWriteExpectedCount) {
@@ -142,11 +153,11 @@ namespace gbaemu
                     state = SEQ_COPY;
 
                     if (width32Bit) {
-                        uint32_t data = memory.read32(srcAddr, &info, false, false, true);
-                        memory.write32(destAddr, data, &info, false);
+                        uint32_t data = memory.read32(srcAddr, info, false, false, true);
+                        memory.write32(destAddr, data, info, false);
                     } else {
-                        uint16_t data = memory.read16(srcAddr, &info, false, false, true);
-                        memory.write16(destAddr, data, &info, false);
+                        uint16_t data = memory.read16(srcAddr, info, false, false, true);
+                        memory.write16(destAddr, data, info, false);
                     }
 
                     --count;
@@ -162,11 +173,11 @@ namespace gbaemu
                         state = DONE;
                     } else {
                         if (width32Bit) {
-                            uint32_t data = memory.read32(srcAddr, &info, true, false, true);
-                            memory.write32(destAddr, data, &info, true);
+                            uint32_t data = memory.read32(srcAddr, info, true, false, true);
+                            memory.write32(destAddr, data, info, true);
                         } else {
-                            uint16_t data = memory.read16(srcAddr, &info, true, false, true);
-                            memory.write16(destAddr, data, &info, true);
+                            uint16_t data = memory.read16(srcAddr, info, true, false, true);
+                            memory.write16(destAddr, data, info, true);
                         }
 
                         --count;
@@ -178,7 +189,8 @@ namespace gbaemu
                 }
 
                 case DONE: {
-                    if (repeat) {
+                    // Handle edge case: repeat enabled but no start condition -> infinite DMA transfers
+                    if (repeat && condition != NO_COND) {
                         state = REPEAT;
                     } else {
                         // return to idle state

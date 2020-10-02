@@ -1,4 +1,5 @@
 #include "memory.hpp"
+#include "decode/inst.hpp"
 #include "lcd/lcd-controller.hpp"
 #include "logging.hpp"
 #include "util.hpp"
@@ -85,34 +86,100 @@ namespace gbaemu
         return ((addr >> 1) & 0xFFFF) | ((((addr + 2) >> 1) & 0xFFFF) << 16);
     }
 
-    uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction) const
+    template <uint8_t bytes>
+    uint8_t *Memory::resolveAddrRef(uint32_t &addr, InstructionExecutionInfo &execInfo) const
     {
-        MemoryRegion memReg;
-        const uint8_t *src = resolveAddrRef(addr, execInfo, memReg);
 
-        if (execInfo != nullptr) {
-            execInfo->cycleCount += memCycles16(addr >> 24, seq);
+        if (execInfo.resolvedAddr && execInfo.lowerBound <= addr && execInfo.upperBound >= (addr + bytes)) {
+            // We can reuse our previous efforts -> nothing to do here
+        } else {
+            // Memory region changed or was not yet resolved
+            normalizeAddressRef(addr, execInfo);
         }
 
-        if (readInstruction && memReg == BIOS && addr < getBiosSize()) {
-            // For instructions we are allowed to read from bios
-            src = bios + addr;
+        uint8_t *dst = execInfo.writeBaseAddr;
+
+        // We need to calculate the target address by considering the offset caused by this address
+        if (!execInfo.noOffset) {
+            dst += addr - execInfo.lowerBound;
         }
+
+        return dst;
+    }
+
+    template <bool read, uint8_t bytes>
+    const uint8_t *Memory::resolveAddrRef(uint32_t &addr, InstructionExecutionInfo &execInfo) const
+    {
+        static_assert(read == true);
+
+        if (execInfo.resolvedAddr && execInfo.lowerBound <= addr && execInfo.upperBound >= (addr + bytes)) {
+            // We can reuse our previous efforts -> nothing to do here
+        } else {
+            // Memory region changed or was not yet resolved
+            normalizeAddressRef(addr, execInfo);
+        }
+
+        const uint8_t *dst = execInfo.readBaseAddr;
+
+        // We need to calculate the target address by considering the offset caused by this address
+        if (!execInfo.noOffset) {
+            dst += addr - execInfo.lowerBound;
+        }
+
+        return dst;
+    }
+
+    uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq, bool readInstruction) const
+    {
+        uint32_t unchangedAddr = addr;
+        execInfo.cycleCount += memCycles16(extractMemoryRegion(unchangedAddr), seq);
+
+        const uint8_t *src = resolveAddrRef<true, sizeof(uint8_t)>(addr, execInfo);
 
         uint8_t currValue;
 
-        if (memReg == OUT_OF_ROM) {
-            currValue = readOutOfROM(addr);
-        } else if (memReg == IO_REGS) {
-            currValue = ioHandler.externalRead8(addr);
-        } else if (memReg == EEPROM_REGION) {
-            currValue = eeprom->read();
-        } else if (memReg == FLASH_REGION) {
-            currValue = flash->read(addr);
-        } else if (memReg == SRAM_REGION) {
-            ext_sram->read(addr & 0x00007FFF, reinterpret_cast<char *>(&currValue), 1);
-        } else {
-            currValue = src[0];
+        switch (execInfo.memReg) {
+            case UNUSED_MEMORY: {
+                currValue = readUnusedHandle();
+                // get the selected byte
+                currValue >>= ((addr & 3) << 3);
+                break;
+            }
+            case OUT_OF_ROM: {
+                // get the selected byte
+                currValue = readOutOfROM(unchangedAddr) >> ((unchangedAddr & 3) << 3);
+                break;
+            }
+            case IO_REGS: {
+                currValue = ioHandler.externalRead8(addr);
+                break;
+            }
+            case EEPROM_REGION: {
+                currValue = eeprom->read();
+                break;
+            }
+            case FLASH_REGION: {
+                currValue = flash->read(addr);
+                break;
+            }
+            case SRAM_REGION: {
+                ext_sram->read(addr & 0x00007FFF, reinterpret_cast<char *>(&currValue), 1);
+                break;
+            }
+            case BIOS: {
+                if (readInstruction && addr < getBiosSize()) {
+                    // For instructions we are allowed to read from bios
+                    src = bios + addr;
+                } else {
+                    // We need to apply the offset!
+                    src += addr & 3;
+                }
+                // Fall through to read the data
+            }
+            default: {
+                currValue = src[0];
+                break;
+            }
         }
 
 #ifdef DEBUG_CLI
@@ -137,46 +204,65 @@ namespace gbaemu
     Reads from forcibly aligned address "addr AND (NOT 3)", and does then rotate the data as "ROR (addr AND 3)*8". That effect is internally used by LDRB and LDRH opcodes (which do then mask-out the unused bits).
     The SWP opcode works like a combination of LDR and STR, that means, it does read-rotated, but does write-unrotated.
     */
-    uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction, bool dmaRequest) const
+    uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq, bool readInstruction, bool dmaRequest) const
     {
-        uint32_t unalignedPart = addr & 1;
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(1);
+        execInfo.cycleCount += memCycles16(extractMemoryRegion(addr), seq);
 
-        MemoryRegion memReg;
-
-        const uint8_t *src = resolveAddrRef(alignedAddr, execInfo, memReg);
-
-        if (execInfo != nullptr) {
-            execInfo->cycleCount += memCycles16(addr >> 24, seq);
-        }
-
-        if (readInstruction && memReg == BIOS && alignedAddr < getBiosSize()) {
-            // For instructions we are allowed to read from bios
-            src = bios + alignedAddr;
-        }
+        const uint8_t *src = resolveAddrRef<true, sizeof(uint16_t)>(alignedAddr, execInfo);
 
         uint16_t currValue;
 
-        if (memReg == OUT_OF_ROM) {
-            currValue = readOutOfROM(addr);
-        } else if (memReg == IO_REGS) {
-            currValue = ioHandler.externalRead16(alignedAddr);
-        } else if (memReg == EEPROM_REGION) {
-            if (dmaRequest) {
-                currValue = static_cast<uint16_t>(eeprom->read());
-            } else {
-                currValue = 0x1;
+        switch (execInfo.memReg) {
+            case UNUSED_MEMORY: {
+                currValue = readUnusedHandle();
+                // Get the selected HW
+                currValue >>= ((addr & 2) << 3);
+                break;
             }
-        } else if (memReg == FLASH_REGION) {
-            currValue = flash->read(addr | unalignedPart);
-            currValue |= (currValue << 8);
-        } else if (memReg == SRAM_REGION) {
-            uint8_t data;
-            ext_sram->read((addr | unalignedPart) & 0x00007FFF, reinterpret_cast<char *>(&data), 1);
-            currValue = data | (data << 8);
-        } else {
-            currValue = (static_cast<uint16_t>(src[0]) << 0) |
-                        (static_cast<uint16_t>(src[1]) << 8);
+            case OUT_OF_ROM: {
+                // Get the selected HW
+                currValue = readOutOfROM(addr) >> ((addr & 2) << 3);
+                break;
+            }
+            case IO_REGS: {
+                currValue = ioHandler.externalRead16(alignedAddr);
+                break;
+            }
+            case EEPROM_REGION: {
+                if (dmaRequest) {
+                    currValue = static_cast<uint16_t>(eeprom->read());
+                } else {
+                    currValue = 0x1;
+                }
+                break;
+            }
+            case FLASH_REGION: {
+                currValue = flash->read(addr);
+                currValue |= (currValue << 8);
+                break;
+            }
+            case SRAM_REGION: {
+                uint8_t data;
+                ext_sram->read(addr & 0x00007FFF, reinterpret_cast<char *>(&data), 1);
+                currValue = data | (data << 8);
+                break;
+            }
+            case BIOS: {
+                if (readInstruction && addr < getBiosSize()) {
+                    // For instructions we are allowed to read from bios
+                    src = bios + addr;
+                } else {
+                    // We need to apply the offset!
+                    src += addr & 2;
+                }
+                // Fall through to read the data
+            }
+            default: {
+                currValue = (static_cast<uint16_t>(src[0]) << 0) |
+                            (static_cast<uint16_t>(src[1]) << 8);
+                break;
+            }
         }
 
 #ifdef DEBUG_CLI
@@ -187,47 +273,59 @@ namespace gbaemu
         return currValue;
     }
 
-    uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq, bool readInstruction, bool dmaRequest) const
+    uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq, bool readInstruction, bool dmaRequest) const
     {
-        uint32_t unalignedPart = addr & 3;
         uint32_t alignedAddr = addr & ~static_cast<uint32_t>(3);
+        execInfo.cycleCount += memCycles32(extractMemoryRegion(addr), seq);
 
-        MemoryRegion memReg;
-        const uint8_t *src = resolveAddrRef(alignedAddr, execInfo, memReg);
+        const uint8_t *src = resolveAddrRef<true, sizeof(uint32_t)>(alignedAddr, execInfo);
 
-        if (execInfo != nullptr) {
-            execInfo->cycleCount += memCycles32(addr >> 24, seq);
-        }
-
-        if (readInstruction && memReg == BIOS && alignedAddr < getBiosSize()) {
+        if (readInstruction && execInfo.memReg == BIOS && alignedAddr < getBiosSize()) {
             // For instructions we are allowed to read from bios
             src = bios + alignedAddr;
         }
 
         uint32_t currValue;
 
-        if (memReg == OUT_OF_ROM) {
-            currValue = readOutOfROM(addr);
-        } else if (memReg == IO_REGS) {
-            currValue = ioHandler.externalRead32(alignedAddr);
-        } else if (memReg == EEPROM_REGION) {
-            if (dmaRequest) {
-                currValue = static_cast<uint32_t>(eeprom->read());
-            } else {
-                currValue = 0x1;
+        switch (execInfo.memReg) {
+            case UNUSED_MEMORY: {
+                currValue = readUnusedHandle();
+                break;
             }
-        } else if (memReg == FLASH_REGION) {
-            currValue = flash->read(addr | unalignedPart);
-            currValue |= (currValue << 8) | (currValue << 16) | (currValue << 24);
-        } else if (memReg == SRAM_REGION) {
-            uint8_t data;
-            ext_sram->read((addr | unalignedPart) & 0x00007FFF, reinterpret_cast<char *>(&data), 1);
-            currValue = data | (data << 8) | (data << 16) | (data << 24);
-        } else {
-            currValue = (static_cast<uint32_t>(src[0]) << 0) |
-                        (static_cast<uint32_t>(src[1]) << 8) |
-                        (static_cast<uint32_t>(src[2]) << 16) |
-                        (static_cast<uint32_t>(src[3]) << 24);
+            case OUT_OF_ROM: {
+                currValue = readOutOfROM(addr);
+                break;
+            }
+            case IO_REGS: {
+                currValue = ioHandler.externalRead32(alignedAddr);
+                break;
+            }
+            case EEPROM_REGION: {
+                if (dmaRequest) {
+                    currValue = static_cast<uint32_t>(eeprom->read());
+                } else {
+                    currValue = 0x1;
+                }
+                break;
+            }
+            case FLASH_REGION: {
+                currValue = flash->read(addr);
+                currValue |= (currValue << 8) | (currValue << 16) | (currValue << 24);
+                break;
+            }
+            case SRAM_REGION: {
+                uint8_t data;
+                ext_sram->read(addr & 0x00007FFF, reinterpret_cast<char *>(&data), 1);
+                currValue = data | (data << 8) | (data << 16) | (data << 24);
+                break;
+            }
+            default: {
+                currValue = (static_cast<uint32_t>(src[0]) << 0) |
+                            (static_cast<uint32_t>(src[1]) << 8) |
+                            (static_cast<uint32_t>(src[2]) << 16) |
+                            (static_cast<uint32_t>(src[3]) << 24);
+                break;
+            }
         }
 
 #ifdef DEBUG_CLI
@@ -238,34 +336,31 @@ namespace gbaemu
         return currValue;
     }
 
-    void Memory::write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq)
+    void Memory::write8(uint32_t addr, uint8_t value, InstructionExecutionInfo &execInfo, bool seq)
     {
-        MemoryRegion memReg;
-        auto dst = resolveAddrRef(addr, execInfo, memReg);
+        uint8_t cycles = memCycles16(extractMemoryRegion(addr), seq);
 
-        if (execInfo != nullptr) {
-            execInfo->cycleCount += memCycles16(addr >> 24, seq);
-        }
+        auto dst = resolveAddrRef<sizeof(uint8_t)>(addr, execInfo);
 
-        if (memReg == OUT_OF_ROM) {
+        execInfo.cycleCount += cycles;
+
+        if (execInfo.memReg == OUT_OF_ROM) {
             LOG_MEM(std::cout << "CRITICAL ERROR: trying to write8 ROM + outside of its bounds!" << std::endl;);
-            if (execInfo != nullptr) {
-                execInfo->hasCausedException = true;
-            }
-        } else if (memReg == IO_REGS) {
+            execInfo.hasCausedException = true;
+        } else if (execInfo.memReg == IO_REGS) {
             ioHandler.externalWrite8(addr, value);
-        } else if (memReg == EEPROM_REGION) {
+        } else if (execInfo.memReg == EEPROM_REGION) {
             eeprom->write(value);
-        } else if (memReg == FLASH_REGION) {
+        } else if (execInfo.memReg == FLASH_REGION) {
             flash->write(addr, value);
-        } else if (memReg == SRAM_REGION) {
+        } else if (execInfo.memReg == SRAM_REGION) {
             ext_sram->write(addr & 0x00007FFF, reinterpret_cast<const char *>(&value), 1);
         } else {
 
             //TODO is this legit?
             bool bitMapMode = (vram[0] & lcd::DISPCTL::BG_MODE_MASK) >= 4;
 
-            switch (memReg) {
+            switch (execInfo.memReg) {
                 case OAM: {
                     // Always ignored, only 16 bit & 32 bit allowed
                     return;
@@ -292,8 +387,10 @@ namespace gbaemu
                 //the new 8bit value to BOTH upper and lower 8bits of the addressed halfword,
                 // ie. "[addr AND NOT 1]=data*101h".
                 case BG_OBJ_RAM: { // Palette
+                    // Undo cycle count increment
+                    execInfo.cycleCount -= cycles;
                     // Written as halfword, same byte twice
-                    write16(addr & ~1, (static_cast<uint16_t>(value) << 8) | value, nullptr);
+                    write16(addr & ~1, (static_cast<uint16_t>(value) << 8) | value, execInfo);
                     break;
                 }
 
@@ -304,18 +401,15 @@ namespace gbaemu
         }
     }
 
-    void Memory::write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo, bool seq)
+    void Memory::write16(uint32_t addr, uint16_t value, InstructionExecutionInfo &execInfo, bool seq)
     {
         uint32_t unalignedPart = addr & 1;
 
         addr = addr & ~static_cast<uint32_t>(1);
 
-        MemoryRegion memReg;
-        auto dst = resolveAddrRef(addr, execInfo, memReg);
+        execInfo.cycleCount += memCycles16(extractMemoryRegion(addr), seq);
 
-        if (execInfo != nullptr) {
-            execInfo->cycleCount += memCycles16(addr >> 24, seq);
-        }
+        auto dst = resolveAddrRef<sizeof(uint16_t)>(addr, execInfo);
 
 #ifdef DEBUG_CLI
         if (memWatch.isAddressWatched(addr)) {
@@ -324,18 +418,16 @@ namespace gbaemu
         }
 #endif
 
-        if (memReg == OUT_OF_ROM) {
+        if (execInfo.memReg == OUT_OF_ROM) {
             LOG_MEM(std::cout << "CRITICAL ERROR: trying to write16 ROM + outside of its bounds!" << std::endl;);
-            if (execInfo != nullptr) {
-                execInfo->hasCausedException = true;
-            }
-        } else if (memReg == IO_REGS) {
+            execInfo.hasCausedException = true;
+        } else if (execInfo.memReg == IO_REGS) {
             ioHandler.externalWrite16(addr, value);
-        } else if (memReg == EEPROM_REGION) {
-            eeprom->write(value);
-        } else if (memReg == FLASH_REGION) {
-            flash->write(addr | unalignedPart, value >> (unalignedPart << 3));
-        } else if (memReg == SRAM_REGION) {
+        } else if (execInfo.memReg == EEPROM_REGION) {
+            eeprom->write(static_cast<uint8_t>(value));
+        } else if (execInfo.memReg == FLASH_REGION) {
+            flash->write(addr | unalignedPart, static_cast<uint8_t>(value >> (unalignedPart << 3)));
+        } else if (execInfo.memReg == SRAM_REGION) {
             const uint8_t data = value >> (unalignedPart << 3);
             ext_sram->write((addr | unalignedPart) & 0x00007FFF, reinterpret_cast<const char *>(&data), 1);
         } else {
@@ -344,17 +436,13 @@ namespace gbaemu
         }
     }
 
-    void Memory::write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo, bool seq)
+    void Memory::write32(uint32_t addr, uint32_t value, InstructionExecutionInfo &execInfo, bool seq)
     {
         uint32_t unalignedPart = addr & 3;
         addr = addr & ~static_cast<uint32_t>(3);
+        execInfo.cycleCount += memCycles32(extractMemoryRegion(addr), seq);
 
-        MemoryRegion memReg;
-        auto dst = resolveAddrRef(addr, execInfo, memReg);
-
-        if (execInfo != nullptr) {
-            execInfo->cycleCount += memCycles32(addr >> 24, seq);
-        }
+        auto dst = resolveAddrRef<sizeof(uint32_t)>(addr, execInfo);
 
 #ifdef DEBUG_CLI
         if (memWatch.isAddressWatched(addr)) {
@@ -363,18 +451,16 @@ namespace gbaemu
         }
 #endif
 
-        if (memReg == OUT_OF_ROM) {
+        if (execInfo.memReg == OUT_OF_ROM) {
             LOG_MEM(std::cout << "CRITICAL ERROR: trying to write32 ROM + outside of its bounds!" << std::endl;);
-            if (execInfo != nullptr) {
-                execInfo->hasCausedException = true;
-            }
-        } else if (memReg == IO_REGS) {
+            execInfo.hasCausedException = true;
+        } else if (execInfo.memReg == IO_REGS) {
             ioHandler.externalWrite32(addr, value);
-        } else if (memReg == EEPROM_REGION) {
+        } else if (execInfo.memReg == EEPROM_REGION) {
             eeprom->write(value);
-        } else if (memReg == FLASH_REGION) {
+        } else if (execInfo.memReg == FLASH_REGION) {
             flash->write(addr | unalignedPart, value >> (unalignedPart << 3));
-        } else if (memReg == SRAM_REGION) {
+        } else if (execInfo.memReg == SRAM_REGION) {
             const uint8_t data = value >> (unalignedPart << 3);
             ext_sram->write((addr | unalignedPart) & 0x00007FFF, reinterpret_cast<const char *>(&data), 1);
         } else {
@@ -415,40 +501,70 @@ namespace gbaemu
     https://mgba.io/2014/12/28/classic-nes/
     */
 
-#define PATCH_MEM_ADDR(addr, x)    \
-    case x:                        \
-        addr = (addr & x##_LIMIT); \
+#define COMBINE_MEM_ADDR(addr, x, storage, info) \
+    case x:                                      \
+        addr = (addr & x##_LIMIT);               \
+        info.lowerBound = x##_OFFSET;            \
+        info.upperBound = x##_LIMIT + 1;         \
+        info.readBaseAddr = storage;             \
+        info.writeBaseAddr = storage;            \
+        break
+#define COMBINE_MEM_ADDR_(addr, lim, off, storage, info) \
+    case lim:                                            \
+        addr = (addr & x##_LIMIT);                       \
+        info.lowerBound = off##_OFFSET;                  \
+        info.upperBound = lim##_LIMIT + 1;               \
+        info.readBaseAddr = storage;                     \
+        info.writeBaseAddr = storage;                    \
         break
 
-    uint32_t Memory::normalizeAddress(uint32_t addr, MemoryRegion &memReg) const
+    static const uint8_t noBackupMedia[] = {0xFF, 0xFF, 0xFF, 0xFF};
+
+    Memory::MemoryRegion Memory::extractMemoryRegion(uint32_t addr)
     {
-        normalizeAddressRef(addr, memReg);
+        return static_cast<MemoryRegion>((addr >> 24) & 0x0F);
+    }
+
+    uint32_t Memory::normalizeAddress(uint32_t addr, InstructionExecutionInfo &execInfo) const
+    {
+        normalizeAddressRef(addr, execInfo);
         return addr;
     }
 
-    void Memory::normalizeAddressRef(uint32_t &addr, MemoryRegion &memReg) const
+    void Memory::normalizeAddressRef(uint32_t &addr, InstructionExecutionInfo &execInfo) const
     {
-        memReg = static_cast<MemoryRegion>((addr >> 24) & 0x0F);
+        static uint8_t wasteMem[4];
+        static const uint8_t zeroMem[4] = {0};
 
-        addr = addr & 0x0FFFFFFF;
+        execInfo.memReg = extractMemoryRegion(addr);
+        execInfo.resolvedAddr = true;
+        execInfo.noOffset = false;
 
-        switch (memReg) {
-            PATCH_MEM_ADDR(addr, WRAM);
-            PATCH_MEM_ADDR(addr, IWRAM);
-            PATCH_MEM_ADDR(addr, BG_OBJ_RAM);
-            PATCH_MEM_ADDR(addr, OAM);
+        switch (execInfo.memReg) {
+            COMBINE_MEM_ADDR(addr, WRAM, wram, execInfo);
+            COMBINE_MEM_ADDR(addr, IWRAM, iwram, execInfo);
+            COMBINE_MEM_ADDR(addr, BG_OBJ_RAM, bg_obj_ram, execInfo);
+            COMBINE_MEM_ADDR(addr, OAM, oam, execInfo);
+
             case VRAM: {
                 // Even though VRAM is sized 96K (64K+32K),
-                //it is repeated in steps of 128K
-                //(64K+32K+32K, the two 32K blocks itself being mirrors of each other)
+                // it is repeated in steps of 128K
+                // (64K+32K+32K, the two 32K blocks itself being mirrors of each other)
 
                 // First handle 128K mirroring!
                 addr &= VRAM_OFFSET | ((static_cast<uint32_t>(128) << 10) - 1);
 
                 // Now lets handle upper 32K mirroring! (subtract 32K if >= 96K (last 32K block))
                 addr -= (addr >= (VRAM_OFFSET | (static_cast<uint32_t>(96) << 10)) ? (static_cast<uint32_t>(32) << 10) : 0);
+
+                execInfo.readBaseAddr = vram;
+                execInfo.writeBaseAddr = vram;
+                execInfo.lowerBound = VRAM_OFFSET;
+                execInfo.upperBound = VRAM_LIMIT + 1;
+
                 break;
             }
+
             case EXT_SRAM_:
             case EXT_SRAM: {
                 // The 64K SRAM area is mirrored across the whole 32MB area at E000000h-FFFFFFFh,
@@ -460,10 +576,19 @@ namespace gbaemu
                 if (backupType == SRAM_V) {
                     // Handle 32K SRAM chips mirroring: (subtract 32K if >= 32K (last 32K block))
                     addr -= (addr >= (EXT_SRAM_OFFSET | (static_cast<uint32_t>(32) << 10)) ? (static_cast<uint32_t>(32) << 10) : 0);
-                    memReg = SRAM_REGION;
+                    execInfo.memReg = SRAM_REGION;
+                    //TODO if mirroring is used this will be evaluated over and over again... maybe move mirroring to implementation!
+                    execInfo.upperBound = (EXT_SRAM_OFFSET | (static_cast<uint32_t>(32) << 10));
                 } else if (backupType >= FLASH_V) {
-                    memReg = FLASH_REGION;
+                    execInfo.memReg = FLASH_REGION;
+                    execInfo.upperBound = 0x10000000;
+                } else {
+                    execInfo.upperBound = 0x10000000;
                 }
+                execInfo.readBaseAddr = noBackupMedia;
+                execInfo.writeBaseAddr = wasteMem;
+                execInfo.lowerBound = EXT_SRAM_OFFSET;
+                execInfo.noOffset = true;
                 break;
             }
 
@@ -478,12 +603,22 @@ namespace gbaemu
                     // accessed anywhere at D000000h-DFFFFFFh.
                     //  => So basically the whole EXT3 now can be used for the EEPROM
                     if (getRomSize() <= 0x01000000) {
-                        memReg = EEPROM_REGION;
-                        addr = internalAddress;
-                        // In all other cases the EEPROM can be accessed from DFFFF00h..DFFFFFFh.
+                        execInfo.memReg = EEPROM_REGION;
+                        execInfo.lowerBound = static_cast<uint32_t>(EXT_ROM3_) << 24;
+                        execInfo.upperBound = EXT_ROM3_LIMIT + 1;
+                        execInfo.readBaseAddr = noBackupMedia;
+                        execInfo.writeBaseAddr = wasteMem;
+                        execInfo.noOffset = true;
+                        break;
                     } else if (internalAddress >= 0x00FFFF00) {
-                        memReg = EEPROM_REGION;
-                        addr = internalAddress & 0x000000FF;
+                        // In all other cases the EEPROM can be accessed from DFFFF00h..DFFFFFFh.
+                        execInfo.memReg = EEPROM_REGION;
+                        execInfo.lowerBound = 0x0DFFFF00;
+                        execInfo.upperBound = EXT_ROM3_LIMIT + 1;
+                        execInfo.readBaseAddr = noBackupMedia;
+                        execInfo.writeBaseAddr = wasteMem;
+                        execInfo.noOffset = true;
+                        break;
                     }
                 }
 
@@ -494,149 +629,61 @@ namespace gbaemu
             case EXT_ROM1:
             case EXT_ROM2_:
             case EXT_ROM2: {
-                //TODO proper ROM mirroring... cause this is shady AF
-                /*
-                uint32_t romSizeLog2 = getRomSize();
-                // Uff: https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-                romSizeLog2--;
-                romSizeLog2 |= romSizeLog2 >> 1;
-                romSizeLog2 |= romSizeLog2 >> 2;
-                romSizeLog2 |= romSizeLog2 >> 4;
-                romSizeLog2 |= romSizeLog2 >> 8;
-                romSizeLog2 |= romSizeLog2 >> 16;
-                romSizeLog2++;
-                */
-                uint32_t romOffset = ((addr & 0x00FFFFFF) /* & (romSizeLog2 - 1)*/);
-                if (romOffset >= getRomSize()) {
-                    LOG_MEM(std::cout << "ERROR: trying to access rom out of bounds! Addr: 0x" << std::hex << addr << std::endl;);
-                    // Indicate out of ROM!!!
-                    memReg = OUT_OF_ROM;
-                }
+                uint32_t romOffset = addr & 0x00FFFFFF;
                 addr = romOffset + EXT_ROM_OFFSET;
+                if (romOffset >= getRomSize()) {
+                    LOG_MEM(std::cout << "WARNING: trying to access rom out of bounds! Addr: 0x" << std::hex << addr << std::endl;);
+                    // Indicate out of ROM!!!
+                    execInfo.memReg = OUT_OF_ROM;
+                    execInfo.readBaseAddr = zeroMem;
+                    execInfo.writeBaseAddr = wasteMem;
+                    execInfo.noOffset = true;
+                    execInfo.lowerBound = EXT_ROM_OFFSET + getRomSize();
+                    execInfo.upperBound = EXT_ROM2_LIMIT + 1;
+                } else {
+                    execInfo.readBaseAddr = rom;
+                    execInfo.writeBaseAddr = rom;
+                    execInfo.lowerBound = EXT_ROM_OFFSET;
+                    execInfo.upperBound = EXT_ROM_OFFSET + getRomSize();
+                }
                 break;
             }
-            // IO is not mirrored
+
             case IO_REGS:
-            // Bios is not mirrored
+                //TODO we might want to replace ioHandler with resolving here & use std::functions for read & write instead of bare uint8_t pointers in InstructionExecutionInfo
+                // IO is not mirrored
+                execInfo.readBaseAddr = zeroMem;
+                execInfo.writeBaseAddr = wasteMem;
+                execInfo.lowerBound = IO_REGS_OFFSET;
+                execInfo.upperBound = BG_OBJ_RAM_OFFSET;
+                execInfo.noOffset = true;
+                break;
+
             case BIOS:
+                // Bios is not mirrored but limited!
+                if (addr < BIOS_LIMIT) {
+                    execInfo.readBaseAddr = biosState;
+                    execInfo.writeBaseAddr = wasteMem;
+                    execInfo.lowerBound = BIOS_OFFSET;
+                    execInfo.upperBound = BIOS_LIMIT + 1;
+                    execInfo.noOffset = true;
+                    break;
+                }
+
             default:
+                // invalid address!
+                LOG_MEM(std::cout << "WARNING: trying to access unused memory address: 0x" << std::hex << addr << std::endl;);
+                // execInfo.hasCausedException = true;
+                execInfo.noOffset = true;
+                execInfo.resolvedAddr = false;
+                execInfo.memReg = UNUSED_MEMORY;
+
+                execInfo.readBaseAddr = zeroMem;
+                execInfo.writeBaseAddr = wasteMem;
+                execInfo.lowerBound = addr;
+                execInfo.upperBound = addr + 1;
                 break;
         }
-    }
-
-#define COMBINE_MEM_ADDR(addr, x, storage) \
-    case x:                                \
-        return (storage + ((addr)-x##_OFFSET))
-#define COMBINE_MEM_ADDR_(addr, lim, off, storage) \
-    case lim:                                      \
-        return (storage + ((addr)-off##_OFFSET))
-
-    static const uint8_t noBackupMedia[] = {0xFF, 0xFF, 0xFF, 0xFF};
-
-    const uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const
-    {
-        return resolveAddrRef(addr, execInfo, memReg);
-    }
-
-    const uint8_t *Memory::resolveAddrRef(uint32_t &addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const
-    {
-        static const uint8_t zeroMem[4] = {0};
-
-        normalizeAddressRef(addr, memReg);
-
-        switch (memReg) {
-            //COMBINE_MEM_ADDR(addr, BIOS, bios);
-            COMBINE_MEM_ADDR(addr, WRAM, wram);
-            COMBINE_MEM_ADDR(addr, IWRAM, iwram);
-            COMBINE_MEM_ADDR(addr, BG_OBJ_RAM, bg_obj_ram);
-            COMBINE_MEM_ADDR(addr, VRAM, vram);
-            COMBINE_MEM_ADDR(addr, OAM, oam);
-            case SRAM_REGION:
-            case FLASH_REGION:
-            case EXT_SRAM:
-            case EXT_SRAM_:
-                return noBackupMedia;
-
-            case OUT_OF_ROM:
-            case EEPROM_REGION:
-            case EXT_ROM1_:
-            case EXT_ROM1:
-            case EXT_ROM2_:
-            case EXT_ROM2:
-            case EXT_ROM3_:
-                COMBINE_MEM_ADDR_(addr, EXT_ROM3, EXT_ROM, rom);
-            case BIOS:
-                return biosState;
-            case IO_REGS:
-                LOG_MEM(
-                    if (addr >= IO_REGS_LIMIT) {
-                        std::cout << "ERROR: read invalid io reg address: 0x" << std::hex << addr << std::endl;
-                    });
-                return zeroMem;
-        }
-
-        // invalid address!
-        LOG_MEM(std::cout << "ERROR: trying to access invalid memory address: " << std::hex << addr << std::endl;);
-        if (execInfo != nullptr) {
-            execInfo->hasCausedException = true;
-        } else {
-            LOG_MEM(std::cout << "CRITICAL ERROR: could not indicate that an exception has been caused!" << std::endl;);
-        }
-        return zeroMem;
-    }
-
-    uint8_t *Memory::resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg)
-    {
-        return resolveAddrRef(addr, execInfo, memReg);
-    }
-
-    uint8_t *Memory::resolveAddrRef(uint32_t &addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg)
-    {
-        static uint8_t wasteMem[4];
-
-        normalizeAddressRef(addr, memReg);
-
-        switch (memReg) {
-            //COMBINE_MEM_ADDR(addr, BIOS, bios);
-            COMBINE_MEM_ADDR(addr, WRAM, wram);
-            COMBINE_MEM_ADDR(addr, IWRAM, iwram);
-            COMBINE_MEM_ADDR(addr, BG_OBJ_RAM, bg_obj_ram);
-            COMBINE_MEM_ADDR(addr, VRAM, vram);
-            COMBINE_MEM_ADDR(addr, OAM, oam);
-            case SRAM_REGION:
-            case FLASH_REGION:
-            case EXT_SRAM:
-            case EXT_SRAM_:
-                return wasteMem;
-
-            case OUT_OF_ROM:
-            case EEPROM_REGION:
-            case EXT_ROM1_:
-            case EXT_ROM1:
-            case EXT_ROM2_:
-            case EXT_ROM2:
-            case EXT_ROM3_:
-                COMBINE_MEM_ADDR_(addr, EXT_ROM3, EXT_ROM, rom);
-            case BIOS:
-                LOG_MEM(std::cout << "ERROR: trying to write bios mem: 0x" << std::hex << addr << std::endl;);
-                // Read only!
-                return wasteMem;
-            case IO_REGS:
-                LOG_MEM(
-                    if (addr >= IO_REGS_LIMIT) {
-                        std::cout << "ERROR: write invalid io reg address: 0x" << std::hex << addr << std::endl;
-                    });
-                return wasteMem;
-        }
-
-        // invalid address!
-        LOG_MEM(std::cout << "ERROR: trying to access invalid memory address: " << std::hex << addr << std::endl;);
-        if (execInfo != nullptr) {
-            execInfo->hasCausedException = true;
-        } else {
-            LOG_MEM(std::cout << "CRITICAL ERROR: could not indicate that an exception has been caused!" << std::endl;);
-        }
-        return wasteMem;
     }
 
     void Memory::scanROMForBackupID()

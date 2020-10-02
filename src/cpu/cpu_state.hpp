@@ -58,17 +58,31 @@ namespace gbaemu
         CPUMode mode;
         uint32_t *const *currentRegs;
 
-      public:
         /* pipeline */
         uint32_t pipeline[2];
 
+      public:
+
         Memory memory;
+
+        InstructionExecutionInfo cpuInfo;
+        InstructionExecutionInfo dmaInfo;
+
+        // Execute phase variables
+        //TODO this can probably replace the additional N & S cycle fields
+        InstructionExecutionInfo fetchInfo;
+
+      private:
+        uint32_t handleReadUnused() const;
 
       public:
         CPUState();
         ~CPUState();
 
         void reset();
+
+        uint32_t normalizePC(bool thumbMode);
+        uint32_t propagatePipeline(uint32_t pc);
 
         CPUMode getCPUMode() const { return mode; }
         bool updateCPUMode();

@@ -27,39 +27,40 @@ namespace gbaemu::lcd
         }
     }
 
-    color_t ColorEffects::apply(color_t first, color_t second) const
+    std::function<color_t(color_t, color_t)> ColorEffects::getBlendingFunction() const
     {
-        color_t finalColor = 0;
-
-        if (effect != BLDCNT::AlphaBlending)
-            return first;
-
         switch (effect) {
             case BLDCNT::None:
-                finalColor = first;
-                break;
-            case BLDCNT::BrightnessIncrease: {
-                color_t inverted = colSub(0xFFFFFFFF, first);
-                color_t scaledEvy = colScale(inverted, evy);
-                finalColor = colAdd(first, scaledEvy);
-                break;
-            }
-            case BLDCNT::BrightnessDecrease: {
-                color_t scaledEvy = colScale(first, evy);
-                finalColor = colSub(first, scaledEvy);
-                break;
-            }
+                return [](color_t first, color_t second) -> color_t {
+                    return first;
+                };
             case BLDCNT::AlphaBlending:
-                for (uint32_t i = 0; i < 4; ++i) {
-                    color_t top = (first >> (i * 8)) & 0xFF;
-                    color_t bot = (second >> (i * 8)) & 0xFF;
-                    color_t chan = std::min(255u, top * eva / 16 + bot * evb / 16);
-                    finalColor |= chan << (i * 8);
-                }
-                break;
-        }
+                return [&](color_t first, color_t second) -> color_t {
+                    color_t finalColor = 0;
 
-        return finalColor;
+                    for (uint32_t i = 0; i < 4; ++i) {
+                        color_t top = (first >> (i * 8)) & 0xFF;
+                        color_t bot = (second >> (i * 8)) & 0xFF;
+                        color_t chan = std::min(255u, top * eva / 16 + bot * evb / 16);
+                        finalColor |= chan << (i * 8);
+                    }
+
+                    return finalColor;
+                };
+            case BLDCNT::BrightnessIncrease:
+                return [&](color_t first, color_t second) -> color_t {
+                    color_t inverted = colSub(0xFFFFFFFF, first);
+                    color_t scaledEvy = colScale(inverted, evy);
+                    return colAdd(first, scaledEvy);
+                };
+            case BLDCNT::BrightnessDecrease:
+                return [&](color_t first, color_t second) -> color_t {
+                    color_t scaledEvy = colScale(first, evy);
+                    return colSub(first, scaledEvy);
+                };
+            default:
+                throw std::runtime_error("Invalid color effect.");
+        }
     }
 
     bool ColorEffects::secondColorRequired() const

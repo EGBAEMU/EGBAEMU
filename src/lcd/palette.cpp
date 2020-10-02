@@ -15,9 +15,8 @@ namespace gbaemu::lcd
 
     void LCDColorPalette::loadPalette(Memory &mem)
     {
-        Memory::MemoryRegion memReg;
-        bgPalette = reinterpret_cast<uint16_t *>(mem.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET, nullptr, memReg));
-        objPalette = reinterpret_cast<uint16_t *>(mem.resolveAddr(gbaemu::Memory::BG_OBJ_RAM_OFFSET + 0x200, nullptr, memReg));
+        bgPalette = reinterpret_cast<uint16_t *>(mem.bg_obj_ram);
+        objPalette = reinterpret_cast<uint16_t *>(mem.bg_obj_ram + 0x200);
     }
 
     color_t LCDColorPalette::getBgColor(uint32_t index) const

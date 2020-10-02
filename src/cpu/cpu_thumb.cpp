@@ -21,8 +21,9 @@ namespace gbaemu
             *currentRegs[regs::PC_OFFSET] = *currentRegs[regs::LR_OFFSET] + extendedAddr;
             *currentRegs[regs::LR_OFFSET] = (pcVal + 2) | 1;
 
+            // pipeline flush -> additional cycles needed
             // This is a branch instruction so we need to consider self branches!
-            cpuInfo.forceBranch = true;
+            state.cpuInfo.forceBranch = true;
         } else {
             // First instruction
             extendedAddr <<= 12;
@@ -30,10 +31,6 @@ namespace gbaemu
             // Apply sign extension!
             extendedAddr = signExt<int32_t, uint32_t, 23>(extendedAddr);
             *currentRegs[regs::LR_OFFSET] = *currentRegs[regs::PC_OFFSET] + 4 + extendedAddr;
-
-            // pipeline flush -> additional cycles needed
-            cpuInfo.additionalProgCyclesN = 1;
-            cpuInfo.additionalProgCyclesS = 1;
         }
     }
 
@@ -42,12 +39,8 @@ namespace gbaemu
         state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(state.getCurrentPC() + 4 + static_cast<int32_t>(offset) * 2);
 
         // Unconditional branches take 2S + 1N
-
-        cpuInfo.additionalProgCyclesN = 1;
-        cpuInfo.additionalProgCyclesS = 1;
-
         // This is a branch instruction so we need to consider self branches!
-        cpuInfo.forceBranch = true;
+        state.cpuInfo.forceBranch = true;
     }
 
     void CPU::handleThumbConditionalBranch(uint8_t cond, int8_t offset)
@@ -59,11 +52,8 @@ namespace gbaemu
             state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(state.getCurrentPC()) + 4 + (static_cast<int32_t>(offset) * 2));
 
             // If branch executed: 2S+1N
-            cpuInfo.additionalProgCyclesN = 1;
-            cpuInfo.additionalProgCyclesS = 1;
-
             // This is a branch instruction so we need to consider self branches!
-            cpuInfo.forceBranch = true;
+            state.cpuInfo.forceBranch = true;
         }
     }
 
@@ -143,12 +133,11 @@ namespace gbaemu
 
         auto currentRegs = state.getCurrentRegs();
 
-        uint32_t rsValue = *currentRegs[rs] + (rs == 15 ? 4 : 0);
-        uint32_t rdValue = *currentRegs[rd] + (rd == 15 ? 4 : 0);
+        uint32_t rsValue = *currentRegs[rs] + (rs == regs::PC_OFFSET ? 4 : 0);
+        uint32_t rdValue = *currentRegs[rd] + (rd == regs::PC_OFFSET ? 4 : 0);
 
-        if (rd == 15 && (id == ADD || id == MOV)) {
-            cpuInfo.additionalProgCyclesN = 1;
-            cpuInfo.additionalProgCyclesS = 1;
+        if (rd == regs::PC_OFFSET && (id == ADD || id == MOV)) {
+            state.cpuInfo.forceBranch = true;
         }
 
         switch (id) {
@@ -189,11 +178,9 @@ namespace gbaemu
 
                 // Change the PC to the address given by rs. Note that we have to mask out the thumb switch bit.
                 state.accessReg(regs::PC_OFFSET) = rsValue & ~1;
-                cpuInfo.additionalProgCyclesN = 1;
-                cpuInfo.additionalProgCyclesS = 1;
 
                 // This is a branch instruction so we need to consider self branches!
-                cpuInfo.forceBranch = true;
+                state.cpuInfo.forceBranch = true;
 
                 break;
             }

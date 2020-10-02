@@ -19,7 +19,7 @@ namespace gbaemu::arm
         template <ARMInstructionCategory cat, InstructionID id, typename... Args>
         void operator()(Args... args)
         {
-            ss /*<< '(' << conditionCodeToString(condition) << ") "*/ << instructionIDToString(id);
+            ss << instructionIDToString(id);
             disas<cat>(id, args...);
         }
     };

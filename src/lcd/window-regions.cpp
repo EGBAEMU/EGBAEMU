@@ -5,7 +5,45 @@
 
 namespace gbaemu::lcd
 {
-    void WindowRegion::load(const LCDIORegs &regs)
+    std::string WindowRegion::toString() const
+    {
+        std::stringstream ss;
+        ss << std::boolalpha << "id: ";
+
+        switch (id) {
+            case WIN0:
+                ss << "WIN0";
+                break;
+            case WIN1:
+                ss << "WIN1";
+                break;
+            case OBJ_WIN:
+                ss << "OBJ";
+                break;
+            case OUTSIDE:
+                ss << "OUTSIDE";
+                break;
+            case DEFAULT_WIN:
+                ss << "DEFAULT_WIN";
+                break;
+            default:
+                throw std::runtime_error("Invalid window id!");
+        }
+
+        ss << '\n';
+
+        /*
+        for (size_t i = 0; i < bg.size(); ++i)
+            ss << "bg " << i << ": " << bg[i];
+
+        ss << "obj enabled: " << obj << '\n';
+        ss << "color effects enabled: " << colorEffect;
+         */
+
+        return ss.str();
+    }
+
+    void NormalWindow::load(const LCDIORegs &regs)
     {
         switch (id) {
             case WIN0:
@@ -14,14 +52,8 @@ namespace gbaemu::lcd
             case WIN1:
                 enabled = isBitSet<uint16_t, 14>(le(regs.DISPCNT));
                 break;
-            case OBJ_WIN:
-                enabled = isBitSet<uint16_t, 15>(le(regs.DISPCNT));
-                break;
-            case OUTSIDE:
-                enabled = isBitSet<uint16_t, 13>(le(regs.DISPCNT)) ||
-                          isBitSet<uint16_t, 14>(le(regs.DISPCNT)) ||
-                          isBitSet<uint16_t, 15>(le(regs.DISPCNT));
-                break;
+            default:
+                throw std::runtime_error("Invalid window id!");
         }
 
         if (!enabled)
@@ -37,134 +69,106 @@ namespace gbaemu::lcd
             winv = le(regs.WIN1V);
         }
 
-        if (id == WIN0 || id == WIN1) {
-            right = std::min<uint16_t>(SCREEN_WIDTH, bitGet<uint16_t>(winh, 0xFF, 0));
-            bottom = std::min<uint16_t>(SCREEN_HEIGHT, bitGet<uint16_t>(winv, 0xFF, 0));
-            left = std::min<uint16_t>(right, bitGet<uint16_t>(winh, 0xFF, 8));
-            top = std::min<uint16_t>(bottom, bitGet<uint16_t>(winv, 0xFF, 8));
+        rect.right = std::min<uint16_t>(SCREEN_WIDTH, bitGet<uint16_t>(winh, 0xFF, 0));
+        rect.bottom = std::min<uint16_t>(SCREEN_HEIGHT, bitGet<uint16_t>(winv, 0xFF, 0));
+        rect.left = std::min<uint16_t>(rect.right, bitGet<uint16_t>(winh, 0xFF, 8));
+        rect.top = std::min<uint16_t>(rect.bottom, bitGet<uint16_t>(winv, 0xFF, 8));
+
+        uint16_t control = le(regs.WININ);
+
+        if (id == WIN1) {
+            flag = createFlag(isBitSet<uint16_t,  8>(control),
+                              isBitSet<uint16_t,  9>(control),
+                              isBitSet<uint16_t, 10>(control),
+                              isBitSet<uint16_t, 11>(control),
+                              isBitSet<uint16_t, 12>(control),
+                              isBitSet<uint16_t, 13>(control));
         } else {
-            left = 0;
-            right = 0;
-            top = 0;
-            bottom = 0;
+            flag = createFlag(isBitSet<uint16_t, 0>(control),
+                              isBitSet<uint16_t, 1>(control),
+                              isBitSet<uint16_t, 2>(control),
+                              isBitSet<uint16_t, 3>(control),
+                              isBitSet<uint16_t, 4>(control),
+                              isBitSet<uint16_t, 5>(control));
         }
-
-        uint16_t control;
-        int32_t maskOff = 0;
-
-        if (id == WIN0 || id == WIN1)
-            control = le(regs.WININ);
-        else
-            control = le(regs.WINOUT);
-
-        if (id == WIN1 || id == OBJ_WIN)
-            maskOff = 8;
-
-        for (int32_t i = 0; i < 4; ++i)
-            bg[i] = bitGet<uint16_t>(control, WININOUT::ENABLE_MASK, i + maskOff);
-
-        obj = bitGet<uint16_t>(control, WININOUT::ENABLE_MASK, 4 + maskOff);
-        colorEffect = bitGet<uint16_t>(control, WININOUT::ENABLE_MASK, 5 + maskOff);
     }
 
-    std::string WindowRegion::toString() const
+    bool NormalWindow::inside(int32_t x, int32_t y) const noexcept
     {
-        std::stringstream ss;
-        ss << "id: ";
-
-        switch (id) {
-            case WIN0:
-                ss << "WIN0";
-                break;
-            case WIN1:
-                ss << "WIN1";
-                break;
-            case OBJ_WIN:
-                ss << "OBJ";
-                break;
-            case OUTSIDE:
-                ss << "OUTSIDE";
-                break;
-        }
-
-        ss << '\n';
-        ss << "left: " << left << '\n';
-        ss << "right: " << right << '\n';
-        ss << "top: " << top << '\n';
-        ss << "bottom: " << bottom;
-
-        return ss.str();
+        return rect.inside(x, y);
     }
 
-    bool WindowRegion::inside(int32_t x, int32_t y) const noexcept
+    void OBJWindow::load(const LCDIORegs &regs)
     {
-        return left <= x && x < right && top <= y && y < bottom;
+        enabled = isBitSet<uint16_t, 15>(le(regs.DISPCNT));
+
+        if (!enabled)
+            return;
+
+        uint16_t control = le(regs.WINOUT);
+
+        flag = createFlag(isBitSet<uint16_t,  8>(control),
+                          isBitSet<uint16_t,  9>(control),
+                          isBitSet<uint16_t, 10>(control),
+                          isBitSet<uint16_t, 11>(control),
+                          isBitSet<uint16_t, 12>(control),
+                          isBitSet<uint16_t, 13>(control));
     }
 
-    bool WindowFeature::anyWindowEnabled() const
+    bool OBJWindow::inside(int32_t x, int32_t y) const noexcept
     {
-        return windows[0].enabled ||
-               windows[1].enabled ||
-               windows[2].enabled ||
-               windows[3].enabled;
+        return objLayer->scanline[x].color != TRANSPARENT;
     }
 
-    void WindowFeature::composeTrivialScanline(const std::array<std::shared_ptr<Layer>, 8> &layers, color_t *target)
+    void OutsideWindow::load(const LCDIORegs &regs)
     {
-        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
-            color_t finalColor = backdropColor;
+        /* TODO: Maybe make enabled as default. */
+        enabled = isBitSet<uint16_t, 13>(le(regs.DISPCNT)) ||
+            isBitSet<uint16_t, 14>(le(regs.DISPCNT)) ||
+            isBitSet<uint16_t, 15>(le(regs.DISPCNT));
 
-            /*
-                ------------------- layer 0
-                ------------------- layer 1
-                ------------------- layer 2
-                ------------------- layer 3
+        if (!enabled)
+            return;
 
-                If the top most non-transparent pixel is not used as a first target draw it without effects.
+        uint16_t control = le(regs.WINOUT);
 
-
-             */
-
-            /* TODO: put finalColor in final scanline */
-            target[x] = finalColor;
-        }
+        flag = createFlag(isBitSet<uint16_t, 0>(control),
+                          isBitSet<uint16_t, 1>(control),
+                          isBitSet<uint16_t, 2>(control),
+                          isBitSet<uint16_t, 3>(control),
+                          isBitSet<uint16_t, 4>(control),
+                          isBitSet<uint16_t, 5>(control));
     }
 
     WindowFeature::WindowFeature()
     {
-        windows[0].id = WIN0;
-        windows[1].id = WIN1;
-        windows[2].id = OBJ_WIN;
-        windows[3].id = OUTSIDE;
+        normalWindows[0].id = WIN0;
+        normalWindows[1].id = WIN1;
+        objWindow.id = OBJ_WIN;
+        outsideWindow.id = OUTSIDE;
     }
 
-    void WindowFeature::load(const LCDIORegs &regs, color_t bdColor)
+    void WindowFeature::load(const LCDIORegs &regs, int32_t y, color_t bdColor)
     {
-        for (auto &win : windows)
-            win.load(regs);
+        normalWindows[0].load(regs);
+        normalWindows[1].load(regs);
+        objWindow.load(regs);
+        outsideWindow.load(regs);
+
+        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+            if (normalWindows[0].enabled && normalWindows[0].inside(x, y))
+                enabledMask.mask[x] = normalWindows[0].flag;
+            else if (normalWindows[1].enabled && normalWindows[1].inside(x, y))
+                enabledMask.mask[x] = normalWindows[1].flag;
+            else if (objWindow.enabled && objWindow.inside(x, y))
+                enabledMask.mask[x] = objWindow.flag;
+            else if (outsideWindow.enabled)
+                enabledMask.mask[x] = outsideWindow.flag;
+            else
+                enabledMask.mask[x] = 0xFF;
+        }
 
         colorEffects.load(regs);
         backdropColor = bdColor;
-    }
-
-    const WindowRegion &WindowFeature::getActiveWindow(int32_t x, int32_t y) const
-    {
-        for (const auto &win : windows)
-            if (win.inside(x, y))
-                return win;
-
-        return *windows.crbegin();
-    }
-
-    void WindowFeature::composeScanline(const std::array<std::shared_ptr<Layer>, 8> &layers, color_t *target)
-    {
-        /*
-        if (!anyWindowEnabled()) {
-            composeTrivialScanline(layers);
-        } else {
-
-        }
-         */
-        composeTrivialScanline(layers, target);
     }
 } // namespace gbaemu::lcd
