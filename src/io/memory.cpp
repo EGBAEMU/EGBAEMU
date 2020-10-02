@@ -424,9 +424,9 @@ namespace gbaemu
         } else if (execInfo.memReg == IO_REGS) {
             ioHandler.externalWrite16(addr, value);
         } else if (execInfo.memReg == EEPROM_REGION) {
-            eeprom->write(value);
+            eeprom->write(static_cast<uint8_t>(value));
         } else if (execInfo.memReg == FLASH_REGION) {
-            flash->write(addr | unalignedPart, value >> (unalignedPart << 3));
+            flash->write(addr | unalignedPart, static_cast<uint8_t>(value >> (unalignedPart << 3)));
         } else if (execInfo.memReg == SRAM_REGION) {
             const uint8_t data = value >> (unalignedPart << 3);
             ext_sram->write((addr | unalignedPart) & 0x00007FFF, reinterpret_cast<const char *>(&data), 1);
