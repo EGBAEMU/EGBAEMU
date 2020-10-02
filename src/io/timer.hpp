@@ -28,6 +28,7 @@ namespace gbaemu
           400010Eh  2    R/W  TM3CNT_H  Timer 3 Control
           4000110h       -    -         Not used
         */
+        template <uint8_t id>
         class Timer
         {
           private:
@@ -48,13 +49,13 @@ namespace gbaemu
 
             Memory &memory;
             InterruptHandler &irqHandler;
-            Timer *const nextTimer;
-            const uint8_t id;
+            Timer<(id < 3) ? id + 1 : id> *const nextTimer;
+
+            uint8_t &timEnableBitset;
 
             uint32_t counter;
             uint32_t overflowVal;
             uint8_t preShift;
-            bool nextActive;
             bool active;
             bool countUpTiming;
             bool irq;
@@ -62,7 +63,7 @@ namespace gbaemu
           public:
             void step(uint32_t cycles);
 
-            Timer(Memory &memory, InterruptHandler &irqHandler, uint8_t id, Timer *nextTimer);
+            Timer(Memory &memory, InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, uint8_t &timEnableBitset);
 
             void reset();
 
@@ -73,20 +74,120 @@ namespace gbaemu
             void receiveOverflowOfPrevTimer(uint32_t overflowTimes);
 
             void checkForOverflow();
+
+            friend class Timer<(id > 0) ? id - 1 : id>;
         };
 
-        Timer tim0;
-        Timer tim1;
-        Timer tim2;
-        Timer tim3;
+        Timer<0> tim0;
+        Timer<1> tim1;
+        Timer<2> tim2;
+        Timer<3> tim3;
+
+        uint8_t timEnableBitset;
+
+        const std::function<void(uint32_t)> stepLUT[16] = {
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    0    0    0
+            [](uint32_t) {},
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    0    0    1
+            [this](uint32_t cycles) {
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    0    1    0
+            [this](uint32_t cycles) {
+                this->tim1.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    0    1    1
+            [this](uint32_t cycles) {
+                this->tim1.step(cycles);
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    1    0    0
+            [this](uint32_t cycles) {
+                this->tim2.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    1    0    1
+            [this](uint32_t cycles) {
+                this->tim2.step(cycles);
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    1    1    0
+            [this](uint32_t cycles) {
+                this->tim2.step(cycles);
+                this->tim1.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    1    1    1
+            [this](uint32_t cycles) {
+                this->tim2.step(cycles);
+                this->tim1.step(cycles);
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    0    0    0
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    0    0    1
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    0    1    0
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim1.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    0    1    1
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim1.step(cycles);
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    1    0    0
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim2.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    1    0    1
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim2.step(cycles);
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    1    1    0
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim2.step(cycles);
+                this->tim1.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    1    1    1
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim2.step(cycles);
+                this->tim1.step(cycles);
+                this->tim0.step(cycles);
+            }};
 
       public:
         void step(uint32_t cycles)
         {
-            tim0.step(cycles);
-            tim1.step(cycles);
-            tim2.step(cycles);
-            tim3.step(cycles);
+            if (cycles) {
+                stepLUT[timEnableBitset](cycles);
+            }
         }
 
         void reset()
@@ -95,6 +196,7 @@ namespace gbaemu
             tim1.reset();
             tim2.reset();
             tim3.reset();
+            timEnableBitset = 0;
         }
 
         TimerGroup(CPU *cpu);

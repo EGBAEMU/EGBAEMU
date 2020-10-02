@@ -144,6 +144,8 @@ int main(int argc, char **argv)
     bool canDrawToScreen = false;
     gbaemu::lcd::LCDController controller(windowCanvas, &cpu, &canDrawToScreenMutex, &canDrawToScreen);
 
+    cpu.setLCDController(&controller);
+
     std::cout << "Game Title: ";
     for (uint32_t i = 0; i < 12; ++i) {
         std::cout << static_cast<char>(cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0A0 + i, nullptr));
