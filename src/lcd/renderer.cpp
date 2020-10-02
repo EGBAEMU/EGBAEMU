@@ -328,19 +328,6 @@ namespace gbaemu::lcd
         }
 #endif
 
-        //if (colorEffects.getEffect() != BLDCNT::ColorSpecialEffect::None)
-        //    std::cout << std::dec << colorEffects.getEffect() << std::endl;
-
-        /*
-        color_t *outBuf = target.pixels() + y * target.getWidth();
-        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
-            color_t color = windowOBJLayer->scanline[x].color;
-
-            if (color != TRANSPARENT)
-                outBuf[x] = color;
-        }
-         */
-
         //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count() << std::endl;
     }
 } // namespace gbaemu::lcd
