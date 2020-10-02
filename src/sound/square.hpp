@@ -40,6 +40,8 @@ namespace gbaemu
             static const constexpr uint16_t SOUND_SQUARE_CHANNEL_X_SOUND_FREQ_MASK = static_cast<uint16_t>(11) << SOUND_SQUARE_CHANNEL_X_SOUND_FREQ_OFF;
             static const constexpr uint16_t SOUND_SQUARE_CHANNEL_X_TIME_MODE_MASK = static_cast<uint16_t>(1) << SOUND_SQUARE_CHANNEL_X_TIME_MODE_OFF;
             static const constexpr uint16_t SOUND_SQUARE_CHANNEL_X_RESET_MASK = static_cast<uint16_t>(1) << SOUND_SQUARE_CHANNEL_X_RESET_OFF;
+            
+            static const constexpr float    SOUND_SQUARE_AMPLITUDE_SCALING = 15.9375
 
             const float DUTY_CYCLES[4] = {
                 0.125,

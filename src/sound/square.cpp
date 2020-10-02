@@ -67,9 +67,11 @@ namespace gbaemu
         if (update) 
             getRegisterValues();
         
-        
-        
+        if (trigger)
+            refresh();
 
+        update = false;    
+    
     }
 
     void SquareWaveChannel::refresh()
@@ -87,6 +89,9 @@ namespace gbaemu
         // How many samples should be high in the current square
         uint32_t samplesHigh = static_cast<uint32_t>(samples * duty);
 
+        // The amplitude to use is influenced by the current env
+        Uint8 amplitude = static_cast<Uint8>(env_value * SOUND_SQUARE_AMPLITUDE_SCALING);
+
         Mix_Chunk* chunk = (Mix_Chunk*) malloc(sizeof(Mix_Chunk));
         // Free the sample data buffer automatically when the chunk is freed.
         chunk->allocated = 1;
@@ -98,17 +103,17 @@ namespace gbaemu
         chunk->abuf = sampleBuffer;
 
         // Generate the samples
-        for (uint32_t sampleIdx = 0; sampleIdx < samples; sampleIdx++) {
+        for (uint32_t sampleIdx = 0; sampleIdx < samples; ++sampleIdx) {
             if (sampleIdx < samplesHigh)
-                sampleBuffer[sampleIdx] = 0xFF;
+                sampleBuffer[sampleIdx] = amplitude;
             else
                 sampleBuffer[sampleIdx] = 0x0;
         }
         
         // Clear previous tone
-        Mix_HaltChannel(0);
+        Mix_HaltChannel(channel);
         // Start playing the updated chunk
-        Mix_PlayChannel(0, chunk, -1);
+        Mix_PlayChannel(channel, chunk, -1);
 
     }
 
@@ -130,6 +135,8 @@ namespace gbaemu
 
         // Update the env step delta. A update may occur after (reg_value * 1 / 64) seconds.
         env_updateThreshold = std::chrono::microseconds{ static_cast<uint32_t>(reg_envStepTime) * 15625 }
+
+
 
     }
 
