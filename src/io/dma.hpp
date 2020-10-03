@@ -30,9 +30,13 @@ namespace gbaemu
 
         enum DMAState {
             IDLE,
-            STARTED,
+            // Do not change the order!
+            REPEAT_WAIT,
             REPEAT,
+            // Do not change the order!
             WAITING_PAUSED,
+            LOAD_VALUES,
+            STARTED,
             SEQ_COPY,
             DONE
         };
@@ -147,7 +151,8 @@ namespace gbaemu
             void reset();
 
           private:
-            void extractRegValues();
+            void extractConfig();
+            void reloadValues();
             void updateAddr(uint32_t &addr, AddrCntType updateKind) const;
             void fetchCount();
         };

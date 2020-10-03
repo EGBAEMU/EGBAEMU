@@ -31,7 +31,8 @@ namespace gbaemu
         return "";
     }
 
-    const char *DMAGroup::startCondToStr(StartCondition condition) {
+    const char *DMAGroup::startCondToStr(StartCondition condition)
+    {
         switch (condition) {
             STRINGIFY_CASE_ID(NO_COND);
             STRINGIFY_CASE_ID(WAIT_HBLANK);
@@ -78,13 +79,42 @@ namespace gbaemu
         // Check if enabled only once, because there can not be state changes, after dma has taken over control!
         // We can safely assume that this function does not get called if dma is disabled!
 
-        do {
-            // FSM actions
-            switch (state) {
-                case IDLE:
-                    extractRegValues();
-                    state = dmaGroup.conditionSatisfied(condition) ? STARTED : WAITING_PAUSED;
-                    LOG_DMA(
+        // Ensure that we are on budget
+        if (info.cycleCount < cycles)
+            do {
+                // FSM actions
+                switch (state) {
+                    case IDLE:
+                        extractConfig();
+                        // If the DMA was enabled we need to reload the values in ANY case even if repeat is set
+                        state = dmaGroup.conditionSatisfied(condition) ? LOAD_VALUES : WAITING_PAUSED;
+                        break;
+
+                    case REPEAT: {
+                        // reload the values after the condition was satisfied!
+                        if (dstCnt == INCREMENT_RELOAD) {
+                            destAddr = le(regs.destAddr) & (channel == DMA3 ? 0xFFFFFFF : 0x07FFFFFF);
+                            //TODO is the src address kept?
+                            //srcAddr = le(regs.srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);
+                        }
+
+                        fetchCount();
+
+                        state = STARTED;
+                        break;
+                    }
+
+                    case REPEAT_WAIT:
+                    case WAITING_PAUSED: {
+                        state = dmaGroup.conditionSatisfied(condition) ? static_cast<DMAState>(state + 1) : state;
+                        break;
+                    }
+
+                    case LOAD_VALUES: {
+                        // Load all runtime values: destAddr, srcAddr, count
+                        reloadValues();
+
+                        LOG_DMA(
                         std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
                         std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << DMAGroup::countTypeToStr(srcCnt) << std::endl;
                         std::cout << "      Dest Addr:   0x" << std::hex << destAddr << " Type: " << DMAGroup::countTypeToStr(dstCnt) << std::endl;
@@ -95,120 +125,102 @@ namespace gbaemu
                         std::cout << "      32 bit mode: " << width32Bit << std::endl;
                         std::cout << "      IRQ on end: " << irqOnEnd << std::endl;);
 
-                    // Initialization takes at least 2 cycles
-                    info.cycleCount += 2;
+                        // Initialization takes at least 2 cycles
+                        info.cycleCount += 2;
 
-                    // If eeprom does not yet know for sure which bus width it has we can determine it by passing DMA request to it!
-                    if (channel == DMA3 && memory.getBackupType() == Memory::EEPROM_V && !memory.eeprom->knowsBitWidth()) {
+                        // If eeprom does not yet know for sure which bus width it has we can determine it by passing DMA request to it!
+                        if (channel == DMA3 && memory.getBackupType() == Memory::EEPROM_V && !memory.eeprom->knowsBitWidth()) {
 
-                        // We only need changes for 14 Bit buswidth as we default to 8 bit
-                        memory.normalizeAddressRef(srcAddr, info);
-                        if (info.memReg == Memory::MemoryRegion::EEPROM_REGION) {
-                            const constexpr uint32_t bus14BitReadExpectedCount = 17;
-                            const constexpr uint32_t bus6BitReadExpectedCount = 9;
-                            if (count == bus14BitReadExpectedCount) {
-                                memory.eeprom->expand(14);
-                                break;
-                            } else if (count == bus6BitReadExpectedCount) {
-                                memory.eeprom->expand(6);
-                                break;
+                            // We only need changes for 14 Bit buswidth as we default to 8 bit
+                            memory.normalizeAddressRef(srcAddr, info);
+                            if (info.memReg == Memory::MemoryRegion::EEPROM_REGION) {
+                                const constexpr uint32_t bus14BitReadExpectedCount = 17;
+                                const constexpr uint32_t bus6BitReadExpectedCount = 9;
+                                if (count == bus14BitReadExpectedCount) {
+                                    memory.eeprom->expand(14);
+                                    break;
+                                } else if (count == bus6BitReadExpectedCount) {
+                                    memory.eeprom->expand(6);
+                                    break;
+                                }
+                            }
+
+                            memory.normalizeAddressRef(destAddr, info);
+                            if (info.memReg == Memory::MemoryRegion::EEPROM_REGION) {
+                                const constexpr uint32_t bus14BitWriteExpectedCount = 81;
+                                const constexpr uint32_t bus6BitWriteExpectedCount = 73;
+                                if (count == bus14BitWriteExpectedCount) {
+                                    memory.eeprom->expand(14);
+                                } else if (count == bus6BitWriteExpectedCount) {
+                                    memory.eeprom->expand(6);
+                                }
                             }
                         }
 
-                        memory.normalizeAddressRef(destAddr, info);
-                        if (info.memReg == Memory::MemoryRegion::EEPROM_REGION) {
-                            const constexpr uint32_t bus14BitWriteExpectedCount = 81;
-                            const constexpr uint32_t bus6BitWriteExpectedCount = 73;
-                            if (count == bus14BitWriteExpectedCount) {
-                                memory.eeprom->expand(14);
-                            } else if (count == bus6BitWriteExpectedCount) {
-                                memory.eeprom->expand(6);
-                            }
-                        }
+                        state = STARTED;
+                        break;
                     }
 
-                    break;
+                    case STARTED: {
+                        state = SEQ_COPY;
 
-                case REPEAT: {
-
-                    //TODO reload only after condition is satisfied???
-                    if (dstCnt == INCREMENT_RELOAD) {
-                        destAddr = le(regs.destAddr) & (channel == DMA3 ? 0xFFFFFFF : 0x07FFFFFF);
-                        //TODO is the src address kept?
-                        // srcAddr = le(regs.srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);
-                    }
-
-                    fetchCount();
-
-                    state = WAITING_PAUSED;
-                    // Fall through to check the condition
-                }
-
-                case WAITING_PAUSED: {
-                    state = dmaGroup.conditionSatisfied(condition) ? STARTED : WAITING_PAUSED;
-                    break;
-                }
-
-                case STARTED: {
-                    state = SEQ_COPY;
-
-                    if (width32Bit) {
-                        uint32_t data = memory.read32(srcAddr, info, false, false, true);
-                        memory.write32(destAddr, data, info, false);
-                    } else {
-                        uint16_t data = memory.read16(srcAddr, info, false, false, true);
-                        memory.write16(destAddr, data, info, false);
-                    }
-
-                    --count;
-
-                    updateAddr(srcAddr, srcCnt);
-                    updateAddr(destAddr, dstCnt);
-
-                    break;
-                }
-
-                case SEQ_COPY: {
-                    if (count == 0) {
-                        state = DONE;
-                    } else {
                         if (width32Bit) {
-                            uint32_t data = memory.read32(srcAddr, info, true, false, true);
-                            memory.write32(destAddr, data, info, true);
+                            uint32_t data = memory.read32(srcAddr, info, false, false, true);
+                            memory.write32(destAddr, data, info, false);
                         } else {
-                            uint16_t data = memory.read16(srcAddr, info, true, false, true);
-                            memory.write16(destAddr, data, info, true);
+                            uint16_t data = memory.read16(srcAddr, info, false, false, true);
+                            memory.write16(destAddr, data, info, false);
                         }
 
                         --count;
 
                         updateAddr(srcAddr, srcCnt);
                         updateAddr(destAddr, dstCnt);
+
+                        break;
                     }
-                    break;
-                }
 
-                case DONE: {
-                    // Handle edge case: repeat enabled but no start condition -> infinite DMA transfers
-                    if (repeat && condition != NO_COND) {
-                        state = REPEAT;
-                    } else {
-                        // return to idle state
-                        state = IDLE;
+                    case SEQ_COPY: {
+                        if (count == 0) {
+                            state = DONE;
+                        } else {
+                            if (width32Bit) {
+                                uint32_t data = memory.read32(srcAddr, info, true, false, true);
+                                memory.write32(destAddr, data, info, true);
+                            } else {
+                                uint16_t data = memory.read16(srcAddr, info, true, false, true);
+                                memory.write16(destAddr, data, info, true);
+                            }
 
-                        // Clear enable bit to indicate that we are done!
-                        regs.cntReg &= ~le(DMA_CNT_REG_EN_MASK);
-                        dmaGroup.dmaEnableBitset &= ~(1 << channel);
+                            --count;
 
-                        if (irqOnEnd) {
-                            irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::DMA_0 + channel));
+                            updateAddr(srcAddr, srcCnt);
+                            updateAddr(destAddr, dstCnt);
                         }
+                        break;
                     }
 
-                    break;
+                    case DONE: {
+                        // Handle edge case: repeat enabled but no start condition -> infinite DMA transfers
+                        if (repeat && condition != NO_COND) {
+                            state = REPEAT_WAIT;
+                        } else {
+                            // return to idle state
+                            state = IDLE;
+
+                            // Clear enable bit to indicate that we are done!
+                            regs.cntReg &= ~le(DMA_CNT_REG_EN_MASK);
+                            dmaGroup.dmaEnableBitset &= ~(1 << channel);
+
+                            if (irqOnEnd) {
+                                irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::DMA_0 + channel));
+                            }
+                        }
+
+                        break;
+                    }
                 }
-            }
-        } while (state != IDLE && state != WAITING_PAUSED && info.cycleCount < cycles);
+            } while (state != IDLE && state != WAITING_PAUSED && state != REPEAT_WAIT && info.cycleCount < cycles);
     }
 
     template <DMAGroup::DMAChannel channel>
@@ -229,7 +241,7 @@ namespace gbaemu
     }
 
     template <DMAGroup::DMAChannel channel>
-    void DMAGroup::DMA<channel>::extractRegValues()
+    void DMAGroup::DMA<channel>::extractConfig()
     {
         const uint16_t controlReg = le(regs.cntReg);
 
@@ -241,7 +253,11 @@ namespace gbaemu
         srcCnt = static_cast<AddrCntType>((controlReg & DMA_CNT_REG_SRC_ADR_CNT_MASK) >> DMA_CNT_REG_SRC_ADR_CNT_OFF);
         dstCnt = static_cast<AddrCntType>((controlReg & DMA_CNT_REG_DST_ADR_CNT_MASK) >> DMA_CNT_REG_DST_ADR_CNT_OFF);
         condition = static_cast<StartCondition>((controlReg & DMA_CNT_REG_TIMING_MASK) >> DMA_CNT_REG_TIMING_OFF);
+    }
 
+    template <DMAGroup::DMAChannel channel>
+    void DMAGroup::DMA<channel>::reloadValues()
+    {
         // Mask out ignored bits
         srcAddr = le(regs.srcAddr) & (channel == DMA0 ? 0x07FFFFFF : 0xFFFFFFF);
         destAddr = le(regs.destAddr) & (channel == DMA3 ? 0xFFFFFFF : 0x07FFFFFF);
