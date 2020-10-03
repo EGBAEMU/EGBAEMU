@@ -7,6 +7,8 @@
 
 namespace gbaemu
 {
+    class CPU;
+
     namespace thumb
     {
 
@@ -70,12 +72,20 @@ namespace gbaemu
         static const uint16_t MASK_THUMB_LONG_BRANCH_WITH_LINK = 0b1111000000000000;
         static const uint16_t VAL_THUMB_LONG_BRANCH_WITH_LINK = 0b1111000000000000;
 
-        class ThumbInstructionDecoder : public InstructionDecoder
+        template <class Executor>
+        class ThumbInstructionDecoder
         {
+          private:
+            ThumbInstructionDecoder();
+
           public:
-            virtual void decode(uint32_t inst, Instruction &decodedInst) const override;
+            template <Executor &exec>
+            static void decode(uint32_t inst);
         };
+
     } // namespace thumb
 } // namespace gbaemu
+
+#include "inst_thumb.tpp"
 
 #endif /* INST_THUMB_HPP */

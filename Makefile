@@ -27,8 +27,8 @@ debug: CCFLAGS += -g
 debug: gbaemu
 release: CCFLAGS += -Ofast
 release: gbaemu
-profiling: CCFLAGS += -pg
-profiling: LDFLAGS += -pg
+profiling: CCFLAGS += -Ofast -g -pg
+profiling: LDFLAGS += -Ofast -pg --no-pie
 profiling: release
 
 gbaemu: $(objs)

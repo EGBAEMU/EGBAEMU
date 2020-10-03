@@ -36,6 +36,9 @@ namespace gbaemu
             regsMutex.lock();
             *(offset + reinterpret_cast<uint8_t *>(&regs)) &= ~value;
             regsMutex.unlock();
+        } else if (offset == offsetof(InterruptControlRegs, waitStateCnt) || offset == offsetof(InterruptControlRegs, waitStateCnt) + 1) {
+            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+            cpu->state.memory.updateWaitCycles(le(regs.waitStateCnt));
         } else {
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
         }
@@ -43,7 +46,7 @@ namespace gbaemu
 
     void InterruptHandler::reset()
     {
-        std::fill_n(reinterpret_cast<char*>(&regs), sizeof(regs), 0);
+        std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
 
         needsOneIdleCycle = false;
     }
@@ -136,19 +139,20 @@ namespace gbaemu
             *(cpu->state.getModeRegs(CPUState::IRQ)[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + 4;
 
             // Change instruction mode to arm
-            cpu->state.decoder = &cpu->armDecoder;
+            cpu->decoder = cpu->armDecoder;
 
             // Change the register mode to irq
-            cpu->state.mode = CPUState::IRQ;
-
             // Ensure that the CPSR represents that we are in ARM mode again
             // Clear all flags & enforce irq mode
             // Also disable interrupts
             cpu->state.accessReg(regs::CPSR_OFFSET) = 0b010010 | (1 << 7);
 
+            cpu->state.updateCPUMode();
+
             cpu->state.accessReg(regs::PC_OFFSET) = Memory::BIOS_IRQ_HANDLER_OFFSET;
 
             // Flush the pipeline
+            cpu->state.normalizePC(false);
             cpu->initPipeline();
 
             // After irq we need to execute at least one instruction before another irq may be handled!

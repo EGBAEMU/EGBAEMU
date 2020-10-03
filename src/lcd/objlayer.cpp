@@ -1,39 +1,24 @@
 #include "objlayer.hpp"
 
-#include <sstream>
 #include <array>
+#include <sstream>
 
 namespace gbaemu::lcd
 {
-    std::string OBJInfo::toString() const
-    {
-        std::stringstream ss;
-
-        ss << "visible: " << (visible ? "yes" : "no") << '\n';
-        ss << "obj index: " << std::dec << objIndex << '\n';
-        ss << "xy off: " << xOff << ' ' << yOff << '\n';
-        ss << "width height: " << width << 'x' << height << '\n';
-        ss << "origin: " << origin << '\n';
-        ss << "screen ref: " << screenRef << '\n';
-        ss << "d dm: " << d << dm << '\n';
-
-        return ss.str();
-    }
-
-    OBJAttribute OBJLayer::getAttribute(uint32_t index) const
+    OBJAttribute OBJ::getAttribute(const uint8_t *attributes, uint32_t index)
     {
         auto uints = reinterpret_cast<const uint16_t *>(attributes + (index * 0x8));
         return OBJAttribute{le(uints[0]), le(uints[1]), le(uints[2])};
     }
 
-    std::tuple<common::math::vec<2>, common::math::vec<2>> OBJLayer::getRotScaleParameters(uint32_t index) const
+    std::tuple<common::math::vec<2>, common::math::vec<2>> OBJ::getRotScaleParameters(const uint8_t *attributes, uint32_t index)
     {
         const uint16_t *uints = reinterpret_cast<const uint16_t *>(attributes);
         uint32_t group = index * 4 * 4;
 
-        uint16_t a = le(uints[group +      3]);
-        uint16_t c = le(uints[group + 8  + 3]);
-        uint16_t b = le(uints[group + 4  + 3]);
+        uint16_t a = le(uints[group + 3]);
+        uint16_t c = le(uints[group + 8 + 3]);
+        uint16_t b = le(uints[group + 4 + 3]);
         uint16_t d = le(uints[group + 12 + 3]);
 
         return std::make_tuple<common::math::vec<2>, common::math::vec<2>>(
@@ -45,58 +30,72 @@ namespace gbaemu::lcd
                 fixedToFloat<uint16_t, 8, 7, common::math::real_t>(d)});
     }
 
-    OBJLayer::OBJLayer(LayerId layerId) : Layer(layerId)
-#if RENDERER_OBJ_ENABLE_DEBUG_CANVAS == 1
-    , debugCanvas(512, 512)
-#endif
+    std::tuple<common::math::vect<2, int32_t>, common::math::vect<2, int32_t>> OBJ::getRotScaleParametersI(const uint8_t *attributes, uint32_t index)
     {
-        enabled = true;
+        const uint16_t *uints = reinterpret_cast<const uint16_t *>(attributes);
+        uint32_t group = index * 4 * 4;
+
+        uint16_t a = le(uints[group + 3]);
+        uint16_t c = le(uints[group + 8 + 3]);
+        uint16_t b = le(uints[group + 4 + 3]);
+        uint16_t d = le(uints[group + 12 + 3]);
+
+        return std::make_tuple<common::math::vect<2, int32_t>, common::math::vect<2, int32_t>>(
+            common::math::vect<2, int32_t>{
+                signExt<int32_t, uint16_t, 16>(a),
+                signExt<int32_t, uint16_t, 16>(c)},
+            common::math::vect<2, int32_t>{
+                signExt<int32_t, uint16_t, 16>(b),
+                signExt<int32_t, uint16_t, 16>(d)});
     }
 
-    OBJInfo OBJLayer::getOBJInfo(uint32_t objIndex) const
+    OBJ::OBJ(const uint8_t *attributes, int32_t index, BGMode bgMode)
     {
-        OBJInfo info;
+        /* by default */
+        visible = false;
+        enabled = true;
+        objIndex = index;
 
-        if (objIndex >= 1024)
-            return info;
+        const OBJAttribute attr = getAttribute(attributes, objIndex);
+        priority = static_cast<uint16_t>(bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PRIORITY_MASK, OBJ_ATTRIBUTE::PRIORITY_OFFSET));
 
-        OBJAttribute attr = getAttribute(objIndex);
-        info.objIndex = objIndex;
-        info.priority = static_cast<uint16_t>(bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PRIORITY_MASK, OBJ_ATTRIBUTE::PRIORITY_OFFSET));
+        /* this OBJ does not belong on the current layer */
+        //if (priority != prioFilter)
+        //    return;
 
-        bool useRotScale = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::ROT_SCALE_MASK, OBJ_ATTRIBUTE::ROT_SCALE_OFFSET);
+        bool useRotScale = isBitSet<uint16_t, OBJ_ATTRIBUTE::ROT_SCALE_OFFSET>(attr.attribute[0]);
 
         if (!useRotScale) {
-            bool disabled = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::DISABLE_MASK, OBJ_ATTRIBUTE::DISABLE_OFFSET);
+            enabled = !isBitSet<uint16_t, OBJ_ATTRIBUTE::DISABLE_OFFSET>(attr.attribute[0]);
 
-            if (disabled)
-                return info;
+            if (!enabled)
+                return;
 
-            info.vFlip = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::V_FLIP_MASK, OBJ_ATTRIBUTE::V_FLIP_OFFSET);
-            info.hFlip = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::H_FLIP_MASK, OBJ_ATTRIBUTE::H_FLIP_OFFSET);
+            vFlip = isBitSet<uint16_t, OBJ_ATTRIBUTE::V_FLIP_OFFSET>(attr.attribute[1]);
+            hFlip = isBitSet<uint16_t, OBJ_ATTRIBUTE::H_FLIP_OFFSET>(attr.attribute[1]);
         } else {
+            enabled = true;
         }
 
         /* 16x16 palette */
-        info.useColor256 = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::COLOR_PALETTE_MASK, OBJ_ATTRIBUTE::COLOR_PALETTE_OFFSET);
+        useColor256 = isBitSet<uint16_t, OBJ_ATTRIBUTE::COLOR_PALETTE_OFFSET>(attr.attribute[0]);
 
-        info.yOff = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::Y_COORD_MASK, OBJ_ATTRIBUTE::Y_COORD_OFFSET);
-        info.xOff = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::X_COORD_MASK, OBJ_ATTRIBUTE::X_COORD_OFFSET);
-        info.xOff = signExt<int32_t, uint16_t, 9>(info.xOff);
+        yOff = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::Y_COORD_MASK, OBJ_ATTRIBUTE::Y_COORD_OFFSET);
+        xOff = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::X_COORD_MASK, OBJ_ATTRIBUTE::X_COORD_OFFSET);
+        xOff = signExt<int32_t, uint16_t, 9>(xOff);
 
         OBJShape shape = static_cast<OBJShape>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_SHAPE_MASK, OBJ_ATTRIBUTE::OBJ_SHAPE_OFFSET));
         uint16_t size = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::OBJ_SIZE_MASK, OBJ_ATTRIBUTE::OBJ_SIZE_OFFSET);
-        info.tileNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::CHAR_NAME_MASK, OBJ_ATTRIBUTE::CHAR_NAME_OFFSET);
-        info.mosaic = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MOSAIC_MASK, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET);
+        tileNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::CHAR_NAME_MASK, OBJ_ATTRIBUTE::CHAR_NAME_OFFSET);
+        mosaicEnabled = isBitSet<uint16_t, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET>(attr.attribute[0]);
+        mode = static_cast<OBJMode>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MODE_MASK, OBJ_ATTRIBUTE::OBJ_MODE_OFFSET));
 
-        if (info.useColor256)
-            info.tileNumber /= 2;
+        if (useColor256)
+            tileNumber /= 2;
 
-        bool useMosaic = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MOSAIC_MASK, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET);
-        OBJMode mode = static_cast<OBJMode>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MODE_MASK, OBJ_ATTRIBUTE::OBJ_MODE_OFFSET));
-
-        if (3 <= bgMode && bgMode <= 5 && info.tileNumber < 512)
-            return info;
+        /* bitmap modes */
+        if (Mode3 <= bgMode && bgMode <= Mode5 && tileNumber < 512)
+            return;
 
         /*
             Size  Square   Horizontal  Vertical
@@ -110,240 +109,326 @@ namespace gbaemu::lcd
         switch (shape) {
             case SQUARE:
                 if (size == 0) {
-                    info.width = 8;
-                    info.height = 8;
+                    width = 8;
+                    height = 8;
                 } else if (size == 1) {
-                    info.width = 16;
-                    info.height = 16;
+                    width = 16;
+                    height = 16;
                 } else if (size == 2) {
-                    info.width = 32;
-                    info.height = 32;
+                    width = 32;
+                    height = 32;
                 } else {
-                    info.width = 64;
-                    info.height = 64;
+                    width = 64;
+                    height = 64;
                 }
 
                 break;
             case HORIZONTAL:
                 if (size == 0) {
-                    info.width = 16;
-                    info.height = 8;
+                    width = 16;
+                    height = 8;
                 } else if (size == 1) {
-                    info.width = 32;
-                    info.height = 8;
+                    width = 32;
+                    height = 8;
                 } else if (size == 2) {
-                    info.width = 32;
-                    info.height = 16;
+                    width = 32;
+                    height = 16;
                 } else {
-                    info.width = 64;
-                    info.height = 32;
+                    width = 64;
+                    height = 32;
                 }
 
                 break;
             case VERTICAL:
                 if (size == 0) {
-                    info.width = 8;
-                    info.height = 16;
+                    width = 8;
+                    height = 16;
                 } else if (size == 1) {
-                    info.width = 8;
-                    info.height = 32;
+                    width = 8;
+                    height = 32;
                 } else if (size == 2) {
-                    info.width = 16;
-                    info.height = 32;
+                    width = 16;
+                    height = 32;
                 } else {
-                    info.width = 32;
-                    info.height = 64;
+                    width = 32;
+                    height = 64;
                 }
 
                 break;
         }
 
-        info.paletteNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PALETTE_NUMBER_MASK, OBJ_ATTRIBUTE::PALETTE_NUMBER_OFFSET);
-        info.tilesPerRow = info.useColor256 ? 16 : 32;
-        info.bytesPerTile = info.useColor256 ? 64 : 32;
-        info.doubleSized = useRotScale && bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::DOUBLE_SIZE_MASK, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET);
+        paletteNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PALETTE_NUMBER_MASK, OBJ_ATTRIBUTE::PALETTE_NUMBER_OFFSET);
+        tilesPerRow = useColor256 ? 16 : 32;
+        bytesPerTile = useColor256 ? 64 : 32;
+        doubleSized = useRotScale && isBitSet<uint16_t, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET>(attr.attribute[0]);
 
         if (useRotScale) {
             uint16_t index = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::ROT_SCALE_PARAM_MASK, OBJ_ATTRIBUTE::ROT_SCALE_PARAM_OFFSET);
-            auto result = getRotScaleParameters(index);
+            auto result = getRotScaleParameters(attributes, index);
 
-            info.d = std::get<0>(result);
-            info.dm = std::get<1>(result);
-        }
-
-        info.origin[0] = static_cast<common::math::real_t>(info.width) / 2;
-        info.origin[1] = static_cast<common::math::real_t>(info.height) / 2;
-
-        if (info.doubleSized) {
-            info.screenRef[0] = static_cast<common::math::real_t>(info.xOff + info.width);
-            info.screenRef[1] = static_cast<common::math::real_t>(info.yOff + info.height);
+            affineTransform.d = std::get<0>(result);
+            affineTransform.dm = std::get<1>(result);
         } else {
-            info.screenRef[0] = static_cast<common::math::real_t>(info.xOff + info.width / 2);
-            info.screenRef[1] = static_cast<common::math::real_t>(info.yOff + info.height / 2);
+            affineTransform.d[0] = 1;
+            affineTransform.d[1] = 0;
+            affineTransform.dm[0] = 0;
+            affineTransform.dm[1] = 1;
         }
 
-        if (info.yOff + info.height * (info.doubleSized ? 2 : 1) > 256)
-            info.yOff -= 256;
+        //assert(affineTransform.d[0] != 0 || affineTransform.d[1] != 0);
 
-        info.visible = true;
-        return info;
+        /*
+        if (affineTransform.d[0] == 0 && affineTransform.d[1] == 0) {
+            affineTransform.d[0] = 1;
+            affineTransform.d[1] = 0;
+        }
+
+        if (affineTransform.dm[0] == 0 && affineTransform.dm[1] == 0) {
+            affineTransform.dm[0] = 0;
+            affineTransform.dm[1] = 1;
+        }
+         */
+
+        affineTransform.origin[0] = static_cast<common::math::real_t>(width) / 2;
+        affineTransform.origin[1] = static_cast<common::math::real_t>(height) / 2;
+
+        if (yOff + height * (doubleSized ? 2 : 1) > 256)
+            yOff -= 256;
+
+        if (doubleSized) {
+            affineTransform.screenRef[0] = static_cast<common::math::real_t>(xOff + static_cast<int32_t>(width));
+            affineTransform.screenRef[1] = static_cast<common::math::real_t>(yOff + static_cast<int32_t>(height));
+        } else {
+            affineTransform.screenRef[0] = static_cast<common::math::real_t>(xOff + static_cast<int32_t>(width) / 2);
+            affineTransform.screenRef[1] = static_cast<common::math::real_t>(yOff + static_cast<int32_t>(height) / 2);
+        }
+
+        visible = true;
+
+        cyclesRequired = width * height * (doubleSized || useRotScale ? 2 : 1) + (doubleSized || useRotScale ? 10 : 0);
+
+        rect.left = xOff;
+        rect.top = yOff;
+        rect.right = xOff + width * (doubleSized ? 2 : 1);
+        rect.bottom = yOff + height * (doubleSized ? 2 : 1);
     }
 
-    void OBJLayer::setMode(const uint8_t *vramBaseAddress, const uint8_t *oamBaseAddress, uint32_t mode)
+    std::string OBJ::toString() const
     {
-        bgMode = mode;
+        std::stringstream ss;
 
-        switch (bgMode) {
-            case 0:
-            case 1:
-            case 2:
-                objTiles = vramBaseAddress + 0x10000;
+        ss << "visible: " << (visible ? "yes" : "no") << '\n';
+        ss << "obj index: " << std::dec << objIndex << '\n';
+        ss << "xy off: " << xOff << ' ' << yOff << '\n';
+        ss << "double sized: " << (doubleSized ? "yes" : "no") << '\n';
+        ss << "width height: " << width << 'x' << height << '\n';
+        ss << "origin: " << affineTransform.origin << '\n';
+        ss << "screen ref: " << affineTransform.screenRef << '\n';
+        ss << "d dm: " << affineTransform.d << ' ' << affineTransform.dm << '\n';
+
+        return ss.str();
+    }
+
+    color_t OBJ::pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, const LCDColorPalette &palette, bool use2dMapping) const
+    {
+        /* calculating index */
+        const int32_t tileX = sx / 8;
+        const int32_t tileY = sy / 8;
+
+        const int32_t flippedTileX = hFlip ? (width / 8 - 1 - tileX) : tileX;
+        const int32_t flippedTileY = vFlip ? (height / 8 - 1 - tileY) : tileY;
+
+        const uint32_t tileIndex = use2dMapping ? (tileNumber + flippedTileX + flippedTileY * tilesPerRow) : (tileNumber + flippedTileX + flippedTileY * (width / 8));
+
+        /* finding the actual tile */
+        const uint8_t *tile = objTiles + tileIndex * bytesPerTile;
+        const int32_t tx = hFlip ? (7 - (sx % 8)) : (sx % 8);
+        const int32_t ty = vFlip ? (7 - (sy % 8)) : (sy % 8);
+
+        if (useColor256) {
+            uint32_t paletteIndex = tile[ty * 8 + tx];
+            return (mode == OBJ_WINDOW) ? (paletteIndex == 0 ? TRANSPARENT : BLACK) : palette.getObjColor(paletteIndex);
+        } else {
+            uint32_t row = reinterpret_cast<const uint32_t *>(tile)[ty];
+            uint32_t paletteIndex = (row >> (tx * 4)) & 0xF;
+            return (mode == OBJ_WINDOW) ? (paletteIndex == 0 ? TRANSPARENT : BLACK) : palette.getObjColor(paletteNumber, paletteIndex);
+        }
+    }
+
+    bool OBJ::intersectsWithScanline(real_t fy) const
+    {
+        /* check for screen rect */
+        if (fy < rect.top || fy >= rect.bottom)
+            return false;
+
+        const vec2 temp = affineTransform.dm * (fy - affineTransform.screenRef[1]) + affineTransform.origin;
+
+        //const vec2 s0 = affineTransform.d * (0 - affineTransform.screenRef[0]) + temp;
+        //const vec2 s1 = affineTransform.d * (SCREEN_WIDTH - 1 - affineTransform.screenRef[0]) + temp;
+
+        const vec2 s0 = affineTransform.d * (0 - affineTransform.screenRef[0]) +
+                        affineTransform.dm * (fy - affineTransform.screenRef[1]) +
+                        affineTransform.origin;
+        const vec2 s1 = affineTransform.d * (SCREEN_WIDTH - 1 - affineTransform.screenRef[0]) +
+                        affineTransform.dm * (fy - affineTransform.screenRef[1]) +
+                        affineTransform.origin;
+
+        const vec2 d = s1 - s0;
+        const vec2 ortho{d[1], -d[0]};
+
+        /* we give a single pixel margin */
+        const real_t dots[] = {
+            (vec2{-1, -1} - s0).dot(ortho),
+            (vec2{static_cast<real_t>(width), -1} - s0).dot(ortho),
+            (vec2{-1, static_cast<real_t>(height)} - s0).dot(ortho),
+            (vec2{static_cast<real_t>(width), static_cast<real_t>(height)} - s0).dot(ortho)};
+
+        const bool negDot = std::any_of(dots, dots + 4, [](real_t r) { return r <= 0; });
+        const bool posDot = std::any_of(dots, dots + 4, [](real_t r) { return r >= 0; });
+
+        return negDot && posDot;
+    }
+
+    OBJManager::OBJManager()
+    {
+        for (auto& obj : objects)
+            obj.enabled = false;
+    }
+
+    void OBJManager::load(const uint8_t *attributes, BGMode bgMode)
+    {
+        for (int32_t i = 0; i < 128; ++i)
+            objects[i] = OBJ(attributes, i, bgMode);
+    }
+
+    std::vector<OBJ>::const_iterator OBJLayer::getLastRenderedOBJ(int32_t cycleBudget) const
+    {
+        auto it = objects.cbegin();
+        int32_t usedCycles = 0;
+
+        for (; it != objects.cend(); it++) {
+            usedCycles += it->cyclesRequired;
+
+            if (usedCycles > cycleBudget)
+                break;
+        }
+
+        return it;
+    }
+
+    OBJLayer::OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio, const std::shared_ptr<OBJManager>& manager) :
+        memory(mem), palette(plt), regs(ioRegs), objects(128), objManager(manager)
+    {
+        /* OBJ layers are always enabled */
+        enabled = true;
+        priority = prio;
+        objects.reserve(128);
+
+        if (prio >= 4)
+            throw std::runtime_error("0 <= Priority <= 3 is not satisfied");
+
+        layerID = static_cast<LayerID>(priority + 4);
+        isBGLayer = false;
+    }
+
+    void OBJLayer::setMode(BGMode bgMode, bool mapping2d)
+    {
+        mode = bgMode;
+
+        const uint8_t *vramBase = memory.vram;
+        const uint8_t *oamBase = memory.oam;
+        objTiles = vramBase + 0x10000;
+
+        switch (mode) {
+            case Mode0: case Mode1: case Mode2:
                 areaSize = 32 * 1024;
                 break;
-            case 3:
-            case 4:
-                objTiles = vramBaseAddress + 0x14000;
+            case Mode3: case Mode4:
                 areaSize = 16 * 1024;
                 break;
         }
 
-        attributes = oamBaseAddress;
+        attributes = oamBase;
+        use2dMapping = mapping2d;
+        mosaicWidth = bitGet(le(regs.MOSAIC), MOSAIC::OBJ_MOSAIC_HSIZE_MASK, MOSAIC::OBJ_MOSAIC_HSIZE_OFFSET) + 1;
+        mosaicHeight = bitGet(le(regs.MOSAIC), MOSAIC::OBJ_MOSAIC_VSIZE_MASK, MOSAIC::OBJ_MOSAIC_VSIZE_OFFSET) + 1;
     }
 
-    void OBJLayer::draw(LCDColorPalette &palette, bool use2dMapping)
+    void OBJLayer::loadOBJs(int32_t y, const std::function<bool(const OBJ&, real_t, uint16_t)>& filter)
     {
-        typedef common::math::real_t real_t;
-        std::array<color_t, 64 * 64> tempBuffer;
+        real_t fy = static_cast<real_t>(y);
+        objects.resize(0);
 
-        canvas.clear(TRANSPARENT);
+        for (const auto& obj : objManager->objects) {
+            // if (obj.priority != priority || !obj.visible || obj.mode == OBJ_WINDOW || !obj.intersectsWithScanline(fy))
+            //     continue;
 
-#if RENDERER_OBJ_ENABLE_DEBUG_CANVAS == 1
-        int32_t locationX = 0;
-        int32_t locationY = 0;
-#endif
-
-        for (int32_t i = 127; i >= 0; --i) {
-            OBJInfo info = getOBJInfo(i);
-
-            /* This sprite does not belong on this layer or is not visible. */
-            if (info.priority != this->priority)
+            if (!filter(obj, fy, priority))
                 continue;
 
-            std::fill_n(tempBuffer.begin(), 64 * 64, 0);
+            if (obj.visible)
+                objects.push_back(obj);
+        }
 
-            for (uint32_t tileY = 0; tileY < info.height / 8; ++tileY) {
-                for (uint32_t tileX = 0; tileX < info.width / 8; ++tileX) {
-                    /* This is where our tile data lies. */
-                    const void *tilePtr;
-                    size_t tileIndex;
+        asFirstTarget = isBitSet<uint16_t, BLDCNT::OBJ_FIRST_TARGET_OFFSET>(le(regs.BLDCNT));
+        asSecondTarget = isBitSet<uint16_t, BLDCNT::OBJ_SECOND_TARGET_OFFSET>(le(regs.BLDCNT));
+    }
 
-                    uint32_t flippedTileX = info.hFlip ? (info.width / 8 - 1 - tileX) : tileX;
-                    uint32_t flippedTileY = info.vFlip ? (info.height / 8 - 1 - tileY) : tileY;
+    void OBJLayer::drawScanline(int32_t y)
+    {
+        const real_t fy = static_cast<real_t>(y);
+        real_t fx = 0;
 
-                    uint32_t tilePosX = tileX * 8;
-                    uint32_t tilePosY = tileY * 8;
+        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
+            /* clear */
+            scanline[x] = Fragment(TRANSPARENT, asFirstTarget, asSecondTarget, false);
 
-                    if (use2dMapping)
-                        tileIndex = info.tileNumber + flippedTileX + flippedTileY * info.tilesPerRow;
-                    else
-                        tileIndex = info.tileNumber + flippedTileX + flippedTileY * (info.width / 8);
+            /* iterate over the objects beginning with OBJ0 (on top) */
+            for (auto obj = objects.cbegin(); obj != objects.cend(); ++obj) {
+                /* only the screen rectangle of that sprite is scanned */
+                if (x < obj->rect.left || x >= obj->rect.right)
+                    continue;
 
-                    tilePtr = objTiles + tileIndex * info.bytesPerTile;
+                //const auto obj = *pObj;
+                const vec2 s = obj->affineTransform.d * (fx - obj->affineTransform.screenRef[0]) +
+                               obj->affineTransform.dm * (fy - obj->affineTransform.screenRef[1]) +
+                               obj->affineTransform.origin;
 
-                    if (!info.useColor256) {
-                        const uint32_t *tile = reinterpret_cast<const uint32_t *>(tilePtr);
+                //const common::math::vect<2, int32_t> s = obj->affineTransform.d * (x - obj->affineTransform.screenRef[0]) +
+                //    obj->affineTransform.dm * (y - obj->affineTransform.screenRef[1]) +
+                //    obj->affineTransform.origin;
 
-                        for (uint32_t py = 0; py < 8; ++py) {
-                            uint32_t ty = info.vFlip ? (7 - py) : py;
-                            uint32_t row = tile[ty];
+                const int32_t sx = static_cast<int32_t>(s[0]);
+                const int32_t sy = static_cast<int32_t>(s[1]);
 
-                            for (uint32_t px = 0; px < 8; ++px) {
-                                uint32_t tx = info.hFlip ? (7 - px) : px;
+                if (0 <= sx && sx < static_cast<int32_t>(obj->width) && 0 <= sy && sy < static_cast<int32_t>(obj->height)) {
+                    const int32_t msx = obj->mosaicEnabled ? (sx - (sx % mosaicWidth)) : sx;
+                    const int32_t msy = obj->mosaicEnabled ? (sy - (sy % mosaicHeight)) : sy;
+                    const color_t color = obj->pixelColor(msx, msy, objTiles, palette, use2dMapping);
+                    //obj->pixelColor(msx, msy, objTiles, palette, use2dMapping);
 
-                                uint32_t paletteIndex = (row & (0xF << (tx * 4))) >> (tx * 4);
-                                color_t color = palette.getObjColor(info.paletteNumber, paletteIndex);
+                    if (color == TRANSPARENT)
+                        continue;
 
-#if RENDERER_HIGHTLIGHT_OBJ == 0
-                                tempBuffer[(tilePosY + py) * 64 + (tilePosX + px)] = color;
-#else
-                                if (i == hightlightObjIndex)
-                                    tempBuffer[(tilePosY + py) * 64 + (tilePosX + px)] = OBJ_HIGHLIGHT_COLOR;
-                                else
-                                    tempBuffer[(tilePosY + py) * 64 + (tilePosX + px)] = color;
-#endif
-                            }
-                        }
-                    } else {
-                        const uint8_t *tile = reinterpret_cast<const uint8_t *>(tilePtr);
-
-                        for (uint32_t py = 0; py < 8; ++py) {
-                            uint32_t ty = info.vFlip ? (7 - py) : py;
-
-                            for (uint32_t px = 0; px < 8; ++px) {
-                                uint32_t tx = info.hFlip ? (7 - px) : px;
-                                color_t color = palette.getObjColor(tile[ty * 8 + tx]);
-
-#if RENDERER_HIGHTLIGHT_OBJ == 0
-                                tempBuffer[(tilePosY + py) * 64 + (tilePosX + px)] = color;
-#else
-                                if (i == hightlightObjIndex)
-                                    tempBuffer[(tilePosY + py) * 64 + (tilePosX + px)] = OBJ_HIGHLIGHT_COLOR;
-                                else
-                                    tempBuffer[(tilePosY + py) * 64 + (tilePosX + px)] = color;
-#endif
-                            }
-                        }
-                    }
+                    /* if the color is not transparent it's the final color */
+                    scanline[x].color = color;
+                    scanline[x].props |= (obj->mode == SEMI_TRANSPARENT) ? 4 : 0;
+                    break;
                 }
             }
 
-#ifdef DEBUG_DRAW_SPRITE_BOUNDS
-            {
-                color_t color = (i == 0) ? 0xFFFF0000 : 0xFF00FF00;
-
-                for (int32_t y = 0; y < height; ++y) {
-                    tempBuffer[y * 64] = color;
-                    tempBuffer[y * 64 + width - 1] = color;
-                }
-
-                for (int32_t x = 0; x < width; ++x) {
-                    tempBuffer[x] = color;
-                    tempBuffer[(height - 1) * 64 + x] = color;
-                }
-            }
-#endif
-
-#ifdef DEBUG_DRAW_SPRITE_GRID
-            {
-                color_t color = (i == 0) ? 0xFFFF0000 : 0xFF00FF00;
-
-                for (int32_t y = 0; y < height; ++y)
-                    for (int32_t x = 0; x < width; x += SPRITE_GRID_SPACING)
-                        tempBuffer[y * 64 + x] = color;
-
-                for (int32_t y = 0; y < height; y += SPRITE_GRID_SPACING)
-                    for (int32_t x = 0; x < width; ++x)
-                        tempBuffer[y * 64 + x] = color;
-            }
-#endif
-
-#if RENDERER_OBJ_ENABLE_DEBUG_CANVAS == 1
-            {
-                locationX = (i % 32) * 8;
-                locationY = (i / 32) * 8;
-
-                for (int32_t y = 0; y < height; ++y) {
-                    for (int32_t x = 0; x < width; ++x) {
-                        color_t color = tempBuffer[y * 64 + x];
-                        debugCanvas.pixels()[(y + locationY) * debugCanvas.getWidth() + (x + locationX)] = color;
-                    }
-                }
-            }
-#endif
-
-            /* 0 = highest priority */
-            canvas.drawSprite(tempBuffer.data(), info.width, info.height, 64,
-                              info.origin, info.d, info.dm, info.screenRef);
+            fx += 1.0;
         }
     }
-}
+
+    std::string OBJLayer::toString() const
+    {
+        std::stringstream ss;
+
+        for (size_t i = 0; i < objects.size(); ++i) {
+            ss << objects[i].toString() << '\n';
+        }
+
+        return ss.str();
+    }
+} // namespace gbaemu::lcd

@@ -19,7 +19,7 @@ namespace gbaemu::debugger
         }
     }
 
-    void ExecutionHistory::dumpHistory(CPU *cpu) const
+    void ExecutionHistory::dumpHistory() const
     {
         // Just dump every stuff
         for (const auto &inst : entries) {
@@ -75,15 +75,16 @@ namespace gbaemu::debugger
     {
         *stepMode = true;
 
-        uint32_t value;
+        uint32_t value = 0;
 
+        InstructionExecutionInfo execInfo{0};
         switch (bitSize) {
             case 8:
-                value = state.memory.read8(memAddr, nullptr);
+                value = state.memory.read8(memAddr, execInfo);
             case 16:
-                value = state.memory.read16(memAddr, nullptr);
+                value = state.memory.read16(memAddr, execInfo);
             case 32:
-                value = state.memory.read32(memAddr, nullptr);
+                value = state.memory.read32(memAddr, execInfo);
         }
 
         prevMemValue = value;
@@ -94,13 +95,14 @@ namespace gbaemu::debugger
     {
         uint32_t value;
 
+        InstructionExecutionInfo execInfo{0};
         switch (bitSize) {
             case 8:
-                value = state.memory.read8(memAddr, nullptr);
+                value = state.memory.read8(memAddr, execInfo);
             case 16:
-                value = state.memory.read16(memAddr, nullptr);
+                value = state.memory.read16(memAddr, execInfo);
             case 32:
-                value = state.memory.read32(memAddr, nullptr);
+                value = state.memory.read32(memAddr, execInfo);
             default:
                 return false;
         }
@@ -121,9 +123,9 @@ namespace gbaemu::debugger
     void ExecutionRegionTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
     {
         if (!*setStepMode) {
-            Memory::MemoryRegion memReg;
-            state.memory.normalizeAddress(postPC, memReg);
-            *setStepMode = memReg == trapRegion;
+            InstructionExecutionInfo execInfo{0};
+            state.memory.normalizeAddressRef(postPC, execInfo);
+            *setStepMode = execInfo.memReg == trapRegion;
         }
     }
 
@@ -149,7 +151,7 @@ namespace gbaemu::debugger
 
     bool CPUModeTrap::satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
     {
-        return state.mode == trapMode;
+        return state.getCPUMode() == trapMode;
     }
 
     void Watchdog::registerTrap(Trap &t)
@@ -164,6 +166,7 @@ namespace gbaemu::debugger
                 trap->trigger(prevPC, postPC, inst, state);
     }
 
+#ifdef DEBUG_CLI
     /* DebugCLI */
 
     void DebugCLI::executeInput(const std::string &line)
@@ -252,7 +255,7 @@ namespace gbaemu::debugger
 
             address_t where = std::stoul(words[1], nullptr, 16);
             cpu.state.memory.memWatch.unwatchAddress(where);
-            std::cout << "DebugCLI: Watchpoint 0x" << std::hex << where << " removed." << std::endl;                
+            std::cout << "DebugCLI: Watchpoint 0x" << std::hex << where << " removed." << std::endl;
 
             return;
         }
@@ -360,7 +363,7 @@ namespace gbaemu::debugger
         }
 
         if (words[0] == "lcd") {
-            std::cout << lcdController.getLayerStatus() << std::endl;
+            std::cout << lcdController.getLayerStatusString() << std::endl;
             return;
         }
 
@@ -371,26 +374,37 @@ namespace gbaemu::debugger
             }
 
             uint32_t objIndex = std::stol(words[1]);
-            std::cout << lcdController.getOBJLayerString(objIndex) << std::endl;
+            //std::cout << lcdController.getOBJLayerString(objIndex) << std::endl;
+            return;
+        }
+
+        if (words[0] == "bg") {
+            if (words.size() < 2) {
+                std::cout << "DebugCLI: Missing bg index parameter!" << std::endl;
+                return;
+            }
+
+            uint32_t bgIndex = std::stol(words[1]);
+            //std::cout << lcdController.getBGLayerString(bgIndex) << std::endl;
             return;
         }
 
         std::cout << "DebugCLI: Invalid command!" << std::endl;
     }
 
-    DebugCLI::DebugCLI(CPU& cpuRef, lcd::LCDController& lcdRef) : cpu(cpuRef), lcdController(lcdRef), stepCount(0), cpuStepCount(0)
+    DebugCLI::DebugCLI(CPU &cpuRef, lcd::LCDController &lcdRef) : cpu(cpuRef), lcdController(lcdRef), stepCount(0), cpuStepCount(0)
     {
         state = RUNNING;
         watchEvent.address = INVALID_ADDRESS;
 
-        cpu.state.memory.memWatch.registerTrigger([&](address_t addr, const MemWatch::Condition& cond,
-                uint32_t oldValue, bool onWrite, uint32_t newValue) {
-                    watchEvent.address = addr;
-                    watchEvent.condition = cond;
-                    watchEvent.isWrite = onWrite;
-                    watchEvent.oldValue = oldValue;
-                    watchEvent.newValue = newValue;
-                });
+        cpu.state.memory.memWatch.registerTrigger([&](address_t addr, const MemWatch::Condition &cond,
+                                                      uint32_t oldValue, bool onWrite, uint32_t newValue) {
+            watchEvent.address = addr;
+            watchEvent.condition = cond;
+            watchEvent.isWrite = onWrite;
+            watchEvent.oldValue = oldValue;
+            watchEvent.newValue = newValue;
+        });
     }
 
     bool DebugCLI::step()
@@ -401,7 +415,7 @@ namespace gbaemu::debugger
         if (state == RUNNING) {
             cpuExecutionMutex.lock();
             ++cpuStepCount;
-            CPUExecutionInfoType executionInfo = cpu.step();
+            CPUExecutionInfoType executionInfo = cpu.step(1);
             if (executionInfo != CPUExecutionInfoType::NORMAL) {
                 state = HALTED;
                 std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
@@ -481,10 +495,11 @@ namespace gbaemu::debugger
         cpuExecutionMutex.unlock();
     }
 
-    uint8_t  DebugCLI::safeRead8(address_t addr)
+    uint8_t DebugCLI::safeRead8(address_t addr)
     {
         WatchEvent backup = watchEvent;
-        auto value = cpu.state.memory.read8(addr, nullptr);
+        InstructionExecutionInfo execInfo{0};
+        auto value = cpu.state.memory.read8(addr, execInfo);
         watchEvent = backup;
         return value;
     }
@@ -492,7 +507,8 @@ namespace gbaemu::debugger
     uint16_t DebugCLI::safeRead16(address_t addr)
     {
         WatchEvent backup = watchEvent;
-        auto value = cpu.state.memory.read16(addr, nullptr);
+        InstructionExecutionInfo execInfo{0};
+        auto value = cpu.state.memory.read16(addr, execInfo);
         watchEvent = backup;
         return value;
     }
@@ -500,7 +516,8 @@ namespace gbaemu::debugger
     uint32_t DebugCLI::safeRead32(address_t addr)
     {
         WatchEvent backup = watchEvent;
-        auto value = cpu.state.memory.read32(addr, nullptr);
+        InstructionExecutionInfo execInfo{0};
+        auto value = cpu.state.memory.read32(addr, execInfo);
         watchEvent = backup;
         return value;
     }
@@ -508,21 +525,24 @@ namespace gbaemu::debugger
     void DebugCLI::safeWrite8(address_t addr, uint8_t value)
     {
         WatchEvent backup = watchEvent;
-        cpu.state.memory.write8(addr, value, nullptr);
+        InstructionExecutionInfo execInfo{0};
+        cpu.state.memory.write8(addr, value, execInfo);
         watchEvent = backup;
     }
 
     void DebugCLI::safeWrite16(address_t addr, uint16_t value)
     {
         WatchEvent backup = watchEvent;
-        cpu.state.memory.write16(addr, value, nullptr);
+        InstructionExecutionInfo execInfo{0};
+        cpu.state.memory.write16(addr, value, execInfo);
         watchEvent = backup;
     }
 
     void DebugCLI::safeWrite32(address_t addr, uint32_t value)
     {
         WatchEvent backup = watchEvent;
-        cpu.state.memory.write32(addr, value, nullptr);
+        InstructionExecutionInfo execInfo{0};
+        cpu.state.memory.write32(addr, value, execInfo);
         watchEvent = backup;
     }
 
@@ -541,16 +561,18 @@ namespace gbaemu::debugger
     {
         std::stringstream ss;
 
-        for (const auto& eventCounter : watchEvents) {
+        for (const auto &eventCounter : watchEvents) {
             ss << std::hex << "0x" << eventCounter.first << '\n';
 
-            for (const auto& read : eventCounter.second.reads)
+            for (const auto &read : eventCounter.second.reads)
                 ss << " read by " << std::hex << "0x" << read.first << " " << std::dec << read.second << " times\n";
 
-            for (const auto& write : eventCounter.second.writes)
+            for (const auto &write : eventCounter.second.writes)
                 ss << " written by " << std::hex << "0x" << write.first << " " << std::dec << write.second << " times\n";
         }
 
         return ss.str();
     }
+
+#endif
 } // namespace gbaemu::debugger

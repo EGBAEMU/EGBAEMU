@@ -3,10 +3,38 @@
 #include "cpu/regs.hpp"
 #include "util.hpp"
 
+#include "decode/disas_arm.hpp"
+#include "decode/disas_thumb.hpp"
+#include "decode/inst_arm.hpp"
+#include "decode/inst_thumb.hpp"
+
 #include <iostream>
 
 namespace gbaemu
 {
+
+    bool extractOperand2(shifts::ShiftType &shiftType, uint8_t &shiftAmount, uint8_t &rm, uint8_t &rs, uint8_t &imm, uint16_t operand2, bool i)
+    {
+        bool shiftAmountFromReg = false;
+
+        if (i) {
+            /* ROR */
+            shiftType = shifts::ShiftType::ROR;
+            imm = operand2 & 0x0FF;
+            shiftAmount = ((operand2 >> 8) & 0x0F) * 2;
+        } else {
+            shiftType = static_cast<shifts::ShiftType>((operand2 >> 5) & 0b11);
+            rm = operand2 & 0xF;
+            shiftAmountFromReg = (operand2 >> 4) & 1;
+
+            if (shiftAmountFromReg)
+                rs = (operand2 >> 8) & 0x0F;
+            else
+                shiftAmount = (operand2 >> 7) & 0b11111;
+        }
+
+        return shiftAmountFromReg;
+    }
 
     const char *conditionCodeToString(ConditionOPCode condition)
     {
@@ -53,8 +81,10 @@ namespace gbaemu
             //STRINGIFY_CASE_ID(LDRD);
             STRINGIFY_CASE_ID(MLA);
             STRINGIFY_CASE_ID(MOV);
-            STRINGIFY_CASE_ID(MRS);
-            STRINGIFY_CASE_ID(MSR);
+            STRINGIFY_CASE_ID(MRS_CPSR);
+            STRINGIFY_CASE_ID(MRS_SPSR);
+            STRINGIFY_CASE_ID(MSR_CPSR);
+            STRINGIFY_CASE_ID(MSR_SPSR);
             STRINGIFY_CASE_ID(MUL);
             STRINGIFY_CASE_ID(MVN);
             STRINGIFY_CASE_ID(ORR);
@@ -176,109 +206,95 @@ namespace gbaemu
         }
     } // namespace shifts
 
-    void Instruction::setArmInstruction(arm::ARMInstruction &armInstruction)
-    {
-        inst.arm = armInstruction;
-        isArm = true;
-    }
-    void Instruction::setThumbInstruction(thumb::ThumbInstruction &thumbInstruction)
-    {
-        inst.thumb = thumbInstruction;
-        isArm = false;
-    }
-
-    bool Instruction::isArmInstruction() const
-    {
-        return isArm;
-    }
+    static thumb::ThumbDisas thumbDisas;
+    static arm::ArmDisas armDisas;
 
     std::string Instruction::toString() const
     {
-        if (isArm)
-            return inst.arm.toString();
-        else
-            return inst.thumb.toString();
-    }
+        std::string result;
+        if (isArm) {
+            arm::ARMInstructionDecoder<arm::ArmDisas>::decode<armDisas>(inst);
+            result = armDisas.ss.str();
+            armDisas.ss.str(std::string());
+        } else {
+            thumb::ThumbInstructionDecoder<thumb::ThumbDisas>::decode<thumbDisas>(inst);
+            result = thumbDisas.ss.str();
+            thumbDisas.ss.str(std::string());
+        }
 
-    bool Instruction::isValid() const
-    {
-        if (isArm)
-            return inst.arm.cat != arm::INVALID_CAT && inst.arm.id != INVALID;
-        else
-            return inst.thumb.cat != thumb::INVALID_CAT && inst.thumb.id != INVALID;
+        return result;
     }
-
     bool conditionSatisfied(ConditionOPCode condition, const CPUState &state)
     {
         switch (condition) {
             // Equal Z==1
             case EQ:
-                return state.getFlag(cpsr_flags::Z_FLAG);
+                return state.getFlag<cpsr_flags::Z_FLAG>();
                 break;
 
             // Not equal Z==0
             case NE:
-                return !state.getFlag(cpsr_flags::Z_FLAG);
+                return !state.getFlag<cpsr_flags::Z_FLAG>();
                 break;
 
             // Carry set / unsigned higher or same C==1
             case CS_HS:
-                return state.getFlag(cpsr_flags::C_FLAG);
+                return state.getFlag<cpsr_flags::C_FLAG>();
                 break;
 
             // Carry clear / unsigned lower C==0
             case CC_LO:
-                return !state.getFlag(cpsr_flags::C_FLAG);
+                return !state.getFlag<cpsr_flags::C_FLAG>();
                 break;
 
             // Minus / negative N==1
             case MI:
-                return state.getFlag(cpsr_flags::N_FLAG);
+                return state.getFlag<cpsr_flags::N_FLAG>();
                 break;
 
             // Plus / positive or zero N==0
             case PL:
-                return !state.getFlag(cpsr_flags::N_FLAG);
+                return !state.getFlag<cpsr_flags::N_FLAG>();
                 break;
 
             // Overflow V==1
             case VS:
-                return state.getFlag(cpsr_flags::V_FLAG);
+                return state.getFlag<cpsr_flags::V_FLAG>();
                 break;
 
             // No overflow V==0
             case VC:
-                return !state.getFlag(cpsr_flags::V_FLAG);
+                return !state.getFlag<cpsr_flags::V_FLAG>();
                 break;
 
             // Unsigned higher (C==1) AND (Z==0)
             case HI:
-                return state.getFlag(cpsr_flags::C_FLAG) && !state.getFlag(cpsr_flags::Z_FLAG);
+                return state.getFlag<cpsr_flags::C_FLAG>() && !state.getFlag<cpsr_flags::Z_FLAG>();
                 break;
 
             // Unsigned lower or same (C==0) OR (Z==1)
             case LS:
-                return !state.getFlag(cpsr_flags::C_FLAG) || state.getFlag(cpsr_flags::Z_FLAG);
+                return !state.getFlag<cpsr_flags::C_FLAG>() || state.getFlag<cpsr_flags::Z_FLAG>();
                 break;
 
             // Signed greater than or equal N == V
             case GE:
-                return state.getFlag(cpsr_flags::N_FLAG) == state.getFlag(cpsr_flags::V_FLAG);
+                return state.getFlag<cpsr_flags::N_FLAG>() == state.getFlag<cpsr_flags::V_FLAG>();
                 break;
 
             // Signed less than N != V
             case LT:
-                return state.getFlag(cpsr_flags::N_FLAG) != state.getFlag(cpsr_flags::V_FLAG);
+                return state.getFlag<cpsr_flags::N_FLAG>() != state.getFlag<cpsr_flags::V_FLAG>();
                 break;
 
             // Signed greater than (Z==0) AND (N==V)
             case GT:
-                return !state.getFlag(cpsr_flags::Z_FLAG) && state.getFlag(cpsr_flags::N_FLAG) == state.getFlag(cpsr_flags::V_FLAG);
+                return !state.getFlag<cpsr_flags::Z_FLAG>() && state.getFlag<cpsr_flags::N_FLAG>() == state.getFlag<cpsr_flags::V_FLAG>();
                 break;
 
             // Signed less than or equal (Z==1) OR (N!=V)
             case LE:
-                return state.getFlag(cpsr_flags::Z_FLAG) || state.getFlag(cpsr_flags::N_FLAG) != state.getFlag(cpsr_flags::V_FLAG);
+                return state.getFlag<cpsr_flags::Z_FLAG>() || state.getFlag<cpsr_flags::N_FLAG>() != state.getFlag<cpsr_flags::V_FLAG>();
                 break;
 
             // Always (unconditional) Not applicable

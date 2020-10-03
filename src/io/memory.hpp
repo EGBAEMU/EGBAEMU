@@ -1,18 +1,22 @@
 #ifndef MEMORY_HPP
 #define MEMORY_HPP
 
-#include "decode/inst.hpp"
 #include "io/io_regs.hpp"
+#include "logging.hpp"
 #include "save/eeprom.hpp"
 #include "save/flash.hpp"
+#include "util.hpp"
 #include <cstdint>
 #include <functional>
 #include <map>
 
 namespace gbaemu
 {
+    struct InstructionExecutionInfo;
+
     typedef uint32_t address_t;
 
+#ifdef DEBUG_CLI
     /*
         A pointer to this class can be handed to Memory, which triggers a callback
         if the condition is satisfied.
@@ -51,6 +55,7 @@ namespace gbaemu
 
         std::string getWatchPointInfo() const;
     };
+#endif
 
     /*
     General Internal Memory
@@ -113,6 +118,7 @@ namespace gbaemu
             EEPROM_REGION = 0x43, // Virtual memory region to signal EEPROM usage
             FLASH_REGION = 0x44,  // Virtual memory region to signal flash usage
             SRAM_REGION = 0x45,   // Virtual memory region to signal sram usage
+            UNUSED_MEMORY = 0x46  // Virtual memory region to signal the address points to unmapped & unused memory!
         };
 
         enum MemoryRegionOffset : uint32_t {
@@ -157,18 +163,37 @@ namespace gbaemu
         static constexpr uint32_t BIOS_SWI_HANDLER_OFFSET = 0x08;
 
       private:
+        uint8_t cycles16Bit[2][16] = {
+            // Non seq times
+            {1, 1, 3, 1, 1, 1, 1, 1},
+            // seq times
+            {1, 1, 3, 1, 1, 1, 1, 1},
+        };
+        uint8_t cycles32Bit[2][16] = {
+            // Non seq times
+            {1, 1, 6, 1, 1, 2, 1, 1},
+            // seq times
+            {1, 1, 6, 1, 1, 2, 1, 1},
+        };
+
         uint8_t *wram;
         uint8_t *iwram;
+
+      public:
         uint8_t *bg_obj_ram;
         uint8_t *vram;
         uint8_t *oam;
 
+      private:
         uint8_t *rom;
         size_t romSize;
 
         const uint8_t *bios;
         size_t externalBiosSize;
         uint8_t biosState[4];
+
+        // needed to handle read from unused memory regions
+        const std::function<uint32_t()> readUnusedHandle;
 
         BackupID backupType;
 
@@ -184,13 +209,11 @@ namespace gbaemu
             BIOS_READ_AFTER_IRQ};
 
         static const constexpr uint32_t backupSizes[] = {
-            //TODO were do we know the exact size from???
             0,                               // NO BACKUP TYPE
             /*EEPROM_V_SIZE = */ 8 << 10,    // 512 bytes or 8 KiB
             /*SRAM_V_SIZE = */ 32 << 10,     // 32 KiB
             /*FLASH_V_SIZE = */ 64 << 10,    // 64 KiB
             /*FLASH512_V_SIZE = */ 64 << 10, // 64 KiB
-                                             //TODO this exceeds the normal expected memory area???
             /*FLASH1M_V_SIZE =*/128 << 10    // 128 KiB
         };
 
@@ -296,10 +319,13 @@ namespace gbaemu
         save::EEPROM *eeprom;
         save::FLASH *flash;
         save::SaveFile *ext_sram;
+
+#ifdef DEBUG_CLI
         /* We are going to expose this directly becaus this cannot be in an invalid state and I don't have time. */
         MemWatch memWatch;
+#endif
 
-        Memory()
+        Memory(std::function<uint32_t()> readUnusedHandle) : readUnusedHandle(readUnusedHandle)
         {
             wram = GBA_ALLOC_MEM_REG(WRAM);
             iwram = GBA_ALLOC_MEM_REG(IWRAM);
@@ -318,6 +344,11 @@ namespace gbaemu
             reset();
         }
 
+        BackupID getBackupType() const
+        {
+            return backupType;
+        }
+
         void reset()
         {
             GBA_MEM_CLEAR(oam, OAM);
@@ -334,6 +365,56 @@ namespace gbaemu
             }
 
             setBiosReadState(BIOS_AFTER_STARTUP);
+            updateWaitCycles(0);
+        }
+
+        void updateWaitCycles(uint16_t WAITCNT)
+        {
+            // See: https://problemkaputt.de/gbatek.htm#gbasystemcontrol
+            uint8_t sramWaitCnt = WAITCNT & 3;
+            WAITCNT >>= 2;
+            uint8_t wait0_n = WAITCNT & 3;
+            WAITCNT >>= 2;
+            uint8_t wait0_s = WAITCNT & 1;
+            WAITCNT >>= 1;
+            uint8_t wait1_n = WAITCNT & 3;
+            WAITCNT >>= 2;
+            uint8_t wait1_s = WAITCNT & 1;
+            WAITCNT >>= 1;
+            uint8_t wait2_n = WAITCNT & 3;
+            WAITCNT >>= 2;
+            uint8_t wait2_s = WAITCNT & 1;
+
+            const constexpr uint8_t waitCycles_n[] = {
+                4, 3, 2, 8};
+
+            const constexpr uint8_t waitCycles0_s[] = {2, 1};
+            const constexpr uint8_t waitCycles1_s[] = {4, 1};
+            const constexpr uint8_t waitCycles2_s[] = {8, 1};
+
+            cycles16Bit[0][EXT_SRAM] = cycles16Bit[0][EXT_SRAM_] =
+                cycles16Bit[1][EXT_SRAM] = cycles16Bit[1][EXT_SRAM_] =
+                    cycles32Bit[0][EXT_SRAM] = cycles32Bit[0][EXT_SRAM_] =
+                        cycles32Bit[1][EXT_SRAM] = cycles32Bit[1][EXT_SRAM_] = waitCycles_n[sramWaitCnt];
+
+            // First Access (Non-sequential) and Second Access (Sequential) define the waitstates for N and S cycles
+            // the actual access time is 1 clock cycle PLUS the number of waitstates.
+            cycles16Bit[0][EXT_ROM1] = cycles16Bit[0][EXT_ROM1_] = 1 + waitCycles_n[wait0_n];
+            cycles16Bit[0][EXT_ROM2] = cycles16Bit[0][EXT_ROM2_] = 1 + waitCycles_n[wait1_n];
+            cycles16Bit[0][EXT_ROM3] = cycles16Bit[0][EXT_ROM3_] = 1 + waitCycles_n[wait2_n];
+
+            cycles16Bit[1][EXT_ROM1] = cycles16Bit[1][EXT_ROM1_] = 1 + waitCycles0_s[wait0_s];
+            cycles16Bit[1][EXT_ROM2] = cycles16Bit[1][EXT_ROM2_] = 1 + waitCycles1_s[wait1_s];
+            cycles16Bit[1][EXT_ROM3] = cycles16Bit[1][EXT_ROM3_] = 1 + waitCycles2_s[wait2_s];
+
+            // GamePak uses 16bit data bus, so that a 32bit access is split into TWO 16bit accesses
+            // (of which, the second fragment is always sequential, even if the first fragment was non-sequential)
+            cycles32Bit[0][EXT_ROM1] = cycles32Bit[0][EXT_ROM1_] = cycles16Bit[0][EXT_ROM1] + cycles16Bit[1][EXT_ROM1];
+            cycles32Bit[0][EXT_ROM2] = cycles32Bit[0][EXT_ROM2_] = cycles16Bit[0][EXT_ROM2] + cycles16Bit[1][EXT_ROM2];
+            cycles32Bit[0][EXT_ROM3] = cycles32Bit[0][EXT_ROM3_] = cycles16Bit[0][EXT_ROM3] + cycles16Bit[1][EXT_ROM3];
+            cycles32Bit[1][EXT_ROM1] = cycles32Bit[1][EXT_ROM1_] = 2 * cycles16Bit[1][EXT_ROM1];
+            cycles32Bit[1][EXT_ROM2] = cycles32Bit[1][EXT_ROM2_] = 2 * cycles16Bit[1][EXT_ROM2];
+            cycles32Bit[1][EXT_ROM3] = cycles32Bit[1][EXT_ROM3_] = 2 * cycles16Bit[1][EXT_ROM3];
         }
 
         ~Memory()
@@ -404,8 +485,8 @@ namespace gbaemu
                 // Allocate needed memory
                 ext_sram = new save::SaveFile(saveFilePath, loadSuccessful, backupSizes[backupType]);
             } else if (backupType == EEPROM_V) {
-                //TODO how to find out the eeprom size???
-                this->eeprom = new save::EEPROM(saveFilePath, loadSuccessful /*, romSize >= 0x01000000 ? 14 : 6*/);
+                // EEPROM size is determinable via the size of the dma requests
+                this->eeprom = new save::EEPROM(saveFilePath, loadSuccessful);
             } else if (backupType >= FLASH_V) {
                 this->flash = new save::FLASH(saveFilePath, loadSuccessful, backupSizes[backupType]);
             }
@@ -441,23 +522,25 @@ namespace gbaemu
             return romSize;
         }
 
-        uint8_t read8(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false) const;
-        uint16_t read16(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
-        uint32_t read32(uint32_t addr, InstructionExecutionInfo *execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
-        void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo *execInfo, bool seq = false);
-        void write16(uint32_t addr, uint16_t value, InstructionExecutionInfo *execInfo, bool seq = false);
-        void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo *execInfo, bool seq = false);
+        uint8_t read8(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq = false, bool readInstruction = false) const;
+        uint16_t read16(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
+        uint32_t read32(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
+        void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo &execInfo, bool seq = false);
+        void write16(uint32_t addr, uint16_t value, InstructionExecutionInfo &execInfo, bool seq = false);
+        void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo &execInfo, bool seq = false);
 
         // This is needed to handle memory mirroring
-        const uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const;
-        const uint8_t *resolveAddrRef(uint32_t &addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg) const;
-        uint8_t *resolveAddr(uint32_t addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg);
-        uint8_t *resolveAddrRef(uint32_t &addr, InstructionExecutionInfo *execInfo, MemoryRegion &memReg);
-        void normalizeAddressRef(uint32_t &addr, MemoryRegion &memReg) const;
-        uint32_t normalizeAddress(uint32_t addr, MemoryRegion &memReg) const;
+        void normalizeAddressRef(uint32_t &addr, InstructionExecutionInfo &execInfo) const;
+        uint32_t normalizeAddress(uint32_t addr, InstructionExecutionInfo &execInfo) const;
 
-        uint8_t cyclesForVirtualAddrNonSeq(MemoryRegion memReg, uint8_t bytesToRead) const;
-        uint8_t cyclesForVirtualAddrSeq(MemoryRegion memReg, uint8_t bytesToRead) const;
+        uint8_t memCycles32(uint8_t reg, bool seq) const
+        {
+            return cycles32Bit[bmap<uint8_t>(seq)][reg & 0xF];
+        }
+        uint8_t memCycles16(uint8_t reg, bool seq) const
+        {
+            return cycles16Bit[bmap<uint8_t>(seq)][reg & 0xF];
+        }
 
         void setBiosReadState(BiosReadState readState)
         {
@@ -475,9 +558,15 @@ namespace gbaemu
             biosState[3] = (inst >> 24) & 0x0FF;
         }
 
+        static MemoryRegion extractMemoryRegion(uint32_t addr);
       private:
         void scanROMForBackupID();
         uint32_t readOutOfROM(uint32_t addr) const;
+
+        template <uint8_t bytes>
+        uint8_t *resolveAddrRef(uint32_t &addr, InstructionExecutionInfo &execInfo) const;
+        template <bool read, uint8_t bytes>
+        const uint8_t *resolveAddrRef(uint32_t &addr, InstructionExecutionInfo &execInfo) const;
     }; // namespace gbaemu
 } // namespace gbaemu
 

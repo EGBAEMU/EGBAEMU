@@ -1,6 +1,5 @@
 #include "palette.hpp"
 
-
 namespace gbaemu::lcd
 {
     /* LCDColorPalette */
@@ -12,6 +11,12 @@ namespace gbaemu::lcd
         uint32_t b = static_cast<uint32_t>((color >> 10) & 0x1F) << 3;
 
         return 0xFF000000 | (r << 16) | (g << 8) | b;
+    }
+
+    void LCDColorPalette::loadPalette(Memory &mem)
+    {
+        bgPalette = reinterpret_cast<uint16_t *>(mem.bg_obj_ram);
+        objPalette = reinterpret_cast<uint16_t *>(mem.bg_obj_ram + 0x200);
     }
 
     color_t LCDColorPalette::getBgColor(uint32_t index) const
@@ -50,4 +55,20 @@ namespace gbaemu::lcd
     {
         return toR8G8B8(bgPalette[0]);
     }
-}
+
+    void LCDColorPalette::drawPalette(int32_t size, color_t *target, int32_t stride)
+    {
+        for (int32_t y = 0; y < size; ++y)
+            for (int32_t x = 0; x < size * 256; ++x) {
+                int32_t index = x / size;
+                color_t color;
+
+                if (index == 0)
+                    color = getBackdropColor();
+                else
+                    color = getBgColor(index);
+
+                target[y * stride + x] = color;
+            }
+    }
+} // namespace gbaemu::lcd

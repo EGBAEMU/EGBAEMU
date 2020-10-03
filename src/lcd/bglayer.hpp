@@ -1,51 +1,76 @@
 #ifndef BGLAYER_HPP
 #define BGLAYER_HPP
 
-#include <lcd/palette.hpp>
 #include <io/memory.hpp>
+#include <lcd/palette.hpp>
 
+#include <memory>
 
 namespace gbaemu::lcd
 {
-    class Background : public Layer
+    enum BGIndex {
+        BG0 = 0,
+        BG1,
+        BG2,
+        BG3
+    };
+
+    struct BGAffineTransform {
+        vec2 d;
+        vec2 dm;
+        vec2 origin;
+    };
+
+    typedef uint16_t BGMode0Entry;
+
+    struct BGMode0EntryAttributes {
+        BGMode0EntryAttributes(BGMode0Entry entry);
+
+        uint16_t tileNumber;
+        uint16_t paletteNumber;
+        bool vFlip, hFlip;
+    };
+
+    class BGLayer : public Layer
     {
       public:
-        MemoryCanvas<uint32_t> tempCanvas;
+        BGIndex index;
         /* settings */
         bool useOtherFrameBuffer;
         bool mosaicEnabled;
+        int32_t mosaicWidth;
+        int32_t mosaicHeight;
         bool colorPalette256;
         /* actual pixel count */
         uint32_t width;
         uint32_t height;
         bool wrap;
-        bool scInUse[4];
-        uint32_t scCount;
-        uint32_t scXOffset[4];
-        uint32_t scYOffset[4];
-        uint8_t *bgMapBase;
-        uint8_t *tiles;
+        const uint8_t *bgMapBase;
+        const uint8_t *tiles;
 
-        /* general transformation of background in target display space */
-        struct {
-            common::math::vec<2> d;
-            common::math::vec<2> dm;
-            common::math::vec<2> origin;
-        } step;
+        /* this is not the actual bg mode, but the mode in which this Background should be rendered */
+        BGMode mode;
+        LCDColorPalette &palette;
+        Memory &memory;
+        uint16_t size;
+        BGAffineTransform affineTransform;
 
-        common::math::mat<3, 3> trans;
-        common::math::mat<3, 3> invTrans;
+        BGLayer(LCDColorPalette &plt, Memory &mem, BGIndex idx);
+        ~BGLayer() {}
+        void loadSettings(BGMode bgMode, const LCDIORegs &regs);
+        std::string toString() const;
 
-        Background(LayerId i) : Layer(i), tempCanvas(1024, 1024) { }
-        ~Background() { }
-        void loadSettings(uint32_t bgMode, int32_t bgIndex, const LCDIORegs &regs, Memory &memory);
-        void renderBG0(LCDColorPalette &palette);
-        void renderBG2(LCDColorPalette &palette);
-        void renderBG3(Memory &memory);
-        void renderBG4(LCDColorPalette &palette, Memory &memory);
-        void renderBG5(LCDColorPalette &palette, Memory &memory);
-        void draw();
+        /* used in modes 0, 1, 2 */
+        const void *getBGMap(int32_t sx = 0, int32_t sy = 0) const;
+        /* used in modes 3, 4, 5 */
+        const void *getFrameBuffer() const;
+
+        std::function<color_t(int32_t, int32_t)> getPixelColorFunction();
+        void drawScanline(int32_t y) override;
+
+        /* used for sorting */
+        bool operator<(const BGLayer &other) const noexcept;
     };
-}
+} // namespace gbaemu::lcd
 
 #endif /* BGLAYER_HPP */

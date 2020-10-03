@@ -12,12 +12,6 @@ namespace gbaemu
     {
         return flipBytes(val);
     }
-#else
-    template <class T>
-    T le(T val)
-    {
-        return val;
-    }
 #endif
 
     template <class T>
@@ -29,12 +23,6 @@ namespace gbaemu
             reinterpret_cast<char *>(&result)[i] = reinterpret_cast<const char *>(&obj)[sizeof(obj) - 1 - i];
 
         return result;
-    }
-
-    template <class T>
-    T bitSet(T val, T mask, T off, T insVal)
-    {
-        return (val & ~(mask << off)) | ((insVal & mask) << off);
     }
 
     template <class T>
@@ -98,16 +86,29 @@ namespace gbaemu
         IntType result = value % upperBound;
         return (result >= 0) ? result : (result + upperBound);
     }
-} // namespace gbaemu
 
-template uint16_t gbaemu::bitSet<uint16_t>(uint16_t, uint16_t, uint16_t, uint16_t);
+    template <class IntType>
+    IntType ultraFastMod(IntType value, IntType mod)
+    {
+        if (0 <= value && value < mod)
+            return value;
+        else if (value < 0)
+            return value + mod;
+        else
+            return value - mod;
+    }
+} // namespace gbaemu
 
 template uint16_t gbaemu::bitGet<uint16_t>(uint16_t, uint16_t, uint16_t);
 
+template uint32_t gbaemu::bmap<uint32_t>(bool);
 template uint16_t gbaemu::bmap<uint16_t>(bool);
+template uint8_t gbaemu::bmap<uint8_t>(bool);
 
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
 template uint16_t gbaemu::le<uint16_t>(uint16_t);
 template uint32_t gbaemu::le<uint32_t>(uint32_t);
+#endif
 
 template double gbaemu::fixedToFloat<uint32_t, 8, 19>(uint32_t);
 template float gbaemu::fixedToFloat<uint32_t, 8, 19, float>(uint32_t);
@@ -126,3 +127,5 @@ template double gbaemu::clamp<double>(const double &, const double &, const doub
 template int32_t gbaemu::clamp<int32_t>(const int32_t &, const int32_t &, const int32_t &);
 
 template int32_t gbaemu::fastMod<int32_t>(int32_t, int32_t);
+
+template int32_t gbaemu::ultraFastMod<int32_t>(int32_t, int32_t);

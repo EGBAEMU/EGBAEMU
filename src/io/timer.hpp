@@ -28,17 +28,20 @@ namespace gbaemu
           400010Eh  2    R/W  TM3CNT_H  Timer 3 Control
           4000110h       -    -         Not used
         */
+        template <uint8_t id>
         class Timer
         {
           private:
             static const constexpr uint32_t TIMER_REGS_BASE_OFFSET = Memory::IO_REGS_OFFSET + 0x100;
+            static const constexpr uint8_t TIMER_START_OFFSET = 7;
 
             static const constexpr uint16_t TIMER_PRESCALE_MASK = 0x3;
             static const constexpr uint16_t TIMER_TIMING_MASK = static_cast<uint16_t>(1) << 2;
             static const constexpr uint16_t TIMER_IRQ_EN_MASK = static_cast<uint16_t>(1) << 6;
-            static const constexpr uint16_t TIMER_START_MASK = static_cast<uint16_t>(1) << 7;
+            static const constexpr uint16_t TIMER_START_MASK = static_cast<uint16_t>(1) << TIMER_START_OFFSET;
 
-            static const constexpr uint16_t prescales[] = {1, 64, 256, 1024};
+            // prescale = 1 << preShift -> prescale values are: 1, 64, 256, 1024
+            static const constexpr uint8_t preShifts[] = {0, 6, 8, 10};
 
             PACK_STRUCT(TimerRegs, regs,
                         uint16_t reload;
@@ -46,20 +49,21 @@ namespace gbaemu
 
             Memory &memory;
             InterruptHandler &irqHandler;
-            Timer *const nextTimer;
-            const uint8_t id;
+            Timer<(id < 3) ? id + 1 : id> *const nextTimer;
 
-            uint16_t counter;
-            uint16_t preCounter;
-            uint16_t prescale;
+            uint8_t &timEnableBitset;
+
+            uint32_t counter;
+            uint32_t overflowVal;
+            uint8_t preShift;
             bool active;
             bool countUpTiming;
             bool irq;
 
           public:
-            void step();
+            void step(uint32_t cycles);
 
-            Timer(Memory &memory, InterruptHandler &irqHandler, uint8_t id, Timer *nextTimer);
+            Timer(Memory &memory, InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, uint8_t &timEnableBitset);
 
             void reset();
 
@@ -67,23 +71,123 @@ namespace gbaemu
             uint8_t read8FromReg(uint32_t offset);
             void write8ToReg(uint32_t offset, uint8_t value);
 
-            void receiveOverflowOfPrevTimer();
+            void receiveOverflowOfPrevTimer(uint32_t overflowTimes);
 
             void checkForOverflow();
+
+            friend class Timer<(id > 0) ? id - 1 : id>;
         };
 
-        Timer tim0;
-        Timer tim1;
-        Timer tim2;
-        Timer tim3;
+        Timer<0> tim0;
+        Timer<1> tim1;
+        Timer<2> tim2;
+        Timer<3> tim3;
+
+        uint8_t timEnableBitset;
+
+        const std::function<void(uint32_t)> stepLUT[16] = {
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    0    0    0
+            [](uint32_t) {},
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    0    0    1
+            [this](uint32_t cycles) {
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    0    1    0
+            [this](uint32_t cycles) {
+                this->tim1.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    0    1    1
+            [this](uint32_t cycles) {
+                this->tim1.step(cycles);
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    1    0    0
+            [this](uint32_t cycles) {
+                this->tim2.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    1    0    1
+            [this](uint32_t cycles) {
+                this->tim2.step(cycles);
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    1    1    0
+            [this](uint32_t cycles) {
+                this->tim2.step(cycles);
+                this->tim1.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 0    1    1    1
+            [this](uint32_t cycles) {
+                this->tim2.step(cycles);
+                this->tim1.step(cycles);
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    0    0    0
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    0    0    1
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    0    1    0
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim1.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    0    1    1
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim1.step(cycles);
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    1    0    0
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim2.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    1    0    1
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim2.step(cycles);
+                this->tim0.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    1    1    0
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim2.step(cycles);
+                this->tim1.step(cycles);
+            },
+            // TIM3 TIM2 TIM1 TIM0
+            // 1    1    1    1
+            [this](uint32_t cycles) {
+                this->tim3.step(cycles);
+                this->tim2.step(cycles);
+                this->tim1.step(cycles);
+                this->tim0.step(cycles);
+            }};
 
       public:
-        void step()
+        void step(uint32_t cycles)
         {
-            tim0.step();
-            tim1.step();
-            tim2.step();
-            tim3.step();
+            if (cycles) {
+                stepLUT[timEnableBitset](cycles);
+            }
         }
 
         void reset()
@@ -92,6 +196,7 @@ namespace gbaemu
             tim1.reset();
             tim2.reset();
             tim3.reset();
+            timEnableBitset = 0;
         }
 
         TimerGroup(CPU *cpu);
