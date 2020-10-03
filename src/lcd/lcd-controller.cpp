@@ -242,19 +242,6 @@ namespace gbaemu::lcd
 
     std::string LCDController::getLayerStatusString() const
     {
-        std::stringstream ss;
-
-        /*
-        for (const auto& pLayer : layers) {
-            ss << "================================\n";
-            ss << "enabled: " << (pLayer->enabled ? "yes" : "no") << '\n';
-            ss << "id: " << layerIDToString(pLayer->layerID) << '\n';
-            ss << "priority: " << pLayer->priority << '\n';
-            //ss << "as first target: " << (pLayer->asFirstTarget ? "yes" : "no") << '\n';
-            //ss << "as second target: " << (pLayer->asSecondTarget ? "yes" : "no") << '\n';
-        }
-         */
-
-        return ss.str();
+        return renderer.getLayerStatusString();
     }
 } // namespace gbaemu::lcd

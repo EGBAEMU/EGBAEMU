@@ -1,6 +1,7 @@
 #include "renderer.hpp"
 
-#include <optional>
+#include <sstream>
+
 
 namespace gbaemu::lcd
 {
@@ -329,5 +330,22 @@ namespace gbaemu::lcd
 #endif
 
         //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count() << std::endl;
+    }
+
+    std::string Renderer::getLayerStatusString() const
+    {
+        std::stringstream ss;
+        ss << std::boolalpha;
+
+        for (const auto& pLayer : layers) {
+            ss << "================================\n";
+            ss << "enabled: " << pLayer->enabled << '\n';
+            ss << "id: " << layerIDToString(pLayer->layerID) << '\n';
+            ss << "priority: " << pLayer->priority << '\n';
+            ss << "as first target: " << pLayer->asFirstTarget << '\n';
+            ss << "as second target: " << pLayer->asSecondTarget << '\n';
+        }
+
+        return ss.str();
     }
 } // namespace gbaemu::lcd
