@@ -23,8 +23,6 @@ namespace gbaemu
         };
 
       private:
-        CPU *cpu;
-
         /*
             0x04000060 	REG_SOUND1CNT_L 	Sound 1 Sweep control
             0x04000062 	REG_SOUND1CNT_H 	Sound 1 Lenght, wave duty and envelope control
@@ -56,12 +54,14 @@ namespace gbaemu
 
         PACK_STRUCT(SoundControlRegs, regs,
                     // Control regs for channel 1
+                    /*
                     uint16_t sound1CntL;
                     uint16_t sound1CntH;
                     uint16_t sound1CntX;
                     // Control regs for channel 2
                     uint16_t sound2CntL;
                     uint16_t sound2CntH;
+                    */
                     // Control regs for channel 3
                     uint16_t sound3CntL;
                     uint16_t sound3CntH;
@@ -96,14 +96,17 @@ namespace gbaemu
 
         void externalWrite8ToReg(uint32_t offset, uint8_t value);
 
-      public:
-        static const uint32_t SOUND_CONTROL_REG_ADDR;
+      private:
+        // We start at SOUND3 registers
+        static const constexpr uint32_t SOUND_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x60 + 0x10;
 
+        SquareWaveChannel channel1;
+        SquareWaveChannel channel2;
+
+      public:
         SoundOrchestrator(CPU *cpu);
 
         ~SoundOrchestrator();
-
-        void refresh();
 
         // Callback for SDL2 Mixer
         // void onChannelDoneCallback(int channel);
@@ -112,9 +115,7 @@ namespace gbaemu
 
         void setChannelPlaybackStatus(uint8_t channel, bool playing);
 
-      private:
-        SquareWaveChannel* channel2;
-
+        void reset();
     };
 } // namespace gbaemu
 

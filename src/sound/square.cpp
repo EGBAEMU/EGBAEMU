@@ -1,6 +1,9 @@
 #include "square.hpp"
+#include "cpu/cpu.hpp"
 #include "orchestrator.hpp"
 #include "util.hpp"
+
+#include <algorithm>
 
 #ifdef __clang__
 /*code specific to clang compiler*/
@@ -26,8 +29,52 @@
 namespace gbaemu
 {
 
-    SquareWaveChannel::SquareWaveChannel(SoundOrchestrator *orchestrator, uint8_t channel, uint16_t *registers[2]) : orchestrator(orchestrator), channel(channel), registers(registers)
+    SquareWaveChannel::SquareWaveChannel(CPU *cpu, SoundOrchestrator &orchestrator, SoundChannel channel, uint16_t *registers) : orchestrator(orchestrator), channel(channel), registers(registers)
     {
+        cpu->state.memory.ioHandler.registerIOMappedDevice(
+            IO_Mapped(
+                SOUND_CONTROL_REG_ADDR + sizeof(regs) * channel,
+                SOUND_CONTROL_REG_ADDR + sizeof(regs) * channel + sizeof(regs) - 1 - sizeof(uint16_t) * channel,
+                std::bind(&SquareWaveChannel::read8FromReg, this, std::placeholders::_1),
+                std::bind(&SquareWaveChannel::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
+                std::bind(&SquareWaveChannel::read8FromReg, this, std::placeholders::_1),
+                std::bind(&SquareWaveChannel::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
+        chunk = nullptr;
+        reset();
+    }
+
+    void SquareWaveChannel::reset()
+    {
+        std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
+
+        playing = false;
+
+        timed_active = false;
+        timed_cyclesRemaining = 0;
+           
+        env_value = 0;
+        env_active = false;
+        env_cyclesRemaining = 0;
+
+        sweep_cyclesRemaining = 0;
+
+        if (chunk != nullptr)
+            delete chunk;
+        
+        chunk = nullptr;
+
+        reg_soundLength = 0;
+        reg_dutyCycle = 0;
+        reg_envStepTime = 0;
+        reg_envMode = false;
+        reg_envInitVal = 0;
+        reg_frequency = 0;
+        reg_timed = false;
+        reg_reset = false;
+        reg_sweepShifts = 0;
+        reg_sweepDirection = false;
+        reg_sweepTime = 0;
+
     }
 
     SquareWaveChannel::~SquareWaveChannel()
@@ -36,89 +83,191 @@ namespace gbaemu
             delete chunk;
     }
 
-    void SquareWaveChannel::onRegisterUpdated()
+    float SquareWaveChannel::getBaseFrequency() const 
     {
-        // All parameters can be changed dynamically while the sound is playing!
-        // Thus remember that some update has occured and adjust in next cycle.
-        update = true;
+        return 4194304.0 / static_cast<float>(32 * (2048 - reg_frequency));
     }
 
-    void SquareWaveChannel::onCheckForAdjustment()
+    uint32_t SquareWaveChannel::getCyclesForEnvelope() const
+    {
+        // The envelope step time is the delay between successive envelope
+        // increase or decrease. It is given by the following formula:
+        //   T=register value*(1/64) seconds.
+        return static_cast<uint32_t>(reg_envStepTime) * (CYCLES_PER_S / 64);
+    }
+
+    uint32_t SquareWaveChannel::getCyclesForSoundLength() const
+    {
+        // The sound length is an 6 bit value obtained from
+        // the following formula:
+        //   Sound length= (64-register value)*(1/256) seconds.
+        return (64 - static_cast<uint32_t>(reg_soundLength)) * (CYCLES_PER_S / 256);
+    }
+
+    uint8_t SquareWaveChannel::read8FromReg(uint32_t offset) const
+    {
+        if (channel == CHAN_2)
+            offset += sizeof(regs.soundCntL);
+
+        return *(offset + reinterpret_cast<const uint8_t *>(&regs));
+    }
+
+    void SquareWaveChannel::write8ToReg(uint32_t offset, uint8_t value)
+    {
+        if (channel == CHAN_2)
+            offset += sizeof(regs.soundCntL);
+
+        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+
+        //TODO this can be more granular if needed!
+        update = true;
+
+        switch (offset) {
+            case offsetof(SquareWaveRegs, soundCntL) + 1:
+            case offsetof(SquareWaveRegs, soundCntL): {
+                const uint16_t regCntL = le(regs.soundCntL);
+                // Extract the register values of reg L (Channel 2 does not support sweeps)
+                reg_sweepShifts = bitGet(regCntL, SOUND_SQUARE_CHANNEL_L_SHIFTS_MASK, SOUND_SQUARE_CHANNEL_L_SHIFTS_OFF);
+                reg_sweepDirection = isBitSet<uint16_t, SOUND_SQUARE_CHANNEL_L_DIR_OFF>(regCntL);
+                reg_sweepTime = bitGet(regCntL, SOUND_SQUARE_CHANNEL_L_TIME_MASK, SOUND_SQUARE_CHANNEL_L_TIME_OFF);
+                break;
+            }
+            case offsetof(SquareWaveRegs, soundCntH_L) + 1:
+            case offsetof(SquareWaveRegs, soundCntH_L): {
+                const uint16_t regCntH_L = le(regs.soundCntH_L);
+                // Extract the register values of reg H (L for channel 2)
+                reg_soundLength = bitGet(regCntH_L, SOUND_SQUARE_CHANNEL_H_SOUND_LENGTH_MASK, SOUND_SQUARE_CHANNEL_H_SOUND_LENGTH_OFF);
+                reg_dutyCycle = bitGet(regCntH_L, SOUND_SQUARE_CHANNEL_H_DUTY_CYCLE_MASK, SOUND_SQUARE_CHANNEL_H_DUTY_CYCLE_OFF);
+                reg_envStepTime = bitGet(regCntH_L, SOUND_SQUARE_CHANNEL_H_ENV_STEP_TIME_MASK, SOUND_SQUARE_CHANNEL_H_ENV_STEP_TIME_OFF);
+                reg_envMode = isBitSet<uint16_t, SOUND_SQUARE_CHANNEL_H_ENV_MODE_OFF>(regCntH_L);
+                reg_envInitVal = bitGet(regCntH_L, SOUND_SQUARE_CHANNEL_H_ENV_INIT_VAL_MASK, SOUND_SQUARE_CHANNEL_H_ENV_INIT_VAL_OFF);
+                break;
+            }
+            case offsetof(SquareWaveRegs, soundCntX_H) + 1:
+            case offsetof(SquareWaveRegs, soundCntX_H): {
+                const uint16_t regCntX_H = le(regs.soundCntX_H);
+                // Extract the register values of reg X (H for channel 2)
+                reg_frequency = bitGet(regCntX_H, SOUND_SQUARE_CHANNEL_X_SOUND_FREQ_MASK, SOUND_SQUARE_CHANNEL_X_SOUND_FREQ_OFF);
+                reg_timed = bitGet(regCntX_H, SOUND_SQUARE_CHANNEL_X_TIME_MODE_MASK, SOUND_SQUARE_CHANNEL_X_TIME_MODE_OFF);
+                reg_reset = bitGet(regCntX_H, SOUND_SQUARE_CHANNEL_X_RESET_MASK, SOUND_SQUARE_CHANNEL_X_RESET_OFF);
+                break;
+            }
+        }
+    }
+
+    void SquareWaveChannel::onRegisterUpdated()
+    {
+        if (reg_reset) {
+            // When reset is set to 1, the envelope is resetted to its initial value
+            // and sound restarts at the specified frequency.
+            env_value = reg_envInitVal;
+            env_cyclesRemaining = getCyclesForEnvelope();
+
+            // Sound length is also reset
+            timed_active = reg_timed;
+            timed_cyclesRemaining = getCyclesForSoundLength();
+
+            // We applied the update.
+            regs.regCntX_H = le(le(regs.regCntX_H) & ~SOUND_SQUARE_CHANNEL_X_RESET_MASK);
+            // And we are playing!
+            playing = true;
+            orchestrator.setChannelPlaybackStatus(channel, true);
+        }
+
+        if (reg_sweepTime == 0) {
+            sweep_cyclesWaited = 0;
+        } 
+
+        if (reg_envStepTime == 0) {
+            env_active = false;
+            env_value = 0xF;
+        } else {
+            // The env shall be active if we can step in any direction without hitting the bounds
+            env_active = (!reg_envMode && (env_value != 0x0)) && (reg_envMode && (env_value != 0xF));
+        }
+    }
+
+    void SquareWaveChannel::onCheckForAdjustment(uint32_t cycles)
     {
 
-        bool trigger = update;
+        if (timed_active) {
+            timed_cyclesRemaining -= cycles;
+            if (timed_cyclesRemaining <= 0) {
+                playing = false;
+                timed_cyclesRemaining = 0;
+            }
+        }
 
-        // Only check env if its active!
+        if (reg_sweepTime != 0) {
+            sweep_cyclesWaited += cycles;
+            if (SWEEP_TIME_CYCLES[reg_sweepTime] <= sweep_cyclesWaited) {
+
+                if (reg_sweepDirection) {
+                    reg_sweepShifts -= 1;
+                } else {
+                    reg_sweepShifts += 1;
+                }
+
+                float period = 1.0 / getBaseFrequency();
+                period += period / (reg_sweepShifts << 1);
+                float frequency = 1.0 / period;
+
+                if (frequency < 0)
+                    reg_sweepShifts += 1;
+                
+                if (frequency > 131) 
+                    playing = false;
+                
+                sweep_cyclesWaited -= SWEEP_TIME_CYCLES[reg_sweepTime];
+            }
+        }
+
         if (env_active) {
+            env_cyclesRemaining -= cycles;
+            if (env_cyclesRemaining <= 0) {
 
-            // The current time
-            auto timeCurrent = std::chrono::high_resolution_clock::now();
-            // The elapsed time since the start if the current env
-            //TODO @schmax does not compile...
-            uint32_t timeElapsed /*= std::chrono::duration_cast<std::chrono::microseconds>(timeCurrent - env_lastUpdate).count()*/;
-
-            // The current env step has expired! Advance to the next one!
-            if (std::chrono::microseconds(timeElapsed) >= env_updateThreshold) {
-
-                // Make sure we update the sound later on
-                trigger = true;
-
-                // Upate the env value
                 if (reg_envMode) {
-                    // Increase env value to the next value
                     env_value += 1;
-                    // If we reaced the maximum value we do not need to step any longer
+                    // If we reached the maximum value we do not need to step any longer
                     if (env_value == 0xFF)
                         env_active = false;
-
                 } else {
-                    // Decrease env by one
                     env_value -= 1;
                     // If we reached the minimum value we do not need to step any longer
                     if (env_value == 0)
                         env_active = false;
                 }
+
+                if (env_active)
+                    env_cyclesRemaining += getCyclesForEnvelope();
             }
         }
-
-        // Fetch register values if some value has been refreshed
-        if (update)
-            getRegisterValues();
-
-        if (trigger)
-            refresh();
-
-        update = false;
     }
 
     void SquareWaveChannel::refresh()
     {
+        
+        if (!playing) {
+            orchestrator.setChannelPlaybackStatus(channel, false);
+            Mix_HaltChannel(channel);
 
-        if (reg_reset) {
-            // When reset is set to 1, the envelope is resetted to its initial value 
-            // and sound restarts at the specified frequency. 
-            env_value = reg_envInitVal;
+            // Remove the previous chunk
+            if (chunk != nullptr)
+                delete chunk;
 
-            // TODO: Set reset register to 0
-
+            chunk = nullptr;
+            return;
         }
-
-        // If the step time is 0 the env is disabled
-        if (reg_envStepTime == 0) {
-            // Disable check for stepping
-            env_active = false;
-            // Tie the amplitude to max (Envelope value has 4 bits)
-            env_value = 0xF;
-        } else {
-            // Update the env step delta. A update may occur after (reg_value * 1 / 64) seconds.
-            env_updateThreshold = std::chrono::microseconds{static_cast<uint32_t>(reg_envStepTime) * 15625};
-            // The env shall be active if we can step in any direction without hitting the bounds
-            env_active = (!reg_envMode && (env_value != 0x0)) && (reg_envMode && (env_value != 0xF));
-        }
-
 
         // The period of one square in s
-        float periodSquare = static_cast<float>(32 * (2048 - reg_frequency)) / 4194304.0;
+        float periodSquare = 1.0 / getBaseFrequency();
+        if (reg_sweepTime != 0) {
+            // Sweep shifts bits controls the amount of change in frequency 
+            // (either increase or decrease) at each change. The wave's new 
+            // period is given by: T=T±T/(2^n) where n is the sweep shifts value.
+            periodSquare += (periodSquare / (reg_sweepShifts << 1))
+        }
+
         // How long one output period is in s
         float periodOutput = 1.0 / static_cast<float>(MIX_DEFAULT_FREQUENCY);
         // How many samples we have to generate for one square period
@@ -128,9 +277,11 @@ namespace gbaemu
         float duty = DUTY_CYCLES[reg_dutyCycle];
         // How many samples should be high in the current square
         uint32_t samplesHigh = static_cast<uint32_t>(samples * duty);
-
-        // The amplitude to use is influenced by the current env
-        uint8_t amplitude = static_cast<uint8_t>(env_value * SOUND_SQUARE_AMPLITUDE_SCALING);
+        
+        uint8_t amplitude = 0xF;
+        if (reg_envStepTime != 0) {
+            amplitude = static_cast<uint8_t>(env_value * SOUND_SQUARE_AMPLITUDE_SCALING);
+        }
 
         Mix_Chunk *updatedChunk = new Mix_Chunk;
         // Free the sample data buffer automatically when the chunk is freed.
@@ -139,45 +290,23 @@ namespace gbaemu
         updatedChunk->volume = MIX_MAX_VOLUME;
 
         // The buffer that will store the raw quare wave data
-        uint8_t *sampleBuffer = new uint8_t[samples];
+        uint8_t *sampleBuffer = new uint8_t[samples]();
         updatedChunk->abuf = sampleBuffer;
 
         // Generate the samples
-        for (uint32_t sampleIdx = 0; sampleIdx < samples; ++sampleIdx) {
-            if (sampleIdx < samplesHigh)
-                sampleBuffer[sampleIdx] = amplitude;
-            else
-                sampleBuffer[sampleIdx] = 0x0;
-        }
+        std::fill_n(sampleBuffer, samplesHigh, amplitude);
+        // std::fill_n(sampleBuffer + samplesHigh, samples - samplesHigh, 0);
 
         // Clear previous tone
         Mix_HaltChannel(channel);
         // Start playing the updated chunk
-        Mix_PlayChannel(channel, chunk, -1);
+        Mix_PlayChannel(channel, updatedChunk, -1);
 
         // Remove the previous chunk
         if (chunk != nullptr)
             delete chunk;
         // And replace the new one
         chunk = updatedChunk;
-    }
-
-    void SquareWaveChannel::getRegisterValues()
-    {
-        const uint16_t reg1 = le(*registers[0]);
-        const uint16_t reg2 = le(*registers[1]);
-
-        // Extract the register values of reg 1
-        reg_soundLength = static_cast<uint8_t>((reg1 & SOUND_SQUARE_CHANNEL_H_SOUND_LENGTH_MASK) >> SOUND_SQUARE_CHANNEL_H_SOUND_LENGTH_OFF);
-        reg_dutyCycle = static_cast<uint8_t>((reg1 & SOUND_SQUARE_CHANNEL_H_DUTY_CYCLE_MASK) >> SOUND_SQUARE_CHANNEL_H_DUTY_CYCLE_OFF);
-        reg_envStepTime = static_cast<uint8_t>((reg1 & SOUND_SQUARE_CHANNEL_H_ENV_STEP_TIME_MASK) >> SOUND_SQUARE_CHANNEL_H_ENV_STEP_TIME_OFF);
-        reg_envMode = static_cast<bool>((reg1 & SOUND_SQUARE_CHANNEL_H_ENV_MODE_MASK) >> SOUND_SQUARE_CHANNEL_H_ENV_MODE_OFF);
-        reg_envInitVal = static_cast<uint8_t>((reg1 & SOUND_SQUARE_CHANNEL_H_ENV_INIT_VAL_MASK) >> SOUND_SQUARE_CHANNEL_H_ENV_INIT_VAL_OFF);
-        // Extract the register values of reg 2
-        reg_frequency = static_cast<uint16_t>((reg2 & SOUND_SQUARE_CHANNEL_X_SOUND_FREQ_MASK) >> SOUND_SQUARE_CHANNEL_X_SOUND_FREQ_OFF);
-        reg_timed = static_cast<bool>((reg2 & SOUND_SQUARE_CHANNEL_X_TIME_MODE_MASK) >> SOUND_SQUARE_CHANNEL_X_TIME_MODE_OFF);
-        reg_reset = static_cast<bool>((reg2 & SOUND_SQUARE_CHANNEL_X_RESET_MASK) >> SOUND_SQUARE_CHANNEL_X_RESET_OFF);
-
     }
 
 } // namespace gbaemu

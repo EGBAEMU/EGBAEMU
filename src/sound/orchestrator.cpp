@@ -36,9 +36,6 @@ namespace gbaemu
         std::cout << "Channel " << channel << " completed playback!" << std::endl;
     }
 
-    // TODO: Correct offset (First is at 0x04000060)
-    const uint32_t SoundOrchestrator::SOUND_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x200;
-
     uint8_t SoundOrchestrator::read8FromReg(uint32_t offset) const
     {
         return *(offset + reinterpret_cast<const uint8_t *>(&regs));
@@ -46,25 +43,16 @@ namespace gbaemu
 
     void SoundOrchestrator::internalWrite8ToReg(uint32_t offset, uint8_t value)
     {
-
-        if (offset < 11 && offset > 6)
-            channel2->onRegisterUpdated();
-
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
     }
 
     void SoundOrchestrator::externalWrite8ToReg(uint32_t offset, uint8_t value)
     {
-        
-        if (offset < 11 && offset > 6)
-            channel2->onRegisterUpdated();
-
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
     }
 
-    SoundOrchestrator::SoundOrchestrator(CPU *cpu) : cpu(cpu)
+    SoundOrchestrator::SoundOrchestrator(CPU *cpu) : channel1(cpu, *this, SquareWaveChannel::CHAN_1), channel2(cpu, *this, SquareWaveChannel::CHAN_2)
     {
-
         // Initialize SDL audio modules
         if (SDL_Init(SDL_INIT_AUDIO) < 0) {
             printf("SDL_Init: %s\n", SDL_GetError());
@@ -93,14 +81,13 @@ namespace gbaemu
                 std::bind(&SoundOrchestrator::read8FromReg, this, std::placeholders::_1),
                 std::bind(&SoundOrchestrator::internalWrite8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
 
-        // A array of pointers to the register beeing important to Channel 2
-        uint16_t *registers[2] channel2_registers = {
-            &regs.sound2CntL,
-            &regs.sound2CntH
-        };
+        reset();
+    }
 
-        channel2 = new SquareWaveChannel(this, 1, channel2_registers);
-
+    void SoundOrchestrator::reset() {
+        std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
+        channel1.reset();
+        channel2.reset();
     }
 
     SoundOrchestrator::~SoundOrchestrator()
@@ -118,11 +105,6 @@ namespace gbaemu
         // other sources and most emulators, these bits are read-only and do 
         // not need to be set to enable the sound channels. 
         regs.soundCntX = (le(regs.soundCntX) & (static_cast<uint16_t>(0x1) << channel)) | (static_cast<uint16_t>(playing) << channel);
-    }
-
-    void SoundOrchestrator::refresh()
-    {
-        channel2->onCheckForAdjustment();
     }
 
 } // namespace gbaemu
