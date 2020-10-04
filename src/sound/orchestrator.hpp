@@ -2,6 +2,7 @@
 #define ORCHESTRATOR_HPP
 
 #include "packed.h"
+#include "square.hpp"
 
 #include <cstdint>
 
@@ -108,6 +109,12 @@ namespace gbaemu
         // void onChannelDoneCallback(int channel);
         // Callback for Channels
         void onChannelCompleted(uint8_t channel);
+
+        void setChannelPlaybackStatus(uint8_t channel, bool playing);
+
+      private:
+        SquareWaveChannel* channel2;
+
     };
 } // namespace gbaemu
 

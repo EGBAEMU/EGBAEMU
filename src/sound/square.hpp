@@ -50,7 +50,7 @@ namespace gbaemu
             0.75};
 
       public:
-        SquareWaveChannel(SoundOrchestrator *orchestrator, uint8_t channel);
+        SquareWaveChannel(SoundOrchestrator *orchestrator, uint8_t channel, uint16_t *registers[2]);
 
         ~SquareWaveChannel();
 
@@ -67,9 +67,7 @@ namespace gbaemu
         // Wether some register value was updated and now the sound needs an update
         bool update;
         // Pointers to the corresponding control registers
-        uint16_t *registers[2] = {
-            0x0000,
-            0x0000};
+        uint16_t *registers[2];
 
         // The current env value
         uint8_t env_value;
@@ -79,7 +77,7 @@ namespace gbaemu
         std::chrono::steady_clock::time_point env_lastUpdate;
         // The current threshold after wich the env steps
         std::chrono::microseconds env_updateThreshold;
-
+        
         // The last mix chunk used as container for each sample
         Mix_Chunk *chunk;
 

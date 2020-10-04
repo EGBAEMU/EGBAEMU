@@ -46,11 +46,19 @@ namespace gbaemu
 
     void SoundOrchestrator::internalWrite8ToReg(uint32_t offset, uint8_t value)
     {
+
+        if (offset < 11 && offset > 6)
+            channel2->onRegisterUpdated();
+
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
     }
 
     void SoundOrchestrator::externalWrite8ToReg(uint32_t offset, uint8_t value)
     {
+        
+        if (offset < 11 && offset > 6)
+            channel2->onRegisterUpdated();
+
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
     }
 
@@ -84,6 +92,15 @@ namespace gbaemu
                 std::bind(&SoundOrchestrator::externalWrite8ToReg, this, std::placeholders::_1, std::placeholders::_2),
                 std::bind(&SoundOrchestrator::read8FromReg, this, std::placeholders::_1),
                 std::bind(&SoundOrchestrator::internalWrite8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
+
+        // A array of pointers to the register beeing important to Channel 2
+        uint16_t *registers[2] channel2_registers = {
+            &regs.sound2CntL,
+            &regs.sound2CntH
+        };
+
+        channel2 = new SquareWaveChannel(this, 1, channel2_registers);
+
     }
 
     SoundOrchestrator::~SoundOrchestrator()
@@ -94,8 +111,18 @@ namespace gbaemu
         Mix_Quit();
     }
 
+    void SoundOrchestrator::setChannelPlaybackStatus(uint8_t channel, bool playing)
+    {   
+        // Bits 0-3 are set when their respective sound channels are playing 
+        // and are resetted when sound has stopped. Note that contrary to some 
+        // other sources and most emulators, these bits are read-only and do 
+        // not need to be set to enable the sound channels. 
+        regs.soundCntX = (le(regs.soundCntX) & (static_cast<uint16_t>(0x1) << channel)) | (static_cast<uint16_t>(playing) << channel);
+    }
+
     void SoundOrchestrator::refresh()
     {
+        channel2->onCheckForAdjustment();
     }
 
 } // namespace gbaemu
