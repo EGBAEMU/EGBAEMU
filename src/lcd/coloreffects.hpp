@@ -23,6 +23,7 @@ namespace gbaemu::lcd
         std::function<color_t(color_t, color_t)> getBlendingFunction() const;
         bool secondColorRequired() const;
         BLDCNT::ColorSpecialEffect getEffect() const;
+        std::string toString() const;
     };
 } // namespace gbaemu::lcd
 

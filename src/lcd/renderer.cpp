@@ -346,6 +346,8 @@ namespace gbaemu::lcd
             ss << "as second target: " << pLayer->asSecondTarget << '\n';
         }
 
+        ss << colorEffects.toString();
+
         return ss.str();
     }
 } // namespace gbaemu::lcd
