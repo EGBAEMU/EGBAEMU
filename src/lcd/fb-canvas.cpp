@@ -1,5 +1,6 @@
 #include "fb-canvas.hpp"
 
+#if RENDERER_USE_FB_CANVAS
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -51,3 +52,4 @@ namespace gbaemu::lcd
         return frameBuffer;
     }
 }
+#endif
