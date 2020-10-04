@@ -360,9 +360,6 @@ namespace gbaemu::lcd
         objects.resize(0);
 
         for (const auto& obj : objManager->objects) {
-            // if (obj.priority != priority || !obj.visible || obj.mode == OBJ_WINDOW || !obj.intersectsWithScanline(fy))
-            //     continue;
-
             if (!filter(obj, fy, priority))
                 continue;
 

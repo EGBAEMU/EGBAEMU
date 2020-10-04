@@ -227,6 +227,17 @@ namespace gbaemu::lcd
                 outBuf[x] = color;
             }
         }
+
+        color_t *outBuf = target.pixels() + y * target.getWidth() + SCREEN_WIDTH  * 2;
+
+        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+            color_t color = windowOBJLayer->scanline[x].color;
+
+            if (color == TRANSPARENT)
+                color = RENDERER_DECOMPOSE_BG_COLOR;
+
+            outBuf[x] = color;
+        }
     }
 
     void Renderer::renderLoop()
@@ -346,7 +357,8 @@ namespace gbaemu::lcd
             ss << "as second target: " << pLayer->asSecondTarget << '\n';
         }
 
-        ss << colorEffects.toString();
+        ss << colorEffects.toString() << '\n';
+        ss << windowFeature.toString();
 
         return ss.str();
     }
