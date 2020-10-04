@@ -4,7 +4,7 @@
 #include <lcd/defs.hpp>
 #include <lcd/canvas.hpp>
 
-
+#if RENDERER_USE_FB_CANVAS
 namespace gbaemu::lcd
 {
     typedef uint16_t fbcolor_t;
@@ -24,5 +24,6 @@ namespace gbaemu::lcd
         const fbcolor_t *pixels() const override;
     };
 }
+#endif
 
 #endif /* FB_CANVAS_HPP */
