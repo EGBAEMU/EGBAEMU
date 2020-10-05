@@ -18,6 +18,7 @@ namespace gbaemu
     {
         state = IDLE;
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
+        repeatTriggered = false;
     }
 
     const char *DMAGroup::countTypeToStr(AddrCntType updateKind)
@@ -85,9 +86,10 @@ namespace gbaemu
                 // FSM actions
                 switch (state) {
                     case IDLE:
+                        repeatTriggered = false;
                         extractConfig();
                         // If the DMA was enabled we need to reload the values in ANY case even if repeat is set
-                        state = dmaGroup.conditionSatisfied(condition) ? LOAD_VALUES : WAITING_PAUSED;
+                        state = dmaGroup.conditionSatisfied(condition, repeatTriggered, repeat) ? LOAD_VALUES : WAITING_PAUSED;
                         break;
 
                     case REPEAT: {
@@ -106,7 +108,7 @@ namespace gbaemu
 
                     case REPEAT_WAIT:
                     case WAITING_PAUSED: {
-                        state = dmaGroup.conditionSatisfied(condition) ? static_cast<DMAState>(state + 1) : state;
+                        state = dmaGroup.conditionSatisfied(condition, repeatTriggered, repeat) ? static_cast<DMAState>(state + 1) : state;
                         break;
                     }
 
@@ -298,24 +300,30 @@ namespace gbaemu
         count = count == 0 ? (channel == DMA3 ? 0x10000 : 0x4000) : count;
     }
 
-    bool DMAGroup::conditionSatisfied(StartCondition condition) const
+    bool DMAGroup::conditionSatisfied(StartCondition condition, bool &repeatTriggered, bool repeat) const
     {
+        bool conditionSatisfied = true;
         switch (condition) {
             case NO_COND:
                 // Nothing to do here
                 break;
             case WAIT_VBLANK:
                 // Wait for VBLANK
-                return lcdController->isVBlank();
+                conditionSatisfied = lcdController->isVBlank();
+                break;
             case WAIT_HBLANK:
-                return lcdController->isHBlank() && !lcdController->isVBlank();
+                conditionSatisfied = lcdController->isHBlank() && !lcdController->isVBlank();
+                break;
             case SPECIAL:
                 //TODO find out what to do
                 // The 'Special' setting (Start Timing=3) depends on the DMA channel: DMA0=Prohibited, DMA1/DMA2=Sound FIFO, DMA3=Video Capture
-                return false;
+                conditionSatisfied = false;
+                break;
         }
 
-        return true;
+        // Ensure that the condition was once false before we execute repeat again!
+        repeatTriggered = repeatTriggered && conditionSatisfied;
+        return conditionSatisfied && (repeat && !repeatTriggered);
     }
 
     template class DMAGroup::DMA<DMAGroup::DMA0>;

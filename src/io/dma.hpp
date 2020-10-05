@@ -55,7 +55,6 @@ namespace gbaemu
             SPECIAL = 3      // The 'Special' setting (Start Timing=3) depends on the DMA channel: DMA0=Prohibited, DMA1/DMA2=Sound FIFO, DMA3=Video Capture
         };
 
-        bool conditionSatisfied(StartCondition condition) const;
         static const char *countTypeToStr(AddrCntType updateKind);
         static const char *startCondToStr(StartCondition condition);
 
@@ -142,6 +141,10 @@ namespace gbaemu
 
             uint8_t read8FromReg(uint32_t offset);
             void write8ToReg(uint32_t offset, uint8_t value);
+
+            //TODO refactor
+            // Dirty hack to fix a bug fast!
+            bool repeatTriggered;
 
           public:
             DMA(CPU *cpu, DMAGroup &dmaGroup);
@@ -266,7 +269,7 @@ namespace gbaemu
       public:
         DMAGroup(CPU *cpu) : dma0(cpu, *this), dma1(cpu, *this), dma2(cpu, *this), dma3(cpu, *this)
         {
-          reset();
+            reset();
         }
 
         void setLCDController(const lcd::LCDController *lcdController)
@@ -287,6 +290,8 @@ namespace gbaemu
             dma3.reset();
             dmaEnableBitset = 0;
         }
+
+        bool conditionSatisfied(StartCondition condition, bool &repeatTriggered, bool repeat) const;
     };
 
 } // namespace gbaemu
