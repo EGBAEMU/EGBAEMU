@@ -183,8 +183,8 @@ namespace gbaemu
             // DMA3 DMA2 DMA1 DMA0
             // 0    0    1    1
             [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma1.step(info, cycles);
                 this->dma0.step(info, cycles);
+                this->dma1.step(info, cycles);
             },
             // DMA3 DMA2 DMA1 DMA0
             // 0    1    0    0
@@ -194,21 +194,21 @@ namespace gbaemu
             // DMA3 DMA2 DMA1 DMA0
             // 0    1    0    1
             [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma2.step(info, cycles);
                 this->dma0.step(info, cycles);
+                this->dma2.step(info, cycles);
             },
             // DMA3 DMA2 DMA1 DMA0
             // 0    1    1    0
             [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma2.step(info, cycles);
                 this->dma1.step(info, cycles);
+                this->dma2.step(info, cycles);
             },
             // DMA3 DMA2 DMA1 DMA0
             // 0    1    1    1
             [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma2.step(info, cycles);
-                this->dma1.step(info, cycles);
                 this->dma0.step(info, cycles);
+                this->dma1.step(info, cycles);
+                this->dma2.step(info, cycles);
             },
             // DMA3 DMA2 DMA1 DMA0
             // 1    0    0    0
@@ -218,49 +218,49 @@ namespace gbaemu
             // DMA3 DMA2 DMA1 DMA0
             // 1    0    0    1
             [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma3.step(info, cycles);
                 this->dma0.step(info, cycles);
+                this->dma3.step(info, cycles);
             },
             // DMA3 DMA2 DMA1 DMA0
             // 1    0    1    0
             [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma3.step(info, cycles);
                 this->dma1.step(info, cycles);
+                this->dma3.step(info, cycles);
             },
             // DMA3 DMA2 DMA1 DMA0
             // 1    0    1    1
             [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma3.step(info, cycles);
-                this->dma1.step(info, cycles);
                 this->dma0.step(info, cycles);
+                this->dma1.step(info, cycles);
+                this->dma3.step(info, cycles);
             },
             // DMA3 DMA2 DMA1 DMA0
             // 1    1    0    0
             [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma3.step(info, cycles);
                 this->dma2.step(info, cycles);
+                this->dma3.step(info, cycles);
             },
             // DMA3 DMA2 DMA1 DMA0
             // 1    1    0    1
             [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma3.step(info, cycles);
-                this->dma2.step(info, cycles);
                 this->dma0.step(info, cycles);
+                this->dma2.step(info, cycles);
+                this->dma3.step(info, cycles);
             },
             // DMA3 DMA2 DMA1 DMA0
             // 1    1    1    0
             [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma3.step(info, cycles);
-                this->dma2.step(info, cycles);
                 this->dma1.step(info, cycles);
+                this->dma2.step(info, cycles);
+                this->dma3.step(info, cycles);
             },
             // DMA3 DMA2 DMA1 DMA0
             // 1    1    1    1
             [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma3.step(info, cycles);
-                this->dma2.step(info, cycles);
-                this->dma1.step(info, cycles);
                 this->dma0.step(info, cycles);
+                this->dma1.step(info, cycles);
+                this->dma2.step(info, cycles);
+                this->dma3.step(info, cycles);
             }};
 
       public:
