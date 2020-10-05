@@ -141,7 +141,7 @@ namespace gbaemu
                     fetchCount();
 
                     state = WAITING_PAUSED;
-                    // Fall through to check the condition
+                    break;
                 }
 
                 case WAITING_PAUSED: {
