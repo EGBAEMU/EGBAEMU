@@ -18,6 +18,7 @@ namespace gbaemu
     {
         state = IDLE;
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
+        repeatTriggered = false;
     }
 
     const char *DMAGroup::countTypeToStr(AddrCntType updateKind)
@@ -31,7 +32,8 @@ namespace gbaemu
         return "";
     }
 
-    const char *DMAGroup::startCondToStr(StartCondition condition) {
+    const char *DMAGroup::startCondToStr(StartCondition condition)
+    {
         switch (condition) {
             STRINGIFY_CASE_ID(NO_COND);
             STRINGIFY_CASE_ID(WAIT_HBLANK);
@@ -82,8 +84,9 @@ namespace gbaemu
             // FSM actions
             switch (state) {
                 case IDLE:
+                    repeatTriggered = false;
                     extractRegValues();
-                    state = dmaGroup.conditionSatisfied(condition) ? STARTED : WAITING_PAUSED;
+                    state = dmaGroup.conditionSatisfied(condition, repeatTriggered, repeat) ? STARTED : WAITING_PAUSED;
                     LOG_DMA(
                         std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
                         std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << DMAGroup::countTypeToStr(srcCnt) << std::endl;
@@ -145,7 +148,7 @@ namespace gbaemu
                 }
 
                 case WAITING_PAUSED: {
-                    state = dmaGroup.conditionSatisfied(condition) ? STARTED : WAITING_PAUSED;
+                    state = dmaGroup.conditionSatisfied(condition, repeatTriggered, repeat) ? STARTED : WAITING_PAUSED;
                     break;
                 }
 
@@ -192,6 +195,7 @@ namespace gbaemu
                     // Handle edge case: repeat enabled but no start condition -> infinite DMA transfers
                     if (repeat && condition != NO_COND) {
                         state = REPEAT;
+                        repeatTriggered = true;
                     } else {
                         // return to idle state
                         state = IDLE;
@@ -282,24 +286,30 @@ namespace gbaemu
         count = count == 0 ? (channel == DMA3 ? 0x10000 : 0x4000) : count;
     }
 
-    bool DMAGroup::conditionSatisfied(StartCondition condition) const
+    bool DMAGroup::conditionSatisfied(StartCondition condition, bool &repeatTriggered, bool repeat) const
     {
+        bool conditionSatisfied = true;
         switch (condition) {
             case NO_COND:
                 // Nothing to do here
                 break;
             case WAIT_VBLANK:
                 // Wait for VBLANK
-                return lcdController->isVBlank();
+                conditionSatisfied = lcdController->isVBlank();
+                break;
             case WAIT_HBLANK:
-                return lcdController->isHBlank() && !lcdController->isVBlank();
+                conditionSatisfied = lcdController->isHBlank() && !lcdController->isVBlank();
+                break;
             case SPECIAL:
                 //TODO find out what to do
                 // The 'Special' setting (Start Timing=3) depends on the DMA channel: DMA0=Prohibited, DMA1/DMA2=Sound FIFO, DMA3=Video Capture
-                return false;
+                conditionSatisfied = false;
+                break;
         }
 
-        return true;
+        // Ensure that the condition was once false before we execute repeat again!
+        repeatTriggered = repeatTriggered && conditionSatisfied;
+        return conditionSatisfied && (repeat && !repeatTriggered);
     }
 
     template class DMAGroup::DMA<DMAGroup::DMA0>;
