@@ -292,7 +292,7 @@ namespace gbaemu
                 // Wait for VBLANK
                 return lcdController->isVBlank();
             case WAIT_HBLANK:
-                return lcdController->isHBlank();
+                return lcdController->isHBlank() && !lcdController->isVBlank();
             case SPECIAL:
                 //TODO find out what to do
                 // The 'Special' setting (Start Timing=3) depends on the DMA channel: DMA0=Prohibited, DMA1/DMA2=Sound FIFO, DMA3=Video Capture
