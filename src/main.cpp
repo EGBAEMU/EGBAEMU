@@ -235,6 +235,8 @@ int main(int argc, char **argv)
 
         std::cout << "INFO: Using external bios " << argv[2] << std::endl;
         cpu.state.memory.loadExternalBios(reinterpret_cast<const uint8_t *>(biosBuf.data()), biosBuf.size());
+    } else {
+        std::cout << "WARNING: using buggy fallback bios! Please consider using an external bios rom!" << std::endl;
     }
 
     /* signal and window stuff */
