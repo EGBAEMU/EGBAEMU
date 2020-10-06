@@ -309,7 +309,7 @@ namespace gbaemu
 
         // Ensure that the condition was once false before we execute repeat again!
         repeatTriggered = repeatTriggered && conditionSatisfied;
-        return conditionSatisfied && (repeat && !repeatTriggered);
+        return conditionSatisfied && (!repeat || (repeat && !repeatTriggered));
     }
 
     template class DMAGroup::DMA<DMAGroup::DMA0>;
