@@ -10,7 +10,7 @@
 
 namespace gbaemu::lcd
 {
-    FBCanvas::FBCanvas(const char *deviceString, size_t w, size_t h) : size(w * h)
+    FBCanvas::FBCanvas(const char *deviceString, size_t w, size_t h) : size(w * h * sizeof(fbcolor_t))
     {
         width = w;
         height = h;
@@ -20,7 +20,7 @@ namespace gbaemu::lcd
         if (device < 0)
             throw std::runtime_error("Could not open device!");
 
-        frameBuffer = reinterpret_cast<fbcolor_t *>(mmap(NULL, size * sizeof(fbcolor_t),
+        frameBuffer = reinterpret_cast<fbcolor_t *>(mmap(NULL, size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED,
             device, 0));
