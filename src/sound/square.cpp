@@ -84,6 +84,11 @@ namespace gbaemu
             delete chunk;
     }
 
+    uint32_t SquareWaveChannel::getCurrentVolume()
+    {
+        return volume;
+    }
+
     float SquareWaveChannel::getBaseFrequency() const 
     {
         return 4194304.0f / static_cast<float>(32 * (2048 - reg_frequency));
@@ -205,6 +210,38 @@ namespace gbaemu
             // The env shall be active if we can step in any direction without hitting the bounds
             env_active = (!reg_envMode && (env_value != 0x0)) && (reg_envMode && (env_value != 0xF));
         }
+    }
+
+    
+    void onStepVolume()
+    {
+        timer -= 1;
+
+        if (timer == 0) {
+            timer = (2048 - reg_frequency)
+        }
+    }
+
+    void onStepEnv()
+    {
+
+    }
+
+    void onStepSoundLength()
+    {
+        if (!timed_active || (timed_couter == 0))
+            return;
+
+        timed_counter -= 1;
+
+        if (timed_counter == 0)
+            active = false;
+
+    }
+
+    void onStepSweep()
+    {
+        
     }
 
     void SquareWaveChannel::step(uint32_t cycles)

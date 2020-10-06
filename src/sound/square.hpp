@@ -86,9 +86,20 @@ namespace gbaemu
 
         ~SquareWaveChannel();
 
+
         void reset();
         
-        void step(uint32_t cycles);
+        uint16_t getCurrentVolume();
+
+
+        void onStepVolume();
+
+        void onStepEnv();
+
+        void onStepSoundLength();
+
+        void onStepSweep();
+
 
       private:
         
@@ -97,9 +108,12 @@ namespace gbaemu
         // The sound channel to use
         SoundChannel channel;
 
-        bool registersUpdated;
-        // Wheather the channel is currently playing
-        bool playing;
+        // The current outputting volume
+        uint32_t volume;
+        // If this channel is currently outputting anything
+        bool active;
+        // The current position in the square
+        uint32_t timer;
 
         // The current env value
         uint8_t env_value;
@@ -111,12 +125,7 @@ namespace gbaemu
         // If the timed mode is still active
         bool timed_active;
         // For how many cycles the sound should be playing.
-        int32_t timed_cyclesRemaining;
-
-        int32_t sweep_cyclesWaited;
-
-        // The last mix chunk used as container for each sample
-        Mix_Chunk *chunk;
+        int32_t timed_counter;
 
         // Extracted reg values
         uint8_t reg_sweepShifts;
