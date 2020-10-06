@@ -13,7 +13,7 @@
 #include "input/keyboard_control.hpp"
 #include "lcd/lcd-controller.hpp"
 
-#if !RENDERER_USE_FB_CANVAS
+#if RENDERER_USE_FB_CANVAS == 0
 #include "lcd/window.hpp"
 #else
 #include "lcd/fb-canvas.hpp"
@@ -201,7 +201,7 @@ static void CLILoop(gbaemu::debugger::DebugCLI &debugCLI)
 
 int main(int argc, char **argv)
 {
-#if RENDERER_USE_FB_CANVAS
+#if RENDERER_USE_FB_CANVAS == 1
     if (argc <= 1) {
         std::cout << "please provide a path to a frame buffer!\n";
         return 0;
@@ -258,7 +258,7 @@ int main(int argc, char **argv)
     /* signal and window stuff */
     std::signal(SIGINT, handleSignal);
 
-#if !RENDERER_USE_FB_CANVAS
+#if RENDERER_USE_FB_CANVAS == 0
     gbaemu::lcd::Window window(1280, 720);
     auto canv = window.getCanvas();
     canv.beginDraw();
@@ -267,7 +267,7 @@ int main(int argc, char **argv)
     window.present();
     gbaemu::lcd::WindowCanvas windowCanvas = window.getCanvas();
 #else
-    gbaemu::lcd::FBCanvas windowCanvas(argv[ROM_IDX - 1]);
+    gbaemu::lcd::FBCanvas windowCanvas(argv[ROM_IDX - 1], 240, 160);
 #endif
 
     /* initialize SDL and LCD */
@@ -342,10 +342,12 @@ int main(int argc, char **argv)
             }
         }
 
+#if RENDERER_USE_FB_CANVAS == 0
         if (canDrawToScreen) {
             window.present();
             canDrawToScreen = false;
         }
+#endif
     }
 
     doRun = false;
