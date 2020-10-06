@@ -75,20 +75,18 @@ namespace gbaemu
                     uint16_t _;
                     uint16_t irqMasterEnable;);
 
-        bool needsOneIdleCycle;
-
         uint8_t read8FromReg(uint32_t offset) const;
 
         void internalWrite8ToReg(uint32_t offset, uint8_t value);
 
         void externalWrite8ToReg(uint32_t offset, uint8_t value);
 
+        bool masterIRQEn;
+
       public:
         static const uint32_t INTERRUPT_CONTROL_REG_ADDR;
 
         InterruptHandler(CPU *cpu);
-
-        bool isInterruptEnabled(InterruptType type) const;
 
         void checkForInterrupt();
 
@@ -97,13 +95,6 @@ namespace gbaemu
         bool checkForHaltCondition(uint32_t mask);
 
         void reset();
-
-      private:
-        bool isInterruptMasterSet() const;
-
-        bool isCPSRInterruptSet() const;
-
-        //bool isCPSRFastInterruptSet() const;
     };
 
 } // namespace gbaemu
