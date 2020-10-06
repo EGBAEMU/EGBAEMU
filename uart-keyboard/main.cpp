@@ -52,16 +52,16 @@ using namespace chibios_rt;
 #define GPIO_5_PAD GPIOB_GPIO_5
 
 #define GPIO_6_PORT GPIOB
-#define GPIO_6_PAD GPIOB_GPIO_6
+#define GPIO_6_PAD GPIOB_STICK_UP
 
-#define GPIO_7_PORT GPIOC
-#define GPIO_7_PAD GPIOC_GPIO_7
+#define GPIO_7_PORT GPIOB
+#define GPIO_7_PAD GPIOB_STICK_DOWN
 
-#define GPIO_8_PORT GPIOC
-#define GPIO_8_PAD GPIOC_GPIO_7
+#define GPIO_8_PORT GPIOB
+#define GPIO_8_PAD GPIOB_STICK_LEFT
 
-#define GPIO_9_PORT GPIOF
-#define GPIO_9_PAD GPIOF_GPIO_9
+#define GPIO_9_PORT GPIOB
+#define GPIO_9_PAD GPIOB_STICK_RIGHT
 
 #elif defined(EXTENSION_BOARD_V4_5)
 
@@ -165,7 +165,7 @@ int main(void)
             if (prevState[idx] != palReadPad(keys[idx].buttonPort, keys[idx].pad)) {
                 prevState[idx] = 1 - prevState[idx];
                 uint8_t btn = (idx << 1) | prevState[idx];
-                sdWrite(SERIAL_DRIVER, &btn, sizeof(btn));
+                sdWrite(UART_DRIVER, &btn, sizeof(btn));
             }
         }
     }
