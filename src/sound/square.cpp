@@ -29,7 +29,7 @@
 namespace gbaemu
 {
 
-    SquareWaveChannel::SquareWaveChannel(CPU *cpu, SoundOrchestrator &orchestrator, SoundChannel channel) : orchestrator(orchestrator), channel(channel)
+    SquareWaveChannel::SquareWaveChannel(CPU *cpu, SoundOrchestrator* orchestrator, SoundChannel channel) : orchestrator(orchestrator), channel(channel)
     {
         cpu->state.memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
@@ -172,10 +172,10 @@ namespace gbaemu
 
             // We applied the update.
             reg_reset = false;
-            regs.regCntX_H = le(le(regs.regCntX_H) & ~SOUND_SQUARE_CHANNEL_X_RESET_MASK);
+            regs.soundCntX_H = le(le(regs.soundCntX_H) & ~SOUND_SQUARE_CHANNEL_X_RESET_MASK);
             // And we are playing!
             playing = true;
-            orchestrator.setChannelPlaybackStatus(channel, true);
+            orchestrator->setChannelPlaybackStatus(channel, true);
             LOG_SOUND(std::cout << "         Channel should start playing now!" << std::endl);
         }
 
@@ -286,7 +286,7 @@ namespace gbaemu
         
         if (!playing) {
             LOG_SOUND(std::cout << "       Playback stopped!" << std::endl);
-            orchestrator.setChannelPlaybackStatus(channel, false);
+            orchestrator->setChannelPlaybackStatus(channel, false);
             Mix_HaltChannel(channel);
 
             // Remove the previous chunk

@@ -22,7 +22,7 @@ namespace gbaemu
     };
     InstructionDecoder CPU::thumbDecoder = &thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>;
 
-    CPU::CPU() : dmaGroup(this), timerGroup(this), irqHandler(this), keypad(this)
+    CPU::CPU() : dmaGroup(this), timerGroup(this), sound(this), irqHandler(this), keypad(this)
     {
         reset();
     }
@@ -46,10 +46,13 @@ namespace gbaemu
         cyclesLeft += cycles;
 
         if (cyclesLeft > 0) {
-            dmaGroup.step(state.dmaInfo, cyclesLeft);
 
+            dmaGroup.step(state.dmaInfo, cyclesLeft);
             cyclesLeft -= state.dmaInfo.cycleCount;
+
             timerGroup.step(state.dmaInfo.cycleCount);
+            sound.step(state.dmaInfo.cycleCount);
+
             state.dmaInfo.cycleCount = 0;
 
             while (cyclesLeft > 0) {
@@ -84,6 +87,7 @@ namespace gbaemu
                 }
 
                 timerGroup.step(state.cpuInfo.cycleCount);
+                sound.step(state.cpuInfo.cycleCount);
 
                 cyclesLeft -= state.cpuInfo.cycleCount;
 
@@ -92,6 +96,7 @@ namespace gbaemu
 
                     cyclesLeft -= state.dmaInfo.cycleCount;
                     timerGroup.step(state.dmaInfo.cycleCount);
+                    sound.step(state.dmaInfo.cycleCount);
                     state.dmaInfo.cycleCount = 0;
                 }
             }

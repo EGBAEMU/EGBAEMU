@@ -8,6 +8,7 @@
 #include "io/keypad.hpp"
 #include "io/timer.hpp"
 #include "regs.hpp"
+#include "sound/orchestrator.hpp"
 
 #include <cstdint>
 
@@ -62,6 +63,8 @@ namespace gbaemu
         DMAGroup dmaGroup;
 
         TimerGroup timerGroup;
+
+        SoundOrchestrator sound;
 
         InterruptHandler irqHandler;
         Keypad keypad;

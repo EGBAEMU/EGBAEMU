@@ -51,7 +51,7 @@ namespace gbaemu
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
     }
 
-    SoundOrchestrator::SoundOrchestrator(CPU *cpu) : channel1(cpu, *this, SquareWaveChannel::CHAN_1), channel2(cpu, *this, SquareWaveChannel::CHAN_2)
+    SoundOrchestrator::SoundOrchestrator(CPU *cpu) : channel1(cpu, this, SquareWaveChannel::CHAN_1), channel2(cpu, this, SquareWaveChannel::CHAN_2)
     {
         // Initialize SDL audio modules
         if (SDL_Init(SDL_INIT_AUDIO) < 0) {
