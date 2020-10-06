@@ -20,7 +20,7 @@ namespace gbaemu::lcd
         if (device < 0)
             throw std::runtime_error("Could not open device!");
 
-        frameBuffer = reinterpret_cast<fbcolor_t *>(mmap(NULL, size,
+        frameBuffer = reinterpret_cast<fbcolor_t *>(mmap(NULL, size * sizeof(fbcolor_t),
             PROT_READ | PROT_WRITE,
             MAP_SHARED,
             device, 0));
