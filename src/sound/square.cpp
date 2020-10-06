@@ -86,7 +86,7 @@ namespace gbaemu
 
     float SquareWaveChannel::getBaseFrequency() const 
     {
-        return 4194304.0 / static_cast<float>(32 * (2048 - reg_frequency));
+        return 4194304.0f / static_cast<float>(32 * (2048 - reg_frequency));
     }
 
     uint32_t SquareWaveChannel::getCyclesForEnvelope() const
@@ -299,7 +299,7 @@ namespace gbaemu
         }
 
         // The period of one square in s
-        float periodSquare = 1.0 / getBaseFrequency();
+        float periodSquare = 1.0f / getBaseFrequency();
         LOG_SOUND(std::cout << "       Base period lenght " << periodSquare << std::endl;);
         if (reg_sweepTime != 0) {
             // Sweep shifts bits controls the amount of change in frequency 
@@ -310,7 +310,7 @@ namespace gbaemu
         }
 
         // How long one output period is in s
-        float periodOutput = 1.0 / static_cast<float>(MIX_DEFAULT_FREQUENCY);
+        float periodOutput = 1.0f / static_cast<float>(MIX_DEFAULT_FREQUENCY);
         // How many samples we have to generate for one square period
         uint32_t samples = static_cast<uint32_t>(periodSquare / periodOutput);
         LOG_SOUND(std::cout << "       Output period: " << periodOutput << " Samples per Square: " << samples << std::endl;);
