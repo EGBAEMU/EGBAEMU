@@ -61,6 +61,17 @@
     } while (0)
 #endif
 
+#ifdef DEBUG_SOUND
+#define LOG_SOUND(body) \
+    do {              \
+        body          \
+    } while (0)
+#else
+#define LOG_SOUND(body) \
+    do {              \
+    } while (0)
+#endif
+
 #ifdef DEBUG_MEM
 #define LOG_MEM(body) \
     do {              \
