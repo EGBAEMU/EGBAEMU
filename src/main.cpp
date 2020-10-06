@@ -16,7 +16,6 @@
 
 #define PRINT_FPS true
 #define LIMIT_FPS true
-#define DEBUG_SOUND
 
 static volatile bool doRun = true;
 

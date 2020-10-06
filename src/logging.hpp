@@ -4,6 +4,8 @@
 // #define DEBUG_CLI
 // #define DEBUG_ALL
 
+#define DEBUG_SOUND
+
 // #define LEGACY_RENDERING
 
 #ifdef DEBUG_ALL
