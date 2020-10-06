@@ -205,7 +205,7 @@ namespace gbaemu
                         dmaGroup.dmaEnableBitset &= ~(1 << channel);
 
                         if (irqOnEnd) {
-                            irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::DMA_0 + channel));
+                            irqHandler.setInterrupt<static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::DMA_0 + channel)>();
                         }
                     }
 

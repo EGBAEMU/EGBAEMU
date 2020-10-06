@@ -73,7 +73,7 @@ namespace gbaemu
         if (counter >= overflowVal) {
 
             if (irq)
-                irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::TIMER_0_OVERFLOW + id));
+                irqHandler.setInterrupt<static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::TIMER_0_OVERFLOW + id)>();
 
             uint32_t reloadValue = (static_cast<uint32_t>(le(regs.reload)) << preShift);
             // We know that we have at least 1 overflow, but there can be more if we have a high reload value

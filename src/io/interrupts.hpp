@@ -90,7 +90,8 @@ namespace gbaemu
 
         void checkForInterrupt();
 
-        void setInterrupt(InterruptType type);
+        template <InterruptType type>
+        void setInterrupt();
 
         bool checkForHaltCondition(uint32_t mask);
 

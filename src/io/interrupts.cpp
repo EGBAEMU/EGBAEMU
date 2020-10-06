@@ -65,7 +65,8 @@ namespace gbaemu
         masterIRQEn = false;
     }
 
-    void InterruptHandler::setInterrupt(InterruptType type)
+    template <InterruptHandler::InterruptType type>
+    void InterruptHandler::setInterrupt()
     {
         regs.irqRequest |= le(static_cast<uint16_t>(static_cast<uint16_t>(1) << type));
     }
@@ -76,7 +77,6 @@ namespace gbaemu
 
         // We can only execute the interrupt if all conditions are met
         if (masterIRQEn && !cpu->state.getFlag<cpsr_flags::IRQ_DISABLE>() && triggerIRQ) {
-
             /*
             BIOS Interrupt handling
             Upon interrupt execution, the CPU is switched into IRQ mode, and the physical interrupt vector is called - as this address
@@ -111,10 +111,9 @@ namespace gbaemu
             // Clear all flags & enforce irq mode
             // Also disable interrupts
             cpu->state.accessReg(regs::CPSR_OFFSET) = 0b010010 | (1 << 7);
+            cpu->state.accessReg(regs::PC_OFFSET) = Memory::BIOS_IRQ_HANDLER_OFFSET;
 
             cpu->state.updateCPUMode();
-
-            cpu->state.accessReg(regs::PC_OFFSET) = Memory::BIOS_IRQ_HANDLER_OFFSET;
 
             // Flush the pipeline
             cpu->state.normalizePC(false);
@@ -133,4 +132,18 @@ namespace gbaemu
         return irqRequestReg & mask;
     }
 
+    template void InterruptHandler::setInterrupt<InterruptHandler::LCD_V_BLANK>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::LCD_H_BLANK>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::LCD_V_COUNTER_MATCH>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::TIMER_0_OVERFLOW>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::TIMER_1_OVERFLOW>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::TIMER_2_OVERFLOW>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::TIMER_3_OVERFLOW>();
+    // template void InterruptHandler::setInterrupt<InterruptHandler::SERIAL_COMM>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::DMA_0>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::DMA_1>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::DMA_2>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::DMA_3>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::KEYPAD>();
+    // template void InterruptHandler::setInterrupt<InterruptHandler::GAME_PAK>();
 } // namespace gbaemu

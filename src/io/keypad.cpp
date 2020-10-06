@@ -73,7 +73,7 @@ namespace gbaemu
             }
 
             if (triggerIRQ) {
-                irqHandler.setInterrupt(InterruptHandler::InterruptType::KEYPAD);
+                irqHandler.setInterrupt<InterruptHandler::InterruptType::KEYPAD>();
             }
         }
     }

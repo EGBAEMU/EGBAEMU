@@ -90,7 +90,7 @@ namespace gbaemu::lcd
         regsRef.DISPSTAT = le(bitSet<uint16_t, DISPSTAT::VCOUNTER_FLAG_MASK, DISPSTAT::VCOUNTER_FLAG_OFFSET>(stat, bmap<uint16_t>(vCountMatch)));
 
         if (vCountMatch && isBitSet<uint16_t, DISPSTAT::VCOUNTER_IRQ_ENABLE_OFFSET>(stat)) {
-            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_COUNTER_MATCH);
+            irqHandler.setInterrupt<InterruptHandler::InterruptType::LCD_V_COUNTER_MATCH>();
         }
     }
 
@@ -98,7 +98,7 @@ namespace gbaemu::lcd
     {
         /* use regsRef as those settings are crucial timewise */
         if (isBitSet<uint16_t, DISPSTAT::HBLANK_IRQ_ENABLE_OFFSET>(le(regsRef.DISPSTAT)))
-            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_H_BLANK);
+            irqHandler.setInterrupt<InterruptHandler::InterruptType::LCD_H_BLANK>();
 
         scanline.x = 0;
         ++scanline.y;
@@ -108,7 +108,7 @@ namespace gbaemu::lcd
     {
         /* use regsRef as those settings are crucial timewise */
         if (isBitSet<uint16_t, DISPSTAT::VBLANK_IRQ_ENABLE_OFFSET>(le(regsRef.DISPSTAT)))
-            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_BLANK);
+            irqHandler.setInterrupt<InterruptHandler::InterruptType::LCD_V_BLANK>();
 
         scanline.y = 0;
     }
@@ -137,7 +137,7 @@ namespace gbaemu::lcd
         regsRef.DISPSTAT = le(bitSet<uint16_t, DISPSTAT::VCOUNTER_FLAG_MASK, DISPSTAT::VCOUNTER_FLAG_OFFSET>(stat, bmap<uint16_t>(vCountMatch)));
 
         if (vCountMatch && isBitSet<uint16_t, DISPSTAT::VCOUNTER_IRQ_ENABLE_OFFSET>(stat)) {
-            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_COUNTER_MATCH);
+            irqHandler.setInterrupt<InterruptHandler::InterruptType::LCD_V_COUNTER_MATCH>();
         }
 
         // update vcount
@@ -157,7 +157,7 @@ namespace gbaemu::lcd
 
         // use regsRef as those settings are crucial timewise
         if (isBitSet<uint16_t, DISPSTAT::HBLANK_IRQ_ENABLE_OFFSET>(stat))
-            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_H_BLANK);
+            irqHandler.setInterrupt<InterruptHandler::InterruptType::LCD_H_BLANK>();
 
         // scanline.x = 0;
         ++scanline.y;
@@ -175,7 +175,7 @@ namespace gbaemu::lcd
 
         // use regsRef as those settings are crucial timewise
         if (isBitSet<uint16_t, DISPSTAT::VBLANK_IRQ_ENABLE_OFFSET>(stat))
-            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_BLANK);
+            irqHandler.setInterrupt<InterruptHandler::InterruptType::LCD_V_BLANK>();
 
         scanline.y = 0;
     }
