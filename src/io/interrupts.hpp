@@ -2,7 +2,8 @@
 #define INTERRUPT_HPP
 
 #include "packed.h"
-#include <mutex>
+
+#include <cstdint>
 
 namespace gbaemu
 {
@@ -75,8 +76,6 @@ namespace gbaemu
                     uint16_t irqMasterEnable;);
 
         bool needsOneIdleCycle;
-        /* protects regs */
-        std::mutex regsMutex;
 
         uint8_t read8FromReg(uint32_t offset) const;
 

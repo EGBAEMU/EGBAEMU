@@ -21,9 +21,7 @@ namespace gbaemu
     void InterruptHandler::internalWrite8ToReg(uint32_t offset, uint8_t value)
     {
         if (offset == offsetof(InterruptControlRegs, irqRequest) || offset == offsetof(InterruptControlRegs, irqRequest) + 1) {
-            regsMutex.lock();
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
-            regsMutex.unlock();
         } else {
             LOG_IRQ(std::cout << "WARNING: internal write to non IRQ request registers!" << std::endl;);
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
@@ -33,9 +31,7 @@ namespace gbaemu
     void InterruptHandler::externalWrite8ToReg(uint32_t offset, uint8_t value)
     {
         if (offset == offsetof(InterruptControlRegs, irqRequest) || offset == offsetof(InterruptControlRegs, irqRequest) + 1) {
-            regsMutex.lock();
             *(offset + reinterpret_cast<uint8_t *>(&regs)) &= ~value;
-            regsMutex.unlock();
         } else if (offset == offsetof(InterruptControlRegs, waitStateCnt) || offset == offsetof(InterruptControlRegs, waitStateCnt) + 1) {
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
             cpu->state.memory.updateWaitCycles(le(regs.waitStateCnt));
@@ -99,9 +95,7 @@ namespace gbaemu
 
     void InterruptHandler::setInterrupt(InterruptType type)
     {
-        regsMutex.lock();
         regs.irqRequest |= le(static_cast<uint16_t>(static_cast<uint16_t>(1) << type));
-        regsMutex.unlock();
     }
 
     void InterruptHandler::checkForInterrupt()

@@ -227,9 +227,6 @@ namespace gbaemu::lcd
                 }
             }
         }
-
-        /* race conditions are acceptable here */
-        *canDrawToScreen = true;
     }
 
     bool LCDController::canAccessPPUMemory(bool isOAMRegion) const

@@ -2,7 +2,6 @@
 
 #include <sstream>
 
-
 namespace gbaemu::lcd
 {
     void Renderer::setupLayers()
@@ -61,19 +60,17 @@ namespace gbaemu::lcd
         /* load objects for each layer */
         for (auto &l : objLayers) {
             l->setMode(bgMode, use2dMapping);
-            l->loadOBJs(y, [](const OBJ& obj, real_t fy, uint16_t priority) -> bool {
-                return obj.priority == priority &&
-                       obj.visible &&
-                       obj.mode != OBJ_WINDOW &&
-                       obj.intersectsWithScanline(fy); });
+            l->loadOBJs(y, [](const OBJ &obj, real_t fy, uint16_t priority) -> bool { return obj.priority == priority &&
+                                                                                             obj.visible &&
+                                                                                             obj.mode != OBJ_WINDOW &&
+                                                                                             obj.intersectsWithScanline(fy); });
         }
 
         /* window objects */
         windowOBJLayer->setMode(bgMode, use2dMapping);
-        windowOBJLayer->loadOBJs(y, [](const OBJ& obj, real_t fy, uint16_t priority) -> bool {
-            return obj.visible &&
-                   obj.mode == OBJ_WINDOW &&
-                   obj.intersectsWithScanline(fy); });
+        windowOBJLayer->loadOBJs(y, [](const OBJ &obj, real_t fy, uint16_t priority) -> bool { return obj.visible &&
+                                                                                                      obj.mode == OBJ_WINDOW &&
+                                                                                                      obj.intersectsWithScanline(fy); });
 
         palette.loadPalette(memory);
         windowFeature.load(regs, y, palette.getBackdropColor());
@@ -208,7 +205,7 @@ namespace gbaemu::lcd
     void Renderer::blendDecomposed(int32_t y)
     {
         for (int32_t i = 0; i < layers.size(); ++i) {
-            const auto& l = layers[i];
+            const auto &l = layers[i];
 
             if (!l->enabled)
                 continue;
@@ -220,7 +217,7 @@ namespace gbaemu::lcd
 
             for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
                 color_t color = l->scanline[x].color;
-                
+
                 if (color == TRANSPARENT)
                     color = RENDERER_DECOMPOSE_BG_COLOR;
 
@@ -228,7 +225,7 @@ namespace gbaemu::lcd
             }
         }
 
-        color_t *outBuf = target.pixels() + y * target.getWidth() + SCREEN_WIDTH  * 2;
+        color_t *outBuf = target.pixels() + y * target.getWidth() + SCREEN_WIDTH * 2;
 
         for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
             color_t color = windowOBJLayer->scanline[x].color;
@@ -240,66 +237,9 @@ namespace gbaemu::lcd
         }
     }
 
-    void Renderer::renderLoop()
-    {
-        return;
-        while (true) {
-            renderControlMutex.lock();
-            auto ctrl = renderControl;
-
-            if (ctrl == WAIT) {
-                renderControlMutex.unlock();
-                continue;
-            }
-
-            if (ctrl == EXIT) {
-                renderControlMutex.unlock();
-                break;
-            }
-
-            if (ctrl == RUN) {
-                auto t = std::chrono::high_resolution_clock::now();
-
-                for (const auto &l : layers) {
-                    if (l->enabled) {
-                        l->drawScanline(0);
-                    }
-                }
-
-#if RENDERER_DECOMPOSE_LAYERS == 1
-#else
-                switch (colorEffects.getEffect()) {
-                    case BLDCNT::ColorSpecialEffect::AlphaBlending:
-                        blendAlpha(0);
-                        break;
-                    case BLDCNT::ColorSpecialEffect::BrightnessIncrease:
-                    case BLDCNT::ColorSpecialEffect::BrightnessDecrease:
-                        blendBrightness(0);
-                        break;
-                    default:
-                    case BLDCNT::ColorSpecialEffect::None:
-                        blendDefault(0);
-                        break;
-                }
-#endif
-                ctrl = WAIT;
-                renderControlMutex.unlock();
-            }
-        }
-    }
-
-    Renderer::Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers, Canvas<color_t>& targetCanvas) :
-        memory(mem), irqHandler(irq), regs(registers), target(targetCanvas), objManager(std::make_shared<OBJManager>())
+    Renderer::Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers, Canvas<color_t> &targetCanvas) : memory(mem), irqHandler(irq), regs(registers), target(targetCanvas), objManager(std::make_shared<OBJManager>())
     {
         setupLayers();
-
-        //renderControl = WAIT;
-        //renderThread = std::thread(&Renderer::renderLoop, this);
-    }
-
-    Renderer::~Renderer()
-    {
-        //renderThread.join();
     }
 
     void Renderer::drawScanline(int32_t y)
@@ -313,8 +253,6 @@ namespace gbaemu::lcd
          */
 
         loadSettings(y);
-
-        auto t = std::chrono::high_resolution_clock::now();
 
         for (const auto &l : layers)
             if (l->enabled)
@@ -339,8 +277,6 @@ namespace gbaemu::lcd
                 break;
         }
 #endif
-
-        //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count() << std::endl;
     }
 
     std::string Renderer::getLayerStatusString() const
@@ -348,7 +284,7 @@ namespace gbaemu::lcd
         std::stringstream ss;
         ss << std::boolalpha;
 
-        for (const auto& pLayer : layers) {
+        for (const auto &pLayer : layers) {
             ss << "================================\n";
             ss << "enabled: " << pLayer->enabled << '\n';
             ss << "id: " << layerIDToString(pLayer->layerID) << '\n';

@@ -19,8 +19,6 @@
 #include <array>
 #include <functional>
 #include <memory>
-#include <mutex>
-#include <thread>
 
 namespace gbaemu::lcd
 {
@@ -56,9 +54,6 @@ namespace gbaemu::lcd
         Memory &memory;
         InterruptHandler &irqHandler;
 
-        /* rendering is done in a separate thread */
-        std::mutex *canDrawToScreenMutex;
-        bool *canDrawToScreen;
         Renderer renderer;
 
         MemoryCanvas<color_t> frameBuffer;
@@ -130,9 +125,8 @@ namespace gbaemu::lcd
         int32_t scale = 3;
 
       public:
-        LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) : display(disp),
+        LCDController(Canvas<color_t> &disp, CPU *cpu) : display(disp),
             memory(cpu->state.memory), irqHandler(cpu->irqHandler),
-            canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw),
             renderer(cpu->state.memory, cpu->irqHandler, regsRef, frameBuffer),
 #if (RENDERER_DECOMPOSE_LAYERS == 1)
             frameBuffer(SCREEN_WIDTH * 3, SCREEN_HEIGHT * 4)
