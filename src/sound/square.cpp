@@ -317,10 +317,10 @@ namespace gbaemu
         float periodSquare = 1.0f / getBaseFrequency();
         LOG_SOUND(std::cout << "       Base period lenght " << periodSquare << std::endl;);
         if (reg_sweepTime != 0) {
-            // Sweep shifts bits controls the amount of change in frequency 
-            // (either increase or decrease) at each change. The wave's new 
+            // Sweep shifts bits controls the amount of change in frequency
+            // (either increase or decrease) at each change. The wave's new
             // period is given by: T=T±T/(2^n) where n is the sweep shifts value.
-            periodSquare += (periodSquare / (reg_sweepShifts << 1));
+            periodSquare += (periodSquare / (1 << reg_sweepShifts));
             LOG_SOUND(std::cout << "       Period with shift: " << periodSquare << std::endl;);
         }
 

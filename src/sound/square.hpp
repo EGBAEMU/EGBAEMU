@@ -73,8 +73,8 @@ namespace gbaemu
         PACK_STRUCT(SquareWaveRegs, regs,
                     uint16_t soundCntL;
                     uint16_t soundCntH_L;
-                    uint16_t soundCntX_H;);
-
+                    uint16_t soundCntX_H;
+                    uint16_t _unused;);
 
       public:
         enum SoundChannel : uint8_t {
