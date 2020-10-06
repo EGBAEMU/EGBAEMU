@@ -221,22 +221,22 @@ namespace gbaemu
             sweep_cyclesWaited += cycles;
             if (SWEEP_TIME_CYCLES[reg_sweepTime] <= sweep_cyclesWaited) {
                 
-                LOG_SOUND(std::cout << "       Sweep changing! Current shifts: " << reg_sweepShifts << std::endl;);
+                LOG_SOUND(std::cout << "       Sweep changing! Current shifts: " << static_cast<uint32_t>(reg_sweepShifts) << std::endl;);
                 if (reg_sweepDirection) {
                     reg_sweepShifts -= 1;
                 } else {
                     reg_sweepShifts += 1;
                 }
-                LOG_SOUND(std::cout << "         Adjusted shifts: " << reg_sweepShifts << std::endl;);
+                LOG_SOUND(std::cout << "         Adjusted shifts: " << static_cast<uint32_t>(reg_sweepShifts) << std::endl;);
 
                 float period = 1.0 / getBaseFrequency();
-                period += period / (reg_sweepShifts << 1);
+                period += period / (1 << reg_sweepShifts);
                 float frequency = 1.0 / period;
                 LOG_SOUND(std::cout << "         Resulting frequency: " << frequency << std::endl;);
 
                 if (frequency < 0) {
                     reg_sweepShifts += 1;
-                    LOG_SOUND(std::cout << "         Frequency lower than 0Hz. Adjusting shift: " << reg_sweepShifts << std::endl;);
+                    LOG_SOUND(std::cout << "         Frequency lower than 0Hz. Adjusting shift: " << static_cast<uint32_t>(reg_sweepShifts) << std::endl;);
                 }
                 if (frequency > 131) {
                     playing = false;
@@ -254,7 +254,7 @@ namespace gbaemu
             env_cyclesRemaining -= cycles;
             if (env_cyclesRemaining <= 0) {
 
-                LOG_SOUND(std::cout << "       Env changing! Current value: " << env_value << std::endl;);
+                LOG_SOUND(std::cout << "       Env changing! Current value: " << static_cast<uint32_t>(env_value) << std::endl;);
 
                 if (reg_envMode) {
                     env_value += 1;
@@ -267,7 +267,7 @@ namespace gbaemu
                     if (env_value == 0)
                         env_active = false;
                 }
-                LOG_SOUND(std::cout << "         Changed value: " << env_value << " Active:" << env_active << std::endl;);
+                LOG_SOUND(std::cout << "         Changed value: " << static_cast<uint32_t>(env_value) << " Active:" << env_active << std::endl;);
 
                 if (env_active)
                     env_cyclesRemaining += getCyclesForEnvelope();
