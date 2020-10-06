@@ -149,11 +149,11 @@ namespace gbaemu::lcd
         }
 
         if (scanline.vCount < SCREEN_HEIGHT) {
-            internalRegs.BG2X += signExt<uint32_t, uint16_t, 16>(internalRegs.BG2P[1]);
-            internalRegs.BG2Y += signExt<uint32_t, uint16_t, 16>(internalRegs.BG2P[3]);
+            internalRegs.BG2X += signExt<int32_t, uint16_t, 16>(internalRegs.BG2P[1]);
+            internalRegs.BG2Y += signExt<int32_t, uint16_t, 16>(internalRegs.BG2P[3]);
 
-            internalRegs.BG3X += signExt<uint32_t, uint16_t, 16>(internalRegs.BG3P[1]);
-            internalRegs.BG3Y += signExt<uint32_t, uint16_t, 16>(internalRegs.BG3P[3]);
+            internalRegs.BG3X += signExt<int32_t, uint16_t, 16>(internalRegs.BG3P[1]);
+            internalRegs.BG3Y += signExt<int32_t, uint16_t, 16>(internalRegs.BG3P[3]);
 
             if (bgRefPointDirty[0][0]) {
                 internalRegs.BG2X = regs.BG2X;

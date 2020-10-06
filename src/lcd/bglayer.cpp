@@ -140,6 +140,7 @@ namespace gbaemu::lcd
             }
         } else {
             useTrans = false;
+            wrap = true;
 
             /* use scrolling parameters */
             affineTransform.origin[0] = static_cast<common::math::real_t>(le(regs.BGOFS[index].h) & 0x1FF);
