@@ -48,7 +48,7 @@ namespace gbaemu
     void TimerGroup::Timer<id>::receiveOverflowOfPrevTimer(uint32_t overflowTimes)
     {
         // check if active & configured
-        if (isBitSet<uint8_t, id>(timEnableBitset) && active && countUpTiming) {
+        if (active && countUpTiming) {
             counter += overflowTimes;
             checkForOverflow();
         }
@@ -105,6 +105,8 @@ namespace gbaemu
             countUpTiming = id != 0 && (controlReg & TIMER_TIMING_MASK);
             if (countUpTiming) {
                 preShift = 0;
+                // If we are in count up timing then we can safely remove ourself from the enable bitset as we only count up through other timer overflows
+                timEnableBitset = bitSet<uint8_t, 1, id>(timEnableBitset, bmap<uint8_t, false>());
             } else {
                 preShift = preShifts[(controlReg & TIMER_PRESCALE_MASK)];
             }
