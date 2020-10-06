@@ -52,12 +52,8 @@ namespace gbaemu
             timerGroup.step(state.dmaInfo.cycleCount);
             state.dmaInfo.cycleCount = 0;
 
-            while (cyclesLeft > 0) {
-                if (state.cpuInfo.haltCPU) {
-                    //TODO this can be removed if we remove swi.cpp
-                    state.cpuInfo.haltCPU = !irqHandler.checkForHaltCondition(state.cpuInfo.haltCondition);
-                    state.cpuInfo.cycleCount = 1;
-                } else {
+            if (state.memory.usesExternalBios()) {
+                while (cyclesLeft > 0) {
                     // check if we need to call the irq routine
                     irqHandler.checkForInterrupt();
 
@@ -81,18 +77,62 @@ namespace gbaemu
 
                         return CPUExecutionInfoType::EXCEPTION;
                     }
+
+                    timerGroup.step(state.cpuInfo.cycleCount);
+
+                    cyclesLeft -= state.cpuInfo.cycleCount;
+
+                    if (cyclesLeft > 0) {
+                        dmaGroup.step(state.dmaInfo, cyclesLeft);
+
+                        cyclesLeft -= state.dmaInfo.cycleCount;
+                        timerGroup.step(state.dmaInfo.cycleCount);
+                        state.dmaInfo.cycleCount = 0;
+                    }
                 }
+            } else {
+                while (cyclesLeft > 0) {
+                    if (state.cpuInfo.haltCPU) {
+                        //TODO this can be removed if we remove swi.cpp
+                        state.cpuInfo.haltCPU = !irqHandler.checkForHaltCondition(state.cpuInfo.haltCondition);
+                        state.cpuInfo.cycleCount = 1;
+                    } else {
+                        // check if we need to call the irq routine
+                        irqHandler.checkForInterrupt();
 
-                timerGroup.step(state.cpuInfo.cycleCount);
+                        // clear all fields in cpuInfo
+                        const constexpr InstructionExecutionInfo zeroInitExecInfo{0};
+                        state.cpuInfo = zeroInitExecInfo;
 
-                cyclesLeft -= state.cpuInfo.cycleCount;
+                        uint32_t prevPC = state.getCurrentPC();
+                        execute(state.propagatePipeline(prevPC), prevPC);
 
-                if (cyclesLeft > 0) {
-                    dmaGroup.step(state.dmaInfo, cyclesLeft);
+                        if (state.cpuInfo.hasCausedException) {
+                            //TODO print cause
+                            //TODO set cause in memory class
 
-                    cyclesLeft -= state.dmaInfo.cycleCount;
-                    timerGroup.step(state.dmaInfo.cycleCount);
-                    state.dmaInfo.cycleCount = 0;
+                            //TODO maybe return reason? as this might be needed to exit a game?
+                            // Abort
+                            std::stringstream ss;
+                            ss << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception\n";
+
+                            executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());
+
+                            return CPUExecutionInfoType::EXCEPTION;
+                        }
+                    }
+
+                    timerGroup.step(state.cpuInfo.cycleCount);
+
+                    cyclesLeft -= state.cpuInfo.cycleCount;
+
+                    if (cyclesLeft > 0) {
+                        dmaGroup.step(state.dmaInfo, cyclesLeft);
+
+                        cyclesLeft -= state.dmaInfo.cycleCount;
+                        timerGroup.step(state.dmaInfo.cycleCount);
+                        state.dmaInfo.cycleCount = 0;
+                    }
                 }
             }
         }
