@@ -164,7 +164,7 @@ namespace gbaemu
             // and sound restarts at the specified frequency.
             env_value = reg_envInitVal;
             env_cyclesRemaining = getCyclesForEnvelope();
-            LOG_SOUND(std::cout << "         Env value set to " << env_value << ". Next update in " << env_cyclesRemaining << "cycles!" << std::endl;);
+            LOG_SOUND(std::cout << "         Env value set to " << env_value << ". Next update in " << env_cyclesRemaining << " cycles!" << std::endl;);
 
             // Sound length is also reset
             timed_active = reg_timed;
@@ -196,7 +196,7 @@ namespace gbaemu
     void SquareWaveChannel::step(uint32_t cycles)
     {
 
-        LOG_SOUND(std::cout << "DEBUG: Checking channel " << channel << " after " << cycles << " cycles." << std::endl;);
+        //LOG_SOUND(std::cout << "DEBUG: Checking channel " << channel << " after " << cycles << " cycles." << std::endl;);
         bool playbackUpdateNeeded = false;
 
         if (registersUpdated) {
@@ -211,6 +211,7 @@ namespace gbaemu
             if (timed_cyclesRemaining <= 0) {
                 LOG_SOUND(std::cout << "       Sound timeout reached!" << std::endl;);
                 playing = false;
+                timed_active = false;
                 timed_cyclesRemaining = 0;
                 playbackUpdateNeeded = true;
             }
@@ -323,6 +324,7 @@ namespace gbaemu
 
         uint8_t amplitude = 0xF;
         if (reg_envStepTime != 0) {
+            LOG_SOUND(std::cout << "       Amplitude influenced by env: " << env_value << std::endl;);
             amplitude = static_cast<uint8_t>(env_value * SOUND_SQUARE_AMPLITUDE_SCALING);
         }
         LOG_SOUND(std::cout << "       Amplitude: " << amplitude << std::endl;);
