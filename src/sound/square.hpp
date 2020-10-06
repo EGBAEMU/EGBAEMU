@@ -55,7 +55,7 @@ namespace gbaemu
             0.50f,
             0.75f};
 
-        static const constexpr uint32_t SWEEP_TIME_CYCLES[8] = {
+        static const constexpr int32_t SWEEP_TIME_CYCLES[8] = {
             // The first index encodes for disabled
             0,
             // 7.8ms @ 16Mhz = (16 000 000 / 1000) * 7.8
@@ -139,7 +139,6 @@ namespace gbaemu
         uint16_t reg_frequency;
         bool reg_timed;
         bool reg_reset;
-
 
         uint8_t read8FromReg(uint32_t offset) const;
 

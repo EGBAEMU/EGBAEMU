@@ -89,9 +89,14 @@ namespace gbaemu
         return volume;
     }
 
-    float SquareWaveChannel::getBaseFrequency() const 
+    float SquareWaveChannel::getBaseFrequency() const
     {
         return 4194304.0f / static_cast<float>(32 * (2048 - reg_frequency));
+    }
+
+    static float getFrequency(uint16_t freq)
+    {
+        return 4194304.0f / static_cast<float>(32 * (2048 - freq));
     }
 
     uint32_t SquareWaveChannel::getCyclesForEnvelope() const
@@ -143,7 +148,7 @@ namespace gbaemu
         registersUpdated = true;
 
         switch (offset) {
-            case offsetof(SquareWaveRegs, soundCntL) + 1:
+            // case offsetof(SquareWaveRegs, soundCntL) + 1:
             case offsetof(SquareWaveRegs, soundCntL): {
                 const uint16_t regCntL = le(regs.soundCntL);
                 // Extract the register values of reg L (Channel 2 does not support sweeps)
@@ -268,32 +273,24 @@ namespace gbaemu
             }
         }
 
-        if (reg_sweepTime != 0) {
+        if (playing && reg_sweepTime != 0 && reg_sweepShifts != 0) {
             sweep_cyclesWaited += cycles;
             if (SWEEP_TIME_CYCLES[reg_sweepTime] <= sweep_cyclesWaited) {
-                
-                LOG_SOUND(std::cout << "       Sweep changing! Current shifts: " << static_cast<uint32_t>(reg_sweepShifts) << std::endl;);
+                uint16_t freq = reg_frequency >> reg_sweepShifts;
                 if (reg_sweepDirection) {
-                    reg_sweepShifts -= 1;
+                    reg_frequency -= freq;
                 } else {
-                    reg_sweepShifts += 1;
+                    reg_frequency += freq;
                 }
-                LOG_SOUND(std::cout << "         Adjusted shifts: " << static_cast<uint32_t>(reg_sweepShifts) << std::endl;);
+                LOG_SOUND(std::cout << "         Resulting frequency raw: 0x" << static_cast<uint32_t>(reg_frequency) << std::endl;);
+                LOG_SOUND(std::cout << "         Resulting frequency: " << getFrequency(reg_frequency) << std::endl;);
 
-                float period = 1.0 / getBaseFrequency();
-                period += period / (1 << reg_sweepShifts);
-                float frequency = 1.0 / period;
-                LOG_SOUND(std::cout << "         Resulting frequency: " << frequency << std::endl;);
-
-                if (frequency < 0) {
-                    reg_sweepShifts += 1;
-                    LOG_SOUND(std::cout << "         Frequency lower than 0Hz. Adjusting shift: " << static_cast<uint32_t>(reg_sweepShifts) << std::endl;);
-                }
-                if (frequency > 131) {
+                if (freq == 0 || reg_frequency > 2047) {
                     playing = false;
-                    LOG_SOUND(std::cout << "         Frequency higher than 131Hz. Stopping playback!" << std::endl;);
+                    // restore original frequency
+                    reg_frequency = bitGet(le(regs.soundCntX_H), SOUND_SQUARE_CHANNEL_X_SOUND_FREQ_MASK, SOUND_SQUARE_CHANNEL_X_SOUND_FREQ_OFF);
                 }
-                
+
                 sweep_cyclesWaited -= SWEEP_TIME_CYCLES[reg_sweepTime];
                 playbackUpdateNeeded = true;
 
@@ -301,7 +298,7 @@ namespace gbaemu
             }
         }
 
-        if (env_active) {
+        if (playing && env_active) {
             env_cyclesRemaining -= cycles;
             if (env_cyclesRemaining <= 0) {
 
@@ -335,8 +332,7 @@ namespace gbaemu
     {
 
         LOG_SOUND(std::cout << "DEBUG: Refreshing channel " << channel << "!" << std::endl;);
-         
-        
+
         if (!playing) {
             LOG_SOUND(std::cout << "       Playback stopped!" << std::endl;);
             orchestrator->setChannelPlaybackStatus(channel, false);
@@ -353,11 +349,11 @@ namespace gbaemu
         // The period of one square in s
         float periodSquare = 1.0f / getBaseFrequency();
         LOG_SOUND(std::cout << "       Base period lenght " << periodSquare << std::endl;);
-        if (reg_sweepTime != 0) {
+        if (reg_sweepTime != 0 && reg_sweepShifts != 0) {
             // Sweep shifts bits controls the amount of change in frequency
             // (either increase or decrease) at each change. The wave's new
             // period is given by: T=T±T/(2^n) where n is the sweep shifts value.
-            periodSquare += (periodSquare / (1 << reg_sweepShifts));
+            periodSquare = 1.0 / getFrequency(reg_frequency);
             LOG_SOUND(std::cout << "       Period with shift: " << periodSquare << std::endl;);
         }
 
@@ -378,8 +374,7 @@ namespace gbaemu
             LOG_SOUND(std::cout << "       Amplitude influenced by env: " << env_value << std::endl;);
             amplitude = static_cast<uint8_t>(env_value * SOUND_SQUARE_AMPLITUDE_SCALING);
         }
-        LOG_SOUND(std::cout << "       Amplitude: " << amplitude << std::endl;);
-
+        LOG_SOUND(std::cout << "       Amplitude: " << static_cast<uint32_t>(amplitude) << std::endl;);
 
         Mix_Chunk *updatedChunk = new Mix_Chunk;
         // Free the sample data buffer automatically when the chunk is freed.
