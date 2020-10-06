@@ -93,6 +93,8 @@ namespace gbaemu
         SoundOrchestrator &orchestrator;
         // The sound channel to use
         SoundChannel channel;
+
+        bool registersUpdated;
         // Wheather the channel is currently playing
         bool playing;
 
@@ -126,7 +128,13 @@ namespace gbaemu
         bool reg_timed;
         bool reg_reset;
 
-     
+
+        void reset();
+       
+        uint8_t read8FromReg(uint32_t offset) const;
+
+        void write8ToReg(uint32_t offset, uint8_t value);
+
 
         float getBaseFrequency() const;
 
@@ -134,16 +142,13 @@ namespace gbaemu
 
         uint32_t getCyclesForSoundLength() const;
 
+
         bool onRegisterUpdated();
+        
+        void onRefreshAudioPlayback();
 
 
-        void refresh();
-
-        uint8_t read8FromReg(uint32_t offset) const;
-
-        void write8ToReg(uint32_t offset, uint8_t value);
-
-        void reset();
+        
     };
 
 } // namespace gbaemu

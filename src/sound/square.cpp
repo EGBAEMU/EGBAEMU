@@ -120,7 +120,7 @@ namespace gbaemu
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
 
         //TODO this can be more granular if needed!
-        update = true;
+        registersUpdated = true;
 
         switch (offset) {
             case offsetof(SquareWaveRegs, soundCntL) + 1:
@@ -158,20 +158,25 @@ namespace gbaemu
     void SquareWaveChannel::onRegisterUpdated()
     {
         if (reg_reset) {
+            LOG_SOUND(std::cout << "         Channel reset requested!" << std::endl);
             // When reset is set to 1, the envelope is resetted to its initial value
             // and sound restarts at the specified frequency.
             env_value = reg_envInitVal;
             env_cyclesRemaining = getCyclesForEnvelope();
+            LOG_SOUND(std::cout << "         Env value set to " << env_value << ". Next update in " << env_cyclesRemaining << "cycles!" << std::endl);
 
             // Sound length is also reset
             timed_active = reg_timed;
             timed_cyclesRemaining = getCyclesForSoundLength();
+            LOG_SOUND(std::cout << "         Timed mode: " << timed_active << ". Channel muted in " << timed_cyclesRemaining << "cycles!" << std::endl);
 
             // We applied the update.
+            reg_reset = false;
             regs.regCntX_H = le(le(regs.regCntX_H) & ~SOUND_SQUARE_CHANNEL_X_RESET_MASK);
             // And we are playing!
             playing = true;
             orchestrator.setChannelPlaybackStatus(channel, true);
+            LOG_SOUND(std::cout << "         Channel should start playing now!" << std::endl);
         }
 
         if (reg_sweepTime == 0) {
@@ -191,6 +196,12 @@ namespace gbaemu
     {
 
         LOG_SOUND(std::cout << "DEBUG: Checking channel " << channel << " after " << cycles << " cycles." << std::endl);
+
+        if (registersUpdated) {
+            LOG_SOUND(std::cout << "       Register updated! Checking...." << std::endl);
+            onRegisterUpdated();
+            registersUpdated = false;
+        }
 
         if (timed_active) {
             timed_cyclesRemaining -= cycles;
@@ -257,7 +268,7 @@ namespace gbaemu
         }
     }
 
-    void SquareWaveChannel::refresh()
+    void SquareWaveChannel::onRefreshAudioPlayback()
     {
 
         LOG_SOUND(std::cout << "DEBUG: Refreshing channel " << channel "!" << std::endl);
