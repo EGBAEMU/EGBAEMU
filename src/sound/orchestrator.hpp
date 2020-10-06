@@ -116,6 +116,9 @@ namespace gbaemu
         void setChannelPlaybackStatus(uint8_t channel, bool playing);
 
         void reset();
+
+        void step(uint32_t cycles);
+
     };
 } // namespace gbaemu
 

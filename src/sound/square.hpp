@@ -14,6 +14,7 @@ namespace gbaemu
 
     // forward declaration
     class CPU;
+    class SoundOrchestrator;
 
     class SquareWaveChannel
     {
@@ -71,24 +72,26 @@ namespace gbaemu
 
         static const constexpr uint32_t SOUND_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x60;
 
+        PACK_STRUCT(SquareWaveRegs, regs,
+                      uint16_t soundCntL;
+                      uint16_t soundCntH_L;
+                      uint16_t soundCntX_H;);
+
+
       public:
         enum SoundChannel : uint8_t {
             CHAN_1 = 0,
             CHAN_2,
         };
 
-        SquareWaveChannel(CPU *cpu, SoundOrchestrator &orchestrator, SoundChannel channel, uint16_t *registers);
+        SquareWaveChannel(CPU *cpu, SoundOrchestrator &orchestrator, SoundChannel channel);
 
         ~SquareWaveChannel();
 
-        void onCheckForAdjustment(uint32_t cycles);
+        void step(uint32_t cycles);
 
       private:
-        PACKED_STRUCT(SquareWaveRegs, regs,
-                      uint16_t soundCntL;
-                      uint16_t soundCntH_L;
-                      uint16_t soundCntX_H;);
-
+        
         // The superordinate sound orchestrator
         SoundOrchestrator &orchestrator;
         // The sound channel to use

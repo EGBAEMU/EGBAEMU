@@ -84,10 +84,17 @@ namespace gbaemu
         reset();
     }
 
-    void SoundOrchestrator::reset() {
+    void SoundOrchestrator::reset() 
+    {
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
         channel1.reset();
         channel2.reset();
+    }
+
+    void SoundOrchestrator::step(uint32_t cycles) 
+    {
+        channel1.step(cycles);
+        channel2.step(cycles);
     }
 
     SoundOrchestrator::~SoundOrchestrator()
@@ -104,7 +111,7 @@ namespace gbaemu
         // and are resetted when sound has stopped. Note that contrary to some 
         // other sources and most emulators, these bits are read-only and do 
         // not need to be set to enable the sound channels. 
-        regs.soundCntX = (le(regs.soundCntX) & (static_cast<uint16_t>(0x1) << channel)) | (static_cast<uint16_t>(playing) << channel);
+        regs.soundCntX = le((le(regs.soundCntX) & (static_cast<uint16_t>(0x1) << channel)) | (static_cast<uint16_t>(playing) << channel));
     }
 
 } // namespace gbaemu

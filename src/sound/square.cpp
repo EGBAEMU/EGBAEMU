@@ -29,7 +29,7 @@
 namespace gbaemu
 {
 
-    SquareWaveChannel::SquareWaveChannel(CPU *cpu, SoundOrchestrator &orchestrator, SoundChannel channel, uint16_t *registers) : orchestrator(orchestrator), channel(channel), registers(registers)
+    SquareWaveChannel::SquareWaveChannel(CPU *cpu, SoundOrchestrator &orchestrator, SoundChannel channel) : orchestrator(orchestrator), channel(channel)
     {
         cpu->state.memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
@@ -192,15 +192,17 @@ namespace gbaemu
         }
     }
 
-    void SquareWaveChannel::onCheckForAdjustment(uint32_t cycles)
+    void SquareWaveChannel::step(uint32_t cycles)
     {
 
         LOG_SOUND(std::cout << "DEBUG: Checking channel " << channel << " after " << cycles << " cycles." << std::endl);
+        bool playbackUpdateNeeded = false;
 
         if (registersUpdated) {
             LOG_SOUND(std::cout << "       Register updated! Checking...." << std::endl);
             onRegisterUpdated();
             registersUpdated = false;
+            playbackUpdateNeeded = true;
         }
 
         if (timed_active) {
@@ -209,6 +211,7 @@ namespace gbaemu
                 LOG_SOUND(std::cout << "       Sound timeout reached!" << std::endl);
                 playing = false;
                 timed_cyclesRemaining = 0;
+                playbackUpdateNeeded = true;
             }
         }
 
@@ -239,6 +242,8 @@ namespace gbaemu
                 }
                 
                 sweep_cyclesWaited -= SWEEP_TIME_CYCLES[reg_sweepTime];
+                playbackUpdateNeeded = true;
+
                 LOG_SOUND(std::cout << "       Next update will trigger in " << SWEEP_TIME_CYCLES[reg_sweepTime] << " cycles!" << std::endl);
             }
         }
@@ -264,8 +269,13 @@ namespace gbaemu
 
                 if (env_active)
                     env_cyclesRemaining += getCyclesForEnvelope();
+
+                playbackUpdateNeeded = true;
             }
         }
+
+        if (playbackUpdateNeeded)
+            onRefreshAudioPlayback();
     }
 
     void SquareWaveChannel::onRefreshAudioPlayback()
