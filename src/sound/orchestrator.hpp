@@ -66,14 +66,21 @@ namespace gbaemu
                     uint16_t sound3CntL;
                     uint16_t sound3CntH;
                     uint16_t sound3CntX;
+                    uint16_t _unused1;
                     // Control regs for channel 4
                     uint16_t sound4CntL;
+                    uint16_t _unused2;
                     uint16_t sound4CntH;
+                    uint16_t _unused3;
                     // Master control regs
                     uint16_t soundCntL;
                     uint16_t soundCntH;
                     uint16_t soundCntX;
+                    uint16_t _unused4;
                     uint16_t soundBias;
+                    uint16_t _unused5;
+                    uint16_t _unused6;
+                    uint16_t _unused7;
                     // Sample registers for channel 3
                     uint16_t waveRam0L;
                     uint16_t waveRam0H;
@@ -88,7 +95,8 @@ namespace gbaemu
                     uint16_t fifoAH;
                     // FIFO regs for channel 6
                     uint16_t fifoBL;
-                    uint16_t fifoBH;);
+                    uint16_t fifoBH;
+                    uint16_t _unused8;);
 
         uint8_t read8FromReg(uint32_t offset) const;
 
