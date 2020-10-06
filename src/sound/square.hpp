@@ -84,8 +84,6 @@ namespace gbaemu
 
         SquareWaveChannel(CPU *cpu, SoundOrchestrator* orchestrator, SoundChannel channel);
 
-        ~SquareWaveChannel();
-
 
         void reset();
         
@@ -109,23 +107,31 @@ namespace gbaemu
         SoundChannel channel;
 
         // The current outputting volume
-        uint32_t volume;
+        uint32_t volumeOut;
+
         // If this channel is currently outputting anything
         bool active;
-        // The current position in the square
+        // Counts down the progression of the sequence index
         uint32_t timer;
+        // The current index in the duty cycle table
+        uint8_t sequenceIdx = 0;
 
-        // The current env value
-        uint8_t env_value;
         // Wheather stepping the current env is okay
         bool env_active;
+        // The current internal volume
+        uint32_t env_value;
         // How many cycles we still need to wait for the next env step
-        int32_t env_cyclesRemaining;
+        uint32_t env_counter;
 
         // If the timed mode is still active
         bool timed_active;
         // For how many cycles the sound should be playing.
-        int32_t timed_counter;
+        uint32_t timed_counter;
+
+        // The current sweep adjusted frequency
+        uint32_t sweep_current;
+        // Counter for the next sweep adjustment
+        uint32_t sweep_counter;
 
         // Extracted reg values
         uint8_t reg_sweepShifts;
@@ -145,17 +151,8 @@ namespace gbaemu
         void write8ToReg(uint32_t offset, uint8_t value);
 
 
-        float getBaseFrequency() const;
-
-        uint32_t getCyclesForEnvelope() const;
-
-        uint32_t getCyclesForSoundLength() const;
-
-
-        void onRegisterUpdated();
-        
-        void onRefreshAudioPlayback();
-
+         void onRegisterUpdated();
+      
     };
 
 } // namespace gbaemu

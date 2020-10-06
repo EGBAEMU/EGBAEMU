@@ -40,7 +40,6 @@ namespace gbaemu
                 std::bind(&SquareWaveChannel::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
                 std::bind(&SquareWaveChannel::read8FromReg, this, std::placeholders::_1),
                 std::bind(&SquareWaveChannel::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
-        chunk = nullptr;
         reset();
     }
 
@@ -48,21 +47,7 @@ namespace gbaemu
     {
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
 
-        playing = false;
-
-        timed_active = false;
-        timed_cyclesRemaining = 0;
-           
-        env_value = 0;
-        env_active = false;
-        env_cyclesRemaining = 0;
-
-        sweep_cyclesWaited = 0;
-
-        if (chunk != nullptr)
-            delete chunk;
-        
-        chunk = nullptr;
+        // TODO Init
 
         reg_soundLength = 0;
         reg_dutyCycle = 0;
@@ -78,41 +63,9 @@ namespace gbaemu
 
     }
 
-    SquareWaveChannel::~SquareWaveChannel()
-    {
-        if (chunk != nullptr)
-            delete chunk;
-    }
-
     uint32_t SquareWaveChannel::getCurrentVolume()
     {
-        return volume;
-    }
-
-    float SquareWaveChannel::getBaseFrequency() const
-    {
-        return 4194304.0f / static_cast<float>(32 * (2048 - reg_frequency));
-    }
-
-    static float getFrequency(uint16_t freq)
-    {
-        return 4194304.0f / static_cast<float>(32 * (2048 - freq));
-    }
-
-    uint32_t SquareWaveChannel::getCyclesForEnvelope() const
-    {
-        // The envelope step time is the delay between successive envelope
-        // increase or decrease. It is given by the following formula:
-        //   T=register value*(1/64) seconds.
-        return static_cast<uint32_t>(reg_envStepTime) * (CYCLES_PER_S / 64);
-    }
-
-    uint32_t SquareWaveChannel::getCyclesForSoundLength() const
-    {
-        // The sound length is an 6 bit value obtained from
-        // the following formula:
-        //   Sound length= (64-register value)*(1/256) seconds.
-        return (64 - static_cast<uint32_t>(reg_soundLength)) * (CYCLES_PER_S / 256);
+        return volumeOut;
     }
 
     uint8_t SquareWaveChannel::read8FromReg(uint32_t offset) const
@@ -181,64 +134,86 @@ namespace gbaemu
     }
 
     void SquareWaveChannel::onRegisterUpdated()
-    {
-        if (reg_reset) {
-            LOG_SOUND(std::cout << "         Channel reset requested!" << std::endl;);
-            // When reset is set to 1, the envelope is resetted to its initial value
-            // and sound restarts at the specified frequency.
-            env_value = reg_envInitVal;
-            env_cyclesRemaining = getCyclesForEnvelope();
-            LOG_SOUND(std::cout << "         Env value set to " << env_value << ". Next update in " << env_cyclesRemaining << " cycles!" << std::endl;);
+    { 
+        // Only apply changes if required!
+        if(!reg_reset)
+            return;
+        
+        // Reset the reset bit directly
+        regs.soundCntX_H = le(le(regs.soundCntX_H) & ~SOUND_SQUARE_CHANNEL_X_RESET_MASK);
+        // This channel is now active
+        active = true;
 
-            // Sound length is also reset
-            timed_active = reg_timed;
-            timed_cyclesRemaining = getCyclesForSoundLength();
-            LOG_SOUND(std::cout << "         Timed mode: " << timed_active << ". Channel muted in " << timed_cyclesRemaining << "cycles!" << std::endl;);
+        // Apply changes from the env 
+        env_active = true;
+        env_counter = reg_envStepTime;    
+        env_value = reg_envInitVal
 
-            // We applied the update.
-            reg_reset = false;
-            regs.soundCntX_H = le(le(regs.soundCntX_H) & ~SOUND_SQUARE_CHANNEL_X_RESET_MASK);
-            // And we are playing!
-            playing = true;
-            orchestrator->setChannelPlaybackStatus(channel, true);
-            LOG_SOUND(std::cout << "         Channel should start playing now!" << std::endl;);
-        }
+        // Apply changes for the sweep
+        sweep_counter = reg_sweepTime;
+        // TODO: Sweep
 
-        if (reg_sweepTime == 0) {
-            sweep_cyclesWaited = 0;
-        } 
-
-        if (reg_envStepTime == 0) {
-            env_active = false;
-            env_value = 0xF;
-        } else {
-            // The env shall be active if we can step in any direction without hitting the bounds
-            env_active = (!reg_envMode && (env_value != 0x0)) && (reg_envMode && (env_value != 0xF));
-        }
     }
-
     
     void onStepVolume()
     {
         timer -= 1;
 
         if (timer == 0) {
-            timer = (2048 - reg_frequency)
+
+            timer = (2048 - reg_frequency) * 4;
+            sequenceIdx = (sequenceIdx + 1)
+
+            if (sequenceIdx == 8)
+                sequenceIdx = 0;
         }
+
+        if (active)
+            volumeOut = volumeInt;
+        else
+            volumeOut = 0;
+
+        // TODO: Set volume to 0 if not in duty
+
     }
 
     void onStepEnv()
     {
+        env_counter -= 1;
 
+        if (env_counter != 0)
+            return;
+
+        if (reg_envStepTime == 0)
+            env_counter = 8;
+        else
+            env_counter = reg_envStepTime;
+
+        if (env_active && reg_envStepTime > 0) {
+
+            if (reg_envMode) {
+                if (env_value < 15)
+                    env_value += 1;
+            } else {
+                if (0 < env_value)
+                    env_value -= 1;
+            }
+
+        }
+
+        if ((env_value == 15) || (env_value == 0))
+            env_active = false;
     }
 
     void onStepSoundLength()
     {
+        // If not active or time is zero we are already at zero we do not need to continue here
         if (!timed_active || (timed_couter == 0))
             return;
 
         timed_counter -= 1;
-
+        
+        // The counter has reached 0. Disable this channel!
         if (timed_counter == 0)
             active = false;
 
@@ -246,161 +221,20 @@ namespace gbaemu
 
     void onStepSweep()
     {
+        sweep_counter -= 1;
         
-    }
-
-    void SquareWaveChannel::step(uint32_t cycles)
-    {
-
-        //LOG_SOUND(std::cout << "DEBUG: Checking channel " << channel << " after " << cycles << " cycles." << std::endl;);
-        bool playbackUpdateNeeded = false;
-
-        if (registersUpdated) {
-            LOG_SOUND(std::cout << "       Register updated! Checking...." << std::endl;);
-            onRegisterUpdated();
-            registersUpdated = false;
-            playbackUpdateNeeded = true;
-        }
-
-        if (timed_active) {
-            timed_cyclesRemaining -= cycles;
-            if (timed_cyclesRemaining <= 0) {
-                LOG_SOUND(std::cout << "       Sound timeout reached!" << std::endl;);
-                playing = false;
-                timed_active = false;
-                timed_cyclesRemaining = 0;
-                playbackUpdateNeeded = true;
-            }
-        }
-
-        if (playing && reg_sweepTime != 0 && reg_sweepShifts != 0) {
-            sweep_cyclesWaited += cycles;
-            if (SWEEP_TIME_CYCLES[reg_sweepTime] <= sweep_cyclesWaited) {
-                uint16_t freq = reg_frequency >> reg_sweepShifts;
-                if (reg_sweepDirection) {
-                    reg_frequency -= freq;
-                } else {
-                    reg_frequency += freq;
-                }
-                LOG_SOUND(std::cout << "         Resulting frequency raw: 0x" << static_cast<uint32_t>(reg_frequency) << std::endl;);
-                LOG_SOUND(std::cout << "         Resulting frequency: " << getFrequency(reg_frequency) << std::endl;);
-
-                if (freq == 0 || reg_frequency > 2047) {
-                    playing = false;
-                    // restore original frequency
-                    reg_frequency = bitGet(le(regs.soundCntX_H), SOUND_SQUARE_CHANNEL_X_SOUND_FREQ_MASK, SOUND_SQUARE_CHANNEL_X_SOUND_FREQ_OFF);
-                }
-
-                sweep_cyclesWaited -= SWEEP_TIME_CYCLES[reg_sweepTime];
-                playbackUpdateNeeded = true;
-
-                LOG_SOUND(std::cout << "       Next update will trigger in " << SWEEP_TIME_CYCLES[reg_sweepTime] << " cycles!" << std::endl;);
-            }
-        }
-
-        if (playing && env_active) {
-            env_cyclesRemaining -= cycles;
-            if (env_cyclesRemaining <= 0) {
-
-                LOG_SOUND(std::cout << "       Env changing! Current value: " << static_cast<uint32_t>(env_value) << std::endl;);
-
-                if (reg_envMode) {
-                    env_value += 1;
-                    // If we reached the maximum value we do not need to step any longer
-                    if (env_value == 0xFF)
-                        env_active = false;
-                } else {
-                    env_value -= 1;
-                    // If we reached the minimum value we do not need to step any longer
-                    if (env_value == 0)
-                        env_active = false;
-                }
-                LOG_SOUND(std::cout << "         Changed value: " << static_cast<uint32_t>(env_value) << " Active:" << env_active << std::endl;);
-
-                if (env_active)
-                    env_cyclesRemaining += getCyclesForEnvelope();
-
-                playbackUpdateNeeded = true;
-            }
-        }
-
-        if (playbackUpdateNeeded)
-            onRefreshAudioPlayback();
-    }
-
-    void SquareWaveChannel::onRefreshAudioPlayback()
-    {
-
-        LOG_SOUND(std::cout << "DEBUG: Refreshing channel " << channel << "!" << std::endl;);
-
-        if (!playing) {
-            LOG_SOUND(std::cout << "       Playback stopped!" << std::endl;);
-            orchestrator->setChannelPlaybackStatus(channel, false);
-            Mix_HaltChannel(channel);
-
-            // Remove the previous chunk
-            if (chunk != nullptr)
-                delete chunk;
-
-            chunk = nullptr;
+        // Check if its time to adjust the sweep now
+        if (sweep_counter != 0)
             return;
+        
+        if (reg_sweepTime == 0)
+            sweep_counter = 8;
+        else {
+            sweep_counter = reg_sweepTime;
+
+        
+
         }
-
-        // The period of one square in s
-        float periodSquare = 1.0f / getBaseFrequency();
-        LOG_SOUND(std::cout << "       Base period lenght " << periodSquare << std::endl;);
-        if (reg_sweepTime != 0 && reg_sweepShifts != 0) {
-            // Sweep shifts bits controls the amount of change in frequency
-            // (either increase or decrease) at each change. The wave's new
-            // period is given by: T=T±T/(2^n) where n is the sweep shifts value.
-            periodSquare = 1.0 / getFrequency(reg_frequency);
-            LOG_SOUND(std::cout << "       Period with shift: " << periodSquare << std::endl;);
-        }
-
-        // How long one output period is in s
-        float periodOutput = 1.0f / static_cast<float>(MIX_DEFAULT_FREQUENCY);
-        // How many samples we have to generate for one square period
-        uint32_t samples = static_cast<uint32_t>(periodSquare / periodOutput);
-        LOG_SOUND(std::cout << "       Output period: " << periodOutput << " Samples per Square: " << samples << std::endl;);
-
-        // The percantage of samples that must be high
-        float duty = DUTY_CYCLES[reg_dutyCycle];
-        // How many samples should be high in the current square
-        uint32_t samplesHigh = static_cast<uint32_t>(samples * duty);
-        LOG_SOUND(std::cout << "       Duty Cycle: " << duty << " Samples high: " << samplesHigh << std::endl;);
-
-        uint8_t amplitude = 0xF;
-        if (reg_envStepTime != 0) {
-            LOG_SOUND(std::cout << "       Amplitude influenced by env: " << env_value << std::endl;);
-            amplitude = static_cast<uint8_t>(env_value * SOUND_SQUARE_AMPLITUDE_SCALING);
-        }
-        LOG_SOUND(std::cout << "       Amplitude: " << static_cast<uint32_t>(amplitude) << std::endl;);
-
-        Mix_Chunk *updatedChunk = new Mix_Chunk;
-        // Free the sample data buffer automatically when the chunk is freed.
-        updatedChunk->allocated = 1;
-        updatedChunk->alen = samples;
-        updatedChunk->volume = MIX_MAX_VOLUME;
-
-        // The buffer that will store the raw quare wave data
-        uint8_t *sampleBuffer = new uint8_t[samples]();
-        updatedChunk->abuf = sampleBuffer;
-
-        // Generate the samples
-        std::fill_n(sampleBuffer, samplesHigh, amplitude);
-        // std::fill_n(sampleBuffer + samplesHigh, samples - samplesHigh, 0);
-
-        // Clear previous tone
-        Mix_HaltChannel(channel);
-        // Start playing the updated chunk
-        Mix_PlayChannel(channel, updatedChunk, -1);
-        LOG_SOUND(std::cout << "       Posted update to SDL2_Mixer! " << std::endl;);
-
-        // Remove the previous chunk
-        if (chunk != nullptr)
-            delete chunk;
-        // And replace the new one
-        chunk = updatedChunk;
     }
 
 } // namespace gbaemu
