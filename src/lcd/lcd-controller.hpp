@@ -151,7 +151,7 @@ namespace gbaemu::lcd
 
             scanline.buf.resize(SCREEN_WIDTH);
 
-#if (RENDERER_DECOMPOSE_LAYERS == 1)
+#if (RENDERER_DECOMPOSE_LAYERS == 1) || (RENDERER_USE_FB_CANVAS == 1)
             scale = 1;
 #endif
         }

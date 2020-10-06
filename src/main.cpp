@@ -6,13 +6,18 @@
 #include <thread>
 #include <vector>
 
-#include "cpu/cpu.hpp"
-#include "debugger.hpp"
-#include "lcd/lcd-controller.hpp"
-#include "lcd/window.hpp"
 #include "logging.hpp"
 
+#include "cpu/cpu.hpp"
+#include "debugger.hpp"
 #include "input/keyboard_control.hpp"
+#include "lcd/lcd-controller.hpp"
+
+#if RENDERER_USE_FB_CANVAS == 0
+#include "lcd/window.hpp"
+#else
+#include "lcd/fb-canvas.hpp"
+#endif
 
 #define PRINT_FPS true
 #define LIMIT_FPS true
@@ -196,13 +201,24 @@ static void CLILoop(gbaemu::debugger::DebugCLI &debugCLI)
 
 int main(int argc, char **argv)
 {
+#if RENDERER_USE_FB_CANVAS == 1
     if (argc <= 1) {
+        std::cout << "please provide a path to a frame buffer!\n";
+        return 0;
+    }
+
+    const constexpr int ROM_IDX = 2;
+#else
+    const constexpr int ROM_IDX = 1;
+#endif
+
+    if (argc <= ROM_IDX) {
         std::cout << "please provide a ROM file\n";
         return 0;
     }
 
     /* read gba file */
-    std::ifstream file(argv[1], std::ios::binary);
+    std::ifstream file(argv[ROM_IDX], std::ios::binary);
 
     if (!file.is_open()) {
         std::cout << "could not open ROM file\n";
@@ -215,15 +231,15 @@ int main(int argc, char **argv)
     /* intialize CPU and print game info */
     gbaemu::CPU cpu;
 
-    std::string saveFileName(argv[1]);
+    std::string saveFileName(argv[ROM_IDX]);
     saveFileName += ".sav";
     if (!cpu.state.memory.loadROM(saveFileName.data(), reinterpret_cast<const uint8_t *>(buf.data()), buf.size())) {
         std::cout << "could not open/create save file" << std::endl;
         return 0;
     }
 
-    if (argc > 2) {
-        std::ifstream biosFile(argv[2], std::ios::binary);
+    if (argc > ROM_IDX + 1) {
+        std::ifstream biosFile(argv[ROM_IDX + 1], std::ios::binary);
 
         if (!biosFile.is_open()) {
             std::cout << "could not open BIOS file\n";
@@ -233,13 +249,16 @@ int main(int argc, char **argv)
         std::vector<char> biosBuf(std::istreambuf_iterator<char>(biosFile), {});
         biosFile.close();
 
-        std::cout << "INFO: Using external bios " << argv[2] << std::endl;
+        std::cout << "INFO: Using external bios " << argv[ROM_IDX + 1] << std::endl;
         cpu.state.memory.loadExternalBios(reinterpret_cast<const uint8_t *>(biosBuf.data()), biosBuf.size());
+    } else {
+        std::cout << "WARNING: using buggy fallback bios! Please consider using an external bios rom!" << std::endl;
     }
 
     /* signal and window stuff */
     std::signal(SIGINT, handleSignal);
 
+#if RENDERER_USE_FB_CANVAS == 0
     gbaemu::lcd::Window window(1280, 720);
     auto canv = window.getCanvas();
     canv.beginDraw();
@@ -247,6 +266,9 @@ int main(int argc, char **argv)
     canv.endDraw();
     window.present();
     gbaemu::lcd::WindowCanvas windowCanvas = window.getCanvas();
+#else
+    gbaemu::lcd::FBCanvas windowCanvas(argv[ROM_IDX - 1], 240, 160);
+#endif
 
     /* initialize SDL and LCD */
     std::mutex canDrawToScreenMutex;
@@ -320,10 +342,12 @@ int main(int argc, char **argv)
             }
         }
 
+#if RENDERER_USE_FB_CANVAS == 0
         if (canDrawToScreen) {
             window.present();
             canDrawToScreen = false;
         }
+#endif
     }
 
     doRun = false;

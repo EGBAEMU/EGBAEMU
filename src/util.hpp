@@ -2,6 +2,7 @@
 #define UTIL_HPP
 
 #include <cstdint>
+#include <type_traits>
 
 namespace gbaemu
 {
@@ -76,6 +77,8 @@ namespace gbaemu
     template <class SignT, class T, uint8_t usedBits>
     SignT signExt(T val)
     {
+        static_assert(std::is_signed<SignT>::value);
+
         // Let the compiler handle the sign extension as it should now whats best for doing so!
         struct {
             SignT x : usedBits;
