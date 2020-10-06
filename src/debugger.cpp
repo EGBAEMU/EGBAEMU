@@ -185,8 +185,8 @@ namespace gbaemu::debugger
             }
 
             std::cout << "DebugCLI: continuing..." << std::endl;
-            std::cout << cpu.state.toString() << std::endl;
-            std::cout << std::dec << cpuStepCount << " cpu steps" << std::endl;
+            //std::cout << cpu.state.toString() << std::endl;
+            //std::cout << std::dec << cpuStepCount << " cpu steps" << std::endl;
             state = RUNNING;
 
             return;
