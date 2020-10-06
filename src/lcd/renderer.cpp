@@ -1,6 +1,7 @@
 #include "renderer.hpp"
 
-#include <optional>
+#include <sstream>
+
 
 namespace gbaemu::lcd
 {
@@ -226,6 +227,17 @@ namespace gbaemu::lcd
                 outBuf[x] = color;
             }
         }
+
+        color_t *outBuf = target.pixels() + y * target.getWidth() + SCREEN_WIDTH  * 2;
+
+        for (int32_t x = 0; x < SCREEN_WIDTH; ++x) {
+            color_t color = windowOBJLayer->scanline[x].color;
+
+            if (color == TRANSPARENT)
+                color = RENDERER_DECOMPOSE_BG_COLOR;
+
+            outBuf[x] = color;
+        }
     }
 
     void Renderer::renderLoop()
@@ -329,5 +341,25 @@ namespace gbaemu::lcd
 #endif
 
         //std::cout << std::dec << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t).count() << std::endl;
+    }
+
+    std::string Renderer::getLayerStatusString() const
+    {
+        std::stringstream ss;
+        ss << std::boolalpha;
+
+        for (const auto& pLayer : layers) {
+            ss << "================================\n";
+            ss << "enabled: " << pLayer->enabled << '\n';
+            ss << "id: " << layerIDToString(pLayer->layerID) << '\n';
+            ss << "priority: " << pLayer->priority << '\n';
+            ss << "as first target: " << pLayer->asFirstTarget << '\n';
+            ss << "as second target: " << pLayer->asSecondTarget << '\n';
+        }
+
+        ss << colorEffects.toString() << '\n';
+        ss << windowFeature.toString();
+
+        return ss.str();
     }
 } // namespace gbaemu::lcd

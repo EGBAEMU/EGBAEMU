@@ -87,7 +87,7 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
             return true;
         }
 #else
-        for (int j = 0; j < 960; ++j) {
+        for (int j = 0; j < 1232; ++j) {
             // if (prevPC != cpu.state.getCurrentPC())
             // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
             if (debugCLI.step()) {

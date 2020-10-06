@@ -135,7 +135,7 @@ namespace gbaemu::lcd
             canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw),
             renderer(cpu->state.memory, cpu->irqHandler, regsRef, frameBuffer),
 #if (RENDERER_DECOMPOSE_LAYERS == 1)
-            frameBuffer(SCREEN_WIDTH * 2, SCREEN_HEIGHT * 4)
+            frameBuffer(SCREEN_WIDTH * 3, SCREEN_HEIGHT * 4)
 #else
             frameBuffer(SCREEN_WIDTH, SCREEN_HEIGHT)
 #endif

@@ -372,22 +372,13 @@ namespace gbaemu::lcd
         /* used for sorting */
         bool operator<(const Layer &other) const noexcept
         {
-            bool thisIsOBJ = (layerID == LAYER_OBJ0 || layerID == LAYER_OBJ1 ||
-                              layerID == LAYER_OBJ2 || layerID == LAYER_OBJ3);
-            bool otherIsBG = (layerID == LAYER_BG0 || layerID == LAYER_BG1 ||
-                              layerID == LAYER_BG2 || layerID == LAYER_BG3);
+            if (priority != other.priority)
+                return priority < other.priority;
 
-            /*
-            if (thisIsOBJ && otherIsBG) {
-                if (priority == other.priority)
-                    return true;
-            } else if (!thisIsOBJ && !otherIsBG) {
-                if (priority == other.priority)
-                    return false;
-            }
-             */
+            if (isBGLayer == other.isBGLayer)
+                return layerID < other.layerID;
 
-            return priority < other.priority || (thisIsOBJ && priority <= other.priority);
+            return !isBGLayer;
         }
 
         bool operator<=(const Layer &other) const noexcept
@@ -488,5 +479,7 @@ namespace gbaemu::lcd
 #define RENDERER_OBJ_ENABLE_DEBUG_CANVAS 0
 
 #define RENDERER_ENABLE_WINDOWS 1
+
+#define RENDERER_USE_FB_CANVAS 0
 
 #endif /* DEFS_HPP */

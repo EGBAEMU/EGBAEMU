@@ -9,6 +9,7 @@
 #include <lcd/objlayer.hpp>
 #include <memory>
 #include <bitset>
+#include <sstream>
 
 namespace gbaemu::lcd
 {
@@ -32,6 +33,21 @@ namespace gbaemu::lcd
     inline bool flagCFXEnabled(WindowSettingsFlag flag)
     {
         return isBitSet<uint8_t, 5>(flag);
+    }
+
+    inline std::string flagToString(WindowSettingsFlag flag)
+    {
+        std::stringstream ss;
+        ss << std::boolalpha;
+
+        ss << "BG0: " << flagLayerEnabled(flag, LAYER_BG0) << '\n';
+        ss << "BG1: " << flagLayerEnabled(flag, LAYER_BG1) << '\n';
+        ss << "BG2: " << flagLayerEnabled(flag, LAYER_BG2) << '\n';
+        ss << "BG3: " << flagLayerEnabled(flag, LAYER_BG3) << '\n';
+        ss << "OBJ: " << flagLayerEnabled(flag, LAYER_OBJ0) << '\n';
+        ss << "CFX: " << flagCFXEnabled(flag) << '\n';
+
+        return ss.str();
     }
 
     struct EnabledMask
@@ -98,6 +114,8 @@ namespace gbaemu::lcd
 
         WindowFeature();
         void load(const LCDIORegs &regs, int32_t y, color_t bdColor);
+        bool isEnabled() const;
+        std::string toString() const;
     };
 } // namespace gbaemu::lcd
 

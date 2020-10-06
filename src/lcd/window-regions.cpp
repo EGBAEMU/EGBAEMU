@@ -64,15 +64,15 @@ namespace gbaemu::lcd
         if (id == WIN0) {
             winh = le(regs.WIN0H);
             winv = le(regs.WIN0V);
-        } else if (id == WIN1) {
+        } else {
             winh = le(regs.WIN1H);
             winv = le(regs.WIN1V);
         }
 
-        rect.right = std::min<uint16_t>(SCREEN_WIDTH, bitGet<uint16_t>(winh, 0xFF, 0));
-        rect.bottom = std::min<uint16_t>(SCREEN_HEIGHT, bitGet<uint16_t>(winv, 0xFF, 0));
-        rect.left = std::min<uint16_t>(rect.right, bitGet<uint16_t>(winh, 0xFF, 8));
-        rect.top = std::min<uint16_t>(rect.bottom, bitGet<uint16_t>(winv, 0xFF, 8));
+        rect.right = std::min<uint16_t>(bitGet<uint16_t>(winh, 0xFF, 0), SCREEN_WIDTH);
+        rect.bottom = std::min<uint16_t>(bitGet<uint16_t>(winv, 0xFF, 0), SCREEN_HEIGHT);
+        rect.left = std::min<uint16_t>(bitGet<uint16_t>(winh, 0xFF, 8), rect.right);
+        rect.top = std::min<uint16_t>(bitGet<uint16_t>(winv, 0xFF, 8), rect.bottom);
 
         uint16_t control = le(regs.WININ);
 
@@ -170,5 +170,42 @@ namespace gbaemu::lcd
 
         colorEffects.load(regs);
         backdropColor = bdColor;
+    }
+
+    bool WindowFeature::isEnabled() const
+    {
+        return normalWindows[0].enabled || normalWindows[1].enabled || objWindow.enabled || outsideWindow.enabled;
+    }
+
+    std::string WindowFeature::toString() const
+    {
+        std::stringstream ss;
+        ss << std::boolalpha;
+
+        ss << "======================\n";
+        ss << normalWindows[0].enabled << '\n';
+        ss << normalWindows[0].id << '\n';
+        ss << normalWindows[0].rect.left << ' ' << normalWindows[0].rect.top << ' ' <<
+            normalWindows[0].rect.right << ' ' << normalWindows[0].rect.bottom << '\n';
+        ss << flagToString(normalWindows[0].flag) << '\n';
+
+        ss << "======================\n";
+        ss << normalWindows[1].enabled << '\n';
+        ss << normalWindows[1].id << '\n';
+        ss << normalWindows[1].rect.left << ' ' << normalWindows[1].rect.top << ' ' <<
+            normalWindows[1].rect.right << ' ' << normalWindows[1].rect.bottom << '\n';
+        ss << flagToString(normalWindows[1].flag) << '\n';
+
+        ss << "======================\n";
+        ss << objWindow.enabled << '\n';
+        ss << objWindow.id << '\n';
+        ss << flagToString(objWindow.flag) << '\n';
+
+        ss << "======================\n";
+        ss << outsideWindow.enabled << '\n';
+        ss << outsideWindow.id << '\n';
+        ss << flagToString(outsideWindow.flag) << '\n';
+
+        return ss.str();
     }
 } // namespace gbaemu::lcd

@@ -1,0 +1,97 @@
+#ifndef FRAMEBUFFER_HPP
+#define FRAMEBUFFER_HPP
+
+template <size_t BIT_COUNT>
+    class int_set
+    {
+    private:
+        static_assert(0 < BIT_COUNT && BIT_COUNT <= 64);
+        uint8_t *buffer;
+    public:
+        int_set() : buffer(nullptr) {}
+
+        int_set(void *buf) : buffer(reinterpret_cast<uint8_t *>(buf)) {}
+
+        void set_at(size_t index, uint64_t value)
+        {
+            for (size_t i = 0; i < BIT_COUNT; ++i) {
+                size_t arr_index = (index * BIT_COUNT + i) / 8;
+                size_t mod_index = (index * BIT_COUNT + i) % 8;
+                uint64_t val = value & (1 << (BIT_COUNT - 1 - i));
+
+                if (val)
+                    buffer[arr_index] |= (uint8_t)1 << mod_index;
+                else
+                    buffer[arr_index] &= ~((uint8_t)1 << mod_index);
+            }
+        }
+
+        uint64_t reverse5(uint64_t val)
+        {
+            return (val & 0b10000 ? 0b00001 : 0) |
+                (val & 0b01000 ? 0b00010 : 0) |
+                (val & 0b00100 ? 0b00100 : 0) |
+                (val & 0b00010 ? 0b01000 : 0) |
+                (val & 0b00001 ? 0b10000 : 0);
+        }
+
+        uint64_t reverse6(uint64_t val)
+        {
+            return (val & 0b100000 ? 0b000001 : 0) |
+                (val & 0b010000 ? 0b000010 : 0) |
+                (val & 0b001000 ? 0b000100 : 0) |
+                (val & 0b000100 ? 0b001000 : 0) |
+                (val & 0b000010 ? 0b010000 : 0) |
+                (val & 0b000001 ? 0b100000 : 0);
+        }
+
+        void set_rgb565(size_t index, uint64_t r, uint64_t g, uint64_t b)
+        {
+            /* pixel format: b(5), g(6), r(5) */
+            //set_at(index, reverse5(b & 0xb11111) << 11 | reverse6(g & 0b111111) << 5 | reverse5(r & 0b11111));
+            set_at(index, reverse5(b & 0xb11111) << 11 | reverse6(g & 0b111111) << 5 | reverse5(r & 0b11111));
+        }
+    };
+
+    class fb_window
+    {
+    private:
+        canvas& can;
+
+        int fb;
+        size_t size;
+        uint8_t *buf;
+
+        int_set<5 + 6 + 5> iset;
+    public:
+        fb_window(canvas& c, const std::string& path) :
+            can(c)
+        {
+            fb = open(path.c_str(), O_RDWR);
+            assert(fb >= 0);
+
+            size = c.get_width() * c.get_height() * sizeof(uint32_t);
+
+            buf = reinterpret_cast<uint8_t *>(mmap(NULL, size,
+                PROT_READ | PROT_WRITE,
+                MAP_SHARED,
+                fb, 0));
+            assert(buf);
+
+            iset = int_set<5 + 6 + 5>(buf);
+        }
+
+        void present()
+        {
+            for (size_t i = 0; i < can.get_width() * can.get_height(); ++i) {
+                uint32_t color = can[0][i];
+                uint32_t r = std::max(((color >> 16) & 0xff) + 128, 255u) >> 3;
+                uint32_t g = std::max(((color >>  8) & 0xff) + 128, 255u) >> 2;
+                uint32_t b = std::max(((color >>  0) & 0xff) + 128, 255u)>> 3;
+
+                iset.set_rgb565(i, r, g, b);
+            }
+        }
+    };
+
+#endif /* FRAMEBUFFER_HPP */

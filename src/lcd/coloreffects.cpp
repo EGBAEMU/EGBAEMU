@@ -1,5 +1,6 @@
 #include "coloreffects.hpp"
 
+#include <sstream>
 #include <util.hpp>
 
 namespace gbaemu::lcd
@@ -71,5 +72,32 @@ namespace gbaemu::lcd
     BLDCNT::ColorSpecialEffect ColorEffects::getEffect() const
     {
         return effect;
+    }
+
+    std::string ColorEffects::toString() const
+    {
+        std::stringstream ss;
+        ss << "color effect: ";
+
+        switch (effect) {
+            default: case BLDCNT::None:
+                ss << "none\n";
+                break;
+            case BLDCNT::AlphaBlending:
+                ss << "alpha blending\n";
+                ss << "eva: " << eva << '\n';
+                ss << "evb: " << evb << '\n';
+                break;
+            case BLDCNT::BrightnessDecrease:
+                ss << "brightness decrease\n";
+                ss << "evy: " << evy << '\n';
+                break;
+            case BLDCNT::BrightnessIncrease:
+                ss << "brightness increase\n";
+                ss << "evy: " << evy << '\n';
+                break;
+        }
+
+        return ss.str();
     }
 } // namespace gbaemu::lcd

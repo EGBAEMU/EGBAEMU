@@ -67,6 +67,7 @@ namespace gbaemu::lcd
         Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers, Canvas<color_t>& targetCanvas);
         ~Renderer();
         void drawScanline(int32_t y);
+        std::string getLayerStatusString() const;
     };
 } // namespace gbaemu::lcd
 
