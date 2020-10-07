@@ -329,7 +329,7 @@ namespace gbaemu::lcd
         bool asFirstColor() const { return props & 1; }
         bool asSecondColor() const { return (props >> 1) & 1; }
         bool asFirstAlpha() const { return (props >> 2) & 1; }
-        bool colorEffectEnabled() const { return asFirstColor() || asSecondColor() || asFirstAlpha(); }
+        bool colorEffectEnabled() const { return props != 0; }
     };
 
     enum LayerID {
