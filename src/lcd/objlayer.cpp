@@ -317,6 +317,7 @@ namespace gbaemu::lcd
     }
 
     OBJLayer::OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio, const std::shared_ptr<OBJManager>& manager) :
+        Layer(static_cast<LayerID>(prio + 4), false),
         memory(mem), palette(plt), regs(ioRegs), objects(128), objManager(manager)
     {
         /* OBJ layers are always enabled */
@@ -326,9 +327,6 @@ namespace gbaemu::lcd
 
         if (prio >= 4)
             throw std::runtime_error("0 <= Priority <= 3 is not satisfied");
-
-        layerID = static_cast<LayerID>(priority + 4);
-        isBGLayer = false;
     }
 
     void OBJLayer::setMode(BGMode bgMode, bool mapping2d)

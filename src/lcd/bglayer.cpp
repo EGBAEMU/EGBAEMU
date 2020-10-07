@@ -13,10 +13,8 @@ namespace gbaemu::lcd
         vFlip = isBitSet<uint16_t, 11>(entry);
     }
 
-    BGLayer::BGLayer(LCDColorPalette &plt, Memory &mem, BGIndex idx) : index(idx), palette(plt), memory(mem)
+    BGLayer::BGLayer(LCDColorPalette &plt, Memory &mem, BGIndex idx) : Layer(static_cast<LayerID>(idx), true), index(idx), palette(plt), memory(mem)
     {
-        layerID = static_cast<LayerID>(index);
-        isBGLayer = true;
     }
 
     void BGLayer::loadSettings(BGMode bgMode, const LCDIORegs &regs)

@@ -359,11 +359,11 @@ namespace gbaemu::lcd
         bool asFirstTarget;
         bool asSecondTarget;
 
-        LayerID layerID;
+        const LayerID layerID;
 
-        bool isBGLayer;
+        const bool isBGLayer;
 
-        Layer() : enabled(false), scanline(SCREEN_WIDTH)
+        Layer(LayerID layerID, bool isBGLayer) : enabled(false), scanline(SCREEN_WIDTH), layerID(layerID), isBGLayer(isBGLayer)
         {
         }
 
