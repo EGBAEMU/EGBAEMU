@@ -260,12 +260,13 @@ int main(int argc, char **argv)
         std::this_thread::sleep_until(nextFrame);
 #endif
 
+        auto currentTime = std::chrono::system_clock::now();
 #if !defined(DEBUG_CLI) && PRINT_FPS
-        auto dt = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - lastFrame);
+        auto dt = std::chrono::duration_cast<std::chrono::microseconds>(currentTime - lastFrame);
         std::cout << "Current FPS: " << (1000000.0 / dt.count()) << std::endl;
 #endif
 
-        lastFrame = nextFrame;
+        lastFrame = currentTime;
         nextFrame += frames{1};
     }
 
