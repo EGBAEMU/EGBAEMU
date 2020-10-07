@@ -177,17 +177,19 @@ namespace gbaemu::lcd
         return ss.str();
     }
 
-    const void *BGLayer::getBGMap(int32_t sx, int32_t sy) const
+    const void *BGLayer::getBGMap(uint32_t sx, uint32_t sy) const
     {
         switch (mode) {
             case Mode0: {
-                int32_t scIndex = (sx / 256) + (sy / 256) * 2;
+                // int32_t scIndex = (sx / 256) + (sy / 256) * 2;
+                uint32_t scIndex = (sx >> 8) + ((sy >> 8) << 1);
 
                 /* only exception */
                 if (size == 2 && scIndex == 2)
                     scIndex = 1;
 
-                return bgMapBase + scIndex * 0x800;
+                // return bgMapBase + scIndex * 0x800;
+                return bgMapBase + (scIndex << 11);
             }
             case Mode2:
                 return bgMapBase;
@@ -225,40 +227,56 @@ namespace gbaemu::lcd
                 pixelColor = [this](int32_t sx, int32_t sy) -> color_t {
                     const BGMode0Entry *bgMap = reinterpret_cast<const BGMode0Entry *>(getBGMap(sx, sy));
 
+                    // We know that the result msx & msy can not be negative (sx & sy are positive and sx % mod n is always <= sx) -> we can apply greedy optimizations
                     int32_t msx = sx - (sx % mosaicWidth);
                     int32_t msy = sy - (sy % mosaicHeight);
 
                     /* sx, sy relative to the current bg map (size 32x32) */
-                    int32_t relBGMapX = msx % 256;
-                    int32_t relBGMapY = msy % 256;
-                    int32_t tileX = relBGMapX / 8;
-                    int32_t tileY = relBGMapY / 8;
+                    // int32_t relBGMapX = msx % 256;
+                    int32_t relBGMapX = msx & 255;
+                    // int32_t relBGMapY = msy % 256;
+                    int32_t relBGMapY = msy & 255;
+                    // int32_t tileX = relBGMapX / 8;
+                    int32_t tileX = relBGMapX >> 3;
+                    // int32_t tileY = relBGMapY / 8;
+                    int32_t tileY = relBGMapY >> 3;
 
-                    BGMode0EntryAttributes attrs(bgMap[tileY * 32 + tileX]);
-                    const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + attrs.tileNumber * (colorPalette256 ? 64 : 32);
+                    // BGMode0EntryAttributes attrs(bgMap[tileY * 32 + tileX]);
+                    BGMode0EntryAttributes attrs(bgMap[(tileY << 5) + tileX]);
+                    // const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + attrs.tileNumber * (colorPalette256 ? 64 : 32);
+                    const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + (attrs.tileNumber << (colorPalette256 ? 6 : 5));
 
-                    int32_t tx = attrs.hFlip ? (7 - (relBGMapX % 8)) : (relBGMapX % 8);
-                    int32_t ty = attrs.vFlip ? (7 - (relBGMapY % 8)) : (relBGMapY % 8);
+                    // int32_t tx = attrs.hFlip ? (7 - (relBGMapX % 8)) : (relBGMapX % 8);
+                    int32_t tx = attrs.hFlip ? (7 - (relBGMapX & 7)) : (relBGMapX & 7);
+                    // int32_t ty = attrs.vFlip ? (7 - (relBGMapY % 8)) : (relBGMapY % 8);
+                    int32_t ty = attrs.vFlip ? (7 - (relBGMapY & 7)) : (relBGMapY & 7);
 
                     if (colorPalette256) {
-                        return palette.getBgColor(tile[ty * 8 + tx]);
+                        // return palette.getBgColor(tile[ty * 8 + tx]);
+                        return palette.getBgColor(tile[(ty << 3) + tx]);
                     } else {
                         uint32_t row = reinterpret_cast<const uint32_t *>(tile)[ty];
-                        uint32_t paletteIndex = (row >> (tx * 4)) & 0xF;
+                        // uint32_t paletteIndex = (row >> (tx * 4)) & 0xF;
+                        uint32_t paletteIndex = (row >> (tx << 2)) & 0xF;
                         return palette.getBgColor(attrs.paletteNumber, paletteIndex);
                     }
                 };
                 break;
             case Mode2:
                 pixelColor = [bgMap, this](int32_t sx, int32_t sy) -> color_t {
+                    // We know that the result msx & msy can not be negative (sx & sy are positive and sx % mod n is always <= sx) -> we can apply greedy optimizations
                     int32_t msx = sx - (sx % mosaicWidth);
                     int32_t msy = sy - (sy % mosaicHeight);
 
-                    int32_t tileX = msx / 8;
-                    int32_t tileY = msy / 8;
+                    // int32_t tileX = msx / 8;
+                    int32_t tileX = msx >> 3;
+                    // int32_t tileY = msy / 8;
+                    int32_t tileY = msy >> 3;
                     uint32_t tileNumber = reinterpret_cast<const uint8_t *>(bgMap)[tileY * (width / 8) + tileX];
-                    const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + (tileNumber * 64);
-                    uint32_t paletteIndex = tile[(msy % 8) * 8 + (msx % 8)];
+                    // const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + (tileNumber * 64);
+                    const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + (tileNumber << 6);
+                    // uint32_t paletteIndex = tile[(msy % 8) * 8 + (msx % 8)];
+                    uint32_t paletteIndex = tile[((msy & 7) << 3) + (msx & 7)];
 
                     return palette.getBgColor(paletteIndex);
                 };
