@@ -109,6 +109,8 @@ namespace gbaemu::lcd
 
         /* scaling, rotation, only for bg2, bg3 */
         if (bgMode != 0 && (index == 2 || index == 3)) {
+            useTrans = true;
+
             if (index == 2) {
                 affineTransform.origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2X));
                 affineTransform.origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2Y));
@@ -137,6 +139,9 @@ namespace gbaemu::lcd
                 affineTransform.dm[1] = 1;
             }
         } else {
+            useTrans = false;
+            wrap = true;
+
             /* use scrolling parameters */
             affineTransform.origin[0] = static_cast<common::math::real_t>(le(regs.BGOFS[index].h) & 0x1FF);
             affineTransform.origin[1] = static_cast<common::math::real_t>(le(regs.BGOFS[index].v) & 0x1FF);
@@ -288,7 +293,7 @@ namespace gbaemu::lcd
     void BGLayer::drawScanline(int32_t y)
     {
         auto pixelColor = getPixelColorFunction();
-        vec2 s = affineTransform.dm * y + affineTransform.origin;
+        vec2 s = affineTransform.origin + (useTrans ? vec2{0, 0} : affineTransform.dm * y);
 
         for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
             int32_t sx = static_cast<int32_t>(s[0]);

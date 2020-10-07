@@ -41,6 +41,7 @@ namespace gbaemu::lcd
         int32_t mosaicWidth;
         int32_t mosaicHeight;
         bool colorPalette256;
+        bool useTrans;
         /* actual pixel count */
         uint32_t width;
         uint32_t height;

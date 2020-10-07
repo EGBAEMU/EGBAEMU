@@ -7,7 +7,7 @@
 #if RENDERER_USE_FB_CANVAS
 namespace gbaemu::lcd
 {
-    typedef uint16_t fbcolor_t;
+    typedef uint32_t fbcolor_t;
 
     class FBCanvas : public Canvas<fbcolor_t>
     {
@@ -16,7 +16,7 @@ namespace gbaemu::lcd
         size_t size;
         fbcolor_t *frameBuffer;
       public:
-        FBCanvas(const char *deviceString);
+        FBCanvas(const char *deviceString, size_t w, size_t h);
         ~FBCanvas();
         virtual void beginDraw() override;
         virtual void endDraw() override;

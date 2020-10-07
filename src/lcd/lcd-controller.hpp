@@ -64,8 +64,10 @@ namespace gbaemu::lcd
         MemoryCanvas<color_t> frameBuffer;
 
         LCDColorPalette palette;
-        LCDIORegs regsRef{0};
         LCDIORegs regs{0};
+        LCDIORegs internalRegs{0};
+        /* 2/3 then x/y */
+        bool bgRefPointDirty[2][2]{0};
 
       public:
         struct
@@ -85,14 +87,14 @@ namespace gbaemu::lcd
 
         uint8_t read8FromReg(uint32_t offset)
         {
-            return *(offset + reinterpret_cast<uint8_t *>(&regsRef));
+            return *(offset + reinterpret_cast<uint8_t *>(&regs));
         }
 
         void write8ToReg(uint32_t offset, uint8_t value)
         {
             uint8_t mask = 0xFF;
 
-            if (offset == offsetof(LCDIORegs, BGCNT) + 1 || offset == offsetof(LCDIORegs, BGCNT) + sizeof(regsRef.BGCNT[0]) + 1) {
+            if (offset == offsetof(LCDIORegs, BGCNT) + 1 || offset == offsetof(LCDIORegs, BGCNT) + sizeof(regs.BGCNT[0]) + 1) {
                 mask = 0xDF;
             } else if (offset >= offsetof(LCDIORegs, WININ) && offset < offsetof(LCDIORegs, MOSAIC)) {
                 mask = 0x3F;
@@ -102,7 +104,12 @@ namespace gbaemu::lcd
                 mask = 0x1F;
             }
 
-            *(offset + reinterpret_cast<uint8_t *>(&regsRef)) = value & mask;
+            bgRefPointDirty[0][0] |= (offset == offsetof(LCDIORegs, BG2X)) || (offset == offsetof(LCDIORegs, BG2X) + 1) || (offset == offsetof(LCDIORegs, BG2X) + 2) || (offset == offsetof(LCDIORegs, BG2X) + 3);
+            bgRefPointDirty[0][1] |= (offset == offsetof(LCDIORegs, BG2Y)) || (offset == offsetof(LCDIORegs, BG2Y) + 1) || (offset == offsetof(LCDIORegs, BG2Y) + 2) || (offset == offsetof(LCDIORegs, BG2Y) + 3);
+            bgRefPointDirty[1][0] |= (offset == offsetof(LCDIORegs, BG3X)) || (offset == offsetof(LCDIORegs, BG3X) + 1) || (offset == offsetof(LCDIORegs, BG3X) + 2) || (offset == offsetof(LCDIORegs, BG3X) + 3);
+            bgRefPointDirty[1][1] |= (offset == offsetof(LCDIORegs, BG3Y)) || (offset == offsetof(LCDIORegs, BG3Y) + 1) || (offset == offsetof(LCDIORegs, BG3Y) + 2) || (offset == offsetof(LCDIORegs, BG3Y) + 3);
+
+            *(offset + reinterpret_cast<uint8_t *>(&regs)) = value & mask;
         }
 
         void onVCount();
@@ -133,7 +140,7 @@ namespace gbaemu::lcd
         LCDController(Canvas<color_t> &disp, CPU *cpu, std::mutex *canDrawToscreenMut, bool *canDraw) : display(disp),
             memory(cpu->state.memory), irqHandler(cpu->irqHandler),
             canDrawToScreenMutex(canDrawToscreenMut), canDrawToScreen(canDraw),
-            renderer(cpu->state.memory, cpu->irqHandler, regsRef, frameBuffer),
+            renderer(cpu->state.memory, cpu->irqHandler, internalRegs, frameBuffer),
 #if (RENDERER_DECOMPOSE_LAYERS == 1)
             frameBuffer(SCREEN_WIDTH * 3, SCREEN_HEIGHT * 4)
 #else
@@ -143,7 +150,7 @@ namespace gbaemu::lcd
             memory.ioHandler.registerIOMappedDevice(
                 IO_Mapped(
                     static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET),
-                    static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET) + sizeof(regsRef) - 1,
+                    static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET) + sizeof(regs) - 1,
                     std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),
                     std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
                     std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),
@@ -151,7 +158,7 @@ namespace gbaemu::lcd
 
             scanline.buf.resize(SCREEN_WIDTH);
 
-#if (RENDERER_DECOMPOSE_LAYERS == 1)
+#if (RENDERER_DECOMPOSE_LAYERS == 1) || (RENDERER_USE_FB_CANVAS == 1)
             scale = 1;
 #endif
         }
