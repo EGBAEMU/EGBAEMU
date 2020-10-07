@@ -235,7 +235,7 @@ int main(int argc, char **argv)
 #endif
 
 #if !defined(DEBUG_CLI) && PRINT_FPS
-    auto lastFrame = nextFrame;
+    auto lastFrame = std::chrono::system_clock::now() + frames{0};
 #endif
 
     for (; doRun;) {
