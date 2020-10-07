@@ -1,39 +1,23 @@
 #include "io_regs.hpp"
 #include "logging.hpp"
+#include "memory.hpp"
 
 #include <iostream>
 
+// Include the makro mess, pls don't look at it:D
+#include "io_regs_makros.h"
+
 namespace gbaemu
 {
-    bool operator<(const IO_Mapped &a, const IO_Mapped &b)
-    {
-        return a.upperBound < b.lowerBound;
-    }
-
-    bool operator<(const IO_Mapped &a, const uint32_t b)
-    {
-        return a.upperBound < b;
-    }
-
-    bool operator<(const uint32_t a, const IO_Mapped &b)
-    {
-        return a < b.lowerBound;
-    }
-
-    void IO_Handler::registerIOMappedDevice(IO_Mapped &&device)
-    {
-        mappedDevices.insert(device);
-    }
-
     uint8_t IO_Handler::externalRead8(uint32_t addr) const
     {
-        const auto devIt = mappedDevices.find(addr);
-        if (devIt != mappedDevices.end()) {
-            return devIt->externalRead8(addr - devIt->lowerBound);
-        } else {
-            //TODO how to handle not found?
-            LOG_IO(std::cout << "WARNING: externalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
-            return 0x0000;
+        uint32_t globalOffset = addr - Memory::IO_REGS_OFFSET;
+
+        switch (globalOffset) {
+            default:
+                //TODO how to handle not found?
+                LOG_IO(std::cout << "WARNING: externalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
+                return 0x0000;
         }
     }
     uint16_t IO_Handler::externalRead16(uint32_t addr) const
@@ -47,12 +31,11 @@ namespace gbaemu
 
     void IO_Handler::externalWrite8(uint32_t addr, uint8_t value)
     {
-        auto devIt = mappedDevices.find(addr);
-        if (devIt != mappedDevices.end()) {
-            devIt->externalWrite8(addr - devIt->lowerBound, value);
-        } else {
-            //TODO how to handle not found? probably just ignore...
-            LOG_IO(std::cout << "WARNING: externalWrite: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
+        uint32_t globalOffset = addr - Memory::IO_REGS_OFFSET;
+        switch (globalOffset) {
+            default:
+                //TODO how to handle not found? probably just ignore...
+                LOG_IO(std::cout << "WARNING: externalWrite: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
         }
     }
     void IO_Handler::externalWrite16(uint32_t addr, uint16_t value)
@@ -70,13 +53,12 @@ namespace gbaemu
 
     uint8_t IO_Handler::internalRead8(uint32_t addr) const
     {
-        const auto devIt = mappedDevices.find(addr);
-        if (devIt != mappedDevices.end()) {
-            return devIt->internalRead8(addr - devIt->lowerBound);
-        } else {
-            //TODO how to handle not found?
-            LOG_IO(std::cout << "WARNING: internalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
-            return 0x0000;
+        uint32_t globalOffset = addr - Memory::IO_REGS_OFFSET;
+        switch (globalOffset) {
+            default:
+                //TODO how to handle not found?
+                LOG_IO(std::cout << "WARNING: internalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
+                return 0x0000;
         }
     }
     uint16_t IO_Handler::internalRead16(uint32_t addr) const
@@ -90,12 +72,11 @@ namespace gbaemu
 
     void IO_Handler::internalWrite8(uint32_t addr, uint8_t value)
     {
-        auto devIt = mappedDevices.find(addr);
-        if (devIt != mappedDevices.end()) {
-            devIt->internalWrite8(addr - devIt->lowerBound, value);
-        } else {
-            //TODO how to handle not found? probably just ignore...
-            LOG_IO(std::cout << "WARNING: internalWrite: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
+        uint32_t globalOffset = addr - Memory::IO_REGS_OFFSET;
+        switch (globalOffset) {
+            default:
+                //TODO how to handle not found? probably just ignore...
+                LOG_IO(std::cout << "WARNING: internalWrite: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
         }
     }
     void IO_Handler::internalWrite16(uint32_t addr, uint16_t value)
