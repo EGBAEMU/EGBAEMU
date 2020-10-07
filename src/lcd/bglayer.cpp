@@ -209,8 +209,6 @@ namespace gbaemu::lcd
         const void *bgMap = getBGMap();
         const void *frameBuffer = getFrameBuffer();
 
-        std::function<color_t(int32_t, int32_t)> pixelColor;
-
         /* select pixel color function */
         switch (mode) {
             case Mode0:
@@ -223,8 +221,8 @@ namespace gbaemu::lcd
 
                     Every bg map is at (bg base) + (sc index) * 0x800.
                     Every SC has size 256x256 (32x32 tiles).
-                 */
-                pixelColor = [this](int32_t sx, int32_t sy) -> color_t {
+                */
+                return [this](int32_t sx, int32_t sy) -> color_t {
                     const BGMode0Entry *bgMap = reinterpret_cast<const BGMode0Entry *>(getBGMap(sx, sy));
 
                     // We know that the result msx & msy can not be negative (sx & sy are positive and sx % mod n is always <= sx) -> we can apply greedy optimizations
@@ -241,15 +239,16 @@ namespace gbaemu::lcd
                     // int32_t tileY = relBGMapY / 8;
                     int32_t tileY = relBGMapY >> 3;
 
-                    // BGMode0EntryAttributes attrs(bgMap[tileY * 32 + tileX]);
-                    BGMode0EntryAttributes attrs(bgMap[(tileY << 5) + tileX]);
-                    // const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + attrs.tileNumber * (colorPalette256 ? 64 : 32);
-                    const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + (attrs.tileNumber << (colorPalette256 ? 6 : 5));
+                    // BGMode0EntryAttributes attrs(le(bgMap[tileY * 32 + tileX]));
+                    BGMode0EntryAttributes attrs(le(bgMap[(tileY << 5) + tileX]));
 
                     // int32_t tx = attrs.hFlip ? (7 - (relBGMapX % 8)) : (relBGMapX % 8);
                     int32_t tx = attrs.hFlip ? (7 - (relBGMapX & 7)) : (relBGMapX & 7);
                     // int32_t ty = attrs.vFlip ? (7 - (relBGMapY % 8)) : (relBGMapY % 8);
                     int32_t ty = attrs.vFlip ? (7 - (relBGMapY & 7)) : (relBGMapY & 7);
+
+                    // const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + attrs.tileNumber * (colorPalette256 ? 64 : 32);
+                    const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + (attrs.tileNumber << (colorPalette256 ? 6 : 5));
 
                     if (colorPalette256) {
                         // return palette.getBgColor(tile[ty * 8 + tx]);
@@ -261,9 +260,8 @@ namespace gbaemu::lcd
                         return palette.getBgColor(attrs.paletteNumber, paletteIndex);
                     }
                 };
-                break;
             case Mode2:
-                pixelColor = [bgMap, this](int32_t sx, int32_t sy) -> color_t {
+                return [bgMap, this](int32_t sx, int32_t sy) -> color_t {
                     // We know that the result msx & msy can not be negative (sx & sy are positive and sx % mod n is always <= sx) -> we can apply greedy optimizations
                     int32_t msx = sx - (sx % mosaicWidth);
                     int32_t msy = sy - (sy % mosaicHeight);
@@ -280,32 +278,29 @@ namespace gbaemu::lcd
 
                     return palette.getBgColor(paletteIndex);
                 };
-                break;
             case Mode3:
             case Mode5:
                 /* 32768 colors in color16 format */
-                pixelColor = [frameBuffer, this](int32_t sx, int32_t sy) -> color_t {
+                return [frameBuffer, this](int32_t sx, int32_t sy) -> color_t {
                     int32_t msx = sx - (sx % mosaicWidth);
                     int32_t msy = sy - (sy % mosaicHeight);
 
                     return LCDColorPalette::toR8G8B8(reinterpret_cast<const color16_t *>(frameBuffer)[msy * width + msx]);
                 };
-                break;
             case Mode4:
                 /* 256 indexed colors */
-                pixelColor = [frameBuffer, this](int32_t sx, int32_t sy) -> color_t {
+                return [frameBuffer, this](int32_t sx, int32_t sy) -> color_t {
                     int32_t msx = sx - (sx % mosaicWidth);
                     int32_t msy = sy - (sy % mosaicHeight);
 
                     return palette.getBgColor(reinterpret_cast<const uint8_t *>(frameBuffer)[msy * width + msx]);
                 };
-                break;
             default:
                 LOG_LCD(std::cout << "Invalid mode!" << std::endl;);
                 throw std::runtime_error("Invalid mode!");
         }
 
-        return pixelColor;
+        return std::function<color_t(int32_t, int32_t)>();
     }
 
     void BGLayer::drawScanline(int32_t y)
