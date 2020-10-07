@@ -93,7 +93,6 @@ namespace gbaemu
             } else {
                 while (cyclesLeft > 0) {
                     if (state.cpuInfo.haltCPU) {
-                        //TODO this can be removed if we remove swi.cpp
                         state.cpuInfo.haltCPU = !irqHandler.checkForHaltCondition(state.cpuInfo.haltCondition);
                         state.cpuInfo.cycleCount = 1;
                     } else {

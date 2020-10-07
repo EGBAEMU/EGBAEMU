@@ -108,7 +108,6 @@ namespace gbaemu
 
         bool thumbMode = getFlag<cpsr_flags::THUMB_STATE>();
 
-        //TODO we might need this info? (where nullptr is currently)
         if (thumbMode) {
             pc += 4;
             pipeline[0] = memory.read16(pc, fetchInfo, true, true);
