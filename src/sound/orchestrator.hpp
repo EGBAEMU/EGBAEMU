@@ -6,6 +6,8 @@
 
 #include <cstdint>
 
+#define SOUND_OUTPUT_SAMPLE_SIZE 4096
+
 namespace gbaemu
 {
     class CPU;
@@ -98,34 +100,70 @@ namespace gbaemu
                     uint16_t fifoBH;
                     uint16_t _unused8;);
 
+
+
+        // We start at SOUND3 registers
+        static const constexpr uint32_t SOUND_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x60 + 0x10;
+
         uint8_t read8FromReg(uint32_t offset) const;
 
         void internalWrite8ToReg(uint32_t offset, uint8_t value);
 
         void externalWrite8ToReg(uint32_t offset, uint8_t value);
 
-      private:
-        // We start at SOUND3 registers
-        static const constexpr uint32_t SOUND_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x60 + 0x10;
-
-        SquareWaveChannel channel1;
-        SquareWaveChannel channel2;
-
       public:
         SoundOrchestrator(CPU *cpu);
 
-        ~SoundOrchestrator();
-
-        // Callback for SDL2 Mixer
-        // void onChannelDoneCallback(int channel);
-        // Callback for Channels
-        void onChannelCompleted(uint8_t channel);
-
-        void setChannelPlaybackStatus(uint8_t channel, bool playing);
-
+     
         void reset();
 
         void step(uint32_t cycles);
+
+      private:
+
+        SquareWaveChannel channel1;
+        SquareWaveChannel channel2;
+        
+        uint32_t sampling_counter;
+        uint32_t sampling_bufferIdx;
+        float sampling_buffer[SOUND_OUTPUT_SAMPLE_SIZE];
+
+        uint32_t frame_sequenceCounter;
+        uint32_t frame_sequencer;
+
+        const std::function<void()> frame_stepLut[8] = {
+            [this]() {
+              this->channel1.onStepSoundLength();
+              this->channel2.onStepSoundLength();
+            },
+            []() {},
+            [this]() {
+                this->channel1.onStepSweep();
+                this->channel2.onStepSoundLength();
+                this->channel2.onStepSoundLength();
+            },
+            []() {},
+            [this]() {
+                this->channel1.onStepSoundLength();
+                this->channel2.onStepSoundLength();
+            },
+            []() {},
+            [this]() {
+                this->channel1.onStepSweep();
+                this->channel1.onStepSoundLength();
+                this->channel2.onStepSoundLength();
+            },
+            [this]() {
+                this->channel1.onStepEnv();
+                this->channel1.onStepEnv();
+            }};
+
+       
+        void onHandleFrameSequencer();
+
+        void onStepChannels();
+
+        void onHandleDownsampling();
 
     };
 } // namespace gbaemu

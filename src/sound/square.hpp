@@ -31,7 +31,7 @@ namespace gbaemu
         static const constexpr uint16_t SOUND_SQUARE_CHANNEL_H_ENV_MODE_OFF = 11;
         static const constexpr uint16_t SOUND_SQUARE_CHANNEL_H_ENV_INIT_VAL_OFF = 12;
 
-        static const constexpr uint16_t SOUND_SQUARE_CHANNEL_H_SOUND_LENGTH_MASK = static_cast<uint16_t>(0x11'1111);
+        static const constexpr uint16_t SOUND_SQUARE_CHANNEL_H_SOUND_LENGTH_MASK = static_cast<uint16_t>(0b11'1111);
         static const constexpr uint16_t SOUND_SQUARE_CHANNEL_H_DUTY_CYCLE_MASK = static_cast<uint16_t>(0b11);
         static const constexpr uint16_t SOUND_SQUARE_CHANNEL_H_ENV_STEP_TIME_MASK = static_cast<uint16_t>(0b111);
         static const constexpr uint16_t SOUND_SQUARE_CHANNEL_H_ENV_MODE_MASK = static_cast<uint16_t>(0b1);
@@ -44,30 +44,7 @@ namespace gbaemu
         static const constexpr uint16_t SOUND_SQUARE_CHANNEL_X_SOUND_FREQ_MASK = static_cast<uint16_t>(0b111'1111'1111);
         static const constexpr uint16_t SOUND_SQUARE_CHANNEL_X_TIME_MODE_MASK = static_cast<uint16_t>(0b1);
         static const constexpr uint16_t SOUND_SQUARE_CHANNEL_X_RESET_MASK = static_cast<uint16_t>(0b1);
-
-        static const constexpr float SOUND_SQUARE_AMPLITUDE_SCALING = 15.9375;
-
-        static const constexpr uint32_t CYCLES_PER_S = 16000000;
-
-        static const constexpr float DUTY_CYCLES[4] = {
-            0.125f,
-            0.25f,
-            0.50f,
-            0.75f};
-
-        static const constexpr int32_t SWEEP_TIME_CYCLES[8] = {
-            // The first index encodes for disabled
-            0,
-            // 7.8ms @ 16Mhz = (16 000 000 / 1000) * 7.8
-            static_cast<uint32_t>((CYCLES_PER_S / 1000) * 7.8),
-            static_cast<uint32_t>((CYCLES_PER_S / 1000) * 15.6),
-            static_cast<uint32_t>((CYCLES_PER_S / 1000) * 23.4),
-            static_cast<uint32_t>((CYCLES_PER_S / 1000) * 31.3),
-            static_cast<uint32_t>((CYCLES_PER_S / 1000) * 39.1),
-            static_cast<uint32_t>((CYCLES_PER_S / 1000) * 46.9),
-            static_cast<uint32_t>((CYCLES_PER_S / 1000) * 54.7),
-        };
-
+        
         static const constexpr uint32_t SOUND_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x60;
 
         PACK_STRUCT(SquareWaveRegs, regs,
@@ -75,32 +52,23 @@ namespace gbaemu
                     uint16_t soundCntH_L;
                     uint16_t soundCntX_H;
                     uint16_t _unused;);
+                            
+        static const constexpr uint8_t DUTY_CYCLE_LOOKUP[4] = {
+          0b00000001,
+          0b10000001,
+          0b10000111,
+          0b01111110,
+        };
 
       public:
+      
         enum SoundChannel : uint8_t {
             CHAN_1 = 0,
             CHAN_2,
         };
 
-        SquareWaveChannel(CPU *cpu, SoundOrchestrator* orchestrator, SoundChannel channel);
-
-
-        void reset();
-        
-        uint16_t getCurrentVolume();
-
-
-        void onStepVolume();
-
-        void onStepEnv();
-
-        void onStepSoundLength();
-
-        void onStepSweep();
-
-
       private:
-        
+     
         // The superordinate sound orchestrator
         SoundOrchestrator* orchestrator;
         // The sound channel to use
@@ -114,7 +82,7 @@ namespace gbaemu
         // Counts down the progression of the sequence index
         uint32_t timer;
         // The current index in the duty cycle table
-        uint8_t sequenceIdx = 0;
+        uint8_t sequenceIdx;
 
         // Wheather stepping the current env is okay
         bool env_active;
@@ -128,6 +96,8 @@ namespace gbaemu
         // For how many cycles the sound should be playing.
         uint32_t timed_counter;
 
+        // If the sweep is active
+        bool sweep_active;
         // The current sweep adjusted frequency
         uint32_t sweep_current;
         // Counter for the next sweep adjustment
@@ -152,7 +122,25 @@ namespace gbaemu
 
 
          void onRegisterUpdated();
-      
+
+
+      public:
+
+        SquareWaveChannel(CPU *cpu, SoundOrchestrator* orchestrator, SoundChannel channel);
+
+
+        void reset();
+        
+        uint16_t getCurrentVolume();
+
+
+        void onStepVolume();
+
+        void onStepEnv();
+
+        void onStepSoundLength();
+
+        void onStepSweep();
     };
 
 } // namespace gbaemu

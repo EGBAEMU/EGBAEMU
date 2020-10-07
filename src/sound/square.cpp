@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <iomanip>
 
 #ifdef __clang__
 /*code specific to clang compiler*/
@@ -47,7 +48,20 @@ namespace gbaemu
     {
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
 
-        // TODO Init
+        active = false;
+        timer = 0;
+        sequenceIdx = 0;
+
+        env_active = false;
+        env_value = 0;
+        env_counter = 0;
+
+        timed_active = false;
+        timed_counter = 0;
+
+        sweep_active = false;
+        sweep_current = 0;
+        sweep_counter = 0;
 
         reg_soundLength = 0;
         reg_dutyCycle = 0;
@@ -63,7 +77,7 @@ namespace gbaemu
 
     }
 
-    uint32_t SquareWaveChannel::getCurrentVolume()
+    uint16_t SquareWaveChannel::getCurrentVolume()
     {
         return volumeOut;
     }
@@ -97,9 +111,6 @@ namespace gbaemu
 
         *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
 
-        //TODO this can be more granular if needed!
-        registersUpdated = true;
-
         switch (offset) {
             // case offsetof(SquareWaveRegs, soundCntL) + 1:
             case offsetof(SquareWaveRegs, soundCntL): {
@@ -119,6 +130,8 @@ namespace gbaemu
                 reg_envStepTime = bitGet(regCntH_L, SOUND_SQUARE_CHANNEL_H_ENV_STEP_TIME_MASK, SOUND_SQUARE_CHANNEL_H_ENV_STEP_TIME_OFF);
                 reg_envMode = isBitSet<uint16_t, SOUND_SQUARE_CHANNEL_H_ENV_MODE_OFF>(regCntH_L);
                 reg_envInitVal = bitGet(regCntH_L, SOUND_SQUARE_CHANNEL_H_ENV_INIT_VAL_MASK, SOUND_SQUARE_CHANNEL_H_ENV_INIT_VAL_OFF);
+                
+                std::cout << "Adjusted reg h/l is now " << std::hex << regCntH_L << " Sound length is " << std::hex << reg_soundLength << std::endl;
                 break;
             }
             case offsetof(SquareWaveRegs, soundCntX_H) + 1:
@@ -131,6 +144,8 @@ namespace gbaemu
                 break;
             }
         }
+
+        onRegisterUpdated();
     }
 
     void SquareWaveChannel::onRegisterUpdated()
@@ -143,46 +158,68 @@ namespace gbaemu
         regs.soundCntX_H = le(le(regs.soundCntX_H) & ~SOUND_SQUARE_CHANNEL_X_RESET_MASK);
         // This channel is now active
         active = true;
+        // Set the frequency countdown
+        timer = (2048 - reg_frequency) * 4;
 
         // Apply changes from the env 
         env_active = true;
         env_counter = reg_envStepTime;    
-        env_value = reg_envInitVal
+        env_value = reg_envInitVal;
+
+        timed_active = reg_timed;
+        timed_counter = reg_soundLength;
 
         // Apply changes for the sweep
         sweep_counter = reg_sweepTime;
+        sweep_active = false;
         // TODO: Sweep
+
+        LOG_SOUND(
+            std::cout << "SOUND: Channel " << channel << " reset! " << std::endl;
+            std::cout << "       Env active " << env_active << std::endl;
+            std::cout << "       Env initial value " << env_value << std::endl;
+            std::cout << "       Env counter " << env_counter << std::endl;
+            std::cout << "       Timer " << timer << std::endl;
+            std::cout << "       Timed " << timed_active << std::endl;
+            std::cout << "       Timed counter " << static_cast<uint32_t>(reg_soundLength) << std::endl;
+        );
 
     }
     
-    void onStepVolume()
+    void SquareWaveChannel::onStepVolume()
     {
         timer -= 1;
 
         if (timer == 0) {
 
             timer = (2048 - reg_frequency) * 4;
-            sequenceIdx = (sequenceIdx + 1)
+            sequenceIdx = (sequenceIdx + 1);
 
             if (sequenceIdx == 8)
                 sequenceIdx = 0;
         }
 
         if (active)
-            volumeOut = volumeInt;
+            volumeOut = env_value;
         else
             volumeOut = 0;
 
-        // TODO: Set volume to 0 if not in duty
-
+        if (!((DUTY_CYCLE_LOOKUP[reg_dutyCycle] >> sequenceIdx) & 0x1))
+            volumeOut = 0;
+   
     }
 
-    void onStepEnv()
+    void SquareWaveChannel::onStepEnv()
     {
         env_counter -= 1;
 
         if (env_counter != 0)
             return;
+
+        LOG_SOUND(
+            std::cout << "SOUND: Channel " << static_cast<uint32_t>(channel) << " stepping env!" << std::endl;
+            std::cout << "       Active: " << static_cast<uint32_t>(env_active) << std::endl;
+        );
 
         if (reg_envStepTime == 0)
             env_counter = 8;
@@ -190,6 +227,10 @@ namespace gbaemu
             env_counter = reg_envStepTime;
 
         if (env_active && reg_envStepTime > 0) {
+                
+            LOG_SOUND(
+                std::cout << "       Value was " << static_cast<uint32_t>(env_value) << std::endl;
+            );
 
             if (reg_envMode) {
                 if (env_value < 15)
@@ -199,27 +240,39 @@ namespace gbaemu
                     env_value -= 1;
             }
 
+            LOG_SOUND(
+                std::cout << "       Value is now " << static_cast<uint32_t>(env_value) << std::endl;
+            );
+
         }
 
+        // When decreasing, if the volume reaches 0000, the sound is muted. 
+        // When increasing, if the volume reaches 1111, the envelope function
+        // stops and the volume remains at that level.
         if ((env_value == 15) || (env_value == 0))
             env_active = false;
     }
 
-    void onStepSoundLength()
+    void SquareWaveChannel::onStepSoundLength()
     {
         // If not active or time is zero we are already at zero we do not need to continue here
-        if (!timed_active || (timed_couter == 0))
+        if (!timed_active || (timed_counter == 0))
             return;
 
         timed_counter -= 1;
         
         // The counter has reached 0. Disable this channel!
-        if (timed_counter == 0)
-            active = false;
+        if (timed_counter != 0)
+            return;
 
+        active = false;
+
+        LOG_SOUND(
+            std::cout << "SOUND: Channel " << static_cast<uint32_t>(channel) << " sound length expired!" << std::endl;
+        );
     }
 
-    void onStepSweep()
+    void SquareWaveChannel::onStepSweep()
     {
         sweep_counter -= 1;
         

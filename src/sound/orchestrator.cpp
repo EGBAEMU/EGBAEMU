@@ -30,11 +30,6 @@
 
 namespace gbaemu
 {
-    //TODO callback is registered with function pointer... not sure if this excludes usage with Methods as they have an implicit additional argument (this pointer)
-    static void onChannelDoneCallback(int channel)
-    {
-        std::cout << "Channel " << channel << " completed playback!" << std::endl;
-    }
 
     uint8_t SoundOrchestrator::read8FromReg(uint32_t offset) const
     {
@@ -59,18 +54,17 @@ namespace gbaemu
             return;
         }
 
-        // Initialize SDL Mixer. We use the default frequency of 22050Hz where
-        // each sample may be represented by a signed 8bit value. 2 channels (stereo)
-        // is used with a 4096 bytes per output sample.
-        if (Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, AUDIO_S8, 2, 4096) == -1) {
-            printf("Mix_OpenAudio: %s\n", Mix_GetError());
-            return;
-        }
+        SDL_AudioSpec audioSpec;
+        audioSpec.freq = 44100;
+        audioSpec.format = AUDIO_F32SYS;
+        audioSpec.channels = 1;
+        audioSpec.samples = SOUND_OUTPUT_SAMPLE_SIZE;
+        audioSpec.callback = NULL;
+        audioSpec.userdata = this;
 
-        // The GBA has 6 sound channels, thus we need 6 individual mixing channels.
-        Mix_AllocateChannels(6);
-        // Set the callback for playback completion
-        Mix_ChannelFinished(onChannelDoneCallback);
+        SDL_AudioSpec obtainedSpec;
+        SDL_OpenAudio(&audioSpec, &obtainedSpec);
+        SDL_PauseAudio(0);
 
         cpu->state.memory.ioHandler.registerIOMappedDevice(
             IO_Mapped(
@@ -86,25 +80,87 @@ namespace gbaemu
 
     void SoundOrchestrator::reset() 
     {
+        
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
+        
+        sampling_counter = 95;
+        sampling_bufferIdx = 0;
+
+        frame_sequenceCounter = 8192;
+        frame_sequencer = 0;
+
         channel1.reset();
         channel2.reset();
     }
 
     void SoundOrchestrator::step(uint32_t cycles) 
     {
-        channel1.step(cycles);
-        channel2.step(cycles);
+        while(cycles > 0) {
+            cycles -= 1;
+
+            onHandleFrameSequencer();
+            onStepChannels();
+            onHandleDownsampling();
+        }
     }
 
-    SoundOrchestrator::~SoundOrchestrator()
+    void SoundOrchestrator::onHandleFrameSequencer()
     {
-        // Shutdown the mixer API
-        Mix_CloseAudio();
-        // Indicate desire to unload dll's
-        Mix_Quit();
+        frame_sequenceCounter -= 1;
+        
+        if (sampling_counter > 8192)
+            std::cout << "Underflow on frame sequence counter occured!" << std::endl;
+
+        if (frame_sequenceCounter != 0) 
+            return;
+       
+        frame_sequenceCounter = 8192;
+        frame_stepLut[frame_sequencer]();
+        
+        frame_sequencer = (frame_sequencer + 1) & 0b111;
+       
     }
 
+    void SoundOrchestrator::onStepChannels()
+    {
+        channel1.onStepVolume();
+        channel2.onStepVolume();
+    }
+
+    void SoundOrchestrator::onHandleDownsampling()
+    {
+        sampling_counter -= 1;
+        
+        if (sampling_counter > 95)
+            std::cout << "Underflow on sampling counter occured!" << std::endl;
+
+        if (sampling_counter != 0)
+            return;
+
+        sampling_counter = 95;
+
+        float sample = 0;
+        
+        float channel1Sample = ((float) channel1.getCurrentVolume()) / 100.0;
+        SDL_MixAudioFormat((Uint8*)&channel1Sample, (Uint8*)&sample, AUDIO_F32SYS, sizeof(float), SDL_MIX_MAXVOLUME);
+
+        float channel2Sample = ((float) channel2.getCurrentVolume()) / 100.0;
+        
+        SDL_MixAudioFormat((Uint8*)&channel2Sample, (Uint8*)&sample, AUDIO_F32SYS, sizeof(float), SDL_MIX_MAXVOLUME);
+        
+        sampling_buffer[sampling_bufferIdx] = sample;
+        sampling_bufferIdx += 1;
+
+        if (sampling_bufferIdx < SOUND_OUTPUT_SAMPLE_SIZE)
+            return;
+
+        sampling_bufferIdx = 0;
+
+        //std::cout << "Enqueue audio for playback!" << std::endl;
+        SDL_QueueAudio(1, sampling_buffer, SOUND_OUTPUT_SAMPLE_SIZE * sizeof(float));
+
+    }
+/*
     void SoundOrchestrator::setChannelPlaybackStatus(uint8_t channel, bool playing)
     {   
         // Bits 0-3 are set when their respective sound channels are playing 
@@ -113,5 +169,5 @@ namespace gbaemu
         // not need to be set to enable the sound channels. 
         regs.soundCntX = le((le(regs.soundCntX) & (static_cast<uint16_t>(0x1) << channel)) | (static_cast<uint16_t>(playing) << channel));
     }
-
+*/
 } // namespace gbaemu
