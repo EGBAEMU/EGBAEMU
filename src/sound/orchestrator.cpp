@@ -103,10 +103,7 @@ namespace gbaemu
     void SoundOrchestrator::onHandleFrameSequencer()
     {
         frame_sequenceCounter -= 1;
-        
-        if (sampling_counter > CLOCK_APU_CYCLES_SKIPS)
-            std::cout << "Underflow on frame sequence counter occured!" << std::endl;
-
+       
         if (frame_sequenceCounter != 0) 
             return;
        
@@ -126,10 +123,7 @@ namespace gbaemu
     void SoundOrchestrator::onHandleDownsampling()
     {
         sampling_counter -= 1;
-        
-        if (sampling_counter > CLOCK_CYCLES_SAMPLE)
-            std::cout << "Underflow on sampling counter occured!" << std::endl;
-
+    
         if (sampling_counter != 0)
             return;
 
