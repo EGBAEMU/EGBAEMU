@@ -232,7 +232,7 @@ int main(int argc, char **argv)
     using frames = std::chrono::duration<int64_t, std::ratio<1, 60>>; // 60Hz
 #if LIMIT_FPS
     auto nextFrame = std::chrono::system_clock::now() + frames{0};
-#endi
+#endif
 
 #if !defined(DEBUG_CLI) && PRINT_FPS
     auto lastFrame = nextFrame;
