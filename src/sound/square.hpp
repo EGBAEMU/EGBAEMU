@@ -52,7 +52,20 @@ namespace gbaemu
                     uint16_t soundCntH_L;
                     uint16_t soundCntX_H;
                     uint16_t _unused;);
-                            
+
+
+        /*
+          A square channel's frequency timer period is set to (2048-frequency)*4. 
+          Four duty cycles are available, each waveform taking 8 frequency timer 
+          clocks to cycle through: 
+          
+          Duty   Waveform    Ratio
+          -------------------------
+          0      00000001    12.5%
+          1      10000001    25%
+          2      10000111    50%
+          3      01111110    75%
+        */              
         static const constexpr uint8_t DUTY_CYCLE_LOOKUP[4] = {
           0b00000001,
           0b10000001,

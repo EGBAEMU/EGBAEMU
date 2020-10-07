@@ -7,6 +7,11 @@
 #include <cstdint>
 
 #define SOUND_OUTPUT_SAMPLE_SIZE 4096
+#define CLOCK_SPEED 16000000
+#define APU_SPEED 512
+#define AUDIO_FREQUENCY 44100
+#define CLOCK_APU_CYCLES_SKIPS (CLOCK_SPEED / APU_SPEED)
+#define CLOCK_CYCLES_SAMPLE (CLOCK_SPEED / AUDIO_FREQUENCY)
 
 namespace gbaemu
 {
@@ -126,11 +131,29 @@ namespace gbaemu
         
         uint32_t sampling_counter;
         uint32_t sampling_bufferIdx;
-        float sampling_buffer[SOUND_OUTPUT_SAMPLE_SIZE];
+        float sampling_buffer[SOUND_OUTPUT_SAMPLE_SIZE] = { 0 };
 
         uint32_t frame_sequenceCounter;
         uint32_t frame_sequencer;
 
+        /*
+          The frame sequencer generates low frequency clocks for 
+          the modulation units. It is clocked by a 512 Hz timer. 
+
+          Step   Length Ctr  Vol Env     Sweep
+          ---------------------------------------
+          0      Clock       -           -
+          1      -           -           -
+          2      Clock       -           Clock
+          3      -           -           -
+          4      Clock       -           -
+          5      -           -           -
+          6      Clock       -           Clock
+          7      -           Clock       -
+          ---------------------------------------
+          Rate   256 Hz      64 Hz       128 Hz
+
+        */
         const std::function<void()> frame_stepLut[8] = {
             [this]() {
               this->channel1.onStepSoundLength();
@@ -155,7 +178,7 @@ namespace gbaemu
             },
             [this]() {
                 this->channel1.onStepEnv();
-                this->channel1.onStepEnv();
+                this->channel2.onStepEnv();
             }};
 
        

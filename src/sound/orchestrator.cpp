@@ -10,20 +10,16 @@
 #ifdef __clang__
 /*code specific to clang compiler*/
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_mixer.h>
 #elif __GNUC__
 /*code for GNU C compiler */
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_mixer.h>
 #elif _MSC_VER
 /*usually has the version number in _MSC_VER*/
 /*code specific to MSVC compiler*/
 #include <SDL.h>
-#include <SDL_mixer.h>
 #elif __MINGW32__
 /*code specific to mingw compilers*/
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_mixer.h>
 #else
 #error "unsupported compiler!"
 #endif
@@ -55,9 +51,9 @@ namespace gbaemu
         }
 
         SDL_AudioSpec audioSpec;
-        audioSpec.freq = 44100;
+        audioSpec.freq = AUDIO_FREQUENCY;
         audioSpec.format = AUDIO_F32SYS;
-        audioSpec.channels = 1;
+        audioSpec.channels = 2;
         audioSpec.samples = SOUND_OUTPUT_SAMPLE_SIZE;
         audioSpec.callback = NULL;
         audioSpec.userdata = this;
@@ -83,10 +79,10 @@ namespace gbaemu
         
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
         
-        sampling_counter = 95;
+        sampling_counter = CLOCK_CYCLES_SAMPLE;
         sampling_bufferIdx = 0;
 
-        frame_sequenceCounter = 8192;
+        frame_sequenceCounter = CLOCK_APU_CYCLES_SKIPS;
         frame_sequencer = 0;
 
         channel1.reset();
@@ -108,13 +104,13 @@ namespace gbaemu
     {
         frame_sequenceCounter -= 1;
         
-        if (sampling_counter > 8192)
+        if (sampling_counter > CLOCK_APU_CYCLES_SKIPS)
             std::cout << "Underflow on frame sequence counter occured!" << std::endl;
 
         if (frame_sequenceCounter != 0) 
             return;
        
-        frame_sequenceCounter = 8192;
+        frame_sequenceCounter = CLOCK_APU_CYCLES_SKIPS;
         frame_stepLut[frame_sequencer]();
         
         frame_sequencer = (frame_sequencer + 1) & 0b111;
@@ -131,25 +127,25 @@ namespace gbaemu
     {
         sampling_counter -= 1;
         
-        if (sampling_counter > 95)
+        if (sampling_counter > CLOCK_CYCLES_SAMPLE)
             std::cout << "Underflow on sampling counter occured!" << std::endl;
 
         if (sampling_counter != 0)
             return;
 
-        sampling_counter = 95;
+        sampling_counter = CLOCK_CYCLES_SAMPLE;
 
         float sample = 0;
         
-        float channel1Sample = ((float) channel1.getCurrentVolume()) / 100.0;
-        SDL_MixAudioFormat((Uint8*)&channel1Sample, (Uint8*)&sample, AUDIO_F32SYS, sizeof(float), SDL_MIX_MAXVOLUME);
+        float channel1Sample = ((float) channel1.getCurrentVolume()) / 100;
+        //SDL_MixAudioFormat((Uint8*)&channel1Sample, (Uint8*)&sample, AUDIO_F32SYS, sizeof(float), SDL_MIX_MAXVOLUME);
 
-        float channel2Sample = ((float) channel2.getCurrentVolume()) / 100.0;
-        
+        float channel2Sample = ((float) channel2.getCurrentVolume()) / 50;
         SDL_MixAudioFormat((Uint8*)&channel2Sample, (Uint8*)&sample, AUDIO_F32SYS, sizeof(float), SDL_MIX_MAXVOLUME);
         
-        sampling_buffer[sampling_bufferIdx] = sample;
-        sampling_bufferIdx += 1;
+        sampling_buffer[sampling_bufferIdx] = channel2Sample;
+        sampling_buffer[sampling_bufferIdx + 1] = channel2Sample;
+        sampling_bufferIdx += 2;
 
         if (sampling_bufferIdx < SOUND_OUTPUT_SAMPLE_SIZE)
             return;
@@ -157,8 +153,12 @@ namespace gbaemu
         sampling_bufferIdx = 0;
 
         //std::cout << "Enqueue audio for playback!" << std::endl;
-        SDL_QueueAudio(1, sampling_buffer, SOUND_OUTPUT_SAMPLE_SIZE * sizeof(float));
-
+        while ((SDL_GetQueuedAudioSize(1)) > SOUND_OUTPUT_SAMPLE_SIZE * sizeof(float)) {
+				SDL_Delay(1);
+			}
+        if (SDL_QueueAudio(1, sampling_buffer, SOUND_OUTPUT_SAMPLE_SIZE * sizeof(float)) < 0) {
+            printf("SDL_QueueAudio: %s\n", SDL_GetError());
+        }
     }
 /*
     void SoundOrchestrator::setChannelPlaybackStatus(uint8_t channel, bool playing)

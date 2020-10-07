@@ -7,27 +7,6 @@
 #include <iostream>
 #include <iomanip>
 
-#ifdef __clang__
-/*code specific to clang compiler*/
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_mixer.h>
-#elif __GNUC__
-/*code for GNU C compiler */
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_mixer.h>
-#elif _MSC_VER
-/*usually has the version number in _MSC_VER*/
-/*code specific to MSVC compiler*/
-#include <SDL.h>
-#include <SDL_mixer.h>
-#elif __MINGW32__
-/*code specific to mingw compilers*/
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_mixer.h>
-#else
-#error "unsupported compiler!"
-#endif
-
 namespace gbaemu
 {
 
