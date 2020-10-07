@@ -157,7 +157,7 @@ namespace gbaemu
             std::cout << "CRITIAL ERROR: PC(0x" << std::hex << postPc << ") points to bios address outside of our code! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
             state.cpuInfo.hasCausedException = true;
             return;
-        } else if (state.fetchInfo.memReg == Memory::OUT_OF_ROM) {
+        } else if (state.fetchInfo.memReg == Memory::OUT_OF_ROM && postPc >= Memory::EXT_ROM_OFFSET + state.memory.getRomSize()) {
             std::cout << "CRITIAL ERROR: PC(0x" << std::hex << postPc << ") points out to address out of its ROM bounds! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
             state.cpuInfo.hasCausedException = true;
             return;
