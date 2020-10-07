@@ -154,11 +154,11 @@ namespace gbaemu
             return;
         }
         if (state.fetchInfo.memReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
-            std::cout << "CRITIAL ERROR: PC points to bios address outside of our code! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
+            std::cout << "CRITIAL ERROR: PC(0x" << std::hex << postPc << ") points to bios address outside of our code! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
             state.cpuInfo.hasCausedException = true;
             return;
         } else if (state.fetchInfo.memReg == Memory::OUT_OF_ROM) {
-            std::cout << "CRITIAL ERROR: PC points out to address out of its ROM bounds! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
+            std::cout << "CRITIAL ERROR: PC(0x" << std::hex << postPc << ") points out to address out of its ROM bounds! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
             state.cpuInfo.hasCausedException = true;
             return;
         }
