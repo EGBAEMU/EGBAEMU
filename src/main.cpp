@@ -230,8 +230,13 @@ int main(int argc, char **argv)
 #endif
 
     using frames = std::chrono::duration<int64_t, std::ratio<1, 60>>; // 60Hz
+#if LIMIT_FPS
     auto nextFrame = std::chrono::system_clock::now() + frames{0};
-    auto lastFrame = nextFrame - frames{1};
+#endi
+
+#if !defined(DEBUG_CLI) && PRINT_FPS
+    auto lastFrame = nextFrame;
+#endif
 
     for (; doRun;) {
         SDL_Event event;
@@ -258,16 +263,15 @@ int main(int argc, char **argv)
 
 #if LIMIT_FPS
         std::this_thread::sleep_until(nextFrame);
+        nextFrame += frames{1};
 #endif
 
-        auto currentTime = std::chrono::system_clock::now();
 #if !defined(DEBUG_CLI) && PRINT_FPS
+        auto currentTime = std::chrono::system_clock::now();
         auto dt = std::chrono::duration_cast<std::chrono::microseconds>(currentTime - lastFrame);
         std::cout << "Current FPS: " << (1000000.0 / dt.count()) << std::endl;
-#endif
-
         lastFrame = currentTime;
-        nextFrame += frames{1};
+#endif
     }
 
     doRun = false;
