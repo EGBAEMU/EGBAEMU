@@ -34,7 +34,7 @@ namespace gbaemu::lcd
     class BGLayer : public Layer
     {
       public:
-        BGIndex index;
+        const BGIndex index;
         /* settings */
         bool useOtherFrameBuffer;
         bool mosaicEnabled;

@@ -24,7 +24,9 @@ namespace gbaemu::lcd
         if (!enabled)
             return;
 
-        size = (le(regs.BGCNT[index]) & BGCNT::SCREEN_SIZE_MASK) >> 14;
+        uint16_t bgControl = le(regs.BGCNT[index]);
+
+        size = (bgControl & BGCNT::SCREEN_SIZE_MASK) >> 14;
         mode = bgMode;
 
         /* mixed mode, layers 0, 1 are drawn in mode 0, layer 2 is drawn in mode 2 */
@@ -36,11 +38,11 @@ namespace gbaemu::lcd
         }
 
         /* TODO: not entirely correct */
-        if (bgMode == 0 || (bgMode == 1 && index <= 1)) {
+        if (bgMode == 0 || (bgMode == 1 && index <= BG1)) {
             /* text mode */
             height = (size <= 1) ? 256 : 512;
             width = (size % 2 == 0) ? 256 : 512;
-        } else if (bgMode == 2 || (bgMode == 1 && index == 2)) {
+        } else if (bgMode == 2 || (bgMode == 1 && index == BG2)) {
             switch (size) {
                 case 0:
                     width = 128;
@@ -75,7 +77,7 @@ namespace gbaemu::lcd
             height = 128;
         }
 
-        mosaicEnabled = le(regs.BGCNT[index]) & BGCNT::MOSAIC_MASK;
+        mosaicEnabled = bgControl & BGCNT::MOSAIC_MASK;
 
         if (mosaicEnabled) {
             mosaicWidth = bitGet(le(regs.MOSAIC), MOSAIC::BG_MOSAIC_HSIZE_MASK, MOSAIC::BG_MOSAIC_HSIZE_OFFSET) + 1;
@@ -86,47 +88,45 @@ namespace gbaemu::lcd
         }
 
         /* if true tiles have 8 bit color depth, 4 bit otherwise */
-        colorPalette256 = le(regs.BGCNT[index]) & BGCNT::COLORS_PALETTES_MASK;
-        priority = le(regs.BGCNT[index]) & BGCNT::BG_PRIORITY_MASK;
+        colorPalette256 = bgControl & BGCNT::COLORS_PALETTES_MASK;
+        priority = bgControl & BGCNT::BG_PRIORITY_MASK;
         /* offsets */
-        uint32_t charBaseBlock = (le(regs.BGCNT[index]) & BGCNT::CHARACTER_BASE_BLOCK_MASK) >> 2;
-        uint32_t screenBaseBlock = (le(regs.BGCNT[index]) & BGCNT::SCREEN_BASE_BLOCK_MASK) >> 8;
+        uint32_t charBaseBlock = (bgControl & BGCNT::CHARACTER_BASE_BLOCK_MASK) >> 2;
+        uint32_t screenBaseBlock = (bgControl & BGCNT::SCREEN_BASE_BLOCK_MASK) >> 8;
 
         /* select which frame buffer to use */
-        if (bgMode == 4 || bgMode == 5)
+        if (bgMode == 4 || bgMode == 5) {
             useOtherFrameBuffer = le(regs.DISPCNT) & DISPCTL::DISPLAY_FRAME_SELECT_MASK;
-        else
+        } else {
             useOtherFrameBuffer = false;
+        }
 
         /* wrapping */
         if (bgMode == 0) {
             wrap = true;
-        } else if (index == 2 || index == 3) {
-            wrap = le(regs.BGCNT[index]) & BGCNT::DISPLAY_AREA_OVERFLOW_MASK;
+        } else if (index == BG2 || index == BG3) {
+            wrap = bgControl & BGCNT::DISPLAY_AREA_OVERFLOW_MASK;
         } else {
             wrap = false;
         }
 
         /* scaling, rotation, only for bg2, bg3 */
-        if (bgMode != 0 && (index == 2 || index == 3)) {
+        if (bgMode != 0 && (index == BG2 || index == BG3)) {
             useTrans = true;
 
-            if (index == 2) {
+            const auto rotScalParams = index == BG2 ? regs.BG2P : regs.BG3P;
+
+            affineTransform.d[0] = fixedToFloat<uint16_t, 8, 7>(le(rotScalParams[0]));
+            affineTransform.dm[0] = fixedToFloat<uint16_t, 8, 7>(le(rotScalParams[1]));
+            affineTransform.d[1] = fixedToFloat<uint16_t, 8, 7>(le(rotScalParams[2]));
+            affineTransform.dm[1] = fixedToFloat<uint16_t, 8, 7>(le(rotScalParams[3]));
+
+            if (index == BG2) {
                 affineTransform.origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2X));
                 affineTransform.origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG2Y));
-
-                affineTransform.d[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[0]));
-                affineTransform.dm[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[1]));
-                affineTransform.d[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[2]));
-                affineTransform.dm[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG2P[3]));
             } else {
                 affineTransform.origin[0] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3X));
                 affineTransform.origin[1] = fixedToFloat<uint32_t, 8, 19>(le(regs.BG3Y));
-
-                affineTransform.d[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[0]));
-                affineTransform.dm[0] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[1]));
-                affineTransform.d[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[2]));
-                affineTransform.dm[1] = fixedToFloat<uint16_t, 8, 7>(le(regs.BG3P[3]));
             }
 
             if (affineTransform.d[0] == 0 && affineTransform.d[1] == 0) {
@@ -153,8 +153,7 @@ namespace gbaemu::lcd
         }
 
         /* 32x32 tiles, arrangement depends on resolution */
-        /* TODO: not sure about this one */
-        uint8_t *vramBase = memory.vram;
+        const uint8_t *vramBase = memory.vram;
         bgMapBase = vramBase + screenBaseBlock * 0x800;
 
         /* tile addresses in steps of 0x4000 */
