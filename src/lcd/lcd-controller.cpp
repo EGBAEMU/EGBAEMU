@@ -84,7 +84,12 @@ namespace gbaemu::lcd
         uint16_t vCountSetting = bitGet(stat, DISPSTAT::VCOUNT_SETTING_MASK, DISPSTAT::VCOUNT_SETTING_OFFSET);
         bool vCountMatch = scanline.vCount == vCountSetting;
 
-        regs.DISPSTAT = le(bitSet<uint16_t, DISPSTAT::VCOUNTER_FLAG_MASK, DISPSTAT::VCOUNTER_FLAG_OFFSET>(stat, bmap<uint16_t>(vCountMatch)));
+#ifndef LEGACY_RENDERING
+        stat = bitSet<uint16_t, DISPSTAT::HBLANK_FLAG_MASK, DISPSTAT::HBLANK_FLAG_OFFSET, bmap<uint16_t, false>()>(stat);
+        scanline.hblanking = false;
+#endif
+        stat = bitSet<uint16_t, DISPSTAT::VCOUNTER_FLAG_MASK, DISPSTAT::VCOUNTER_FLAG_OFFSET>(stat, bmap<uint16_t>(vCountMatch));
+        regs.DISPSTAT = le(stat);
 
         if (vCountMatch && isBitSet<uint16_t, DISPSTAT::VCOUNTER_IRQ_ENABLE_OFFSET>(stat)) {
             irqHandler.setInterrupt<InterruptHandler::InterruptType::LCD_V_COUNTER_MATCH>();
@@ -117,7 +122,7 @@ namespace gbaemu::lcd
 
 #ifndef LEGACY_RENDERING
         scanline.y = 0;
-#endif        
+#endif
     }
 
 #ifndef LEGACY_RENDERING
