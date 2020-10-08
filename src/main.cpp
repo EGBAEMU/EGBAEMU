@@ -189,7 +189,7 @@ int main(int argc, char **argv)
     window.present();
     gbaemu::lcd::WindowCanvas windowCanvas = window.getCanvas();
 #else
-    gbaemu::lcd::FBCanvas windowCanvas(argv[ROM_IDX - 1], 240, 160);
+    gbaemu::lcd::FBCanvas windowCanvas(argv[ROM_IDX - 1]);
 #endif
 
     /* initialize SDL and LCD */
@@ -259,6 +259,8 @@ int main(int argc, char **argv)
 
 #if RENDERER_USE_FB_CANVAS == 0
         window.present();
+#else
+        windowCanvas.present();
 #endif
 
 #if LIMIT_FPS
