@@ -28,44 +28,67 @@ namespace gbaemu
         static_assert(sizeof(cpu->timerGroup.tim2.regs) == 4);
         static_assert(sizeof(cpu->timerGroup.tim3.regs) == 4);
 
+        static_assert(offsetof(lcd::LCDIORegs, WININ) == 0x48);
+        static_assert(offsetof(lcd::LCDIORegs, BLDCNT) == 0x50);
+
+        static_assert(offsetof(DMAGroup::DMA<DMAGroup::DMA0>::DMARegs, cntReg) == 0xA);
+        static_assert(offsetof(DMAGroup::DMA<DMAGroup::DMA1>::DMARegs, cntReg) == 0xA);
+        static_assert(offsetof(DMAGroup::DMA<DMAGroup::DMA2>::DMARegs, cntReg) == 0xA);
+        static_assert(offsetof(DMAGroup::DMA<DMAGroup::DMA3>::DMARegs, cntReg) == 0xA);
+
         uint32_t globalOffset = addr - Memory::IO_REGS_OFFSET;
 
         switch (globalOffset) {
-            REP_CASE(86, 0x0, lcdController->read8FromReg(offset));
-            REP_CASE(10, InterruptHandler::INTERRUPT_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, return cpu->irqHandler.read8FromReg(offset));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA0>::DMA0_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->dmaGroup.dma0.read8FromReg(offset));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA1>::DMA1_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->dmaGroup.dma1.read8FromReg(offset));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA2>::DMA2_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->dmaGroup.dma2.read8FromReg(offset));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA3>::DMA3_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->dmaGroup.dma3.read8FromReg(offset));
-            REP_CASE(4, Keypad::KEYPAD_REG_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->keypad.read8FromReg(offset));
-            REP_CASE(4, TimerGroup::Timer<0>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim0.regs) * 0 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim0.read8FromReg(offset));
-            REP_CASE(4, TimerGroup::Timer<1>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim1.regs) * 1 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim1.read8FromReg(offset));
-            REP_CASE(4, TimerGroup::Timer<2>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim2.regs) * 2 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim2.read8FromReg(offset));
-            REP_CASE(4, TimerGroup::Timer<3>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim3.regs) * 3 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim3.read8FromReg(offset));
-            default:
-                //TODO how to handle not found?
-                LOG_IO(std::cout << "WARNING: externalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
-                return 0x0000;
+            // Most lcd regs are write only
+            REP_CASE(16, globalOffset, 0x0, return lcdController->read8FromReg(offset));
+            REP_CASE(4, globalOffset, offsetof(lcd::LCDIORegs, WININ), return lcdController->read8FromReg(offset + offsetof(lcd::LCDIORegs, WININ)));
+            REP_CASE(4, globalOffset, offsetof(lcd::LCDIORegs, BLDCNT), return lcdController->read8FromReg(offset + offsetof(lcd::LCDIORegs, BLDCNT)));
+            // DMA: only the higher control register is readable!
+            REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA0>::DMA0_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA0>::DMARegs, cntReg), return cpu->dmaGroup.dma0.read8FromReg(offset + offsetof(DMAGroup::DMA<DMAGroup::DMA0>::DMARegs, cntReg)));
+            REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA1>::DMA1_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA1>::DMARegs, cntReg), return cpu->dmaGroup.dma1.read8FromReg(offset + offsetof(DMAGroup::DMA<DMAGroup::DMA1>::DMARegs, cntReg)));
+            REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA2>::DMA2_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA2>::DMARegs, cntReg), return cpu->dmaGroup.dma2.read8FromReg(offset + offsetof(DMAGroup::DMA<DMAGroup::DMA2>::DMARegs, cntReg)));
+            REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA3>::DMA3_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA3>::DMARegs, cntReg), return cpu->dmaGroup.dma3.read8FromReg(offset + offsetof(DMAGroup::DMA<DMAGroup::DMA3>::DMARegs, cntReg)));
+            // Timer: all regs are readable
+            REP_CASE(4, globalOffset, TimerGroup::Timer<0>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim0.regs) * 0 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim0.read8FromReg(offset));
+            REP_CASE(4, globalOffset, TimerGroup::Timer<1>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim1.regs) * 1 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim1.read8FromReg(offset));
+            REP_CASE(4, globalOffset, TimerGroup::Timer<2>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim2.regs) * 2 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim2.read8FromReg(offset));
+            REP_CASE(4, globalOffset, TimerGroup::Timer<3>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim3.regs) * 3 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim3.read8FromReg(offset));
+            // Sound register
+            //TODO
+            // Keypad regs
+            REP_CASE(4, globalOffset, Keypad::KEYPAD_REG_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->keypad.read8FromReg(offset));
+            // IRQ regs
+            REP_CASE(10, globalOffset, InterruptHandler::INTERRUPT_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, return cpu->irqHandler.read8FromReg(offset));
         }
-        return 0x0000;
+        //TODO how to handle not found?
+        LOG_IO(std::cout << "WARNING: externalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
+        return cpu->state.memory.readUnusedHandle() >> ((addr & 3) << 3);
     }
 
     void IO_Handler::externalWrite8(uint32_t addr, uint8_t value)
     {
         uint32_t globalOffset = addr - Memory::IO_REGS_OFFSET;
 
+        static_assert(offsetof(lcd::LCDIORegs, BGCNT) == 0x08);
+
         switch (globalOffset) {
-            REP_CASE(86, 0x0, lcdController->write8ToReg(offset, value));
-            REP_CASE(10, InterruptHandler::INTERRUPT_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, cpu->irqHandler.externalWrite8ToReg(offset, value));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA0>::DMA0_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma0.write8ToReg(offset, value));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA1>::DMA1_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma1.write8ToReg(offset, value));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA2>::DMA2_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma2.write8ToReg(offset, value));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA3>::DMA3_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma3.write8ToReg(offset, value));
-            REP_CASE(4, Keypad::KEYPAD_REG_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->keypad.write8ToReg(offset, value));
-            REP_CASE(4, TimerGroup::Timer<0>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim0.regs) * 0 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim0.write8ToReg(offset, value));
-            REP_CASE(4, TimerGroup::Timer<1>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim1.regs) * 1 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim1.write8ToReg(offset, value));
-            REP_CASE(4, TimerGroup::Timer<2>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim2.regs) * 2 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim2.write8ToReg(offset, value));
-            REP_CASE(4, TimerGroup::Timer<3>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim3.regs) * 3 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim3.write8ToReg(offset, value));
+            // LCD: only VCOUNT reg is not writable
+            REP_CASE(6, globalOffset, 0x0, lcdController->write8ToReg(offset, value));
+            REP_CASE(78, globalOffset, offsetof(lcd::LCDIORegs, BGCNT), lcdController->write8ToReg(offset + offsetof(lcd::LCDIORegs, BGCNT), value));
+            // DMA: all writable
+            REP_CASE(12, globalOffset, DMAGroup::DMA<DMAGroup::DMA0>::DMA0_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma0.write8ToReg(offset, value));
+            REP_CASE(12, globalOffset, DMAGroup::DMA<DMAGroup::DMA1>::DMA1_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma1.write8ToReg(offset, value));
+            REP_CASE(12, globalOffset, DMAGroup::DMA<DMAGroup::DMA2>::DMA2_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma2.write8ToReg(offset, value));
+            REP_CASE(12, globalOffset, DMAGroup::DMA<DMAGroup::DMA3>::DMA3_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma3.write8ToReg(offset, value));
+            // Timer: all writable
+            REP_CASE(4, globalOffset, TimerGroup::Timer<0>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim0.regs) * 0 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim0.write8ToReg(offset, value));
+            REP_CASE(4, globalOffset, TimerGroup::Timer<1>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim1.regs) * 1 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim1.write8ToReg(offset, value));
+            REP_CASE(4, globalOffset, TimerGroup::Timer<2>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim2.regs) * 2 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim2.write8ToReg(offset, value));
+            REP_CASE(4, globalOffset, TimerGroup::Timer<3>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim3.regs) * 3 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim3.write8ToReg(offset, value));
+            // IRQ: all writable
+            REP_CASE(10, globalOffset, InterruptHandler::INTERRUPT_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, cpu->irqHandler.externalWrite8ToReg(offset, value));
+            // Keypad only KEYCNT writable
+            REP_CASE(2, globalOffset, Keypad::KEYPAD_REG_BASE_ADDR - Memory::IO_REGS_OFFSET + sizeof(uint16_t), cpu->keypad.write8ToReg(offset + sizeof(uint16_t), value));
             default:
                 //TODO how to handle not found? probably just ignore...
                 LOG_IO(std::cout << "WARNING: externalWrite: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
@@ -76,40 +99,48 @@ namespace gbaemu
     {
         uint32_t globalOffset = addr - Memory::IO_REGS_OFFSET;
         switch (globalOffset) {
-            REP_CASE(86, 0x0, lcdController->read8FromReg(offset));
-            REP_CASE(10, InterruptHandler::INTERRUPT_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, return cpu->irqHandler.read8FromReg(offset));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA0>::DMA0_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->dmaGroup.dma0.read8FromReg(offset));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA1>::DMA1_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->dmaGroup.dma1.read8FromReg(offset));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA2>::DMA2_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->dmaGroup.dma2.read8FromReg(offset));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA3>::DMA3_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->dmaGroup.dma3.read8FromReg(offset));
-            REP_CASE(4, Keypad::KEYPAD_REG_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->keypad.read8FromReg(offset));
-            REP_CASE(4, TimerGroup::Timer<0>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim0.regs) * 0 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim0.read8FromReg(offset));
-            REP_CASE(4, TimerGroup::Timer<1>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim1.regs) * 1 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim1.read8FromReg(offset));
-            REP_CASE(4, TimerGroup::Timer<2>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim2.regs) * 2 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim2.read8FromReg(offset));
-            REP_CASE(4, TimerGroup::Timer<3>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim3.regs) * 3 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim3.read8FromReg(offset));
-            default:
-                //TODO how to handle not found?
-                LOG_IO(std::cout << "WARNING: internalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
-                return 0x0000;
+            // Allow all reads!
+            REP_CASE(86, globalOffset, 0x0, return lcdController->read8FromReg(offset));
+            // LCD
+            REP_CASE(12, globalOffset, DMAGroup::DMA<DMAGroup::DMA0>::DMA0_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->dmaGroup.dma0.read8FromReg(offset));
+            REP_CASE(12, globalOffset, DMAGroup::DMA<DMAGroup::DMA1>::DMA1_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->dmaGroup.dma1.read8FromReg(offset));
+            REP_CASE(12, globalOffset, DMAGroup::DMA<DMAGroup::DMA2>::DMA2_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->dmaGroup.dma2.read8FromReg(offset));
+            REP_CASE(12, globalOffset, DMAGroup::DMA<DMAGroup::DMA3>::DMA3_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->dmaGroup.dma3.read8FromReg(offset));
+            // Timer
+            REP_CASE(4, globalOffset, TimerGroup::Timer<0>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim0.regs) * 0 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim0.read8FromReg(offset));
+            REP_CASE(4, globalOffset, TimerGroup::Timer<1>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim1.regs) * 1 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim1.read8FromReg(offset));
+            REP_CASE(4, globalOffset, TimerGroup::Timer<2>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim2.regs) * 2 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim2.read8FromReg(offset));
+            REP_CASE(4, globalOffset, TimerGroup::Timer<3>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim3.regs) * 3 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim3.read8FromReg(offset));
+            // IRQ
+            REP_CASE(10, globalOffset, InterruptHandler::INTERRUPT_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, return cpu->irqHandler.read8FromReg(offset));
+            // Keypad
+            REP_CASE(4, globalOffset, Keypad::KEYPAD_REG_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->keypad.read8FromReg(offset));
         }
-        return 0x0000;
+        //TODO how to handle not found?
+        LOG_IO(std::cout << "WARNING: internalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
+        return cpu->state.memory.readUnusedHandle() >> ((addr & 3) << 3);
     }
 
     void IO_Handler::internalWrite8(uint32_t addr, uint8_t value)
     {
         uint32_t globalOffset = addr - Memory::IO_REGS_OFFSET;
         switch (globalOffset) {
-            REP_CASE(86, 0x0, lcdController->write8ToReg(offset, value));
-            REP_CASE(10, InterruptHandler::INTERRUPT_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, cpu->irqHandler.internalWrite8ToReg(offset, value));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA0>::DMA0_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma0.write8ToReg(offset, value));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA1>::DMA1_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma1.write8ToReg(offset, value));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA2>::DMA2_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma2.write8ToReg(offset, value));
-            REP_CASE(12, DMAGroup::DMA<DMAGroup::DMA3>::DMA3_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma3.write8ToReg(offset, value));
-            REP_CASE(4, Keypad::KEYPAD_REG_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->keypad.write8ToReg(offset, value));
-            REP_CASE(4, TimerGroup::Timer<0>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim0.regs) * 0 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim0.write8ToReg(offset, value));
-            REP_CASE(4, TimerGroup::Timer<1>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim1.regs) * 1 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim1.write8ToReg(offset, value));
-            REP_CASE(4, TimerGroup::Timer<2>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim2.regs) * 2 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim2.write8ToReg(offset, value));
-            REP_CASE(4, TimerGroup::Timer<3>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim3.regs) * 3 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim3.write8ToReg(offset, value));
+            // Allow all writes!
+            REP_CASE(86, globalOffset, 0x0, lcdController->write8ToReg(offset, value));
+            // DMA
+            REP_CASE(12, globalOffset, DMAGroup::DMA<DMAGroup::DMA0>::DMA0_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma0.write8ToReg(offset, value));
+            REP_CASE(12, globalOffset, DMAGroup::DMA<DMAGroup::DMA1>::DMA1_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma1.write8ToReg(offset, value));
+            REP_CASE(12, globalOffset, DMAGroup::DMA<DMAGroup::DMA2>::DMA2_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma2.write8ToReg(offset, value));
+            REP_CASE(12, globalOffset, DMAGroup::DMA<DMAGroup::DMA3>::DMA3_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->dmaGroup.dma3.write8ToReg(offset, value));
+            // Timer
+            REP_CASE(4, globalOffset, TimerGroup::Timer<0>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim0.regs) * 0 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim0.write8ToReg(offset, value));
+            REP_CASE(4, globalOffset, TimerGroup::Timer<1>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim1.regs) * 1 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim1.write8ToReg(offset, value));
+            REP_CASE(4, globalOffset, TimerGroup::Timer<2>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim2.regs) * 2 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim2.write8ToReg(offset, value));
+            REP_CASE(4, globalOffset, TimerGroup::Timer<3>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim3.regs) * 3 - Memory::IO_REGS_OFFSET, cpu->timerGroup.tim3.write8ToReg(offset, value));
+            // IRQ
+            REP_CASE(10, globalOffset, InterruptHandler::INTERRUPT_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, cpu->irqHandler.internalWrite8ToReg(offset, value));
+            // Keypad
+            REP_CASE(4, globalOffset, Keypad::KEYPAD_REG_BASE_ADDR - Memory::IO_REGS_OFFSET, cpu->keypad.write8ToReg(offset, value));
             default:
                 //TODO how to handle not found? probably just ignore...
                 LOG_IO(std::cout << "WARNING: internalWrite: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
