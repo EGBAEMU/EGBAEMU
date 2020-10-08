@@ -53,11 +53,11 @@ namespace gbaemu
       public:
         static arm::ArmExecutor armExecutor;
         static thumb::ThumbExecutor thumbExecutor;
-        static InstructionDecoder armDecoder;
-        static InstructionDecoder thumbDecoder;
+        static InstructionDecodeAndExecutor armDecodeAndExecutor;
+        static InstructionDecodeAndExecutor thumbDecodeAndExecutor;
 
         CPUState state;
-        InstructionDecoder decoder;
+        InstructionDecodeAndExecutor decodeAndExecute;
 
         DMAGroup dmaGroup;
 
