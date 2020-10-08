@@ -51,7 +51,9 @@ namespace gbaemu
             // Sound register only fifo regs are write only
             //TODO split for unused fields!
             REP_CASE(48, globalOffset, sound::SoundOrchestrator::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, return cpu->sound.read8FromReg(offset));
+            //TODO split for unused fields!
             REP_CASE(8, globalOffset, sound::SquareWaveChannel::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, return cpu->sound.channel1.read8FromReg(offset));
+            //TODO split for unused fields!
             REP_CASE(8, globalOffset, sound::SquareWaveChannel::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET + sizeof(cpu->sound.channel2.regs), return cpu->sound.channel2.read8FromReg(offset));
             // DMA: only the higher control register is readable!
             REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA0>::DMA0_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA0>::DMARegs, cntReg), return cpu->dmaGroup.dma0.read8FromReg(offset + offsetof(DMAGroup::DMA<DMAGroup::DMA0>::DMARegs, cntReg)));
@@ -73,7 +75,6 @@ namespace gbaemu
             // IRQ regs
             REP_CASE(10, globalOffset, InterruptHandler::INTERRUPT_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, return cpu->irqHandler.read8FromReg(offset));
         }
-        //TODO how to handle not found?
         LOG_IO(std::cout << "WARNING: externalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
         return cpu->state.memory.readUnusedHandle() >> ((addr & 3) << 3);
     }
@@ -138,7 +139,6 @@ namespace gbaemu
             // Keypad
             REP_CASE(4, globalOffset, Keypad::KEYPAD_REG_BASE_ADDR - Memory::IO_REGS_OFFSET, return cpu->keypad.read8FromReg(offset));
         }
-        //TODO how to handle not found?
         LOG_IO(std::cout << "WARNING: internalRead: no io handler registered for address: 0x" << std::hex << addr << std::endl;);
         return cpu->state.memory.readUnusedHandle() >> ((addr & 3) << 3);
     }
