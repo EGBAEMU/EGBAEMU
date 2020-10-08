@@ -131,14 +131,16 @@ namespace gbaemu
 
         float sample = 0;
         
+        // TODO: We can only mix those channels who are actually active.
+
         float channel1Sample = ((float) channel1.getCurrentVolume()) / 100;
-        //SDL_MixAudioFormat((Uint8*)&channel1Sample, (Uint8*)&sample, AUDIO_F32SYS, sizeof(float), SDL_MIX_MAXVOLUME);
+        SDL_MixAudioFormat((Uint8*)&sample, (Uint8*)&channel1Sample, AUDIO_F32SYS, sizeof(float), SDL_MIX_MAXVOLUME);
 
         float channel2Sample = ((float) channel2.getCurrentVolume()) / 50;
-        SDL_MixAudioFormat((Uint8*)&channel2Sample, (Uint8*)&sample, AUDIO_F32SYS, sizeof(float), SDL_MIX_MAXVOLUME);
+        SDL_MixAudioFormat((Uint8*)&sample, (Uint8*)&channel2Sample, AUDIO_F32SYS, sizeof(float), SDL_MIX_MAXVOLUME);
         
-        sampling_buffer[sampling_bufferIdx] = channel2Sample;
-        sampling_buffer[sampling_bufferIdx + 1] = channel2Sample;
+        sampling_buffer[sampling_bufferIdx] = sample;
+        sampling_buffer[sampling_bufferIdx + 1] = sample;
         sampling_bufferIdx += 2;
 
         if (sampling_bufferIdx < SOUND_OUTPUT_SAMPLE_SIZE)

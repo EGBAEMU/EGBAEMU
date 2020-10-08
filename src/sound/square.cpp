@@ -277,6 +277,10 @@ namespace gbaemu
 
     void SquareWaveChannel::onStepEnv()
     {
+
+        if (!env_active)
+            return;
+
         env_counter -= 1;
 
         if (env_counter != 0)
@@ -349,9 +353,12 @@ namespace gbaemu
 
     void SquareWaveChannel::onStepSweep()
     {
+
+        if (!sweep_active)
+            return;
+
         sweep_counter -= 1;
         
-        // Check if its time to adjust the sweep now
         if (sweep_counter != 0)
             return;
         

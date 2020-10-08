@@ -154,6 +154,9 @@ namespace gbaemu
           Rate   256 Hz      64 Hz       128 Hz
 
         */
+        // TODO: We may be able to skip some methods. 
+        //   If channel is not active => skip
+        //   If env/sweep/length is not active => skip corresponding methods
         const std::function<void()> frame_stepLut[8] = {
             [this]() {
               this->channel1.onStepSoundLength();
