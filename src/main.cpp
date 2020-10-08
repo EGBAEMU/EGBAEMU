@@ -31,6 +31,7 @@ static void handleSignal(int signum)
     }
 }
 
+#ifndef LEGACY_RENDERING
 static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #ifdef DEBUG_CLI
                   ,
@@ -102,6 +103,31 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 
     return false;
 }
+#else
+static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
+#ifdef DEBUG_CLI
+                  ,
+                  gbaemu::debugger::DebugCLI &debugCLI
+#endif
+)
+{
+    for (int i = 0; i < 280896; ++i) {
+#ifdef DEBUG_CLI
+        if (debugCLI.step()) {
+            return true;
+        }
+#else
+        gbaemu::CPUExecutionInfoType executionInfo = cpu.step(1);
+        if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
+            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            return true;
+        }
+#endif
+        lcdController.renderTick();
+    }
+    return false;
+}
+#endif
 
 #ifdef DEBUG_CLI
 static void CLILoop(gbaemu::debugger::DebugCLI &debugCLI)
