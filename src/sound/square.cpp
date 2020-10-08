@@ -41,6 +41,7 @@ namespace gbaemu
         sweep_active = false;
         sweep_current = 0;
         sweep_counter = 0;
+        sweep_shadow = 0;
 
         reg_soundLength = 0;
         reg_dutyCycle = 0;
@@ -132,27 +133,35 @@ namespace gbaemu
         // Only apply changes if required!
         if(!reg_reset)
             return;
-        
-        // Reset the reset bit directly
+
         regs.soundCntX_H = le(le(regs.soundCntX_H) & ~SOUND_SQUARE_CHANNEL_X_RESET_MASK);
-        // This channel is now active
+
+        /*
+
+            Writing a value to NRx4 with bit 7 set causes the following things to occur:
+
+                Channel is enabled (see length counter).
+                If length counter is zero, it is set to 64.
+                Frequency timer is reloaded with period.
+                Volume envelope timer is reloaded with period.
+                Channel volume is reloaded from NRx2.
+                Square 1's sweep does several things (see frequency sweep).
+
+            Note that if the channel's DAC is off, after the above actions occur the channel 
+            will be immediately disabled again. 
+
+        */
+
         active = true;
-        // Set the frequency countdown
         timer = (2048 - reg_frequency) * 4;
 
-        // Apply changes from the env 
         env_active = true;
         env_counter = reg_envStepTime;    
         env_value = reg_envInitVal;
 
         timed_active = reg_timed;
         timed_counter = reg_soundLength;
-
-        // Apply changes for the sweep
-        sweep_counter = reg_sweepTime;
-        sweep_active = false;
-        // TODO: Sweep
-
+        
         LOG_SOUND(
             std::cout << "SOUND: Channel " << channel << " reset! " << std::endl;
             std::cout << "       Env active " << env_active << std::endl;
@@ -163,7 +172,79 @@ namespace gbaemu
             std::cout << "       Timed counter " << static_cast<uint32_t>(reg_soundLength) << std::endl;
         );
 
+        if (channel == CHAN_2) 
+            return;
+
+        /*
+            During a trigger event, several things occur:
+
+            - Square 1's frequency is copied to the shadow register.
+            - The sweep timer is reloaded.
+            - The internal enabled flag is set if either the sweep period or shift are 
+              non-zero, cleared otherwise.
+            - If the sweep shift is non-zero, frequency calculation and the overflow 
+              check are performed immediately.
+
+        */
+
+        sweep_shadow = reg_frequency;
+        sweep_counter = reg_sweepTime;
+        sweep_active = (reg_sweepTime != 0) || (reg_sweepShifts != 0);
+        
+        if (reg_sweepShifts != 0)
+            onCalculateFrequency(false);
+
     }
+
+    void SquareWaveChannel::onCalculateFrequency(bool writeback)
+    {
+        /*
+            Frequency calculation consists of taking the value in the frequency shadow register, 
+            shifting it right by sweep shift, optionally negating the value, and summing this 
+            with the frequency shadow register to produce a new frequency. What is done with this 
+            new frequency depends on the context. 
+        */
+
+        uint16_t offset = sweep_shadow >> reg_sweepShifts;
+        uint16_t adjusted = 0;
+
+        // 1=Subtraction (frequency decreases) 
+        if (reg_sweepDirection)
+            adjusted = sweep_shadow - offset;
+        else
+            adjusted = sweep_shadow + offset;
+
+        /*
+            The overflow check simply calculates the new frequency and if this is greater than 
+            2047, square 1 is disabled. 
+        */
+        if (adjusted > 2047)
+            active = false;
+        else {
+
+            /*  
+                If the new frequency is 2047 or less and the sweep shift is not zero, this new frequency 
+                is written back to the shadow frequency and square 1's frequency in NR13 and NR14, then 
+                frequency calculation and overflow check are run AGAIN immediately using this new value, 
+                but this second new frequency is not written back. 
+
+                Square 1's frequency can be modified via NR13 and NR14 while sweep is active, but the shadow 
+                frequency won't be affected so the next time the sweep updates the channel's frequency this 
+                modification will be lost. 
+            */
+
+            if(!writeback || (reg_sweepShifts == 0))
+                return;
+
+            sweep_shadow = adjusted;
+            reg_frequency = adjusted;
+            // TODO: Write back to reg
+
+            onCalculateFrequency(false);
+
+        }
+        
+    }       
     
     void SquareWaveChannel::onStepVolume()
     {
@@ -177,6 +258,12 @@ namespace gbaemu
             if (sequenceIdx == 8)
                 sequenceIdx = 0;
         }
+
+        /*
+            When a channel is disabled, its volume unit receives 0, otherwise its volume unit 
+            receives the output of the waveform generator. Other units besides the length 
+            counter can enable/disable the channel as well. 
+        */
 
         if (active)
             volumeOut = env_value;
@@ -200,6 +287,9 @@ namespace gbaemu
             std::cout << "       Active: " << static_cast<uint32_t>(env_active) << std::endl;
         );
 
+        /*
+            The volume envelope and sweep timers treat a period of 0 as 8.
+        */
         if (reg_envStepTime == 0)
             env_counter = 8;
         else
@@ -225,16 +315,22 @@ namespace gbaemu
 
         }
 
-        // When decreasing, if the volume reaches 0000, the sound is muted. 
-        // When increasing, if the volume reaches 1111, the envelope function
-        // stops and the volume remains at that level.
+        /*
+            If this new volume within the 0 to 15 range, the volume is updated, otherwise it
+            is left unchanged and no further automatic increments/decrements are made to the 
+            volume until the channel is triggered again. 
+        */
         if ((env_value == 15) || (env_value == 0))
             env_active = false;
     }
 
     void SquareWaveChannel::onStepSoundLength()
     {
-        // If not active or time is zero we are already at zero we do not need to continue here
+        /*
+            When clocked while enabled by NRx4 and the counter is not zero, it is decremented. 
+            If it becomes zero, the channel is disabled. 
+        */
+
         if (!timed_active || (timed_counter == 0))
             return;
 
@@ -259,14 +355,21 @@ namespace gbaemu
         if (sweep_counter != 0)
             return;
         
+        /*
+            The volume envelope and sweep timers treat a period of 0 as 8.
+
+            000: Sweep function is off
+        */
         if (reg_sweepTime == 0)
             sweep_counter = 8;
         else {
             sweep_counter = reg_sweepTime;
 
-        
+            if (sweep_active)
+                onCalculateFrequency(true);
 
         }
+        
     }
 
 } // namespace gbaemu

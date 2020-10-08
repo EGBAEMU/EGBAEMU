@@ -115,6 +115,8 @@ namespace gbaemu
         uint32_t sweep_current;
         // Counter for the next sweep adjustment
         uint32_t sweep_counter;
+        // The current frequency adjustment
+        uint16_t sweep_shadow;
 
         // Extracted reg values
         uint8_t reg_sweepShifts;
@@ -134,7 +136,9 @@ namespace gbaemu
         void write8ToReg(uint32_t offset, uint8_t value);
 
 
-         void onRegisterUpdated();
+        void onRegisterUpdated();
+
+        void onCalculateFrequency(bool writeback);
 
 
       public:
