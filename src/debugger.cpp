@@ -409,7 +409,7 @@ namespace gbaemu::debugger
 
     bool DebugCLI::step()
     {
-        if (state == STOPPED)
+        if (state == STOPPED || state == HALTED)
             return false;
 
         if (state == RUNNING) {
@@ -480,7 +480,7 @@ namespace gbaemu::debugger
         prevPC = pc;
         ++stepCount;
 
-        return state == HALTED;
+        return false;
     }
 
     DebugCLI::State DebugCLI::getState() const
