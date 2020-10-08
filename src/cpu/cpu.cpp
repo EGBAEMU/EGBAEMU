@@ -5,6 +5,7 @@
 #include "decode/inst_arm.hpp"
 #include "decode/inst_thumb.hpp"
 #include "lcd/lcd-controller.hpp"
+#include "logging.hpp"
 
 #include <algorithm>
 #include <iostream>
@@ -37,9 +38,44 @@ namespace gbaemu
     {
         // We need to fill the pipeline to the state where the instruction at PC is ready for execution -> fetched + decoded!
         uint32_t pc = state.accessReg(regs::PC_OFFSET);
-        bool thumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
-        state.propagatePipeline(pc - (thumbMode ? 4 : 8));
-        state.propagatePipeline(pc - (thumbMode ? 2 : 4));
+        state.propagatePipeline(pc - (state.thumbMode ? 4 : 8));
+        state.propagatePipeline(pc - (state.thumbMode ? 2 : 4));
+    }
+
+#define CPU_STEP_INNER_LOOP /* check if we need to call the irq routine */                       \
+    irqHandler.checkForInterrupt();                                                              \
+    /* clear all fields in cpuInfo */                                                            \
+    const constexpr InstructionExecutionInfo zeroInitExecInfo{0};                                \
+    state.cpuInfo = zeroInitExecInfo;                                                            \
+                                                                                                 \
+    uint32_t prevPC = state.getCurrentPC();                                                      \
+    execute(state.propagatePipeline(prevPC), prevPC);                                            \
+                                                                                                 \
+    if (state.cpuInfo.hasCausedException) {                                                      \
+        /*TODO print cause*/                                                                     \
+        /*TODO set cause in memory class*/                                                       \
+                                                                                                 \
+        /*TODO maybe return reason? as this might be needed to exit a game?*/                    \
+        /* Abort*/                                                                               \
+        std::stringstream ss;                                                                    \
+        ss << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception\n"; \
+                                                                                                 \
+        executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());                                   \
+                                                                                                 \
+        return CPUExecutionInfoType::EXCEPTION;                                                  \
+    }
+
+#define CPU_LOOP_END                               \
+    timerGroup.step(state.cpuInfo.cycleCount);     \
+                                                   \
+    cyclesLeft -= state.cpuInfo.cycleCount;        \
+                                                   \
+    if (cyclesLeft > 0) {                          \
+        dmaGroup.step(state.dmaInfo, cyclesLeft);  \
+                                                   \
+        cyclesLeft -= state.dmaInfo.cycleCount;    \
+        timerGroup.step(state.dmaInfo.cycleCount); \
+        state.dmaInfo.cycleCount = 0;              \
     }
 
     CPUExecutionInfoType CPU::step(uint32_t cycles)
@@ -55,41 +91,8 @@ namespace gbaemu
 
             if (state.memory.usesExternalBios()) {
                 while (cyclesLeft > 0) {
-                    // check if we need to call the irq routine
-                    irqHandler.checkForInterrupt();
-
-                    // clear all fields in cpuInfo
-                    const constexpr InstructionExecutionInfo zeroInitExecInfo{0};
-                    state.cpuInfo = zeroInitExecInfo;
-
-                    uint32_t prevPC = state.getCurrentPC();
-                    execute(state.propagatePipeline(prevPC), prevPC);
-
-                    if (state.cpuInfo.hasCausedException) {
-                        //TODO print cause
-                        //TODO set cause in memory class
-
-                        //TODO maybe return reason? as this might be needed to exit a game?
-                        // Abort
-                        std::stringstream ss;
-                        ss << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception\n";
-
-                        executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());
-
-                        return CPUExecutionInfoType::EXCEPTION;
-                    }
-
-                    timerGroup.step(state.cpuInfo.cycleCount);
-
-                    cyclesLeft -= state.cpuInfo.cycleCount;
-
-                    if (cyclesLeft > 0) {
-                        dmaGroup.step(state.dmaInfo, cyclesLeft);
-
-                        cyclesLeft -= state.dmaInfo.cycleCount;
-                        timerGroup.step(state.dmaInfo.cycleCount);
-                        state.dmaInfo.cycleCount = 0;
-                    }
+                    CPU_STEP_INNER_LOOP
+                    CPU_LOOP_END
                 }
             } else {
                 while (cyclesLeft > 0) {
@@ -97,42 +100,9 @@ namespace gbaemu
                         state.cpuInfo.haltCPU = !irqHandler.checkForHaltCondition(state.cpuInfo.haltCondition);
                         state.cpuInfo.cycleCount = 1;
                     } else {
-                        // check if we need to call the irq routine
-                        irqHandler.checkForInterrupt();
-
-                        // clear all fields in cpuInfo
-                        const constexpr InstructionExecutionInfo zeroInitExecInfo{0};
-                        state.cpuInfo = zeroInitExecInfo;
-
-                        uint32_t prevPC = state.getCurrentPC();
-                        execute(state.propagatePipeline(prevPC), prevPC);
-
-                        if (state.cpuInfo.hasCausedException) {
-                            //TODO print cause
-                            //TODO set cause in memory class
-
-                            //TODO maybe return reason? as this might be needed to exit a game?
-                            // Abort
-                            std::stringstream ss;
-                            ss << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception\n";
-
-                            executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());
-
-                            return CPUExecutionInfoType::EXCEPTION;
-                        }
+                        CPU_STEP_INNER_LOOP
                     }
-
-                    timerGroup.step(state.cpuInfo.cycleCount);
-
-                    cyclesLeft -= state.cpuInfo.cycleCount;
-
-                    if (cyclesLeft > 0) {
-                        dmaGroup.step(state.dmaInfo, cyclesLeft);
-
-                        cyclesLeft -= state.dmaInfo.cycleCount;
-                        timerGroup.step(state.dmaInfo.cycleCount);
-                        state.dmaInfo.cycleCount = 0;
-                    }
+                    CPU_LOOP_END
                 }
             }
         }
@@ -142,31 +112,47 @@ namespace gbaemu
 
     void CPU::execute(uint32_t inst, uint32_t prevPc)
     {
-        const bool prevThumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
+        uint32_t prevCPSR = state.accessReg(regs::CPSR_OFFSET);
 
         decodeAndExecute(inst);
 
-        const bool postThumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
         uint32_t postPc = state.accessReg(regs::PC_OFFSET);
+        // xor cpsr's to detect changes
+        uint32_t postCPSR = state.accessReg(regs::CPSR_OFFSET) ^ prevCPSR;
 
-        // Change from arm mode to thumb mode or vice versa
-        if (prevThumbMode != postThumbMode) {
-            if (postThumbMode) {
+        // Check if arm/thumb mode has changed
+        if (postCPSR & (1 << cpsr_flags::THUMB_STATE)) {
+            state.thumbMode = !state.thumbMode;
+            // Change from arm mode to thumb mode or vice versa
+            if (state.thumbMode) {
                 decodeAndExecute = thumbDecodeAndExecutor;
             } else {
                 decodeAndExecute = armDecodeAndExecutor;
             }
             state.cpuInfo.forceBranch = true;
         }
+        // Check if mode has changed
+        if (postCPSR & cpsr_flags::MODE_BIT_MASK) {
+            // update mode and make a sanity check!
+            if (state.updateCPUMode()) {
+                std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK) << " prevPC: 0x" << std::hex << prevPc << std::endl;
+                state.cpuInfo.hasCausedException = true;
+                return;
+            }
+        }
+
+#ifdef DEBUG_CLI
+        assert(((prevPc != postPc) && !state.cpuInfo.forceBranch) == false);
+#endif
 
         // We have a branch, return or something that changed our PC
-        if (state.cpuInfo.forceBranch || prevPc != postPc) {
+        if (state.cpuInfo.forceBranch) {
             // If an instruction jumps to a different memory area,
             // then all code cycles for that opcode are having waitstate characteristics
             // of the NEW memory area (except Thumb BL which still executes 1S in OLD area).
             // -> we have to undo the fetch added cycles and add it again after initPipeline
             state.cpuInfo.cycleCount -= state.memory.memCycles16(state.fetchInfo.memReg, true);
-            postPc = state.normalizePC(postThumbMode);
+            postPc = state.normalizePC();
             initPipeline();
             // Replace first S cycle of pipeline fetch by an N cycle as its random access!
             state.cpuInfo.cycleCount += state.memory.memCycles16(state.fetchInfo.memReg, false) - state.memory.memCycles16(state.fetchInfo.memReg, true);
@@ -174,7 +160,7 @@ namespace gbaemu
             state.cpuInfo.cycleCount += state.memory.memCycles16(state.fetchInfo.memReg, true);
         } else {
             // Increment the pc counter to the next instruction
-            state.accessReg(regs::PC_OFFSET) = postPc + (postThumbMode ? 2 : 4);
+            state.accessReg(regs::PC_OFFSET) = postPc + (state.thumbMode ? 2 : 4);
         }
 
         // Add 1S cycle needed to fetch a instruction if not other requested
@@ -187,12 +173,7 @@ namespace gbaemu
             state.cpuInfo.cycleCount += state.memory.memCycles16(state.fetchInfo.memReg, false) - state.memory.memCycles16(state.fetchInfo.memReg, true);
         }
 
-        // sanity checks
-        if (state.updateCPUMode()) {
-            std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK) << " prevPC: 0x" << std::hex << prevPc << std::endl;
-            state.cpuInfo.hasCausedException = true;
-            return;
-        }
+        // PC sanity checks
         if (state.fetchInfo.memReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
             std::cout << "CRITIAL ERROR: PC(0x" << std::hex << postPc << ") points to bios address outside of our code! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
             state.cpuInfo.hasCausedException = true;

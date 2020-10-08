@@ -94,6 +94,7 @@ namespace gbaemu
 
             // Change instruction mode to arm
             cpu->decodeAndExecute = cpu->armDecodeAndExecutor;
+            cpu->state.thumbMode = false;
 
             // Change the register mode to irq
             // Ensure that the CPSR represents that we are in ARM mode again
@@ -105,7 +106,7 @@ namespace gbaemu
             cpu->state.updateCPUMode();
 
             // Flush the pipeline
-            cpu->state.normalizePC(false);
+            cpu->state.normalizePC();
             cpu->initPipeline();
         }
     }

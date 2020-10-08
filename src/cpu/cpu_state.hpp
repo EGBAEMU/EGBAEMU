@@ -72,6 +72,8 @@ namespace gbaemu
         //TODO this can probably replace the additional N & S cycle fields
         InstructionExecutionInfo fetchInfo;
 
+        bool thumbMode;
+
       private:
         uint32_t handleReadUnused() const;
 
@@ -81,7 +83,7 @@ namespace gbaemu
 
         void reset();
 
-        uint32_t normalizePC(bool thumbMode);
+        uint32_t normalizePC();
         uint32_t propagatePipeline(uint32_t pc);
 
         CPUMode getCPUMode() const { return mode; }
