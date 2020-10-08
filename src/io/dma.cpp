@@ -52,13 +52,19 @@ namespace gbaemu
     template <DMAGroup::DMAChannel channel>
     void DMAGroup::DMA<channel>::write8ToReg(uint32_t offset, uint8_t value)
     {
-        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
-
         if (offset == offsetof(DMARegs, cntReg) + sizeof(regs.cntReg) - 1) {
             // Update the enable bitset to signal if dma is enabled or not!
             dmaGroup.dmaEnableBitset = bitSet<uint8_t, 1, channel>(dmaGroup.dmaEnableBitset, bmap<uint8_t>(isBitSet<uint8_t, DMA_CNT_REG_EN_OFF - (sizeof(regs.cntReg) - 1) * 8>(value)));
             state = IDLE;
+
+            // game pak is only for DMA3
+            value &= (channel == DMA3 ? 0xFF : 0xF7);
+        } else if (offset == offsetof(DMARegs, cntReg)) {
+            // Mask out unused bits
+            value &= 0xE0;
         }
+
+        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
     }
 
     template <DMAGroup::DMAChannel channel>
@@ -86,7 +92,9 @@ namespace gbaemu
                         std::cout << "      Timing: " << DMAGroup::startCondToStr(condition) << std::endl;
                         std::cout << "      Words: 0x" << std::hex << count << std::endl;
                         std::cout << "      Repeat: " << repeat << std::endl;
-                        std::cout << "      GamePak DRQ: " << gamePakDRQ << std::endl;
+                        if (channel == DMA3) {
+                            std::cout << "      GamePak DRQ: " << gamePakDRQ << std::endl;
+                        }
                         std::cout << "      32 bit mode: " << width32Bit << std::endl;
                         std::cout << "      IRQ on end: " << irqOnEnd << std::endl;);
 
@@ -231,7 +239,9 @@ namespace gbaemu
 
         // Extract remaining values
         repeat = controlReg & DMA_CNT_REG_REPEAT_MASK;
-        gamePakDRQ = controlReg & DMA_CNT_REG_DRQ_MASK;
+        if (channel == DMA3) {
+            gamePakDRQ = controlReg & DMA_CNT_REG_DRQ_MASK;
+        }
         irqOnEnd = controlReg & DMA_CNT_REG_IRQ_MASK;
         width32Bit = controlReg & DMA_CNT_REG_TYPE_MASK;
         srcCnt = static_cast<AddrCntType>((controlReg & DMA_CNT_REG_SRC_ADR_CNT_MASK) >> DMA_CNT_REG_SRC_ADR_CNT_OFF);

@@ -48,6 +48,11 @@ namespace gbaemu
             REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA1>::DMA1_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA1>::DMARegs, cntReg), return cpu->dmaGroup.dma1.read8FromReg(offset + offsetof(DMAGroup::DMA<DMAGroup::DMA1>::DMARegs, cntReg)));
             REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA2>::DMA2_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA2>::DMARegs, cntReg), return cpu->dmaGroup.dma2.read8FromReg(offset + offsetof(DMAGroup::DMA<DMAGroup::DMA2>::DMARegs, cntReg)));
             REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA3>::DMA3_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA3>::DMARegs, cntReg), return cpu->dmaGroup.dma3.read8FromReg(offset + offsetof(DMAGroup::DMA<DMAGroup::DMA3>::DMARegs, cntReg)));
+            // DMA count registers read returns always 0
+            REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA0>::DMA0_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA0>::DMARegs, count), (void)offset; return 0);
+            REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA1>::DMA1_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA1>::DMARegs, count), (void)offset; return 0);
+            REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA2>::DMA2_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA2>::DMARegs, count), (void)offset; return 0);
+            REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA3>::DMA3_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA3>::DMARegs, count), (void)offset; return 0);
             // Timer: all regs are readable
             REP_CASE(4, globalOffset, TimerGroup::Timer<0>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim0.regs) * 0 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim0.read8FromReg(offset));
             REP_CASE(4, globalOffset, TimerGroup::Timer<1>::TIMER_REGS_BASE_OFFSET + sizeof(cpu->timerGroup.tim1.regs) * 1 - Memory::IO_REGS_OFFSET, return cpu->timerGroup.tim1.read8FromReg(offset));
