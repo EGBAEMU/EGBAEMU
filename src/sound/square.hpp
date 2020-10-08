@@ -154,6 +154,8 @@ namespace gbaemu::sound
         void onStepSoundLength();
 
         void onStepSweep();
+
+        friend class gbaemu::IO_Handler;
     };
 
 } // namespace gbaemu::sound

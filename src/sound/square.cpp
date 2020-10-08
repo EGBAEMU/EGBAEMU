@@ -12,14 +12,6 @@ namespace gbaemu::sound
 
     SquareWaveChannel::SquareWaveChannel(CPU *cpu, SoundOrchestrator *orchestrator, SoundChannel channel) : orchestrator(orchestrator), channel(channel)
     {
-        cpu->state.memory.ioHandler.registerIOMappedDevice(
-            IO_Mapped(
-                SOUND_CONTROL_REG_ADDR + sizeof(regs) * channel,
-                SOUND_CONTROL_REG_ADDR + sizeof(regs) * channel + sizeof(regs) - 1,
-                std::bind(&SquareWaveChannel::read8FromReg, this, std::placeholders::_1),
-                std::bind(&SquareWaveChannel::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
-                std::bind(&SquareWaveChannel::read8FromReg, this, std::placeholders::_1),
-                std::bind(&SquareWaveChannel::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
         reset();
     }
 

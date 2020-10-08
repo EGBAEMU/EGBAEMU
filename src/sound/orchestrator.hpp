@@ -192,6 +192,7 @@ namespace gbaemu::sound
 
         void onHandleDownsampling();
 
+        friend class gbaemu::IO_Handler;
     };
 } // namespace gbaemu::sound
 

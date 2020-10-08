@@ -61,16 +61,6 @@ namespace gbaemu::sound
         SDL_AudioSpec obtainedSpec;
         SDL_OpenAudio(&audioSpec, &obtainedSpec);
         SDL_PauseAudio(0);
-
-        cpu->state.memory.ioHandler.registerIOMappedDevice(
-            IO_Mapped(
-                SOUND_CONTROL_REG_ADDR,
-                SOUND_CONTROL_REG_ADDR + sizeof(regs) - 1,
-                std::bind(&SoundOrchestrator::read8FromReg, this, std::placeholders::_1),
-                std::bind(&SoundOrchestrator::externalWrite8ToReg, this, std::placeholders::_1, std::placeholders::_2),
-                std::bind(&SoundOrchestrator::read8FromReg, this, std::placeholders::_1),
-                std::bind(&SoundOrchestrator::internalWrite8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
-
         reset();
     }
 
