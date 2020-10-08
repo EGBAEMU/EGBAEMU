@@ -2,13 +2,25 @@
 #define IO_REGS_HPP
 
 #include <cstdint>
-#include <set>
 #include <functional>
+#include <set>
 
 namespace gbaemu
 {
+    class CPU;
+
+    // Forward declarations
+    namespace lcd
+    {
+        class LCDController;
+    };
+
     class IO_Handler
     {
+      public:
+        lcd::LCDController *lcdController;
+        CPU *cpu;
+
         uint8_t externalRead8(uint32_t addr) const;
         uint16_t externalRead16(uint32_t addr) const;
         uint32_t externalRead32(uint32_t addr) const;

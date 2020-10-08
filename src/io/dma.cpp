@@ -64,14 +64,6 @@ namespace gbaemu
     template <DMAGroup::DMAChannel channel>
     DMAGroup::DMA<channel>::DMA(CPU *cpu, DMAGroup &dmaGroup) : memory(cpu->state.memory), irqHandler(cpu->irqHandler), dmaGroup(dmaGroup)
     {
-        memory.ioHandler.registerIOMappedDevice(
-            IO_Mapped(
-                DMA_BASE_ADDRESSES[channel],
-                DMA_BASE_ADDRESSES[channel] + sizeof(regs) - 1,
-                std::bind(&DMAGroup::DMA<channel>::read8FromReg, this, std::placeholders::_1),
-                std::bind(&DMAGroup::DMA<channel>::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
-                std::bind(&DMAGroup::DMA<channel>::read8FromReg, this, std::placeholders::_1),
-                std::bind(&DMAGroup::DMA<channel>::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
     }
 
     template <DMAGroup::DMAChannel channel>

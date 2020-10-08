@@ -73,7 +73,7 @@ namespace gbaemu
 
         CPU();
 
-        void setLCDController(const lcd::LCDController* lcdController);
+        void setLCDController(lcd::LCDController* lcdController);
 
         void reset();
 

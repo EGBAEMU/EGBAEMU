@@ -133,23 +133,14 @@ namespace gbaemu::lcd
 
       public:
         LCDController(Canvas<color_t> &disp, CPU *cpu) : display(disp),
-            memory(cpu->state.memory), irqHandler(cpu->irqHandler),
-            renderer(cpu->state.memory, cpu->irqHandler, internalRegs, frameBuffer),
+                                                         memory(cpu->state.memory), irqHandler(cpu->irqHandler),
+                                                         renderer(cpu->state.memory, cpu->irqHandler, internalRegs, frameBuffer),
 #if (RENDERER_DECOMPOSE_LAYERS == 1)
-            frameBuffer(SCREEN_WIDTH * 3, SCREEN_HEIGHT * 4)
+                                                         frameBuffer(SCREEN_WIDTH * 3, SCREEN_HEIGHT * 4)
 #else
-            frameBuffer(SCREEN_WIDTH, SCREEN_HEIGHT)
+                                                         frameBuffer(SCREEN_WIDTH, SCREEN_HEIGHT)
 #endif
         {
-            memory.ioHandler.registerIOMappedDevice(
-                IO_Mapped(
-                    static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET),
-                    static_cast<uint32_t>(gbaemu::Memory::IO_REGS_OFFSET) + sizeof(regs) - 1,
-                    std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),
-                    std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
-                    std::bind(&LCDController::read8FromReg, this, std::placeholders::_1),
-                    std::bind(&LCDController::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
-
             scanline.buf.resize(SCREEN_WIDTH);
 
 #if (RENDERER_DECOMPOSE_LAYERS == 1) || (RENDERER_USE_FB_CANVAS == 1)
@@ -159,6 +150,8 @@ namespace gbaemu::lcd
 
         bool canAccessPPUMemory(bool isOAMRegion = false) const;
         std::string getLayerStatusString() const;
+
+        friend class IO_Handler;
     };
 
 } // namespace gbaemu::lcd

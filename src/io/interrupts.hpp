@@ -1,6 +1,8 @@
 #ifndef INTERRUPT_HPP
 #define INTERRUPT_HPP
 
+#include "io_regs.hpp"
+#include "memory.hpp"
 #include "packed.h"
 
 #include <cstdint>
@@ -75,16 +77,13 @@ namespace gbaemu
                     uint16_t _;
                     uint16_t irqMasterEnable;);
 
+        bool masterIRQEn;
         uint8_t read8FromReg(uint32_t offset) const;
-
         void internalWrite8ToReg(uint32_t offset, uint8_t value);
-
         void externalWrite8ToReg(uint32_t offset, uint8_t value);
 
-        bool masterIRQEn;
-
       public:
-        static const uint32_t INTERRUPT_CONTROL_REG_ADDR;
+        static const constexpr uint32_t INTERRUPT_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x200;
 
         InterruptHandler(CPU *cpu);
 
@@ -96,6 +95,8 @@ namespace gbaemu
         bool checkForHaltCondition(uint32_t mask);
 
         void reset();
+
+        friend class IO_Handler;
     };
 
 } // namespace gbaemu

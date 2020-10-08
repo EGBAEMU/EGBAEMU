@@ -27,9 +27,10 @@ namespace gbaemu
         reset();
     }
 
-    void CPU::setLCDController(const lcd::LCDController *lcdController)
+    void CPU::setLCDController(lcd::LCDController *lcdController)
     {
         dmaGroup.setLCDController(lcdController);
+        state.memory.ioHandler.lcdController = lcdController;
     }
 
     void CPU::initPipeline()
@@ -214,6 +215,7 @@ namespace gbaemu
         decoder = armDecoder;
         armExecutor.cpu = this;
         thumbExecutor.cpu = this;
+        state.memory.ioHandler.cpu = this;
 
         cyclesLeft = 0;
     }

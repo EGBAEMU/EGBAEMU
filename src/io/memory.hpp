@@ -1,7 +1,7 @@
 #ifndef MEMORY_HPP
 #define MEMORY_HPP
 
-#include "io/io_regs.hpp"
+#include "io_regs.hpp"
 #include "logging.hpp"
 #include "save/eeprom.hpp"
 #include "save/flash.hpp"

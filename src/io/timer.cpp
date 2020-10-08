@@ -55,16 +55,8 @@ namespace gbaemu
     }
 
     template <uint8_t id>
-    TimerGroup::Timer<id>::Timer(Memory &memory, InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, uint8_t &timEnableBitset) : memory(memory), irqHandler(irqHandler), nextTimer(nextTimer), timEnableBitset(timEnableBitset)
+    TimerGroup::Timer<id>::Timer(InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, uint8_t &timEnableBitset) : irqHandler(irqHandler), nextTimer(nextTimer), timEnableBitset(timEnableBitset)
     {
-        memory.ioHandler.registerIOMappedDevice(
-            IO_Mapped(
-                TIMER_REGS_BASE_OFFSET + sizeof(regs) * id,
-                TIMER_REGS_BASE_OFFSET + sizeof(regs) * id + sizeof(regs) - 1,
-                std::bind(&Timer<id>::read8FromReg, this, std::placeholders::_1),
-                std::bind(&Timer<id>::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
-                std::bind(&Timer<id>::read8FromReg, this, std::placeholders::_1),
-                std::bind(&Timer<id>::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
     }
 
     template <uint8_t id>
@@ -140,7 +132,7 @@ namespace gbaemu
         active = true;
     }
 
-    TimerGroup::TimerGroup(CPU *cpu) : tim0(cpu->state.memory, cpu->irqHandler, &tim1, timEnableBitset), tim1(cpu->state.memory, cpu->irqHandler, &tim2, timEnableBitset), tim2(cpu->state.memory, cpu->irqHandler, &tim3, timEnableBitset), tim3(cpu->state.memory, cpu->irqHandler, nullptr, timEnableBitset)
+    TimerGroup::TimerGroup(CPU *cpu) : tim0(cpu->irqHandler, &tim1, timEnableBitset), tim1(cpu->irqHandler, &tim2, timEnableBitset), tim2(cpu->irqHandler, &tim3, timEnableBitset), tim3(cpu->irqHandler, nullptr, timEnableBitset)
     {
         reset();
     }
