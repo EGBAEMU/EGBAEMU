@@ -151,7 +151,7 @@ namespace gbaemu::lcd
         bool canAccessPPUMemory(bool isOAMRegion = false) const;
         std::string getLayerStatusString() const;
 
-        friend class IO_Handler;
+        friend class gbaemu::IO_Handler;
     };
 
 } // namespace gbaemu::lcd

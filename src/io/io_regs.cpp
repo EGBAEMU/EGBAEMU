@@ -16,7 +16,7 @@ namespace gbaemu
 
     uint8_t IO_Handler::externalRead8(uint32_t addr) const
     {
-        static_assert(sizeof(lcd::LCDIORegs) == 86);
+        static_assert(sizeof(lcdController->regs) == 86);
         static_assert(sizeof(cpu->sound.regs) == 56);
         static_assert(sizeof(cpu->sound.channel1.regs) == 8);
         static_assert(sizeof(cpu->sound.channel2.regs) == 8);
