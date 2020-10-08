@@ -24,7 +24,7 @@
 #error "unsupported compiler!"
 #endif
 
-namespace gbaemu
+namespace gbaemu::sound
 {
 
     uint8_t SoundOrchestrator::read8FromReg(uint32_t offset) const

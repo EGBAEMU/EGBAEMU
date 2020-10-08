@@ -64,7 +64,7 @@ namespace gbaemu
 
         TimerGroup timerGroup;
 
-        SoundOrchestrator sound;
+        sound::SoundOrchestrator sound;
 
         InterruptHandler irqHandler;
         Keypad keypad;

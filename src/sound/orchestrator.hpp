@@ -13,10 +13,14 @@
 #define CLOCK_APU_CYCLES_SKIPS (CLOCK_SPEED / APU_SPEED)
 #define CLOCK_CYCLES_SAMPLE (CLOCK_SPEED / AUDIO_FREQUENCY)
 
+// forward declarations
 namespace gbaemu
 {
     class CPU;
+} // namespace gbaemu
 
+namespace gbaemu::sound
+{
     class SoundOrchestrator
     {
       public:
@@ -66,8 +70,11 @@ namespace gbaemu
                     uint16_t sound1CntH;
                     uint16_t sound1CntX;
                     // Control regs for channel 2
+                    uint16_t __unused;
                     uint16_t sound2CntL;
+                    uint16_t __unused1;
                     uint16_t sound2CntH;
+                    uint16_t __unused2;
                     */
                     // Control regs for channel 3
                     uint16_t sound3CntL;
@@ -102,10 +109,7 @@ namespace gbaemu
                     uint16_t fifoAH;
                     // FIFO regs for channel 6
                     uint16_t fifoBL;
-                    uint16_t fifoBH;
-                    uint16_t _unused8;);
-
-
+                    uint16_t fifoBH;);
 
         // We start at SOUND3 registers
         static const constexpr uint32_t SOUND_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x60 + 0x10;
@@ -119,19 +123,17 @@ namespace gbaemu
       public:
         SoundOrchestrator(CPU *cpu);
 
-     
         void reset();
 
         void step(uint32_t cycles);
 
       private:
-
         SquareWaveChannel channel1;
         SquareWaveChannel channel2;
-        
+
         uint32_t sampling_counter;
         uint32_t sampling_bufferIdx;
-        float sampling_buffer[SOUND_OUTPUT_SAMPLE_SIZE] = { 0 };
+        float sampling_buffer[SOUND_OUTPUT_SAMPLE_SIZE] = {0};
 
         uint32_t frame_sequenceCounter;
         uint32_t frame_sequencer;
@@ -154,13 +156,13 @@ namespace gbaemu
           Rate   256 Hz      64 Hz       128 Hz
 
         */
-        // TODO: We may be able to skip some methods. 
+        // TODO: We may be able to skip some methods.
         //   If channel is not active => skip
         //   If env/sweep/length is not active => skip corresponding methods
         const std::function<void()> frame_stepLut[8] = {
             [this]() {
-              this->channel1.onStepSoundLength();
-              this->channel2.onStepSoundLength();
+                this->channel1.onStepSoundLength();
+                this->channel2.onStepSoundLength();
             },
             []() {},
             [this]() {
@@ -184,7 +186,6 @@ namespace gbaemu
                 this->channel2.onStepEnv();
             }};
 
-       
         void onHandleFrameSequencer();
 
         void onStepChannels();
@@ -192,6 +193,6 @@ namespace gbaemu
         void onHandleDownsampling();
 
     };
-} // namespace gbaemu
+} // namespace gbaemu::sound
 
 #endif

@@ -7,7 +7,7 @@
 #include <iostream>
 #include <iomanip>
 
-namespace gbaemu
+namespace gbaemu::sound
 {
 
     SquareWaveChannel::SquareWaveChannel(CPU *cpu, SoundOrchestrator *orchestrator, SoundChannel channel) : orchestrator(orchestrator), channel(channel)
