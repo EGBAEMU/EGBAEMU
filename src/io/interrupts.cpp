@@ -104,7 +104,7 @@ namespace gbaemu
             *(cpu->state.getModeRegs(CPUState::IRQ)[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + 4;
 
             // Change instruction mode to arm
-            cpu->decoder = cpu->armDecoder;
+            cpu->decodeAndExecute = cpu->armDecodeAndExecutor;
 
             // Change the register mode to irq
             // Ensure that the CPSR represents that we are in ARM mode again

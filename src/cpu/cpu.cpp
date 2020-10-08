@@ -15,12 +15,12 @@ namespace gbaemu
     arm::ArmExecutor CPU::armExecutor;
     thumb::ThumbExecutor CPU::thumbExecutor;
 
-    InstructionDecoder CPU::armDecoder = [](uint32_t inst) {
+    InstructionDecodeAndExecutor CPU::armDecodeAndExecutor = [](uint32_t inst) {
         if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
             arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
         }
     };
-    InstructionDecoder CPU::thumbDecoder = &thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>;
+    InstructionDecodeAndExecutor CPU::thumbDecodeAndExecutor = &thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>;
 
     CPU::CPU() : dmaGroup(this), timerGroup(this), irqHandler(this), keypad(this)
     {
@@ -143,7 +143,7 @@ namespace gbaemu
     {
         const bool prevThumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
 
-        decoder(inst);
+        decodeAndExecute(inst);
 
         const bool postThumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
         uint32_t postPc = state.accessReg(regs::PC_OFFSET);
@@ -151,9 +151,9 @@ namespace gbaemu
         // Change from arm mode to thumb mode or vice versa
         if (prevThumbMode != postThumbMode) {
             if (postThumbMode) {
-                decoder = thumbDecoder;
+                decodeAndExecute = thumbDecodeAndExecutor;
             } else {
-                decoder = armDecoder;
+                decodeAndExecute = armDecodeAndExecutor;
             }
             state.cpuInfo.forceBranch = true;
         }
@@ -211,7 +211,7 @@ namespace gbaemu
         irqHandler.reset();
         keypad.reset();
 
-        decoder = armDecoder;
+        decodeAndExecute = armDecodeAndExecutor;
         armExecutor.cpu = this;
         thumbExecutor.cpu = this;
 
