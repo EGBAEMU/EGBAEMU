@@ -308,7 +308,7 @@ namespace gbaemu
         }
     };
 
-    typedef std::function<void(uint32_t)> InstructionDecoder;
+    typedef std::function<void(uint32_t)> InstructionDecodeAndExecutor;
 
     bool extractOperand2(shifts::ShiftType &shiftType, uint8_t &shiftAmount, uint8_t &rm, uint8_t &rs, uint8_t &imm, uint16_t operand2, bool i);
 
