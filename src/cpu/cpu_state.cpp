@@ -23,6 +23,7 @@ namespace gbaemu
         std::fill_n(reinterpret_cast<char *>(&pipeline), sizeof(pipeline), 0);
 
         // Ensure that system mode is also set in CPSR register!
+        thumbMode = false;
         regs.CPSR = 0b11111;
         updateCPUMode();
 
@@ -106,8 +107,6 @@ namespace gbaemu
         uint32_t currentInst = pipeline[1];
         pipeline[1] = pipeline[0];
 
-        bool thumbMode = getFlag<cpsr_flags::THUMB_STATE>();
-
         if (thumbMode) {
             pc += 4;
             pipeline[0] = memory.read16(pc, fetchInfo, true, true);
@@ -124,7 +123,7 @@ namespace gbaemu
         return currentInst;
     }
 
-    uint32_t CPUState::normalizePC(bool thumbMode)
+    uint32_t CPUState::normalizePC()
     {
         return accessReg(regs::PC_OFFSET) = memory.normalizeAddress(accessReg(regs::PC_OFFSET) & (thumbMode ? 0xFFFFFFFE : 0xFFFFFFFC), fetchInfo);
     }
