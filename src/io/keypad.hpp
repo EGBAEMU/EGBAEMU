@@ -1,6 +1,7 @@
 #ifndef KEYPAD_HPP
 #define KEYPAD_HPP
 
+#include "io_regs.hpp"
 #include "memory.hpp"
 #include "packed.h"
 #include "util.hpp"
@@ -55,6 +56,8 @@ namespace gbaemu
 
       private:
         void checkIRQConditions(uint16_t keyinputReg);
+
+        friend class IO_Handler;
     };
 } // namespace gbaemu
 

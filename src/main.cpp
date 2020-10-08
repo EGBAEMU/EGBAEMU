@@ -2,7 +2,6 @@
 #include <csignal>
 #include <fstream>
 #include <iostream>
-#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -40,9 +39,6 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #endif
 )
 {
-    // gbaemu::debugger::ExecutionHistory history(100);
-
-    // uint32_t prevPC = cpu.state.getCurrentPC();
 
     for (int i = 0; i < 160; ++i) {
 #ifndef DEBUG_CLI
@@ -53,16 +49,15 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
         }
 #else
         for (int j = 0; j < 960; ++j) {
-            // if (prevPC != cpu.state.getCurrentPC())
-            // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
             if (debugCLI.step()) {
-                // history.dumpHistory();
                 return true;
             }
         }
 #endif
+
         lcdController.drawScanline();
         lcdController.onHBlank();
+
 #ifndef DEBUG_CLI
         executionInfo = cpu.step(272);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
@@ -71,14 +66,12 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
         }
 #else
         for (int j = 0; j < 272; ++j) {
-            // if (prevPC != cpu.state.getCurrentPC())
-            // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
             if (debugCLI.step()) {
-                // history.dumpHistory();
                 return true;
             }
         }
 #endif
+
         lcdController.onVCount();
     }
 
@@ -101,6 +94,7 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
             }
         }
 #endif
+
         lcdController.onVCount();
     }
 
@@ -109,77 +103,31 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 
     return false;
 }
-#endif
-
-static void cpuLoop(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
+#else
+static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #ifdef DEBUG_CLI
-                    ,
-                    gbaemu::debugger::DebugCLI &debugCLI
+                  ,
+                  gbaemu::debugger::DebugCLI &debugCLI
 #endif
 )
 {
-#ifndef LEGACY_RENDERING
-    using frames = std::chrono::duration<int64_t, std::ratio<1, 60>>; // 60Hz
-    auto nextFrame = std::chrono::system_clock::now() + frames{0};
-    auto lastFrame = nextFrame - frames{1};
-
-    for (; doRun;) {
-        if (frame(cpu, lcdController
-#ifdef DEBUG_CLI
-                  ,
-                  debugCLI
-#endif
-                  )) {
-            break;
-        }
-
-#if LIMIT_FPS
-        std::this_thread::sleep_until(nextFrame);
-#endif
-
-#if !defined(DEBUG_CLI) && PRINT_FPS
-        auto dt = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - lastFrame);
-        std::cout << "Current FPS: " << (1000000.0 / dt.count()) << std::endl;
-#endif
-
-        lastFrame = nextFrame;
-        nextFrame += frames{1};
-    }
-
-    doRun = false;
-#else
-
-    std::chrono::high_resolution_clock::time_point t = std::chrono::high_resolution_clock::now();
-
-    for (uint32_t j = 0; doRun; ++j) {
+    for (int i = 0; i < 280896; ++i) {
 #ifdef DEBUG_CLI
         if (debugCLI.step()) {
-            break;
+            return true;
         }
 #else
         gbaemu::CPUExecutionInfoType executionInfo = cpu.step(1);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
             std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
-            break;
+            return true;
         }
 #endif
         lcdController.renderTick();
-
-        if (j >= 100001) {
-            double dt = std::chrono::duration_cast<std::chrono::microseconds>((std::chrono::high_resolution_clock::now() - t)).count();
-            // dt = us * 1000, us for a single instruction = dt / 1000
-            double mhz = (1000000 / (dt / 100000)) / 1000000;
-
-            //std::cout << std::dec << dt << "us for 100000 cycles => ~" << mhz << "MHz" << std::endl;
-
-            j = 0;
-            t = std::chrono::high_resolution_clock::now();
-        }
     }
-
-    doRun = false;
-#endif
+    return false;
 }
+#endif
 
 #ifdef DEBUG_CLI
 static void CLILoop(gbaemu::debugger::DebugCLI &debugCLI)
@@ -267,15 +215,13 @@ int main(int argc, char **argv)
     window.present();
     gbaemu::lcd::WindowCanvas windowCanvas = window.getCanvas();
 #else
-    gbaemu::lcd::FBCanvas windowCanvas(argv[ROM_IDX - 1], 240, 160);
+    gbaemu::lcd::FBCanvas windowCanvas(argv[ROM_IDX - 1]);
 #endif
 
     /* initialize SDL and LCD */
-    std::mutex canDrawToScreenMutex;
-    bool canDrawToScreen = false;
-    gbaemu::lcd::LCDController controller(windowCanvas, &cpu, &canDrawToScreenMutex, &canDrawToScreen);
+    gbaemu::lcd::LCDController lcdController(windowCanvas, &cpu);
 
-    cpu.setLCDController(&controller);
+    cpu.setLCDController(&lcdController);
 
     gbaemu::InstructionExecutionInfo _info;
     std::cout << "Game Title: ";
@@ -301,24 +247,24 @@ int main(int argc, char **argv)
     gbaemu::keyboard::KeyboardController gameController(cpu.keypad);
 
 #ifdef DEBUG_CLI
-    gbaemu::debugger::DebugCLI debugCLI(cpu, controller);
+    gbaemu::debugger::DebugCLI debugCLI(cpu, lcdController);
 #endif
-
-    std::cout << "INFO: Launching CPU thread" << std::endl;
-    std::thread cpuThread(
-        cpuLoop, std::ref(cpu), std::ref(controller)
-#ifdef DEBUG_CLI
-                                    ,
-        std::ref(debugCLI)
-#endif
-    );
 
 #ifdef DEBUG_CLI
     std::cout << "INFO: Launching CLI thread" << std::endl;
     std::thread cliThread(CLILoop, std::ref(debugCLI));
 #endif
 
-    while (doRun) {
+    using frames = std::chrono::duration<int64_t, std::ratio<1, 60>>; // 60Hz
+#if LIMIT_FPS
+    auto nextFrame = std::chrono::system_clock::now() + frames{0};
+#endif
+
+#if !defined(DEBUG_CLI) && PRINT_FPS
+    auto lastFrame = std::chrono::system_clock::now() + frames{0};
+#endif
+
+    for (; doRun;) {
         SDL_Event event;
 
         if (SDL_PollEvent(&event)) {
@@ -326,37 +272,39 @@ int main(int argc, char **argv)
                 break;
 
             gameController.processSDLEvent(event);
+        }
 
-            if (event.type == SDL_KEYDOWN) {
-                static int32_t objIndex = 0;
-
-                if (event.key.keysym.sym == SDLK_KP_PLUS) {
-                    ++objIndex;
-                    std::cout << "OBJ hightlight index: " << std::dec << objIndex << std::endl;
-                } else if (event.key.keysym.sym == SDLK_KP_MINUS) {
-                    --objIndex;
-                    std::cout << "OBJ hightlight index: " << std::dec << objIndex << std::endl;
-                }
-
-                //controller.objHightlightSetIndex(objIndex);
-            }
+        if (frame(cpu, lcdController
+#ifdef DEBUG_CLI
+                  ,
+                  debugCLI
+#endif
+                  )) {
+            break;
         }
 
 #if RENDERER_USE_FB_CANVAS == 0
-        if (canDrawToScreen) {
-            window.present();
-            canDrawToScreen = false;
-        }
+        window.present();
+#else
+        windowCanvas.present();
+#endif
+
+#if LIMIT_FPS
+        std::this_thread::sleep_until(nextFrame);
+        nextFrame += frames{1};
+#endif
+
+#if !defined(DEBUG_CLI) && PRINT_FPS
+        auto currentTime = std::chrono::system_clock::now();
+        auto dt = std::chrono::duration_cast<std::chrono::microseconds>(currentTime - lastFrame);
+        std::cout << "Current FPS: " << (1000000.0 / dt.count()) << std::endl;
+        lastFrame = currentTime;
 #endif
     }
 
     doRun = false;
-    std::cout << "window closed" << std::endl;
 
-    /* kill LCDController thread and wait */
-    //controller.exitThread();
-    /* wait for cpu thread to exit */
-    cpuThread.join();
+    std::cout << "window closed" << std::endl;
 
 #ifdef DEBUG_CLI
     /* When CLI is attached only quit command will exit the program! */

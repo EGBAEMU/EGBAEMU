@@ -92,7 +92,7 @@ namespace gbaemu::lcd
         regs.DISPSTAT = le(stat);
 
         if (vCountMatch && isBitSet<uint16_t, DISPSTAT::VCOUNTER_IRQ_ENABLE_OFFSET>(stat)) {
-            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_COUNTER_MATCH);
+            irqHandler.setInterrupt<InterruptHandler::InterruptType::LCD_V_COUNTER_MATCH>();
         }
 
 #ifndef LEGACY_RENDERING
@@ -116,7 +116,7 @@ namespace gbaemu::lcd
 
         // use regs as those settings are crucial timewise
         if (isBitSet<uint16_t, DISPSTAT::VBLANK_IRQ_ENABLE_OFFSET>(le(regs.DISPSTAT)))
-            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_V_BLANK);
+            irqHandler.setInterrupt<InterruptHandler::InterruptType::LCD_V_BLANK>();
 
         internalRegs = regs;
 
@@ -164,7 +164,7 @@ namespace gbaemu::lcd
 
         /* use regsRef as those settings are crucial timewise */
         if (isBitSet<uint16_t, DISPSTAT::HBLANK_IRQ_ENABLE_OFFSET>(le(regs.DISPSTAT)))
-            irqHandler.setInterrupt(InterruptHandler::InterruptType::LCD_H_BLANK);
+            irqHandler.setInterrupt<InterruptHandler::InterruptType::LCD_H_BLANK>();
 
         internalRegs.DISPCNT = regs.DISPCNT;
         internalRegs.DISPSTAT = regs.DISPSTAT;
@@ -273,9 +273,6 @@ namespace gbaemu::lcd
                 }
             }
         }
-
-        /* race conditions are acceptable here */
-        *canDrawToScreen = true;
     }
 
     bool LCDController::canAccessPPUMemory(bool isOAMRegion) const

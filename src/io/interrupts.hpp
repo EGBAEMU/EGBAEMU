@@ -1,8 +1,11 @@
 #ifndef INTERRUPT_HPP
 #define INTERRUPT_HPP
 
+#include "io_regs.hpp"
+#include "memory.hpp"
 #include "packed.h"
-#include <mutex>
+
+#include <cstdint>
 
 namespace gbaemu
 {
@@ -74,37 +77,26 @@ namespace gbaemu
                     uint16_t _;
                     uint16_t irqMasterEnable;);
 
-        bool needsOneIdleCycle;
-        /* protects regs */
-        std::mutex regsMutex;
-
+        bool masterIRQEn;
         uint8_t read8FromReg(uint32_t offset) const;
-
         void internalWrite8ToReg(uint32_t offset, uint8_t value);
-
         void externalWrite8ToReg(uint32_t offset, uint8_t value);
 
       public:
-        static const uint32_t INTERRUPT_CONTROL_REG_ADDR;
+        static const constexpr uint32_t INTERRUPT_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x200;
 
         InterruptHandler(CPU *cpu);
 
-        bool isInterruptEnabled(InterruptType type) const;
-
         void checkForInterrupt();
 
-        void setInterrupt(InterruptType type);
+        template <InterruptType type>
+        void setInterrupt();
 
         bool checkForHaltCondition(uint32_t mask);
 
         void reset();
 
-      private:
-        bool isInterruptMasterSet() const;
-
-        bool isCPSRInterruptSet() const;
-
-        //bool isCPSRFastInterruptSet() const;
+        friend class IO_Handler;
     };
 
 } // namespace gbaemu

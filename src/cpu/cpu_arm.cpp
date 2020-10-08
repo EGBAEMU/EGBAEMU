@@ -663,11 +663,6 @@ namespace gbaemu
         if (load) {
             // 1 I for beeing complex
             state.cpuInfo.cycleCount = 1;
-
-            // additional delays needed if PC gets loaded
-            if (rd == regs::PC_OFFSET) {
-                state.cpuInfo.forceBranch = true;
-            }
         } else {
             // same edge case as for STR
             state.cpuInfo.noDefaultSCycle = true;
@@ -698,7 +693,12 @@ namespace gbaemu
         }
 
         if (rd == regs::PC_OFFSET) {
-            rdValue += thumb ? 6 : 12;
+            if (load) {
+                // additional delays needed if PC gets loaded
+                state.cpuInfo.forceBranch = true;
+            } else {
+                rdValue += thumb ? 6 : 12;
+            }
         }
 
         offset = up ? offset : -offset;
@@ -793,10 +793,6 @@ namespace gbaemu
         if (load) {
             // 1N is handled by Memory class & 1S is handled globally
             state.cpuInfo.cycleCount = 1;
-            // will PC be updated? if so we need an additional Prog N & S cycle
-            if (rd == regs::PC_OFFSET) {
-                state.cpuInfo.forceBranch = true;
-            }
         } else {
             // same edge case as for STR
             state.cpuInfo.noDefaultSCycle = true;
@@ -810,7 +806,12 @@ namespace gbaemu
         }
 
         if (rd == regs::PC_OFFSET) {
-            rdValue += thumb ? 6 : 12;
+            if (load) {
+                // will PC be updated? if so we need an additional Prog N & S cycle
+                state.cpuInfo.forceBranch = true;
+            } else {
+                rdValue += thumb ? 6 : 12;
+            }
         }
 
         offset = up ? offset : -offset;

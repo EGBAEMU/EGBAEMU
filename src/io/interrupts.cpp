@@ -11,8 +11,6 @@
 
 namespace gbaemu
 {
-    const uint32_t InterruptHandler::INTERRUPT_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x200;
-
     uint8_t InterruptHandler::read8FromReg(uint32_t offset) const
     {
         return *(offset + reinterpret_cast<const uint8_t *>(&regs));
@@ -21,9 +19,7 @@ namespace gbaemu
     void InterruptHandler::internalWrite8ToReg(uint32_t offset, uint8_t value)
     {
         if (offset == offsetof(InterruptControlRegs, irqRequest) || offset == offsetof(InterruptControlRegs, irqRequest) + 1) {
-            regsMutex.lock();
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
-            regsMutex.unlock();
         } else {
             LOG_IRQ(std::cout << "WARNING: internal write to non IRQ request registers!" << std::endl;);
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
@@ -33,13 +29,16 @@ namespace gbaemu
     void InterruptHandler::externalWrite8ToReg(uint32_t offset, uint8_t value)
     {
         if (offset == offsetof(InterruptControlRegs, irqRequest) || offset == offsetof(InterruptControlRegs, irqRequest) + 1) {
-            regsMutex.lock();
             *(offset + reinterpret_cast<uint8_t *>(&regs)) &= ~value;
-            regsMutex.unlock();
         } else if (offset == offsetof(InterruptControlRegs, waitStateCnt) || offset == offsetof(InterruptControlRegs, waitStateCnt) + 1) {
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
             cpu->state.memory.updateWaitCycles(le(regs.waitStateCnt));
         } else {
+            if (offset == offsetof(InterruptControlRegs, irqMasterEnable)) {
+                // We store in LSB so this is fine!
+                masterIRQEn = value & 0x1;
+            }
+
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
         }
     }
@@ -47,71 +46,26 @@ namespace gbaemu
     void InterruptHandler::reset()
     {
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
-
-        needsOneIdleCycle = false;
+        masterIRQEn = false;
     }
 
     InterruptHandler::InterruptHandler(CPU *cpu) : cpu(cpu)
     {
         reset();
-        cpu->state.memory.ioHandler.registerIOMappedDevice(
-            IO_Mapped(
-                INTERRUPT_CONTROL_REG_ADDR,
-                INTERRUPT_CONTROL_REG_ADDR + sizeof(regs) - 1,
-                std::bind(&InterruptHandler::read8FromReg, this, std::placeholders::_1),
-                std::bind(&InterruptHandler::externalWrite8ToReg, this, std::placeholders::_1, std::placeholders::_2),
-                std::bind(&InterruptHandler::read8FromReg, this, std::placeholders::_1),
-                std::bind(&InterruptHandler::internalWrite8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
     }
 
-    bool InterruptHandler::isInterruptMasterSet() const
+    template <InterruptHandler::InterruptType type>
+    void InterruptHandler::setInterrupt()
     {
-        /*
-        4000208h - IME - Interrupt Master Enable Register (R/W)
-
-            Bit   Expl.
-            0     Disable all interrupts         (0=Disable All, 1=See IE register)
-            1-31  Not used
-
-         */
-        return le(regs.irqMasterEnable) & 0x1;
-    }
-
-    bool InterruptHandler::isCPSRInterruptSet() const
-    {
-        //  7     I - IRQ disable     (0=Enable, 1=Disable)                     ;
-        return (cpu->state.accessReg(regs::CPSR_OFFSET) & (1 << 7)) == 0;
-    }
-
-    /*
-    bool InterruptHandler::isCPSRFastInterruptSet() const
-    {
-        //  6     F - FIQ disable     (0=Enable, 1=Disable)                     ; Control
-        return (cpu->state.accessReg(regs::CPSR_OFFSET) & (1 << 6)) == 0;
-    }
-    */
-
-    bool InterruptHandler::isInterruptEnabled(InterruptType type) const
-    {
-        // 4000200h - IE - Interrupt Enable Register (R/W)
-        return le(regs.irqEnable) & (0x1 << type);
-    }
-
-    void InterruptHandler::setInterrupt(InterruptType type)
-    {
-        regsMutex.lock();
         regs.irqRequest |= le(static_cast<uint16_t>(static_cast<uint16_t>(1) << type));
-        regsMutex.unlock();
     }
 
     void InterruptHandler::checkForInterrupt()
     {
-        uint16_t irqEnableReg = le(regs.irqEnable) & 0x3FFF;
-        uint16_t irqRequestReg = le(regs.irqRequest) & 0x3FFF;
+        bool triggerIRQ = regs.irqRequest & regs.irqEnable & le<uint16_t>(0x3FFF);
 
         // We can only execute the interrupt if all conditions are met
-        if (isInterruptMasterSet() && isCPSRInterruptSet() && !needsOneIdleCycle && (irqEnableReg & irqRequestReg)) {
-
+        if (masterIRQEn && !cpu->state.getFlag<cpsr_flags::IRQ_DISABLE>() && triggerIRQ) {
             /*
             BIOS Interrupt handling
             Upon interrupt execution, the CPU is switched into IRQ mode, and the physical interrupt vector is called - as this address
@@ -139,28 +93,21 @@ namespace gbaemu
             *(cpu->state.getModeRegs(CPUState::IRQ)[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + 4;
 
             // Change instruction mode to arm
-            cpu->decoder = cpu->armDecoder;
+            cpu->decodeAndExecute = cpu->armDecodeAndExecutor;
+            cpu->state.thumbMode = false;
 
             // Change the register mode to irq
             // Ensure that the CPSR represents that we are in ARM mode again
             // Clear all flags & enforce irq mode
             // Also disable interrupts
             cpu->state.accessReg(regs::CPSR_OFFSET) = 0b010010 | (1 << 7);
+            cpu->state.accessReg(regs::PC_OFFSET) = Memory::BIOS_IRQ_HANDLER_OFFSET;
 
             cpu->state.updateCPUMode();
 
-            cpu->state.accessReg(regs::PC_OFFSET) = Memory::BIOS_IRQ_HANDLER_OFFSET;
-
             // Flush the pipeline
-            cpu->state.normalizePC(false);
+            cpu->state.normalizePC();
             cpu->initPipeline();
-
-            // After irq we need to execute at least one instruction before another irq may be handled!
-            needsOneIdleCycle = true;
-
-        } else {
-            //  No interrupt triggered -> at least one instruction executes
-            needsOneIdleCycle = false;
         }
     }
 
@@ -175,4 +122,18 @@ namespace gbaemu
         return irqRequestReg & mask;
     }
 
+    template void InterruptHandler::setInterrupt<InterruptHandler::LCD_V_BLANK>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::LCD_H_BLANK>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::LCD_V_COUNTER_MATCH>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::TIMER_0_OVERFLOW>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::TIMER_1_OVERFLOW>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::TIMER_2_OVERFLOW>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::TIMER_3_OVERFLOW>();
+    // template void InterruptHandler::setInterrupt<InterruptHandler::SERIAL_COMM>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::DMA_0>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::DMA_1>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::DMA_2>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::DMA_3>();
+    template void InterruptHandler::setInterrupt<InterruptHandler::KEYPAD>();
+    // template void InterruptHandler::setInterrupt<InterruptHandler::GAME_PAK>();
 } // namespace gbaemu

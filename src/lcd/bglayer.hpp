@@ -34,7 +34,7 @@ namespace gbaemu::lcd
     class BGLayer : public Layer
     {
       public:
-        BGIndex index;
+        const BGIndex index;
         /* settings */
         bool useOtherFrameBuffer;
         bool mosaicEnabled;
@@ -62,7 +62,7 @@ namespace gbaemu::lcd
         std::string toString() const;
 
         /* used in modes 0, 1, 2 */
-        const void *getBGMap(int32_t sx = 0, int32_t sy = 0) const;
+        const void *getBGMap(uint32_t sx = 0, uint32_t sy = 0) const;
         /* used in modes 3, 4, 5 */
         const void *getFrameBuffer() const;
 

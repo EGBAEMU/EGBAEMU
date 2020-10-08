@@ -1,7 +1,7 @@
 #ifndef MEMORY_HPP
 #define MEMORY_HPP
 
-#include "io/io_regs.hpp"
+#include "io_regs.hpp"
 #include "logging.hpp"
 #include "save/eeprom.hpp"
 #include "save/flash.hpp"
@@ -192,9 +192,6 @@ namespace gbaemu
         size_t externalBiosSize;
         uint8_t biosState[4];
 
-        // needed to handle read from unused memory regions
-        const std::function<uint32_t()> readUnusedHandle;
-
         BackupID backupType;
 
         static const constexpr uint8_t BIOS_READ_AFTER_STARTUP[] = {0x00, 0xF0, 0x29, 0xE1};
@@ -319,6 +316,9 @@ namespace gbaemu
         save::EEPROM *eeprom;
         save::FLASH *flash;
         save::SaveFile *ext_sram;
+
+        // needed to handle read from unused memory regions
+        const std::function<uint32_t()> readUnusedHandle;
 
 #ifdef DEBUG_CLI
         /* We are going to expose this directly becaus this cannot be in an invalid state and I don't have time. */
@@ -559,6 +559,7 @@ namespace gbaemu
         }
 
         static MemoryRegion extractMemoryRegion(uint32_t addr);
+
       private:
         void scanROMForBackupID();
         uint32_t readOutOfROM(uint32_t addr) const;
