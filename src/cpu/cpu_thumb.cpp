@@ -105,12 +105,10 @@ namespace gbaemu
     template <InstructionID id>
     void CPU::handleThumbMoveShiftedReg(uint8_t rs, uint8_t rd, uint8_t offset)
     {
-        uint32_t rsValue = state.accessReg(rs);
-        uint64_t rdValue = 0;
-
         constexpr shifts::ShiftType shiftType = getShiftType(id);
 
-        rdValue = shifts::shift(rsValue, shiftType, offset, state.getFlag<cpsr_flags::C_FLAG>(), true);
+        uint32_t rsValue = state.accessReg(rs);
+        uint64_t rdValue = shifts::shift(rsValue, shiftType, offset, state.getFlag<cpsr_flags::C_FLAG>(), true);
 
         state.accessReg(rd) = static_cast<uint32_t>(rdValue & 0x0FFFFFFFF);
 

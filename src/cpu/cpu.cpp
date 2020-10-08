@@ -5,6 +5,7 @@
 #include "decode/inst_arm.hpp"
 #include "decode/inst_thumb.hpp"
 #include "lcd/lcd-controller.hpp"
+#include "logging.hpp"
 
 #include <algorithm>
 #include <iostream>
@@ -158,8 +159,12 @@ namespace gbaemu
             state.cpuInfo.forceBranch = true;
         }
 
+#ifdef DEBUG_CLI
+        assert(((prevPc != postPc) && !state.cpuInfo.forceBranch) == false);
+#endif
+
         // We have a branch, return or something that changed our PC
-        if (state.cpuInfo.forceBranch || prevPc != postPc) {
+        if (state.cpuInfo.forceBranch) {
             // If an instruction jumps to a different memory area,
             // then all code cycles for that opcode are having waitstate characteristics
             // of the NEW memory area (except Thumb BL which still executes 1S in OLD area).
