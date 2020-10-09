@@ -49,12 +49,31 @@ namespace gbaemu
             REP_CASE(4, globalOffset, offsetof(lcd::LCDIORegs, WININ), return lcdController->read8FromReg(offset + offsetof(lcd::LCDIORegs, WININ)));
             REP_CASE(4, globalOffset, offsetof(lcd::LCDIORegs, BLDCNT), return lcdController->read8FromReg(offset + offsetof(lcd::LCDIORegs, BLDCNT)));
             // Sound register only fifo regs are write only
-            //TODO split for unused fields!
-            REP_CASE(48, globalOffset, sound::SoundOrchestrator::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, return cpu->sound.read8FromReg(offset));
-            //TODO split for unused fields!
-            REP_CASE(8, globalOffset, sound::SquareWaveChannel::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, return cpu->sound.channel1.read8FromReg(offset));
-            //TODO split for unused fields!
-            REP_CASE(8, globalOffset, sound::SquareWaveChannel::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET + sizeof(cpu->sound.channel2.regs), return cpu->sound.channel2.read8FromReg(offset));
+            // Handle unused fields which return 0
+            REP_CASE(2, globalOffset, 0x66, return 0);
+            REP_CASE(2, globalOffset, 0x6A, return 0);
+            REP_CASE(2, globalOffset, 0x6E, return 0);
+            REP_CASE(2, globalOffset, 0x76, return 0);
+            REP_CASE(2, globalOffset, 0x7A, return 0);
+            REP_CASE(2, globalOffset, 0x7E, return 0);
+            REP_CASE(2, globalOffset, 0x86, return 0);
+            REP_CASE(2, globalOffset, 0x8A, return 0);
+            // channel 1
+            REP_CASE(6, globalOffset, sound::SquareWaveChannel::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET, return cpu->sound.channel1.read8FromReg(offset));
+            // channel 2
+            REP_CASE(2, globalOffset, sound::SquareWaveChannel::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET + sizeof(cpu->sound.channel2.regs), return cpu->sound.channel2.read8FromReg(offset));
+            REP_CASE(2, globalOffset, sound::SquareWaveChannel::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET + sizeof(cpu->sound.channel2.regs) + 0x4, return cpu->sound.channel2.read8FromReg(offset + 0x4));
+            // channel 3
+            REP_CASE(6, globalOffset, sound::SoundOrchestrator::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET + offsetof(sound::SoundOrchestrator::SoundControlRegs, sound3CntL), return cpu->sound.read8FromReg(offset + offsetof(sound::SoundOrchestrator::SoundControlRegs, sound3CntL)));
+            // channel 4
+            REP_CASE(2, globalOffset, sound::SoundOrchestrator::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET + offsetof(sound::SoundOrchestrator::SoundControlRegs, sound4CntL), return cpu->sound.read8FromReg(offset + offsetof(sound::SoundOrchestrator::SoundControlRegs, sound4CntL)));
+            REP_CASE(2, globalOffset, sound::SoundOrchestrator::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET + offsetof(sound::SoundOrchestrator::SoundControlRegs, sound4CntH), return cpu->sound.read8FromReg(offset + offsetof(sound::SoundOrchestrator::SoundControlRegs, sound4CntH)));
+            // sound control regs
+            REP_CASE(6, globalOffset, sound::SoundOrchestrator::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET + offsetof(sound::SoundOrchestrator::SoundControlRegs, soundCntL), return cpu->sound.read8FromReg(offset + offsetof(sound::SoundOrchestrator::SoundControlRegs, soundCntL)));
+            // sound bias
+            REP_CASE(2, globalOffset, sound::SoundOrchestrator::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET + offsetof(sound::SoundOrchestrator::SoundControlRegs, soundBias), return cpu->sound.read8FromReg(offset + offsetof(sound::SoundOrchestrator::SoundControlRegs, soundBias)));
+            // channel 3 wave pattern ram, fifo is write only!
+            REP_CASE(16, globalOffset, sound::SoundOrchestrator::SOUND_CONTROL_REG_ADDR - Memory::IO_REGS_OFFSET + offsetof(sound::SoundOrchestrator::SoundControlRegs, waveRam0L), return cpu->sound.read8FromReg(offset + offsetof(sound::SoundOrchestrator::SoundControlRegs, waveRam0L)));
             // DMA: only the higher control register is readable!
             REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA0>::DMA0_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA0>::DMARegs, cntReg), return cpu->dmaGroup.dma0.read8FromReg(offset + offsetof(DMAGroup::DMA<DMAGroup::DMA0>::DMARegs, cntReg)));
             REP_CASE(2, globalOffset, DMAGroup::DMA<DMAGroup::DMA1>::DMA1_BASE_ADDR - Memory::IO_REGS_OFFSET + offsetof(DMAGroup::DMA<DMAGroup::DMA1>::DMARegs, cntReg), return cpu->dmaGroup.dma1.read8FromReg(offset + offsetof(DMAGroup::DMA<DMAGroup::DMA1>::DMARegs, cntReg)));
