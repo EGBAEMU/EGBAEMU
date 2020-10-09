@@ -13,7 +13,7 @@ namespace gbaemu::lcd
                                                                          Canvas(SCREEN_WIDTH, SCREEN_HEIGHT)
 #endif
     {
-        SDL_InitSubSystem(SDL_INIT_VIDEO);
+        assert(SDL_InitSubSystem(SDL_INIT_VIDEO) == 0);
         window = SDL_CreateWindow(title, 100, 100,
                                   width, height, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
         assert(window);
@@ -45,7 +45,6 @@ namespace gbaemu::lcd
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         delete[] buffer;
-        SDL_Quit();
     }
 
     void Window::present()

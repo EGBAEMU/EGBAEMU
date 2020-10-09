@@ -206,6 +206,9 @@ int main(int argc, char **argv)
     /* signal and window stuff */
     std::signal(SIGINT, handleSignal);
 
+    SDL_Init(0);
+    assert(SDL_InitSubSystem(SDL_INIT_EVENTS) == 0);
+
 #if RENDERER_USE_FB_CANVAS == 0
     gbaemu::lcd::Window windowCanvas(1280, 720);
 #else
@@ -300,6 +303,8 @@ int main(int argc, char **argv)
     /* When CLI is attached only quit command will exit the program! */
     cliThread.join();
 #endif
+
+    SDL_Quit();
 
     return 0;
 }
