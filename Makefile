@@ -9,7 +9,7 @@ CCFLAGS := -std=c++17 -ffast-math -Wall -I$(SRC)
 ifeq ($(OS),Windows_NT)
   LDFLAGS := -lmingw32 -lSDL2main -lSDL2 -pthread
 else
-  LDFLAGS := -lSDL2 -pthread
+  LDFLAGS := -lSDL2 -lwiringPi -pthread
 endif
 
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))

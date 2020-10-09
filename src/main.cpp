@@ -10,6 +10,7 @@
 #include "cpu/cpu.hpp"
 #include "debugger.hpp"
 #include "input/keyboard_control.hpp"
+#include "input/virtualKeyboard.hpp"
 #include "lcd/lcd-controller.hpp"
 
 #if RENDERER_USE_FB_CANVAS == 0
@@ -252,6 +253,9 @@ int main(int argc, char **argv)
     std::thread cliThread(CLILoop, std::ref(debugCLI));
 #endif
 
+    std::cout << "INFO: Launching virtualKeyboard thread" << std::endl;
+    std::thread virtualKeyboardThread(virtualKeyboardLoop, std::ref(doRun));
+
     using frames = std::chrono::duration<int64_t, std::ratio<1, 60>>; // 60Hz
 #if LIMIT_FPS
     auto nextFrame = std::chrono::system_clock::now() + frames{0};
@@ -304,6 +308,7 @@ breakOuterLoop:
     /* When CLI is attached only quit command will exit the program! */
     cliThread.join();
 #endif
+    virtualKeyboardThread.join();
 
     SDL_Quit();
 
