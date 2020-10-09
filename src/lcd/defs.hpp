@@ -479,6 +479,6 @@ namespace gbaemu::lcd
 
 #define RENDERER_ENABLE_WINDOWS 1
 
-#define RENDERER_USE_FB_CANVAS 0
+#define RENDERER_USE_FB_CANVAS 1
 
 #endif /* DEFS_HPP */
