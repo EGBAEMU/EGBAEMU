@@ -264,10 +264,10 @@ int main(int argc, char **argv)
     for (; doRun;) {
         SDL_Event event;
 
-        if (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE)
-                break;
-
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE) {
+                goto breakOuterLoop;
+            }
             gameController.processSDLEvent(event);
         }
 
@@ -294,6 +294,7 @@ int main(int argc, char **argv)
         lastFrame = currentTime;
 #endif
     }
+breakOuterLoop:
 
     doRun = false;
 
