@@ -143,8 +143,7 @@ namespace gbaemu::lcd
         if (le(regs.DISPCNT) & DISPCTL::FORCED_BLANK_MASK) {
             color_t *outBuf = frameBuffer.pixels() + scanline.y * frameBuffer.getWidth();
 
-            for (int32_t x = 0; x < SCREEN_WIDTH; ++x)
-                outBuf[x] = WHITE;
+            std::fill_n(outBuf, SCREEN_WIDTH, WHITE);
         } else {
             renderer.drawScanline(scanline.y);
         }
@@ -253,26 +252,6 @@ namespace gbaemu::lcd
 
     void LCDController::present()
     {
-        color_t *dst = display.pixels();
-        int32_t dstStride = display.getWidth();
-
-        const color_t *src = frameBuffer.pixels();
-        int32_t srcStride = frameBuffer.getWidth();
-
-        int32_t h = frameBuffer.getHeight();
-        int32_t w = frameBuffer.getWidth();
-
-        for (int32_t y = 0; y < h; ++y) {
-            for (int32_t x = 0; x < w; ++x) {
-                color_t color = src[y * srcStride + x];
-
-                for (int32_t sy = 0; sy < scale; ++sy) {
-                    for (int32_t sx = 0; sx < scale; ++sx) {
-                        dst[(y * scale + sy) * dstStride + (x * scale + sx)] = color;
-                    }
-                }
-            }
-        }
     }
 
     bool LCDController::canAccessPPUMemory(bool isOAMRegion) const

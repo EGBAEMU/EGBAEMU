@@ -10,12 +10,9 @@
 
 namespace gbaemu::lcd
 {
-    FBCanvas::FBCanvas(const char *deviceString) :
-        buffer(SCREEN_WIDTH, SCREEN_HEIGHT)
+    FBCanvas::FBCanvas(const char *deviceString) : Canvas(SCREEN_WIDTH, SCREEN_HEIGHT),
+                                                   buffer(SCREEN_WIDTH, SCREEN_HEIGHT)
     {
-        width = SCREEN_WIDTH;
-        height = SCREEN_HEIGHT;
-
         size = fbWidth * fbHeight * sizeof(color16_t);
         device = open(deviceString, O_RDWR);
 

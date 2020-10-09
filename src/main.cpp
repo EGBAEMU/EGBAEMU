@@ -206,14 +206,11 @@ int main(int argc, char **argv)
     /* signal and window stuff */
     std::signal(SIGINT, handleSignal);
 
+    SDL_Init(0);
+    assert(SDL_InitSubSystem(SDL_INIT_EVENTS) == 0);
+
 #if RENDERER_USE_FB_CANVAS == 0
-    gbaemu::lcd::Window window(1280, 720);
-    auto canv = window.getCanvas();
-    canv.beginDraw();
-    canv.clear(0xFF365e7a);
-    canv.endDraw();
-    window.present();
-    gbaemu::lcd::WindowCanvas windowCanvas = window.getCanvas();
+    gbaemu::lcd::Window windowCanvas(1280, 720);
 #else
     gbaemu::lcd::FBCanvas windowCanvas(argv[ROM_IDX - 1]);
 #endif
@@ -267,10 +264,10 @@ int main(int argc, char **argv)
     for (; doRun;) {
         SDL_Event event;
 
-        if (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE)
-                break;
-
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE) {
+                goto breakOuterLoop;
+            }
             gameController.processSDLEvent(event);
         }
 
@@ -283,11 +280,7 @@ int main(int argc, char **argv)
             break;
         }
 
-#if RENDERER_USE_FB_CANVAS == 0
-        window.present();
-#else
         windowCanvas.present();
-#endif
 
 #if LIMIT_FPS
         std::this_thread::sleep_until(nextFrame);
@@ -301,6 +294,7 @@ int main(int argc, char **argv)
         lastFrame = currentTime;
 #endif
     }
+breakOuterLoop:
 
     doRun = false;
 
@@ -310,6 +304,8 @@ int main(int argc, char **argv)
     /* When CLI is attached only quit command will exit the program! */
     cliThread.join();
 #endif
+
+    SDL_Quit();
 
     return 0;
 }
