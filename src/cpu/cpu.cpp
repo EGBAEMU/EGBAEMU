@@ -67,6 +67,7 @@ namespace gbaemu
 
 #define CPU_LOOP_END                               \
     timerGroup.step(state.cpuInfo.cycleCount);     \
+    sound.step(state.cpuInfo.cycleCount);          \
                                                    \
     cyclesLeft -= state.cpuInfo.cycleCount;        \
                                                    \
