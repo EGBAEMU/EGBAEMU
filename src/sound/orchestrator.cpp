@@ -45,7 +45,7 @@ namespace gbaemu::sound
     SoundOrchestrator::SoundOrchestrator(CPU *cpu) : channel1(cpu, this, SquareWaveChannel::CHAN_1), channel2(cpu, this, SquareWaveChannel::CHAN_2)
     {
         // Initialize SDL audio modules
-        if (SDL_Init(SDL_INIT_AUDIO) < 0) {
+        if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
             printf("SDL_Init: %s\n", SDL_GetError());
             return;
         }
