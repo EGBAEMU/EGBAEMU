@@ -277,7 +277,21 @@ namespace gbaemu
 
         void step(InstructionExecutionInfo &info, uint32_t cycles)
         {
-            stepLUT[dmaEnableBitset](info, cycles);
+            /*
+                This is actually a little faster than the LUT. It saves us around ~1ms in Sonic.
+                I guess becaus branch prediction plays quite a role?
+             */
+            if (dmaEnableBitset & 1)
+                dma0.step(info, cycles);
+
+            if (dmaEnableBitset & 2)
+                dma1.step(info, cycles);
+
+            if (dmaEnableBitset & 4)
+                dma2.step(info, cycles);
+
+            if (dmaEnableBitset & 8)
+                dma3.step(info, cycles);
         }
 
         void reset()
