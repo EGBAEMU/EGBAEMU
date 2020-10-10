@@ -284,7 +284,6 @@ namespace gbaemu
         bool isArm = true;
 
       public:
-        ;
         std::string toString() const;
     };
 
