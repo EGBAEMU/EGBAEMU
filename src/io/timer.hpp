@@ -186,7 +186,18 @@ namespace gbaemu
         void step(uint32_t cycles)
         {
             if (cycles) {
-                stepLUT[timEnableBitset](cycles);
+                /* Same optimization as in DMAGroup::step() */
+                if (timEnableBitset & 1)
+                    tim0.step(cycles);
+
+                if (timEnableBitset & 2)
+                    tim1.step(cycles);
+
+                if (timEnableBitset & 4)
+                    tim2.step(cycles);
+
+                if (timEnableBitset & 8)
+                    tim3.step(cycles);
             }
         }
 
