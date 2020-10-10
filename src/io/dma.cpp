@@ -1,6 +1,7 @@
 
 #include "dma.hpp"
 #include "cpu/cpu.hpp"
+#include "decode/inst.hpp"
 #include "interrupts.hpp"
 #include "lcd/lcd-controller.hpp"
 #include "logging.hpp"
@@ -96,40 +97,16 @@ namespace gbaemu
                         std::cout << "      Repeat: " << repeat << std::endl;
                         if (channel == DMA3) {
                             std::cout << "      GamePak DRQ: " << gamePakDRQ << std::endl;
-                        }
-                        std::cout << "      32 bit mode: " << width32Bit << std::endl;
+                        } std::cout
+                        << "      32 bit mode: " << width32Bit << std::endl;
                         std::cout << "      IRQ on end: " << irqOnEnd << std::endl;);
 
                     // Initialization takes at least 2 cycles
                     info.cycleCount += 2;
 
                     // If eeprom does not yet know for sure which bus width it has we can determine it by passing DMA request to it!
-                    if (channel == DMA3 && memory.getBackupType() == Memory::EEPROM_V && !memory.eeprom->knowsBitWidth()) {
-
-                        // We only need changes for 14 Bit buswidth as we default to 8 bit
-                        memory.normalizeAddressRef(srcAddr, info);
-                        if (info.memReg == Memory::MemoryRegion::EEPROM_REGION) {
-                            const constexpr uint32_t bus14BitReadExpectedCount = 17;
-                            const constexpr uint32_t bus6BitReadExpectedCount = 9;
-                            if (count == bus14BitReadExpectedCount) {
-                                memory.eeprom->expand(14);
-                                break;
-                            } else if (count == bus6BitReadExpectedCount) {
-                                memory.eeprom->expand(6);
-                                break;
-                            }
-                        }
-
-                        memory.normalizeAddressRef(destAddr, info);
-                        if (info.memReg == Memory::MemoryRegion::EEPROM_REGION) {
-                            const constexpr uint32_t bus14BitWriteExpectedCount = 81;
-                            const constexpr uint32_t bus6BitWriteExpectedCount = 73;
-                            if (count == bus14BitWriteExpectedCount) {
-                                memory.eeprom->expand(14);
-                            } else if (count == bus6BitWriteExpectedCount) {
-                                memory.eeprom->expand(6);
-                            }
-                        }
+                    if (channel == DMA3 && memory.rom.eepromNeedsInit()) {
+                        memory.rom.initEEPROM(srcAddr, destAddr, count);
                     }
 
                     break;

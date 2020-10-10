@@ -131,8 +131,9 @@ namespace gbaemu
 
     uint16_t Bios::read16(uint32_t addr, bool inst) const
     {
-        if (inst && addr + sizeof(uint16_t) - 1 < biosSize) {
-            return le(*reinterpret_cast<const uint16_t *>(bios + addr));
+        uint32_t alignedAddr = addr & ~1;
+        if (inst && alignedAddr + sizeof(uint16_t) - 1 < biosSize) {
+            return le(*reinterpret_cast<const uint16_t *>(bios + alignedAddr));
         } else {
             return biosState >> ((addr & 2) << 3);
         }
@@ -140,8 +141,9 @@ namespace gbaemu
 
     uint32_t Bios::read32(uint32_t addr, bool inst) const
     {
-        if (inst && addr + sizeof(uint32_t) - 1 < biosSize) {
-            return le(*reinterpret_cast<const uint32_t*>(bios + addr));
+        uint32_t alignedAddr = addr & ~3;
+        if (inst && alignedAddr + sizeof(uint32_t) - 1 < biosSize) {
+            return le(*reinterpret_cast<const uint32_t *>(bios + alignedAddr));
         } else {
             return biosState;
         }

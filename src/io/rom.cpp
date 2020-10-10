@@ -55,10 +55,11 @@ namespace gbaemu
             this->ext_sram = nullptr;
         }
         this->romSize = romSize;
-        this->rom = new uint8_t[this->romSize];
-        std::copy_n(rom, romSize, this->rom);
+        uint8_t* newRom = new uint8_t[this->romSize];
+        std::copy_n(rom, romSize, newRom);
+        this->rom = newRom;
 
-        scanROMForBackupID();
+        BackupID backupType = scanROMForBackupID();
 
         bool loadSuccessful = true;
         if (backupType == SRAM_V) {
@@ -74,10 +75,10 @@ namespace gbaemu
         return loadSuccessful;
     }
 
-    void ROM::scanROMForBackupID()
+    ROM::BackupID ROM::scanROMForBackupID()
     {
         // reset backup type
-        backupType = NO_BACKUP;
+        BackupID backupType = NO_BACKUP;
 
         /*
         ID Strings
@@ -99,7 +100,7 @@ namespace gbaemu
 
         // Array with pointer to char to compare with next on match increment, else reset!
         const char *currentParsingState[sizeof(parsingStrs) / sizeof(parsingStrs[0])];
-        std::memcpy(currentParsingState, parsingStrs, sizeof(parsingStrs));
+        std::copy_n(parsingStrs, sizeof(parsingStrs) / sizeof(parsingStrs[0]), currentParsingState);
 
         for (const uint8_t *romIt = rom; romIt + 3 < rom + romSize;) {
             for (uint32_t i = 0; i < 4; ++i) {
@@ -115,7 +116,7 @@ namespace gbaemu
                         if (*currentParsingState[k] == '\0') {
                             std::cout << "INFO: Found backup id: " << parsingStrs[k] << std::endl;
                             backupType = static_cast<BackupID>(k + 1);
-                            return;
+                            return backupType;
                         }
                     } else {
                         // reset
@@ -126,6 +127,7 @@ namespace gbaemu
         }
 
         std::cout << "INFO: No backup id was found!" << std::endl;
+        return backupType;
     }
 
     uint32_t ROM::readOutOfROM(uint32_t addr)
@@ -145,11 +147,11 @@ namespace gbaemu
         // The 64K SRAM area is mirrored across the whole 32MB area at E000000h-FFFFFFFh,
         //also, inside of the 64K SRAM field, 32K SRAM chips are repeated twice
         // First handle 64K mirroring! & ensure we start with EXT_SRAM offset
-        addr = (addr & ((static_cast<uint32_t>(64) << 10) - 1)) | EXT_SRAM_OFFSET;
+        addr = (addr & ((static_cast<uint32_t>(64) << 10) - 1)) | memory::EXT_SRAM_OFFSET;
 
-        if (backupType == SRAM_V) {
+        if (ext_sram) {
             return ext_sram->read8(addr);
-        } else if (backupType >= FLASH_V) {
+        } else if (flash) {
             return flash->read(addr);
         }
         return 0xFF;
@@ -196,9 +198,7 @@ namespace gbaemu
 
     uint8_t ROM::read8ROM3_(uint32_t addr) const
     {
-        // The address internal to EXT3
-        uint32_t internalAddress = addr & 0x00FFFFFF;
-        if (eeprom && (romSize <= 0x01000000 || internalAddress >= 0x00FFFF00)) {
+        if (eeprom && isAddrEEPROM(addr)) {
             return 0x01;
         } else {
             return read8(addr);
@@ -206,9 +206,7 @@ namespace gbaemu
     }
     uint16_t ROM::read16ROM3_(uint32_t addr, bool dma) const
     {
-        // The address internal to EXT3
-        uint32_t internalAddress = addr & 0x00FFFFFF;
-        if (eeprom && (romSize <= 0x01000000 || internalAddress >= 0x00FFFF00)) {
+        if (eeprom && isAddrEEPROM(addr)) {
             if (dma) {
                 return eeprom->read();
             } else {
@@ -220,9 +218,7 @@ namespace gbaemu
     }
     uint32_t ROM::read32ROM3_(uint32_t addr, bool dma) const
     {
-        // The address internal to EXT3
-        uint32_t internalAddress = addr & 0x00FFFFFF;
-        if (eeprom && (romSize <= 0x01000000 || internalAddress >= 0x00FFFF00)) {
+        if (eeprom && isAddrEEPROM(addr)) {
             if (dma) {
                 return eeprom->read();
             } else {
@@ -236,9 +232,7 @@ namespace gbaemu
     // Needed for backup media
     void ROM::writeROM3_(uint32_t addr, uint8_t value) const
     {
-        // The address internal to EXT3
-        uint32_t internalAddress = addr & 0x00FFFFFF;
-        if (eeprom && (romSize <= 0x01000000 || internalAddress >= 0x00FFFF00)) {
+        if (eeprom && isAddrEEPROM(addr)) {
             eeprom->write(value);
         }
     }
@@ -258,5 +252,47 @@ namespace gbaemu
     void ROM::write32SRAM(uint32_t addr, uint32_t value) const
     {
         write8SRAM(addr, value >> ((addr & 3) << 3));
+    }
+
+    bool ROM::eepromNeedsInit() const
+    {
+        return eeprom && !eeprom->knowsBitWidth();
+    }
+
+    // Should only be used if its known that addr is in EXT_ROM3_ address space or isRegEEPROM returned true
+    bool ROM::isAddrEEPROM(uint32_t addr) const
+    {
+        // The address internal to EXT3
+        uint32_t internalAddress = addr & 0x00FFFFFF;
+        return (romSize <= 0x01000000 || internalAddress >= 0x00FFFF00);
+    }
+    bool ROM::isRegEEPROM(uint32_t addr)
+    {
+        return (addr >> 24) == memory::EXT_ROM3_;
+    }
+
+    void ROM::initEEPROM(uint32_t srcAddr, uint32_t destAddr, uint32_t count) const
+    {
+        if (isRegEEPROM(srcAddr) && isAddrEEPROM(srcAddr)) {
+            const constexpr uint32_t bus14BitReadExpectedCount = 17;
+            const constexpr uint32_t bus6BitReadExpectedCount = 9;
+            if (count == bus14BitReadExpectedCount) {
+                eeprom->expand(14);
+                return;
+            } else if (count == bus6BitReadExpectedCount) {
+                eeprom->expand(6);
+                return;
+            }
+        }
+
+        if (isRegEEPROM(destAddr) && isAddrEEPROM(destAddr)) {
+            const constexpr uint32_t bus14BitWriteExpectedCount = 81;
+            const constexpr uint32_t bus6BitWriteExpectedCount = 73;
+            if (count == bus14BitWriteExpectedCount) {
+                eeprom->expand(14);
+            } else if (count == bus6BitWriteExpectedCount) {
+                eeprom->expand(6);
+            }
+        }
     }
 } // namespace gbaemu

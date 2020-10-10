@@ -2,7 +2,7 @@
 #define DMA_HPP
 
 #include "io_regs.hpp"
-#include "memory.hpp"
+#include "memory_defs.hpp"
 #include "packed.h"
 
 #include <cstdint>
@@ -18,6 +18,8 @@ namespace gbaemu
     }
     class CPU;
     class InterruptHandler;
+    struct InstructionExecutionInfo;
+    class Memory;
 
     class DMAGroup
     {
@@ -79,10 +81,10 @@ namespace gbaemu
             static const constexpr uint16_t DMA_CNT_REG_DST_ADR_CNT_MASK = static_cast<uint16_t>(3) << DMA_CNT_REG_DST_ADR_CNT_OFF;
 
           public:
-            static const constexpr uint32_t DMA0_BASE_ADDR = Memory::IO_REGS_OFFSET | 0x0B0;
-            static const constexpr uint32_t DMA1_BASE_ADDR = Memory::IO_REGS_OFFSET | 0x0BC;
-            static const constexpr uint32_t DMA2_BASE_ADDR = Memory::IO_REGS_OFFSET | 0x0C8;
-            static const constexpr uint32_t DMA3_BASE_ADDR = Memory::IO_REGS_OFFSET | 0x0D4;
+            static const constexpr uint32_t DMA0_BASE_ADDR = memory::IO_REGS_OFFSET | 0x0B0;
+            static const constexpr uint32_t DMA1_BASE_ADDR = memory::IO_REGS_OFFSET | 0x0BC;
+            static const constexpr uint32_t DMA2_BASE_ADDR = memory::IO_REGS_OFFSET | 0x0C8;
+            static const constexpr uint32_t DMA3_BASE_ADDR = memory::IO_REGS_OFFSET | 0x0D4;
 
             /*
             DMA Transfer Channels
@@ -161,103 +163,6 @@ namespace gbaemu
         uint8_t dmaEnableBitset;
 
         const lcd::LCDController *lcdController;
-
-        const std::function<void(InstructionExecutionInfo &, uint32_t)> stepLUT[16] = {
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    0    0    0
-            [](InstructionExecutionInfo &, uint32_t) {},
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    0    0    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    0    1    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma1.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    0    1    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma1.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    1    0    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma2.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    1    0    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma2.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    1    1    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma1.step(info, cycles);
-                this->dma2.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    1    1    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma1.step(info, cycles);
-                this->dma2.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    0    0    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    0    0    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    0    1    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma1.step(info, cycles);
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    0    1    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma1.step(info, cycles);
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    1    0    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma2.step(info, cycles);
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    1    0    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma2.step(info, cycles);
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    1    1    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma1.step(info, cycles);
-                this->dma2.step(info, cycles);
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    1    1    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma1.step(info, cycles);
-                this->dma2.step(info, cycles);
-                this->dma3.step(info, cycles);
-            }};
 
       public:
         DMAGroup(CPU *cpu) : dma0(cpu, *this), dma1(cpu, *this), dma2(cpu, *this), dma3(cpu, *this)

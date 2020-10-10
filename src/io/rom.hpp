@@ -35,7 +35,7 @@ namespace gbaemu
       private:
         const uint8_t *rom = nullptr;
         size_t romSize = 0;
-        BackupID backupType = NO_BACKUP;
+        // BackupID backupType = NO_BACKUP;
 
         save::EEPROM *eeprom = nullptr;
         save::FLASH *flash = nullptr;
@@ -44,10 +44,12 @@ namespace gbaemu
       public:
         ~ROM();
 
+/*
         BackupID getBackupType() const
         {
             return backupType;
         }
+        */
         size_t getRomSize() const
         {
             return romSize;
@@ -73,8 +75,14 @@ namespace gbaemu
         void write16SRAM(uint32_t addr, uint16_t value) const;
         void write32SRAM(uint32_t addr, uint32_t value) const;
 
+        bool eepromNeedsInit() const;
+        void initEEPROM(uint32_t srcAddr, uint32_t destAddr, uint32_t count) const;
+
       private:
-        void scanROMForBackupID();
+        BackupID scanROMForBackupID();
+
+        bool isAddrEEPROM(uint32_t addr) const;
+        static bool isRegEEPROM(uint32_t addr);
 
         static uint32_t readOutOfROM(uint32_t addr);
     };
