@@ -21,7 +21,7 @@ namespace gbaemu
 
     class DMAGroup
     {
-      private:
+      public:
         enum DMAChannel : uint8_t {
             DMA0 = 0,
             DMA1,
@@ -52,6 +52,7 @@ namespace gbaemu
             SPECIAL = 3      // The 'Special' setting (Start Timing=3) depends on the DMA channel: DMA0=Prohibited, DMA1/DMA2=Sound FIFO, DMA3=Video Capture
         };
 
+      private:
         static const char *countTypeToStr(AddrCntType updateKind);
         static const char *startCondToStr(StartCondition condition);
 
@@ -104,8 +105,11 @@ namespace gbaemu
               40000E0h       -    -         Not used
             */
 
-          private:
+          public:
             DMAState state;
+            StartCondition condition;
+
+          private:
             Memory &memory;
             InterruptHandler &irqHandler;
 
@@ -128,14 +132,9 @@ namespace gbaemu
             bool width32Bit;
             AddrCntType srcCnt;
             AddrCntType dstCnt;
-            StartCondition condition;
 
             uint8_t read8FromReg(uint32_t offset);
             void write8ToReg(uint32_t offset, uint8_t value);
-
-            //TODO refactor
-            // Dirty hack to fix a bug fast!
-            bool repeatTriggered;
 
           public:
             DMA(CPU *cpu, DMAGroup &dmaGroup);
@@ -148,6 +147,8 @@ namespace gbaemu
             void extractRegValues();
             void updateAddr(uint32_t &addr, AddrCntType updateKind) const;
             void fetchCount();
+
+            void goToWaitingState();
 
             friend class IO_Handler;
         };
@@ -283,7 +284,9 @@ namespace gbaemu
             dmaEnableBitset = 0;
         }
 
-        bool conditionSatisfied(StartCondition condition, bool &repeatTriggered, bool repeat) const;
+        bool conditionSatisfied(StartCondition condition) const;
+
+        void triggerCondition(StartCondition condition);
 
         friend class IO_Handler;
     };

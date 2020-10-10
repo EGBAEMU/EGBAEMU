@@ -18,7 +18,6 @@ namespace gbaemu
     {
         state = IDLE;
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
-        repeatTriggered = false;
     }
 
     const char *DMAGroup::countTypeToStr(AddrCntType updateKind)
@@ -82,9 +81,12 @@ namespace gbaemu
             // FSM actions
             switch (state) {
                 case IDLE:
-                    repeatTriggered = false;
                     extractRegValues();
-                    state = dmaGroup.conditionSatisfied(condition, repeatTriggered, repeat) ? STARTED : WAITING_PAUSED;
+                    if (dmaGroup.conditionSatisfied(condition)) {
+                        state = STARTED;
+                    } else {
+                        goToWaitingState();
+                    }
                     LOG_DMA(
                         std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
                         std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << DMAGroup::countTypeToStr(srcCnt) << std::endl;
@@ -143,12 +145,7 @@ namespace gbaemu
 
                     fetchCount();
 
-                    state = WAITING_PAUSED;
-                    break;
-                }
-
-                case WAITING_PAUSED: {
-                    state = dmaGroup.conditionSatisfied(condition, repeatTriggered, repeat) ? STARTED : WAITING_PAUSED;
+                    goToWaitingState();
                     break;
                 }
 
@@ -195,7 +192,6 @@ namespace gbaemu
                     // Handle edge case: repeat enabled but no start condition -> infinite DMA transfers
                     if (repeat && condition != NO_COND) {
                         state = REPEAT;
-                        repeatTriggered = true;
                     } else {
                         // return to idle state
                         state = IDLE;
@@ -211,8 +207,21 @@ namespace gbaemu
 
                     break;
                 }
+
+                case WAITING_PAUSED: {
+                    // Should not occur!
+                    break;
+                }
             }
         } while (state != IDLE && state != WAITING_PAUSED && info.cycleCount < cycles);
+    }
+
+    template <DMAGroup::DMAChannel channel>
+    void DMAGroup::DMA<channel>::goToWaitingState()
+    {
+        // indicate waiting, clear enable bit
+        dmaGroup.dmaEnableBitset &= ~(1 << channel);
+        state = WAITING_PAUSED;
     }
 
     template <DMAGroup::DMAChannel channel>
@@ -288,7 +297,7 @@ namespace gbaemu
         count = count == 0 ? (channel == DMA3 ? 0x10000 : 0x4000) : count;
     }
 
-    bool DMAGroup::conditionSatisfied(StartCondition condition, bool &repeatTriggered, bool repeat) const
+    bool DMAGroup::conditionSatisfied(StartCondition condition) const
     {
         bool conditionSatisfied = true;
         switch (condition) {
@@ -309,9 +318,27 @@ namespace gbaemu
                 break;
         }
 
-        // Ensure that the condition was once false before we execute repeat again!
-        repeatTriggered = repeatTriggered && conditionSatisfied;
-        return conditionSatisfied && (!repeat || (repeat && !repeatTriggered));
+        return conditionSatisfied;
+    }
+
+    void DMAGroup::triggerCondition(StartCondition condition)
+    {
+        if (dma0.state == WAITING_PAUSED && condition == dma0.condition) {
+            dma0.state = STARTED;
+            dmaEnableBitset |= 1 << DMA0;
+        }
+        if (dma1.state == WAITING_PAUSED && condition == dma1.condition) {
+            dma1.state = STARTED;
+            dmaEnableBitset |= 1 << DMA1;
+        }
+        if (dma2.state == WAITING_PAUSED && condition == dma2.condition) {
+            dma2.state = STARTED;
+            dmaEnableBitset |= 1 << DMA2;
+        }
+        if (dma3.state == WAITING_PAUSED && condition == dma3.condition) {
+            dma3.state = STARTED;
+            dmaEnableBitset |= 1 << DMA3;
+        }
     }
 
     template class DMAGroup::DMA<DMAGroup::DMA0>;

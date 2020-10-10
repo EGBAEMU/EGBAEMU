@@ -57,6 +57,7 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 
         lcdController.drawScanline();
         lcdController.onHBlank();
+        cpu.dmaGroup.triggerCondition(gbaemu::DMAGroup::StartCondition::WAIT_HBLANK);
 
 #ifndef DEBUG_CLI
         executionInfo = cpu.step(272);
@@ -76,6 +77,7 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
     }
 
     lcdController.onVBlank();
+    cpu.dmaGroup.triggerCondition(gbaemu::DMAGroup::StartCondition::WAIT_VBLANK);
 
     for (int i = 0; i < 68; ++i) {
 #ifndef DEBUG_CLI
