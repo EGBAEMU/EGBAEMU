@@ -151,6 +151,7 @@ namespace gbaemu
             // then all code cycles for that opcode are having waitstate characteristics
             // of the NEW memory area (except Thumb BL which still executes 1S in OLD area).
             // -> we have to undo the fetch added cycles and add it again after initPipeline
+            //TODO this might as well be memCycles32... fix this!!!
             state.cpuInfo.cycleCount -= state.memory.memCycles16(state.fetchInfo.memReg, true);
             postPc = state.normalizePC();
             initPipeline();
@@ -174,11 +175,11 @@ namespace gbaemu
         }
 
         // PC sanity checks
-        if (state.fetchInfo.memReg == Memory::BIOS && postPc >= state.memory.getBiosSize()) {
+        if (state.fetchInfo.memReg == memory::BIOS && postPc >= state.memory.getBiosSize()) {
             std::cout << "CRITIAL ERROR: PC(0x" << std::hex << postPc << ") points to bios address outside of our code! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
             state.cpuInfo.hasCausedException = true;
             return;
-        } else if (state.fetchInfo.memReg == Memory::OUT_OF_ROM && postPc >= Memory::EXT_ROM_OFFSET + state.memory.getRomSize()) {
+        } else if (state.fetchInfo.memReg >= memory::EXT_ROM1 && postPc >= memory::EXT_ROM_OFFSET + state.memory.getRomSize()) {
             std::cout << "CRITIAL ERROR: PC(0x" << std::hex << postPc << ") points out to address out of its ROM bounds! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
             state.cpuInfo.hasCausedException = true;
             return;

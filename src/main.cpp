@@ -20,7 +20,7 @@
 #endif
 
 #define PRINT_FPS true
-#define LIMIT_FPS true
+#define LIMIT_FPS false
 
 static volatile bool doRun = true;
 
@@ -58,6 +58,7 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 
         lcdController.drawScanline();
         lcdController.onHBlank();
+        cpu.dmaGroup.triggerCondition(gbaemu::DMAGroup::StartCondition::WAIT_HBLANK);
 
 #ifndef DEBUG_CLI
         executionInfo = cpu.step(272);
@@ -77,6 +78,7 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
     }
 
     lcdController.onVBlank();
+    cpu.dmaGroup.triggerCondition(gbaemu::DMAGroup::StartCondition::WAIT_VBLANK);
 
     for (int i = 0; i < 68; ++i) {
 #ifndef DEBUG_CLI
@@ -224,23 +226,23 @@ int main(int argc, char **argv)
     gbaemu::InstructionExecutionInfo _info;
     std::cout << "Game Title: ";
     for (uint32_t i = 0; i < 12; ++i) {
-        std::cout << static_cast<char>(cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0A0 + i, _info));
+        std::cout << static_cast<char>(cpu.state.memory.read8(gbaemu::memory::EXT_ROM_OFFSET + 0x0A0 + i, _info));
     }
     std::cout << std::endl;
     std::cout << "Game Code: ";
     for (uint32_t i = 0; i < 4; ++i) {
-        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0AC + i, _info) << " ";
+        std::cout << std::hex << cpu.state.memory.read8(gbaemu::memory::EXT_ROM_OFFSET + 0x0AC + i, _info) << " ";
     }
     std::cout << std::endl;
     std::cout << "Maker Code: ";
     for (uint32_t i = 0; i < 2; ++i) {
-        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0B0 + i, _info) << " ";
+        std::cout << std::hex << cpu.state.memory.read8(gbaemu::memory::EXT_ROM_OFFSET + 0x0B0 + i, _info) << " ";
     }
     std::cout << std::endl;
 
     cpu.initPipeline();
 
-    std::cout << "Max legit ROM address: 0x" << std::hex << (gbaemu::Memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize() - 1) << std::endl;
+    std::cout << "Max legit ROM address: 0x" << std::hex << (gbaemu::memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize() - 1) << std::endl;
 
     gbaemu::keyboard::KeyboardController gameController(cpu.keypad);
 

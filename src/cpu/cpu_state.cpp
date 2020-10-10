@@ -57,8 +57,8 @@ namespace gbaemu
         std::fill_n(reinterpret_cast<char *>(&dmaInfo), sizeof(dmaInfo), 0);
         std::fill_n(reinterpret_cast<char *>(&fetchInfo), sizeof(fetchInfo), 0);
 
-        accessReg(gbaemu::regs::PC_OFFSET) = gbaemu::Memory::EXT_ROM_OFFSET;
-        fetchInfo.memReg = Memory::MemoryRegion::EXT_ROM1;
+        accessReg(gbaemu::regs::PC_OFFSET) = memory::EXT_ROM_OFFSET;
+        fetchInfo.memReg = memory::EXT_ROM1;
     }
 
     uint32_t CPUState::handleReadUnused() const
@@ -70,8 +70,8 @@ namespace gbaemu
             // Ugly case for THUMB: depends on alignment of PC & its memory region
             uint32_t currentPC = getCurrentPC();
             switch (Memory::extractMemoryRegion(currentPC)) {
-                case Memory::BIOS:
-                case Memory::OAM:
+                case memory::BIOS:
+                case memory::OAM:
                     if (currentPC & 3) {
                         // Not word aligned pc
                         value = (value << 16) | pipeline[1];
@@ -81,7 +81,7 @@ namespace gbaemu
                         value |= memory.read16(currentPC + 6, _waste, true, true) << 16;
                     }
                     break;
-                case Memory::IWRAM:
+                case memory::IWRAM:
                     if (currentPC & 3) {
                         // Not word aligned pc
                         value = (value << 16) | pipeline[1];
@@ -125,7 +125,7 @@ namespace gbaemu
 
     uint32_t CPUState::normalizePC()
     {
-        return accessReg(regs::PC_OFFSET) = memory.normalizeAddress(accessReg(regs::PC_OFFSET) & (thumbMode ? 0xFFFFFFFE : 0xFFFFFFFC), fetchInfo);
+        return regs.rx[regs::PC_OFFSET] &= (thumbMode ? 0xFFFFFFFE : 0xFFFFFFFC);
     }
 
     const char *CPUState::cpuModeToString() const
@@ -257,10 +257,10 @@ namespace gbaemu
         ss << "N=" << getFlag<cpsr_flags::N_FLAG>() << ' ' << "Z=" << getFlag<cpsr_flags::Z_FLAG>() << ' ' << "C=" << getFlag<cpsr_flags::C_FLAG>() << ' ' << "V=" << getFlag<cpsr_flags::V_FLAG>() << '\n';
         // Cpu Mode
         ss << "CPU Mode: " << cpuModeToString() << '\n';
-        ss << "IRQ Req Reg: 0x" << std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x202) << '\n';
-        ss << "IRQ IE Reg: 0x" << std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x200) << '\n';
+        ss << "IRQ Req Reg: 0x" << std::hex << memory.ioHandler.internalRead16(memory::IO_REGS_OFFSET + 0x202) << '\n';
+        ss << "IRQ IE Reg: 0x" << std::hex << memory.ioHandler.internalRead16(memory::IO_REGS_OFFSET + 0x200) << '\n';
         ss << "IRQ EN CPSR: " << ((accessReg(regs::CPSR_OFFSET) & (1 << 7)) == 0) << std::endl;
-        ss << "IRQ EN MASTER: 0x" << std::hex << memory.ioHandler.internalRead16(Memory::IO_REGS_OFFSET + 0x208) << std::endl;
+        ss << "IRQ EN MASTER: 0x" << std::hex << memory.ioHandler.internalRead16(memory::IO_REGS_OFFSET + 0x208) << std::endl;
 
         return ss.str();
     }
@@ -272,8 +272,7 @@ namespace gbaemu
 
         ss << "Stack:\n";
 
-        InstructionExecutionInfo info;
-        info.resolvedAddr = false;
+        InstructionExecutionInfo info{0};
         for (uint32_t stackAddr = accessReg(regs::SP_OFFSET); words > 0; --words) {
             /* address, pad hex numbers with 0 */
             ss << "0x" << std::setw(8) << stackAddr << ":    "
@@ -293,8 +292,7 @@ namespace gbaemu
 
         uint32_t startAddr = addr - (cmds / 2) * (getFlag<cpsr_flags::THUMB_STATE>() ? 2 : 4);
 
-        InstructionExecutionInfo info;
-        info.resolvedAddr = false;
+        InstructionExecutionInfo info{0};
         for (uint32_t i = startAddr; cmds > 0; --cmds) {
 
             // indicate executed instruction

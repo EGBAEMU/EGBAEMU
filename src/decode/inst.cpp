@@ -224,6 +224,7 @@ namespace gbaemu
 
         return result;
     }
+
     bool conditionSatisfied(ConditionOPCode condition, const CPUState &state)
     {
         switch (condition) {
