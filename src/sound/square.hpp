@@ -49,7 +49,7 @@ namespace gbaemu::sound
         static const constexpr uint16_t SOUND_SQUARE_CHANNEL_X_TIME_MODE_MASK = static_cast<uint16_t>(0b1);
         static const constexpr uint16_t SOUND_SQUARE_CHANNEL_X_RESET_MASK = static_cast<uint16_t>(0b1);
 
-        static const constexpr uint32_t SOUND_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x60;
+        static const constexpr uint32_t SOUND_CONTROL_REG_ADDR = memory::IO_REGS_OFFSET + 0x60;
 
         PACK_STRUCT(SquareWaveRegs, regs,
                     uint16_t soundCntL;

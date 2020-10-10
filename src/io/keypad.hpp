@@ -2,7 +2,7 @@
 #define KEYPAD_HPP
 
 #include "io_regs.hpp"
-#include "memory.hpp"
+#include "memory_defs.hpp"
 #include "packed.h"
 #include "util.hpp"
 #include <cstdint>
@@ -15,7 +15,7 @@ namespace gbaemu
     class Keypad
     {
       private:
-        static const constexpr uint32_t KEYPAD_REG_BASE_ADDR = Memory::IO_REGS_OFFSET + 0x130;
+        static const constexpr uint32_t KEYPAD_REG_BASE_ADDR = memory::IO_REGS_OFFSET + 0x130;
 
         InterruptHandler &irqHandler;
 

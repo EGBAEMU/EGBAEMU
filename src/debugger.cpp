@@ -123,9 +123,7 @@ namespace gbaemu::debugger
     void ExecutionRegionTrap::trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state)
     {
         if (!*setStepMode) {
-            InstructionExecutionInfo execInfo{0};
-            state.memory.normalizeAddressRef(postPC, execInfo);
-            *setStepMode = execInfo.memReg == trapRegion;
+            *setStepMode = Memory::extractMemoryRegion(postPC) == trapRegion;
         }
     }
 

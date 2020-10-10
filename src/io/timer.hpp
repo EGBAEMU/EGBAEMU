@@ -2,7 +2,7 @@
 #define TIMER_HPP
 
 #include "io_regs.hpp"
-#include "memory.hpp"
+#include "memory_defs.hpp"
 #include "packed.h"
 #include "util.hpp"
 
@@ -11,6 +11,7 @@ namespace gbaemu
 
     class CPU;
     class InterruptHandler;
+    struct InstructionExecutionInfo;
 
     class TimerGroup
     {
@@ -32,7 +33,7 @@ namespace gbaemu
         class Timer
         {
           private:
-            static const constexpr uint32_t TIMER_REGS_BASE_OFFSET = Memory::IO_REGS_OFFSET + 0x100;
+            static const constexpr uint32_t TIMER_REGS_BASE_OFFSET = memory::IO_REGS_OFFSET + 0x100;
             static const constexpr uint8_t TIMER_START_OFFSET = 7;
 
             static const constexpr uint16_t TIMER_PRESCALE_MASK = 0x3;
@@ -85,108 +86,22 @@ namespace gbaemu
 
         uint8_t timEnableBitset;
 
-        const std::function<void(uint32_t)> stepLUT[16] = {
-            // TIM3 TIM2 TIM1 TIM0
-            // 0    0    0    0
-            [](uint32_t) {},
-            // TIM3 TIM2 TIM1 TIM0
-            // 0    0    0    1
-            [this](uint32_t cycles) {
-                this->tim0.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 0    0    1    0
-            [this](uint32_t cycles) {
-                this->tim1.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 0    0    1    1
-            [this](uint32_t cycles) {
-                this->tim1.step(cycles);
-                this->tim0.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 0    1    0    0
-            [this](uint32_t cycles) {
-                this->tim2.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 0    1    0    1
-            [this](uint32_t cycles) {
-                this->tim2.step(cycles);
-                this->tim0.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 0    1    1    0
-            [this](uint32_t cycles) {
-                this->tim2.step(cycles);
-                this->tim1.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 0    1    1    1
-            [this](uint32_t cycles) {
-                this->tim2.step(cycles);
-                this->tim1.step(cycles);
-                this->tim0.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 1    0    0    0
-            [this](uint32_t cycles) {
-                this->tim3.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 1    0    0    1
-            [this](uint32_t cycles) {
-                this->tim3.step(cycles);
-                this->tim0.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 1    0    1    0
-            [this](uint32_t cycles) {
-                this->tim3.step(cycles);
-                this->tim1.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 1    0    1    1
-            [this](uint32_t cycles) {
-                this->tim3.step(cycles);
-                this->tim1.step(cycles);
-                this->tim0.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 1    1    0    0
-            [this](uint32_t cycles) {
-                this->tim3.step(cycles);
-                this->tim2.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 1    1    0    1
-            [this](uint32_t cycles) {
-                this->tim3.step(cycles);
-                this->tim2.step(cycles);
-                this->tim0.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 1    1    1    0
-            [this](uint32_t cycles) {
-                this->tim3.step(cycles);
-                this->tim2.step(cycles);
-                this->tim1.step(cycles);
-            },
-            // TIM3 TIM2 TIM1 TIM0
-            // 1    1    1    1
-            [this](uint32_t cycles) {
-                this->tim3.step(cycles);
-                this->tim2.step(cycles);
-                this->tim1.step(cycles);
-                this->tim0.step(cycles);
-            }};
-
       public:
         void step(uint32_t cycles)
         {
             if (cycles) {
-                stepLUT[timEnableBitset](cycles);
+                /* Same optimization as in DMAGroup::step() */
+                if (timEnableBitset & 1)
+                    tim0.step(cycles);
+
+                if (timEnableBitset & 2)
+                    tim1.step(cycles);
+
+                if (timEnableBitset & 4)
+                    tim2.step(cycles);
+
+                if (timEnableBitset & 8)
+                    tim3.step(cycles);
             }
         }
 

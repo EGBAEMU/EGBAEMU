@@ -166,12 +166,12 @@ namespace gbaemu
         state.cpuInfo.cycleCount = 1;
 
         if (b) {
-            uint8_t memVal = state.memory.read8(memAddr, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS);
+            uint8_t memVal = state.memory.read8(memAddr, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS);
             state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF), state.cpuInfo);
             *currentRegs[rd] = static_cast<uint32_t>(memVal);
         } else {
             // LDR part
-            uint32_t alignedWord = state.memory.read32(memAddr, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS);
+            uint32_t alignedWord = state.memory.read32(memAddr, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS);
             alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memAddr & 0x03) * 8, false, false) & 0xFFFFFFFF;
             *currentRegs[rd] = alignedWord;
 
@@ -546,7 +546,7 @@ namespace gbaemu
 
                 if (load) {
                     if (currentIdx == regs::PC_OFFSET) {
-                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS);
+                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone, this->state.fetchInfo.memReg == memory::BIOS);
                         // Special case for pipeline refill
                         state.cpuInfo.forceBranch = true;
 
@@ -560,7 +560,7 @@ namespace gbaemu
                             *currentRegs[regs::CPSR_OFFSET] = *state.getCurrentRegs()[regs::SPSR_OFFSET];
                         }
                     } else {
-                        *currentRegs[currentIdx] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS);
+                        *currentRegs[currentIdx] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone, this->state.fetchInfo.memReg == memory::BIOS);
                     }
                 } else {
                     // Shady hack to make edge case treatment easier
@@ -712,7 +712,7 @@ namespace gbaemu
         /* transfer */
         if (load) {
             if (byte) {
-                *currentRegs[rd] = state.memory.read8(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS);
+                *currentRegs[rd] = state.memory.read8(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS);
             } else {
                 // More edge case:
                 /*
@@ -722,7 +722,7 @@ namespace gbaemu
                 However, by isolating lower bits this may be used to read a halfword from memory. 
                 (Above applies to little endian mode, as used in GBA.)
                 */
-                uint32_t alignedWord = state.memory.read32(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS);
+                uint32_t alignedWord = state.memory.read32(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS);
                 alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
                 *currentRegs[rd] = alignedWord;
             }
@@ -828,11 +828,11 @@ namespace gbaemu
                 // Handle misaligned address
                 if (sign && memoryAddress & 1) {
                     // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]         ;sign-expand BYTE value
-                    readData = signExt<int32_t, uint32_t, 8>(state.memory.read8(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS));
+                    readData = signExt<int32_t, uint32_t, 8>(state.memory.read8(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS));
                 } else {
                     // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
                     // LDRH with ROR (see LDR with non word aligned)
-                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS));
+                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS));
                     readData = shifts::shift(readData, shifts::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
 
                     if (sign) {
@@ -840,7 +840,7 @@ namespace gbaemu
                     }
                 }
             } else {
-                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == Memory::MemoryRegion::BIOS));
+                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS));
 
                 if (sign) {
                     readData = signExt<int32_t, uint32_t, transferSize>(readData);

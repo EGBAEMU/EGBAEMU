@@ -53,6 +53,9 @@ namespace gbaemu::lcd
         Canvas<color_t> &frameBuffer;
         Memory &memory;
         InterruptHandler &irqHandler;
+#ifdef LEGACY_RENDERING
+        DMAGroup &dmaGroup;
+#endif
 
         Renderer renderer;
 
@@ -127,10 +130,12 @@ namespace gbaemu::lcd
         }
 
       public:
-
       public:
         LCDController(Canvas<color_t> &disp, CPU *cpu) : frameBuffer(disp),
                                                          memory(cpu->state.memory), irqHandler(cpu->irqHandler),
+#ifdef LEGACY_RENDERING
+                                                         dmaGroup(cpu->dmaGroup),
+#endif
                                                          renderer(cpu->state.memory, cpu->irqHandler, internalRegs, frameBuffer)
         {
             scanline.buf.resize(SCREEN_WIDTH);

@@ -89,11 +89,11 @@ namespace gbaemu::debugger
     class ExecutionRegionTrap : public Trap
     {
       private:
-        Memory::MemoryRegion trapRegion;
+        memory::MemoryRegion trapRegion;
         bool *setStepMode;
 
       public:
-        ExecutionRegionTrap(Memory::MemoryRegion trapRegion, bool *stepMode) : trapRegion(trapRegion), setStepMode(stepMode) {}
+        ExecutionRegionTrap(memory::MemoryRegion trapRegion, bool *stepMode) : trapRegion(trapRegion), setStepMode(stepMode) {}
 
         void trigger(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;
         bool satisfied(uint32_t prevPC, uint32_t postPC, const Instruction &inst, const CPUState &state) override;

@@ -110,16 +110,16 @@ namespace gbaemu
         {
             constexpr uint32_t mask = static_cast<uint32_t>(1) << flag;
             if (value)
-                accessReg(regs::CPSR_OFFSET) |= mask;
+                regs.CPSR |= mask;
             else
-                accessReg(regs::CPSR_OFFSET) &= ~mask;
+                regs.CPSR &= ~mask;
         }
 
         template <uint32_t flag>
         bool getFlag() const
         {
             constexpr uint32_t mask = static_cast<uint32_t>(1) << flag;
-            return accessReg(regs::CPSR_OFFSET) & mask;
+            return regs.CPSR & mask;
         }
 
         std::string toString() const;

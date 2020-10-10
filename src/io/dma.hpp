@@ -2,7 +2,7 @@
 #define DMA_HPP
 
 #include "io_regs.hpp"
-#include "memory.hpp"
+#include "memory_defs.hpp"
 #include "packed.h"
 
 #include <cstdint>
@@ -18,10 +18,12 @@ namespace gbaemu
     }
     class CPU;
     class InterruptHandler;
+    struct InstructionExecutionInfo;
+    class Memory;
 
     class DMAGroup
     {
-      private:
+      public:
         enum DMAChannel : uint8_t {
             DMA0 = 0,
             DMA1,
@@ -52,6 +54,7 @@ namespace gbaemu
             SPECIAL = 3      // The 'Special' setting (Start Timing=3) depends on the DMA channel: DMA0=Prohibited, DMA1/DMA2=Sound FIFO, DMA3=Video Capture
         };
 
+      private:
         static const char *countTypeToStr(AddrCntType updateKind);
         static const char *startCondToStr(StartCondition condition);
 
@@ -78,10 +81,10 @@ namespace gbaemu
             static const constexpr uint16_t DMA_CNT_REG_DST_ADR_CNT_MASK = static_cast<uint16_t>(3) << DMA_CNT_REG_DST_ADR_CNT_OFF;
 
           public:
-            static const constexpr uint32_t DMA0_BASE_ADDR = Memory::IO_REGS_OFFSET | 0x0B0;
-            static const constexpr uint32_t DMA1_BASE_ADDR = Memory::IO_REGS_OFFSET | 0x0BC;
-            static const constexpr uint32_t DMA2_BASE_ADDR = Memory::IO_REGS_OFFSET | 0x0C8;
-            static const constexpr uint32_t DMA3_BASE_ADDR = Memory::IO_REGS_OFFSET | 0x0D4;
+            static const constexpr uint32_t DMA0_BASE_ADDR = memory::IO_REGS_OFFSET | 0x0B0;
+            static const constexpr uint32_t DMA1_BASE_ADDR = memory::IO_REGS_OFFSET | 0x0BC;
+            static const constexpr uint32_t DMA2_BASE_ADDR = memory::IO_REGS_OFFSET | 0x0C8;
+            static const constexpr uint32_t DMA3_BASE_ADDR = memory::IO_REGS_OFFSET | 0x0D4;
 
             /*
             DMA Transfer Channels
@@ -104,8 +107,11 @@ namespace gbaemu
               40000E0h       -    -         Not used
             */
 
-          private:
+          public:
             DMAState state;
+            StartCondition condition;
+
+          private:
             Memory &memory;
             InterruptHandler &irqHandler;
 
@@ -128,14 +134,9 @@ namespace gbaemu
             bool width32Bit;
             AddrCntType srcCnt;
             AddrCntType dstCnt;
-            StartCondition condition;
 
             uint8_t read8FromReg(uint32_t offset);
             void write8ToReg(uint32_t offset, uint8_t value);
-
-            //TODO refactor
-            // Dirty hack to fix a bug fast!
-            bool repeatTriggered;
 
           public:
             DMA(CPU *cpu, DMAGroup &dmaGroup);
@@ -149,6 +150,8 @@ namespace gbaemu
             void updateAddr(uint32_t &addr, AddrCntType updateKind) const;
             void fetchCount();
 
+            void goToWaitingState();
+
             friend class IO_Handler;
         };
 
@@ -160,103 +163,6 @@ namespace gbaemu
         uint8_t dmaEnableBitset;
 
         const lcd::LCDController *lcdController;
-
-        const std::function<void(InstructionExecutionInfo &, uint32_t)> stepLUT[16] = {
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    0    0    0
-            [](InstructionExecutionInfo &, uint32_t) {},
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    0    0    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    0    1    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma1.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    0    1    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma1.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    1    0    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma2.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    1    0    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma2.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    1    1    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma1.step(info, cycles);
-                this->dma2.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 0    1    1    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma1.step(info, cycles);
-                this->dma2.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    0    0    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    0    0    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    0    1    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma1.step(info, cycles);
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    0    1    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma1.step(info, cycles);
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    1    0    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma2.step(info, cycles);
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    1    0    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma2.step(info, cycles);
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    1    1    0
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma1.step(info, cycles);
-                this->dma2.step(info, cycles);
-                this->dma3.step(info, cycles);
-            },
-            // DMA3 DMA2 DMA1 DMA0
-            // 1    1    1    1
-            [this](InstructionExecutionInfo &info, uint32_t cycles) {
-                this->dma0.step(info, cycles);
-                this->dma1.step(info, cycles);
-                this->dma2.step(info, cycles);
-                this->dma3.step(info, cycles);
-            }};
 
       public:
         DMAGroup(CPU *cpu) : dma0(cpu, *this), dma1(cpu, *this), dma2(cpu, *this), dma3(cpu, *this)
@@ -271,7 +177,21 @@ namespace gbaemu
 
         void step(InstructionExecutionInfo &info, uint32_t cycles)
         {
-            stepLUT[dmaEnableBitset](info, cycles);
+            /*
+                This is actually a little faster than the LUT. It saves us around ~1ms in Sonic.
+                I guess becaus branch prediction plays quite a role?
+             */
+            if (dmaEnableBitset & 1)
+                dma0.step(info, cycles);
+
+            if (dmaEnableBitset & 2)
+                dma1.step(info, cycles);
+
+            if (dmaEnableBitset & 4)
+                dma2.step(info, cycles);
+
+            if (dmaEnableBitset & 8)
+                dma3.step(info, cycles);
         }
 
         void reset()
@@ -283,7 +203,9 @@ namespace gbaemu
             dmaEnableBitset = 0;
         }
 
-        bool conditionSatisfied(StartCondition condition, bool &repeatTriggered, bool repeat) const;
+        bool conditionSatisfied(StartCondition condition) const;
+
+        void triggerCondition(StartCondition condition);
 
         friend class IO_Handler;
     };

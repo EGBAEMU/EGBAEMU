@@ -52,19 +52,19 @@ namespace gbaemu
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: softReset not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void registerRamReset(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: registerRamReset not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void stop(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: stop not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
 
         void halt(CPU *cpu)
@@ -84,7 +84,7 @@ namespace gbaemu
                 (GBA/NDS7/DSi7: all registers unchanged, NDS9/DSi9: R0 destroyed)
             */
 
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
 
             cpu->state.cpuInfo.haltCPU = true;
             // load IE
@@ -92,7 +92,7 @@ namespace gbaemu
         }
         void intrWait(CPU *cpu)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
 
             // The function forcefully sets IME=1
             cpu->state.memory.ioHandler.externalWrite8(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 8, 0x1);
@@ -117,11 +117,6 @@ namespace gbaemu
             cpu->state.accessReg(regs::R0_OFFSET) = 0;
             cpu->state.accessReg(regs::R1_OFFSET) = 1;
             intrWait(cpu);
-        }
-
-        void changeBIOSState(CPU *cpu)
-        {
-            cpu->state.memory.setBiosReadState(static_cast<Memory::BiosReadState>(cpu->state.accessReg(regs::R0_OFFSET)));
         }
 
         /*
@@ -156,7 +151,7 @@ namespace gbaemu
         }
         void div(CPU *cpu)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
             auto currentRegs = cpu->state.getCurrentRegs();
 
             int32_t numerator = static_cast<int32_t>(*currentRegs[regs::R0_OFFSET]);
@@ -166,7 +161,7 @@ namespace gbaemu
 
         void divArm(CPU *cpu)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
             auto currentRegs = cpu->state.getCurrentRegs();
 
             int32_t numerator = static_cast<int32_t>(*currentRegs[regs::R1_OFFSET]);
@@ -176,7 +171,7 @@ namespace gbaemu
 
         void sqrt(CPU *cpu)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
             uint32_t &r0 = cpu->state.accessReg(regs::R0_OFFSET);
             r0 = static_cast<int32_t>(std::sqrt(r0));
 
@@ -202,7 +197,7 @@ namespace gbaemu
         */
         void arcTan(CPU *cpu)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
 
             uint32_t &r0 = cpu->state.accessReg(regs::R0_OFFSET);
             uint32_t &r1 = cpu->state.accessReg(regs::R1_OFFSET);
@@ -241,7 +236,7 @@ namespace gbaemu
         */
         void arcTan2(CPU *cpu)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
             uint32_t &r0 = cpu->state.accessReg(regs::R0_OFFSET);
             double x = convertFromQ1_14ToFP(static_cast<uint16_t>(r0 & 0x0000FFFF));
             double y = convertFromQ1_14ToFP(static_cast<uint16_t>(cpu->state.accessReg(regs::R1_OFFSET) & 0x0000FFFF));
@@ -296,7 +291,7 @@ namespace gbaemu
         */
         void biosChecksum(CPU *cpu)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
             cpu->state.accessReg(regs::R0_OFFSET) = 0x0BAAE18F;
             //TODO proper time calculation
         }
@@ -327,7 +322,7 @@ namespace gbaemu
         */
         void bgAffineSet(CPU *cpu)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
             //TODO do those read & writes count as non sequential?
             //TODO proper time calculation
 
@@ -405,7 +400,7 @@ namespace gbaemu
         */
         void objAffineSet(CPU *cpu)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
@@ -467,7 +462,7 @@ namespace gbaemu
         */
         void bitUnPack(CPU *cpu)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
@@ -558,7 +553,7 @@ namespace gbaemu
         //TODO is the difference between writing in units of 8 bit vs 16 bit relevant?
         static void _LZ77UnComp(CPU *cpu)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
@@ -653,7 +648,7 @@ namespace gbaemu
         */
         void huffUnComp(CPU *cpu)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
@@ -772,7 +767,7 @@ namespace gbaemu
         //TODO is the difference between writing in units of 8 bit vs 16 bit relevant?
         static void _rlUnComp(CPU *cpu)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
             uint32_t sourceAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
@@ -847,7 +842,7 @@ namespace gbaemu
         */
         static void _diffUnFilter(CPU *cpu, bool bits8)
         {
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
             const auto currentRegs = cpu->state.getCurrentRegs();
             uint32_t srcAddr = *currentRegs[regs::R0_OFFSET];
             uint32_t destAddr = *currentRegs[regs::R1_OFFSET];
@@ -894,109 +889,109 @@ namespace gbaemu
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundBiasChange not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void soundDriverInit(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundDriverInit not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void soundDriverMode(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundDriverMode not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void soundDriverMain(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundDirverMain not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void soundDriverVSync(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundDirverVSync not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void soundChannelClear(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundChannelClear not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void MIDIKey2Freq(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: MIDIKey2Freq not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void musicPlayerOpen(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: musicPlayerOpen not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void musicPlayerStart(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: musicPlayerStart not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void musicPlayerStop(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: musicPlayerStop not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void musicPlayerContinue(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: musicPlayerContinue not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void musicPlayerFadeOut(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: musicPlayerFadeOut not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void multiBoot(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: multiBoot not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void hardReset(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: hardReset not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void customHalt(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: customHalt not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void soundDriverVSyncOff(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: sourdDriverVSyncOff not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void soundDriverVSyncOn(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: soundDriverVSyncOn not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
         void getJumpList(CPU *cpu)
         {
             //TODO implement
             LOG_SWI(std::cout << "WARNING: getJumpList not yet implemented!" << std::endl;);
-            cpu->state.memory.setBiosReadState(Memory::BIOS_AFTER_SWI);
+            cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
         }
 
     } // namespace swi

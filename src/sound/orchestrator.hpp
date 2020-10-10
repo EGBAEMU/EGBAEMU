@@ -112,7 +112,7 @@ namespace gbaemu::sound
                     uint16_t fifoBH;);
 
         // We start at SOUND3 registers
-        static const constexpr uint32_t SOUND_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x60 + 0x10;
+        static const constexpr uint32_t SOUND_CONTROL_REG_ADDR = memory::IO_REGS_OFFSET + 0x60 + 0x10;
 
         uint8_t read8FromReg(uint32_t offset) const;
 

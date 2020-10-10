@@ -50,10 +50,12 @@ namespace gbaemu::lcd
         if (displayCycle == 197120) {
             onVBlank();
             present();
+            dmaGroup.triggerCondition(DMAGroup::StartCondition::WAIT_VBLANK);
         }
 
         if (scanlineCycle == 0 && !scanline.vblanking) {
             drawScanline();
+            dmaGroup.triggerCondition(gbaemu::DMAGroup::StartCondition::WAIT_HBLANK);
         }
 
         if (scanlineCycle == 0) {
