@@ -1,5 +1,6 @@
 #include "timer.hpp"
 #include "cpu/cpu.hpp"
+#include "decode/inst.hpp"
 #include "interrupts.hpp"
 #include "logging.hpp"
 #include "util.hpp"
@@ -11,7 +12,7 @@
 namespace gbaemu
 {
 
-    template<uint8_t id>
+    template <uint8_t id>
     void TimerGroup::Timer<id>::reset()
     {
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
