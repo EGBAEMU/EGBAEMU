@@ -1,6 +1,7 @@
 #ifndef BIOS_HPP
 #define BIOS_HPP
 
+#include <cstddef>
 #include <cstdint>
 namespace gbaemu
 {
