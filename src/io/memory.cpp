@@ -167,14 +167,8 @@ namespace gbaemu
                 break;
             }
             case BIOS: {
-                if (readInstruction && addr < getBiosSize()) {
-                    // For instructions we are allowed to read from bios
-                    src = bios + addr;
-                } else {
-                    // We need to apply the offset!
-                    src += addr & 3;
-                }
-                // Fall through to read the data
+                currValue = bios.read8(addr, readInstruction);
+                break;
             }
             default: {
                 currValue = src[0];
@@ -249,14 +243,8 @@ namespace gbaemu
                 break;
             }
             case BIOS: {
-                if (readInstruction && addr < getBiosSize()) {
-                    // For instructions we are allowed to read from bios
-                    src = bios + addr;
-                } else {
-                    // We need to apply the offset!
-                    src += addr & 2;
-                }
-                // Fall through to read the data
+                currValue = bios.read16(addr, readInstruction);
+                break;
             }
             default: {
                 currValue = (static_cast<uint16_t>(src[0]) << 0) |
@@ -279,11 +267,6 @@ namespace gbaemu
         execInfo.cycleCount += memCycles32(extractMemoryRegion(addr), seq);
 
         const uint8_t *src = resolveAddrRef<true, sizeof(uint32_t)>(alignedAddr, execInfo);
-
-        if (readInstruction && execInfo.memReg == BIOS && alignedAddr < getBiosSize()) {
-            // For instructions we are allowed to read from bios
-            src = bios + alignedAddr;
-        }
 
         uint32_t currValue;
 
@@ -317,6 +300,10 @@ namespace gbaemu
                 uint8_t data;
                 ext_sram->read(addr & 0x00007FFF, reinterpret_cast<char *>(&data), 1);
                 currValue = data | (data << 8) | (data << 16) | (data << 24);
+                break;
+            }
+            case BIOS: {
+                currValue = bios.read32(addr, readInstruction);
                 break;
             }
             default: {
@@ -662,8 +649,6 @@ namespace gbaemu
             case BIOS:
                 // Bios is not mirrored but limited!
                 if (addr < BIOS_LIMIT) {
-                    execInfo.readBaseAddr = biosState;
-                    execInfo.writeBaseAddr = wasteMem;
                     execInfo.lowerBound = BIOS_OFFSET;
                     execInfo.upperBound = BIOS_LIMIT + 1;
                     execInfo.noOffset = true;
