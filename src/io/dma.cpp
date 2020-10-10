@@ -18,7 +18,6 @@ namespace gbaemu
     {
         state = IDLE;
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
-        repeatTriggered = false;
     }
 
     const char *DMAGroup::countTypeToStr(AddrCntType updateKind)
@@ -52,26 +51,24 @@ namespace gbaemu
     template <DMAGroup::DMAChannel channel>
     void DMAGroup::DMA<channel>::write8ToReg(uint32_t offset, uint8_t value)
     {
-        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
-
         if (offset == offsetof(DMARegs, cntReg) + sizeof(regs.cntReg) - 1) {
             // Update the enable bitset to signal if dma is enabled or not!
             dmaGroup.dmaEnableBitset = bitSet<uint8_t, 1, channel>(dmaGroup.dmaEnableBitset, bmap<uint8_t>(isBitSet<uint8_t, DMA_CNT_REG_EN_OFF - (sizeof(regs.cntReg) - 1) * 8>(value)));
             state = IDLE;
+
+            // game pak is only for DMA3
+            value &= (channel == DMA3 ? 0xFF : 0xF7);
+        } else if (offset == offsetof(DMARegs, cntReg)) {
+            // Mask out unused bits
+            value &= 0xE0;
         }
+
+        *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
     }
 
     template <DMAGroup::DMAChannel channel>
     DMAGroup::DMA<channel>::DMA(CPU *cpu, DMAGroup &dmaGroup) : memory(cpu->state.memory), irqHandler(cpu->irqHandler), dmaGroup(dmaGroup)
     {
-        memory.ioHandler.registerIOMappedDevice(
-            IO_Mapped(
-                DMA_BASE_ADDRESSES[channel],
-                DMA_BASE_ADDRESSES[channel] + sizeof(regs) - 1,
-                std::bind(&DMAGroup::DMA<channel>::read8FromReg, this, std::placeholders::_1),
-                std::bind(&DMAGroup::DMA<channel>::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
-                std::bind(&DMAGroup::DMA<channel>::read8FromReg, this, std::placeholders::_1),
-                std::bind(&DMAGroup::DMA<channel>::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
     }
 
     template <DMAGroup::DMAChannel channel>
@@ -86,10 +83,13 @@ namespace gbaemu
                 // FSM actions
                 switch (state) {
                     case IDLE:
-                        repeatTriggered = false;
                         extractConfig();
                         // If the DMA was enabled we need to reload the values in ANY case even if repeat is set
-                        state = dmaGroup.conditionSatisfied(condition, repeatTriggered, repeat) ? LOAD_VALUES : WAITING_PAUSED;
+                        if (dmaGroup.conditionSatisfied(condition)) {
+                            state = LOAD_VALUES;
+                        } else {
+                            goToWaitingState();
+                        }
                         break;
 
                     case REPEAT: {
@@ -106,26 +106,22 @@ namespace gbaemu
                         break;
                     }
 
-                    case REPEAT_WAIT:
-                    case WAITING_PAUSED: {
-                        state = dmaGroup.conditionSatisfied(condition, repeatTriggered, repeat) ? static_cast<DMAState>(state + 1) : state;
-                        break;
-                    }
-
                     case LOAD_VALUES: {
                         // Load all runtime values: destAddr, srcAddr, count
                         reloadValues();
 
                         LOG_DMA(
-                        std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
-                        std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << DMAGroup::countTypeToStr(srcCnt) << std::endl;
-                        std::cout << "      Dest Addr:   0x" << std::hex << destAddr << " Type: " << DMAGroup::countTypeToStr(dstCnt) << std::endl;
-                        std::cout << "      Timing: " << DMAGroup::startCondToStr(condition) << std::endl;
-                        std::cout << "      Words: 0x" << std::hex << count << std::endl;
-                        std::cout << "      Repeat: " << repeat << std::endl;
-                        std::cout << "      GamePak DRQ: " << gamePakDRQ << std::endl;
-                        std::cout << "      32 bit mode: " << width32Bit << std::endl;
-                        std::cout << "      IRQ on end: " << irqOnEnd << std::endl;);
+                            std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
+                            std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << DMAGroup::countTypeToStr(srcCnt) << std::endl;
+                            std::cout << "      Dest Addr:   0x" << std::hex << destAddr << " Type: " << DMAGroup::countTypeToStr(dstCnt) << std::endl;
+                            std::cout << "      Timing: " << DMAGroup::startCondToStr(condition) << std::endl;
+                            std::cout << "      Words: 0x" << std::hex << count << std::endl;
+                            std::cout << "      Repeat: " << repeat << std::endl;
+                            if (channel == DMA3) {
+                                std::cout << "      GamePak DRQ: " << gamePakDRQ << std::endl;
+                            } std::cout
+                            << "      32 bit mode: " << width32Bit << std::endl;
+                            std::cout << "      IRQ on end: " << irqOnEnd << std::endl;);
 
                         // Initialization takes at least 2 cycles
                         info.cycleCount += 2;
@@ -215,14 +211,28 @@ namespace gbaemu
                             dmaGroup.dmaEnableBitset &= ~(1 << channel);
 
                             if (irqOnEnd) {
-                                irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::DMA_0 + channel));
+                                irqHandler.setInterrupt<static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::DMA_0 + channel)>();
                             }
                         }
 
                         break;
                     }
+
+                    case REPEAT_WAIT:
+                    case WAITING_PAUSED: {
+                        // Should not occur!
+                        break;
+                    }
                 }
             } while (state != IDLE && state != WAITING_PAUSED && state != REPEAT_WAIT && info.cycleCount < cycles);
+    }
+
+    template <DMAGroup::DMAChannel channel>
+    void DMAGroup::DMA<channel>::goToWaitingState()
+    {
+        // indicate waiting, clear enable bit
+        dmaGroup.dmaEnableBitset &= ~(1 << channel);
+        state = WAITING_PAUSED;
     }
 
     template <DMAGroup::DMAChannel channel>
@@ -249,7 +259,9 @@ namespace gbaemu
 
         // Extract remaining values
         repeat = controlReg & DMA_CNT_REG_REPEAT_MASK;
-        gamePakDRQ = controlReg & DMA_CNT_REG_DRQ_MASK;
+        if (channel == DMA3) {
+            gamePakDRQ = controlReg & DMA_CNT_REG_DRQ_MASK;
+        }
         irqOnEnd = controlReg & DMA_CNT_REG_IRQ_MASK;
         width32Bit = controlReg & DMA_CNT_REG_TYPE_MASK;
         srcCnt = static_cast<AddrCntType>((controlReg & DMA_CNT_REG_SRC_ADR_CNT_MASK) >> DMA_CNT_REG_SRC_ADR_CNT_OFF);
@@ -300,7 +312,7 @@ namespace gbaemu
         count = count == 0 ? (channel == DMA3 ? 0x10000 : 0x4000) : count;
     }
 
-    bool DMAGroup::conditionSatisfied(StartCondition condition, bool &repeatTriggered, bool repeat) const
+    bool DMAGroup::conditionSatisfied(StartCondition condition) const
     {
         bool conditionSatisfied = true;
         switch (condition) {
@@ -321,9 +333,27 @@ namespace gbaemu
                 break;
         }
 
-        // Ensure that the condition was once false before we execute repeat again!
-        repeatTriggered = repeatTriggered && conditionSatisfied;
-        return conditionSatisfied && (!repeat || (repeat && !repeatTriggered));
+        return conditionSatisfied;
+    }
+
+    void DMAGroup::triggerCondition(StartCondition condition)
+    {
+        if ((dma0.state == WAITING_PAUSED || dma0.state == REPEAT_WAIT) && condition == dma0.condition) {
+            dma0.state = static_cast<DMAState>(dma0.state + 1);
+            dmaEnableBitset |= 1 << DMA0;
+        }
+        if ((dma1.state == WAITING_PAUSED || dma1.state == REPEAT_WAIT) && condition == dma1.condition) {
+            dma1.state = static_cast<DMAState>(dma1.state + 1);
+            dmaEnableBitset |= 1 << DMA1;
+        }
+        if ((dma2.state == WAITING_PAUSED || dma2.state == REPEAT_WAIT) && condition == dma2.condition) {
+            dma2.state = static_cast<DMAState>(dma2.state + 1);
+            dmaEnableBitset |= 1 << DMA2;
+        }
+        if ((dma3.state == WAITING_PAUSED || dma3.state == REPEAT_WAIT) && condition == dma3.condition) {
+            dma3.state = static_cast<DMAState>(dma3.state + 1);
+            dmaEnableBitset |= 1 << DMA3;
+        }
     }
 
     template class DMAGroup::DMA<DMAGroup::DMA0>;

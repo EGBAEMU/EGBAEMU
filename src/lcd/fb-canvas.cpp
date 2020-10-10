@@ -10,17 +10,16 @@
 
 namespace gbaemu::lcd
 {
-    FBCanvas::FBCanvas(const char *deviceString, size_t w, size_t h) : size(w * h * sizeof(fbcolor_t))
+    FBCanvas::FBCanvas(const char *deviceString) : Canvas(SCREEN_WIDTH, SCREEN_HEIGHT),
+                                                   buffer(SCREEN_WIDTH, SCREEN_HEIGHT)
     {
-        width = w;
-        height = h;
-
+        size = fbWidth * fbHeight * sizeof(color16_t);
         device = open(deviceString, O_RDWR);
 
         if (device < 0)
             throw std::runtime_error("Could not open device!");
 
-        frameBuffer = reinterpret_cast<fbcolor_t *>(mmap(NULL, size,
+        frameBuffer = reinterpret_cast<color16_t *>(mmap(NULL, size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED,
             device, 0));
@@ -45,14 +44,30 @@ namespace gbaemu::lcd
 
     }
 
-    fbcolor_t *FBCanvas::pixels()
+    color_t *FBCanvas::pixels()
     {
-        return frameBuffer;
+        return buffer.pixels();
     }
 
-    const fbcolor_t *FBCanvas::pixels() const
+    const color_t *FBCanvas::pixels() const
     {
-        return frameBuffer;
+        return buffer.pixels();
+    }
+
+    void FBCanvas::present()
+    {
+        const color_t *srcPixels = buffer.pixels();
+        color16_t *dstPixels = frameBuffer;
+
+        for (int32_t i = 0; i < width * height; ++i) {
+            color_t srcColor = srcPixels[i];
+
+            color_t r = (srcColor >> 16) & 0xFF;
+            color_t g = (srcColor >> 8) & 0xFF;
+            color_t b = srcColor & 0xFF;
+
+            dstPixels[i] = (r >> 3) | ((g >> 2) << 5) | ((b >> 3) << 11);
+        }
     }
 }
 #endif

@@ -329,7 +329,7 @@ namespace gbaemu::lcd
         bool asFirstColor() const { return props & 1; }
         bool asSecondColor() const { return (props >> 1) & 1; }
         bool asFirstAlpha() const { return (props >> 2) & 1; }
-        bool colorEffectEnabled() const { return asFirstColor() || asSecondColor() || asFirstAlpha(); }
+        bool colorEffectEnabled() const { return props != 0; }
     };
 
     enum LayerID {
@@ -359,11 +359,11 @@ namespace gbaemu::lcd
         bool asFirstTarget;
         bool asSecondTarget;
 
-        LayerID layerID;
+        const LayerID layerID;
 
-        bool isBGLayer;
+        const bool isBGLayer;
 
-        Layer() : enabled(false), scanline(SCREEN_WIDTH)
+        Layer(LayerID layerID, bool isBGLayer) : enabled(false), scanline(SCREEN_WIDTH), layerID(layerID), isBGLayer(isBGLayer)
         {
         }
 
@@ -468,7 +468,6 @@ namespace gbaemu::lcd
 #endif
 #endif
 
-#define RENDERER_ENABLE_COLOR_EFFECTS 0
 #define RENDERER_DECOMPOSE_LAYERS 0
 
 #define RENDERER_DECOMPOSE_BG_COLOR 0xFFFF00FF

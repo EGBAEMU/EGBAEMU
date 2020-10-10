@@ -2,38 +2,24 @@
 #define IO_REGS_HPP
 
 #include <cstdint>
-#include <set>
 #include <functional>
+#include <set>
 
 namespace gbaemu
 {
-    class IO_Mapped
+    class CPU;
+
+    // Forward declarations
+    namespace lcd
     {
-      public:
-        const uint32_t lowerBound;
-        const uint32_t upperBound;
-        const std::function<uint8_t(uint32_t)> externalRead8;
-        const std::function<void(uint32_t, uint8_t)> externalWrite8;
-
-        const std::function<uint8_t(uint32_t)> internalRead8;
-        const std::function<void(uint32_t, uint8_t)> internalWrite8;
-
-        IO_Mapped(uint32_t lowerBound, uint32_t upperBound, std::function<uint8_t(uint32_t)> externalRead8,
-                  std::function<void(uint32_t, uint8_t)> externalWrite8, std::function<uint8_t(uint32_t)> internalRead8,
-                  std::function<void(uint32_t, uint8_t)> internalWrite8) : lowerBound(lowerBound), upperBound(upperBound), externalRead8(externalRead8), externalWrite8(externalWrite8), internalRead8(internalRead8), internalWrite8(internalWrite8) {}
+        class LCDController;
     };
-
-    bool operator<(const IO_Mapped &a, const IO_Mapped &b);
-    bool operator<(const IO_Mapped &a, const uint32_t b);
-    bool operator<(const uint32_t a, const IO_Mapped &b);
 
     class IO_Handler
     {
-      private:
-        std::set<IO_Mapped, std::less<>> mappedDevices;
-
       public:
-        void registerIOMappedDevice(IO_Mapped &&device);
+        lcd::LCDController *lcdController;
+        CPU *cpu;
 
         uint8_t externalRead8(uint32_t addr) const;
         uint16_t externalRead16(uint32_t addr) const;
@@ -50,8 +36,6 @@ namespace gbaemu
         void internalWrite8(uint32_t addr, uint8_t value);
         void internalWrite16(uint32_t addr, uint16_t value);
         void internalWrite32(uint32_t addr, uint32_t value);
-
-      private:
     };
 } // namespace gbaemu
 

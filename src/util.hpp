@@ -79,7 +79,7 @@ namespace gbaemu
     {
         static_assert(std::is_signed<SignT>::value);
 
-        // Let the compiler handle the sign extension as it should now whats best for doing so!
+        // Let the compiler handle the sign extension as it should know whats best for doing so!
         struct {
             SignT x : usedBits;
         } s;

@@ -7,21 +7,24 @@
 #if RENDERER_USE_FB_CANVAS
 namespace gbaemu::lcd
 {
-    typedef uint32_t fbcolor_t;
-
-    class FBCanvas : public Canvas<fbcolor_t>
+    class FBCanvas : public Canvas<color_t>
     {
       private:
+        MemoryCanvas<color_t> buffer;
+        /* 5 blue, 6 green, 5 reg MSB */
         int device;
+        int32_t fbWidth = 240;
+        int32_t fbHeight = 320;
         size_t size;
-        fbcolor_t *frameBuffer;
+        color16_t *frameBuffer;
       public:
-        FBCanvas(const char *deviceString, size_t w, size_t h);
+        FBCanvas(const char *deviceString);
         ~FBCanvas();
         virtual void beginDraw() override;
         virtual void endDraw() override;
-        fbcolor_t *pixels() override;
-        const fbcolor_t *pixels() const override;
+        color_t *pixels() override;
+        const color_t *pixels() const override;
+        void present();
     };
 }
 #endif

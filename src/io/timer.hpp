@@ -47,7 +47,6 @@ namespace gbaemu
                         uint16_t reload;
                         uint16_t control;);
 
-            Memory &memory;
             InterruptHandler &irqHandler;
             Timer<(id < 3) ? id + 1 : id> *const nextTimer;
 
@@ -63,7 +62,7 @@ namespace gbaemu
           public:
             void step(uint32_t cycles);
 
-            Timer(Memory &memory, InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, uint8_t &timEnableBitset);
+            Timer(InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, uint8_t &timEnableBitset);
 
             void reset();
 
@@ -76,6 +75,7 @@ namespace gbaemu
             void checkForOverflow();
 
             friend class Timer<(id > 0) ? id - 1 : id>;
+            friend class IO_Handler;
         };
 
         Timer<0> tim0;
@@ -200,6 +200,8 @@ namespace gbaemu
         }
 
         TimerGroup(CPU *cpu);
+
+        friend class IO_Handler;
     };
 
 } // namespace gbaemu

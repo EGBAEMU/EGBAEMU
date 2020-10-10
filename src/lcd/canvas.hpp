@@ -12,10 +12,12 @@ namespace gbaemu::lcd
     class Canvas
     {
       protected:
-        int32_t width;
-        int32_t height;
+        const int32_t width;
+        const int32_t height;
 
       public:
+        Canvas(int32_t width, int32_t height) : width(width), height(height) {}
+
         /* some target devices require locking before pixel access */
         virtual void beginDraw() = 0;
         virtual void endDraw() = 0;
@@ -59,10 +61,8 @@ namespace gbaemu::lcd
             return pixs.data();
         }
 
-        MemoryCanvas(int32_t w, int32_t h)
+        MemoryCanvas(int32_t w, int32_t h) : Canvas<PixelType>(w, h)
         {
-            Canvas<PixelType>::width = w;
-            Canvas<PixelType>::height = h;
             pixs.resize(w * h);
         }
 

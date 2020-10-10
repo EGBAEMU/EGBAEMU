@@ -69,10 +69,10 @@ namespace gbaemu::lcd
             winv = le(regs.WIN1V);
         }
 
-        rect.right = std::min<uint16_t>(bitGet<uint16_t>(winh, 0xFF, 0), SCREEN_WIDTH);
-        rect.bottom = std::min<uint16_t>(bitGet<uint16_t>(winv, 0xFF, 0), SCREEN_HEIGHT);
-        rect.left = std::min<uint16_t>(bitGet<uint16_t>(winh, 0xFF, 8), rect.right);
-        rect.top = std::min<uint16_t>(bitGet<uint16_t>(winv, 0xFF, 8), rect.bottom);
+        rect.right = std::min<int32_t>(bitGet<uint16_t>(winh, 0xFF, 0), SCREEN_WIDTH);
+        rect.bottom = std::min<int32_t>(bitGet<uint16_t>(winv, 0xFF, 0), SCREEN_HEIGHT);
+        rect.left = std::min<int32_t>(bitGet<uint16_t>(winh, 0xFF, 8), rect.right);
+        rect.top = std::min<int32_t>(bitGet<uint16_t>(winv, 0xFF, 8), rect.bottom);
 
         uint16_t control = le(regs.WININ);
 
@@ -95,7 +95,7 @@ namespace gbaemu::lcd
 
     bool NormalWindow::inside(int32_t x, int32_t y) const noexcept
     {
-        return rect.inside(x, y);
+        return rect.left <= x && x < rect.right && rect.top <= y && y < rect.bottom;
     }
 
     void OBJWindow::load(const LCDIORegs &regs)

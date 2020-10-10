@@ -1,6 +1,7 @@
 #ifndef DMA_HPP
 #define DMA_HPP
 
+#include "io_regs.hpp"
 #include "memory.hpp"
 #include "packed.h"
 
@@ -20,7 +21,7 @@ namespace gbaemu
 
     class DMAGroup
     {
-      private:
+      public:
         enum DMAChannel : uint8_t {
             DMA0 = 0,
             DMA1,
@@ -29,7 +30,7 @@ namespace gbaemu
         };
 
         enum DMAState {
-            IDLE,
+            IDLE = 0,
             // Do not change the order!
             REPEAT_WAIT,
             REPEAT,
@@ -55,6 +56,7 @@ namespace gbaemu
             SPECIAL = 3      // The 'Special' setting (Start Timing=3) depends on the DMA channel: DMA0=Prohibited, DMA1/DMA2=Sound FIFO, DMA3=Video Capture
         };
 
+      private:
         static const char *countTypeToStr(AddrCntType updateKind);
         static const char *startCondToStr(StartCondition condition);
 
@@ -85,36 +87,33 @@ namespace gbaemu
             static const constexpr uint32_t DMA1_BASE_ADDR = Memory::IO_REGS_OFFSET | 0x0BC;
             static const constexpr uint32_t DMA2_BASE_ADDR = Memory::IO_REGS_OFFSET | 0x0C8;
             static const constexpr uint32_t DMA3_BASE_ADDR = Memory::IO_REGS_OFFSET | 0x0D4;
-            static const constexpr uint32_t DMA_BASE_ADDRESSES[] = {
-                DMA0_BASE_ADDR,
-                DMA1_BASE_ADDR,
-                DMA2_BASE_ADDR,
-                DMA3_BASE_ADDR,
-            };
 
             /*
-        DMA Transfer Channels
-          40000B0h  4    W    DMA0SAD   DMA 0 Source Address
-          40000B4h  4    W    DMA0DAD   DMA 0 Destination Address
-          40000B8h  2    W    DMA0CNT_L DMA 0 Word Count
-          40000BAh  2    R/W  DMA0CNT_H DMA 0 Control
-          40000BCh  4    W    DMA1SAD   DMA 1 Source Address
-          40000C0h  4    W    DMA1DAD   DMA 1 Destination Address
-          40000C4h  2    W    DMA1CNT_L DMA 1 Word Count
-          40000C6h  2    R/W  DMA1CNT_H DMA 1 Control
-          40000C8h  4    W    DMA2SAD   DMA 2 Source Address
-          40000CCh  4    W    DMA2DAD   DMA 2 Destination Address
-          40000D0h  2    W    DMA2CNT_L DMA 2 Word Count
-          40000D2h  2    R/W  DMA2CNT_H DMA 2 Control
-          40000D4h  4    W    DMA3SAD   DMA 3 Source Address
-          40000D8h  4    W    DMA3DAD   DMA 3 Destination Address
-          40000DCh  2    W    DMA3CNT_L DMA 3 Word Count
-          40000DEh  2    R/W  DMA3CNT_H DMA 3 Control
-          40000E0h       -    -         Not used
-        */
+            DMA Transfer Channels
+              40000B0h  4    W    DMA0SAD   DMA 0 Source Address
+              40000B4h  4    W    DMA0DAD   DMA 0 Destination Address
+              40000B8h  2    W    DMA0CNT_L DMA 0 Word Count
+              40000BAh  2    R/W  DMA0CNT_H DMA 0 Control
+              40000BCh  4    W    DMA1SAD   DMA 1 Source Address
+              40000C0h  4    W    DMA1DAD   DMA 1 Destination Address
+              40000C4h  2    W    DMA1CNT_L DMA 1 Word Count
+              40000C6h  2    R/W  DMA1CNT_H DMA 1 Control
+              40000C8h  4    W    DMA2SAD   DMA 2 Source Address
+              40000CCh  4    W    DMA2DAD   DMA 2 Destination Address
+              40000D0h  2    W    DMA2CNT_L DMA 2 Word Count
+              40000D2h  2    R/W  DMA2CNT_H DMA 2 Control
+              40000D4h  4    W    DMA3SAD   DMA 3 Source Address
+              40000D8h  4    W    DMA3DAD   DMA 3 Destination Address
+              40000DCh  2    W    DMA3CNT_L DMA 3 Word Count
+              40000DEh  2    R/W  DMA3CNT_H DMA 3 Control
+              40000E0h       -    -         Not used
+            */
+
+          public:
+            DMAState state;
+            StartCondition condition;
 
           private:
-            DMAState state;
             Memory &memory;
             InterruptHandler &irqHandler;
 
@@ -137,14 +136,9 @@ namespace gbaemu
             bool width32Bit;
             AddrCntType srcCnt;
             AddrCntType dstCnt;
-            StartCondition condition;
 
             uint8_t read8FromReg(uint32_t offset);
             void write8ToReg(uint32_t offset, uint8_t value);
-
-            //TODO refactor
-            // Dirty hack to fix a bug fast!
-            bool repeatTriggered;
 
           public:
             DMA(CPU *cpu, DMAGroup &dmaGroup);
@@ -158,6 +152,10 @@ namespace gbaemu
             void reloadValues();
             void updateAddr(uint32_t &addr, AddrCntType updateKind) const;
             void fetchCount();
+
+            void goToWaitingState();
+
+            friend class IO_Handler;
         };
 
         DMA<DMA0> dma0;
@@ -291,7 +289,11 @@ namespace gbaemu
             dmaEnableBitset = 0;
         }
 
-        bool conditionSatisfied(StartCondition condition, bool &repeatTriggered, bool repeat) const;
+        bool conditionSatisfied(StartCondition condition) const;
+
+        void triggerCondition(StartCondition condition);
+
+        friend class IO_Handler;
     };
 
 } // namespace gbaemu

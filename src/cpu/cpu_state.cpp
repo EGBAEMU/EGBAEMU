@@ -23,6 +23,7 @@ namespace gbaemu
         std::fill_n(reinterpret_cast<char *>(&pipeline), sizeof(pipeline), 0);
 
         // Ensure that system mode is also set in CPSR register!
+        thumbMode = false;
         regs.CPSR = 0b11111;
         updateCPUMode();
 
@@ -106,9 +107,6 @@ namespace gbaemu
         uint32_t currentInst = pipeline[1];
         pipeline[1] = pipeline[0];
 
-        bool thumbMode = getFlag<cpsr_flags::THUMB_STATE>();
-
-        //TODO we might need this info? (where nullptr is currently)
         if (thumbMode) {
             pc += 4;
             pipeline[0] = memory.read16(pc, fetchInfo, true, true);
@@ -125,7 +123,7 @@ namespace gbaemu
         return currentInst;
     }
 
-    uint32_t CPUState::normalizePC(bool thumbMode)
+    uint32_t CPUState::normalizePC()
     {
         return accessReg(regs::PC_OFFSET) = memory.normalizeAddress(accessReg(regs::PC_OFFSET) & (thumbMode ? 0xFFFFFFFE : 0xFFFFFFFC), fetchInfo);
     }
@@ -177,21 +175,21 @@ namespace gbaemu
     bool CPUState::updateCPUMode()
     {
         /*
-            The Mode Bits M4-M0 contain the current operating mode.
-                    Binary Hex Dec  Expl.
-                    0xx00b 00h 0  - Old User       ;\26bit Backward Compatibility modes
-                    0xx01b 01h 1  - Old FIQ        ; (supported only on ARMv3, except ARMv3G,
-                    0xx10b 02h 2  - Old IRQ        ; and on some non-T variants of ARMv4)
-                    0xx11b 03h 3  - Old Supervisor ;/
-                    10000b 10h 16 - User (non-privileged)
-                    10001b 11h 17 - FIQ
-                    10010b 12h 18 - IRQ
-                    10011b 13h 19 - Supervisor (SWI)
-                    10111b 17h 23 - Abort
-                    11011b 1Bh 27 - Undefined
-                    11111b 1Fh 31 - System (privileged 'User' mode) (ARMv4 and up)
-            Writing any other values into the Mode bits is not allowed. 
-            */
+        The Mode Bits M4-M0 contain the current operating mode.
+                Binary Hex Dec  Expl.
+                0xx00b 00h 0  - Old User       ;\26bit Backward Compatibility modes
+                0xx01b 01h 1  - Old FIQ        ; (supported only on ARMv3, except ARMv3G,
+                0xx10b 02h 2  - Old IRQ        ; and on some non-T variants of ARMv4)
+                0xx11b 03h 3  - Old Supervisor ;/
+                10000b 10h 16 - User (non-privileged)
+                10001b 11h 17 - FIQ
+                10010b 12h 18 - IRQ
+                10011b 13h 19 - Supervisor (SWI)
+                10111b 17h 23 - Abort
+                11011b 1Bh 27 - Undefined
+                11111b 1Fh 31 - System (privileged 'User' mode) (ARMv4 and up)
+        Writing any other values into the Mode bits is not allowed. 
+        */
         uint8_t modeBits = regs.CPSR & cpsr_flags::MODE_BIT_MASK & 0xF;
         bool error = false;
         switch (modeBits) {

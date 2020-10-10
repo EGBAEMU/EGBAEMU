@@ -48,23 +48,15 @@ namespace gbaemu
     void TimerGroup::Timer<id>::receiveOverflowOfPrevTimer(uint32_t overflowTimes)
     {
         // check if active & configured
-        if (isBitSet<uint8_t, id>(timEnableBitset) && active && countUpTiming) {
+        if (active && countUpTiming) {
             counter += overflowTimes;
             checkForOverflow();
         }
     }
 
     template <uint8_t id>
-    TimerGroup::Timer<id>::Timer(Memory &memory, InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, uint8_t &timEnableBitset) : memory(memory), irqHandler(irqHandler), nextTimer(nextTimer), timEnableBitset(timEnableBitset)
+    TimerGroup::Timer<id>::Timer(InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, uint8_t &timEnableBitset) : irqHandler(irqHandler), nextTimer(nextTimer), timEnableBitset(timEnableBitset)
     {
-        memory.ioHandler.registerIOMappedDevice(
-            IO_Mapped(
-                TIMER_REGS_BASE_OFFSET + sizeof(regs) * id,
-                TIMER_REGS_BASE_OFFSET + sizeof(regs) * id + sizeof(regs) - 1,
-                std::bind(&Timer<id>::read8FromReg, this, std::placeholders::_1),
-                std::bind(&Timer<id>::write8ToReg, this, std::placeholders::_1, std::placeholders::_2),
-                std::bind(&Timer<id>::read8FromReg, this, std::placeholders::_1),
-                std::bind(&Timer<id>::write8ToReg, this, std::placeholders::_1, std::placeholders::_2)));
     }
 
     template <uint8_t id>
@@ -73,7 +65,7 @@ namespace gbaemu
         if (counter >= overflowVal) {
 
             if (irq)
-                irqHandler.setInterrupt(static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::TIMER_0_OVERFLOW + id));
+                irqHandler.setInterrupt<static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::TIMER_0_OVERFLOW + id)>();
 
             uint32_t reloadValue = (static_cast<uint32_t>(le(regs.reload)) << preShift);
             // We know that we have at least 1 overflow, but there can be more if we have a high reload value
@@ -105,6 +97,8 @@ namespace gbaemu
             countUpTiming = id != 0 && (controlReg & TIMER_TIMING_MASK);
             if (countUpTiming) {
                 preShift = 0;
+                // If we are in count up timing then we can safely remove ourself from the enable bitset as we only count up through other timer overflows
+                timEnableBitset = bitSet<uint8_t, 1, id>(timEnableBitset, bmap<uint8_t, false>());
             } else {
                 preShift = preShifts[(controlReg & TIMER_PRESCALE_MASK)];
             }
@@ -138,7 +132,7 @@ namespace gbaemu
         active = true;
     }
 
-    TimerGroup::TimerGroup(CPU *cpu) : tim0(cpu->state.memory, cpu->irqHandler, &tim1, timEnableBitset), tim1(cpu->state.memory, cpu->irqHandler, &tim2, timEnableBitset), tim2(cpu->state.memory, cpu->irqHandler, &tim3, timEnableBitset), tim3(cpu->state.memory, cpu->irqHandler, nullptr, timEnableBitset)
+    TimerGroup::TimerGroup(CPU *cpu) : tim0(cpu->irqHandler, &tim1, timEnableBitset), tim1(cpu->irqHandler, &tim2, timEnableBitset), tim2(cpu->irqHandler, &tim3, timEnableBitset), tim3(cpu->irqHandler, nullptr, timEnableBitset)
     {
         reset();
     }
