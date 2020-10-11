@@ -22,7 +22,8 @@ namespace gbaemu::lcd
     typedef common::math::vec<3> vec3;
     typedef common::math::mat<3, 3> mat3x3;
 
-    static const constexpr color_t TRANSPARENT = 0x0,
+    /* 0x0 is considered black, that's why the first bit is interpreted as transparent */
+    static const constexpr color_t TRANSPARENT = 0x8000,
                                    BLACK = 0x0,
                                    WHITE = 0x7FFF,
                                    RED = 0x7C00,
