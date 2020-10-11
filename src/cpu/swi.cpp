@@ -33,17 +33,20 @@ namespace gbaemu
             */
 
             // Save the current CPSR register value into SPSR_svc
-            *(cpu->state.getModeRegs(CPUState::SupervisorMode)[regs::SPSR_OFFSET]) = cpu->state.accessReg(regs::CPSR_OFFSET);
+            auto svcRegs = cpu->state.getModeRegs(CPUState::SupervisorMode);
+            *(svcRegs[regs::SPSR_OFFSET]) = cpu->state.getCurrentCPSR();
             // Save PC to LR_svc
-            *(cpu->state.getModeRegs(CPUState::SupervisorMode)[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + (cpu->state.thumbMode ? 2 : 4);
+            *(svcRegs[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + (cpu->state.getFlag<cpsr_flags::THUMB_STATE>() ? 2 : 4);
 
             // Ensure that the CPSR represents that we are in ARM mode again
             // Clear all flags & enforce supervisor mode
             // Also disable interrupts
-            cpu->state.accessReg(regs::CPSR_OFFSET) = 0b010011 | (1 << 7);
+            cpu->state.clearFlags();
+            cpu->state.setFlag<cpsr_flags::IRQ_DISABLE>(true);
+            cpu->state.setCPUMode(0b010011);
 
             // Offset to the swi routine
-            cpu->state.accessReg(regs::PC_OFFSET) = Memory::BIOS_SWI_HANDLER_OFFSET;
+            *svcRegs[regs::PC_OFFSET] = Memory::BIOS_SWI_HANDLER_OFFSET;
 
             cpu->state.cpuInfo.forceBranch = true;
         }

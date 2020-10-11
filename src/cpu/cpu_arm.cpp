@@ -193,7 +193,7 @@ namespace gbaemu
         }
 
         // Offset is given in units of 4. Thus we need to shift it first by two
-        offset *= 4;
+        offset <<= 2;
 
         state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(pc) + 8 + offset);
 
@@ -253,7 +253,7 @@ namespace gbaemu
                             AND, EOR, MOV, MVN, ORR,
                             BIC, TEQ, TST)
     CREATE_CONSTEXPR_GETTER(DontUpdateRD,
-                            CMP, CMN, TST, TEQ)
+                            CMP, CMN, TST, TEQ, MSR_SPSR, MSR_CPSR)
     CREATE_CONSTEXPR_GETTER(InvertCarry,
                             CMP, SUB, SBC, RSB, RSC, NEG, SUB_SHORT_IMM)
     CREATE_CONSTEXPR_GETTER(MovSPSR,
@@ -359,7 +359,7 @@ namespace gbaemu
                 if (r)
                     resultValue = *currentRegs[regs::SPSR_OFFSET];
                 else
-                    resultValue = *currentRegs[regs::CPSR_OFFSET];
+                    resultValue = state.getCurrentCPSR();
                 break;
             }
             case MSR_SPSR:
@@ -377,19 +377,21 @@ namespace gbaemu
 
                 constexpr bool r = id == MSR_SPSR;
 
+                // ensure that only fields that should be written to are changed!
+                resultValue = (shifterOperand & bitMask);
+
                 // Shady trick to fix destination register because extracted rd value is not used
                 if (r) {
                     rd = regs::SPSR_OFFSET;
                     // clear fields that should be written to
-                    resultValue = *currentRegs[regs::SPSR_OFFSET] & ~bitMask;
+                    resultValue |= *currentRegs[regs::SPSR_OFFSET] & ~bitMask;
+                    *currentRegs[regs::SPSR_OFFSET] = resultValue;
                 } else {
-                    rd = regs::CPSR_OFFSET;
+                    rd = 16 /*regs::CPSR_OFFSET*/;
                     // clear fields that should be written to
-                    resultValue = *currentRegs[regs::CPSR_OFFSET] & ~bitMask;
+                    resultValue |= state.getCurrentCPSR() & ~bitMask;
+                    state.updateCPSR(resultValue);
                 }
-
-                // ensure that only fields that should be written to are changed!
-                resultValue |= (shifterOperand & bitMask);
 
                 break;
             }
@@ -437,7 +439,7 @@ namespace gbaemu
 
         // Special case 9000
         if (movSPSR && s && destPC) {
-            state.accessReg(regs::CPSR_OFFSET) = *currentRegs[regs::SPSR_OFFSET];
+            state.updateCPSR(*currentRegs[regs::SPSR_OFFSET]);
         } else if (s) {
             setFlags<updateNegative,
                      updateZero,
@@ -455,7 +457,7 @@ namespace gbaemu
         }
 
         if (!dontUpdateRD)
-            state.accessReg(rd) = static_cast<uint32_t>(resultValue);
+            *currentRegs[rd] = static_cast<uint32_t>(resultValue);
 
         if (destPC) {
             state.cpuInfo.forceBranch = true;
@@ -557,7 +559,7 @@ namespace gbaemu
                           While R15 loaded, additionally: CPSR=SPSR_<current mode>
                         */
                         if (forceUserRegisters) {
-                            *currentRegs[regs::CPSR_OFFSET] = *state.getCurrentRegs()[regs::SPSR_OFFSET];
+                            state.updateCPSR(state.accessReg(regs::SPSR_OFFSET));
                         }
                     } else {
                         *currentRegs[currentIdx] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone, this->state.fetchInfo.memReg == memory::BIOS);

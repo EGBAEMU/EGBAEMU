@@ -42,7 +42,7 @@ namespace gbaemu
     {
         // We need to fill the pipeline to the state where the instruction at PC is ready for execution -> fetched + decoded!
         uint32_t pc = state.accessReg(regs::PC_OFFSET);
-        if (state.thumbMode) {
+        if (state.getFlag<cpsr_flags::THUMB_STATE>()) {
             state.propagatePipeline<true>(pc - 4);
             state.propagatePipeline<true>(pc - 2);
             state.seqCycles = state.memory.memCycles16(state.fetchInfo.memReg, true);
@@ -125,19 +125,19 @@ namespace gbaemu
 
     void CPU::execute(uint32_t prevPc)
     {
-        uint32_t prevCPSR = state.accessReg(regs::CPSR_OFFSET);
+        uint32_t prevCPSR = state.getCurrentCPSR();
 
         decodeAndExecute(prevPc, state);
 
         uint32_t postPc = state.accessReg(regs::PC_OFFSET);
         // xor cpsr's to detect changes
-        uint32_t postCPSR = state.accessReg(regs::CPSR_OFFSET) ^ prevCPSR;
+        uint32_t postCPSR = state.getCurrentCPSR() ^ prevCPSR;
 
         // Check if arm/thumb mode has changed
         if (postCPSR & (1 << cpsr_flags::THUMB_STATE)) {
-            state.thumbMode = !state.thumbMode;
+            bool newThumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
             // Change from arm mode to thumb mode or vice versa
-            if (state.thumbMode) {
+            if (newThumbMode) {
                 decodeAndExecute = thumbDecodeAndExecutor;
             } else {
                 decodeAndExecute = armDecodeAndExecutor;
@@ -148,7 +148,7 @@ namespace gbaemu
         if (postCPSR & cpsr_flags::MODE_BIT_MASK) {
             // update mode and make a sanity check!
             if (state.updateCPUMode()) {
-                std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(state.accessReg(regs::CPSR_OFFSET) & cpsr_flags::MODE_BIT_MASK) << " prevPC: 0x" << std::hex << prevPc << std::endl;
+                std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(state.getCurrentCPSR() & cpsr_flags::MODE_BIT_MASK) << " prevPC: 0x" << std::hex << prevPc << std::endl;
                 state.cpuInfo.hasCausedException = true;
                 return;
             }
@@ -172,7 +172,7 @@ namespace gbaemu
             state.cpuInfo.cycleCount += state.nonSeqCycles;
         } else {
             // Increment the pc counter to the next instruction
-            state.accessReg(regs::PC_OFFSET) = postPc + (state.thumbMode ? 2 : 4);
+            state.accessReg(regs::PC_OFFSET) = postPc + (state.getFlag<cpsr_flags::THUMB_STATE>() ? 2 : 4);
         }
 
         // Add 1S cycle needed to fetch a instruction if not other requested

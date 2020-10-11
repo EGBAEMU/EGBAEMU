@@ -21,11 +21,13 @@ namespace gbaemu
     {
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
         std::fill_n(reinterpret_cast<char *>(&pipeline), sizeof(pipeline), 0);
+        std::fill_n(reinterpret_cast<char *>(&cpsr), sizeof(cpsr), 0);
+        std::fill_n(reinterpret_cast<char *>(&cpuInfo), sizeof(cpuInfo), 0);
+        std::fill_n(reinterpret_cast<char *>(&dmaInfo), sizeof(dmaInfo), 0);
+        std::fill_n(reinterpret_cast<char *>(&fetchInfo), sizeof(fetchInfo), 0);
 
         // Ensure that system mode is also set in CPSR register!
-        thumbMode = false;
-        regs.CPSR = 0b11111;
-        updateCPUMode();
+        updateCPSR(0b11111);
 
         memory.reset();
 
@@ -52,10 +54,6 @@ namespace gbaemu
         *getModeRegs(CPUState::CPUMode::UndefinedMode)[regs::SP_OFFSET] = 0x03007F00;
         *getModeRegs(CPUState::CPUMode::SupervisorMode)[regs::SP_OFFSET] = 0x03007FE0;
         *getModeRegs(CPUState::CPUMode::IRQ)[regs::SP_OFFSET] = 0x3007FA0;
-
-        std::fill_n(reinterpret_cast<char *>(&cpuInfo), sizeof(cpuInfo), 0);
-        std::fill_n(reinterpret_cast<char *>(&dmaInfo), sizeof(dmaInfo), 0);
-        std::fill_n(reinterpret_cast<char *>(&fetchInfo), sizeof(fetchInfo), 0);
 
         accessReg(gbaemu::regs::PC_OFFSET) = memory::EXT_ROM_OFFSET;
         fetchInfo.memReg = memory::EXT_ROM1;
@@ -128,12 +126,12 @@ namespace gbaemu
 
     uint32_t CPUState::normalizePC()
     {
-        return regs.rx[regs::PC_OFFSET] &= (thumbMode ? 0xFFFFFFFE : 0xFFFFFFFC);
+        return regs.rx[regs::PC_OFFSET] &= (cpsr.thumbMode ? 0xFFFFFFFE : 0xFFFFFFFC);
     }
 
     const char *CPUState::cpuModeToString() const
     {
-        switch (mode) {
+        switch (cpsr.mode) {
             STRINGIFY_CASE_ID(UserMode);
             STRINGIFY_CASE_ID(FIQ);
             STRINGIFY_CASE_ID(IRQ);
@@ -171,7 +169,7 @@ namespace gbaemu
         return *(getCurrentRegs()[offset]);
     }
 
-    bool CPUState::updateCPUMode()
+    bool CPUState::updateCPUMode(uint8_t modeBits)
     {
         /*
         The Mode Bits M4-M0 contain the current operating mode.
@@ -189,29 +187,28 @@ namespace gbaemu
                 11111b 1Fh 31 - System (privileged 'User' mode) (ARMv4 and up)
         Writing any other values into the Mode bits is not allowed. 
         */
-        uint8_t modeBits = regs.CPSR & cpsr_flags::MODE_BIT_MASK & 0xF;
         bool error = false;
         switch (modeBits) {
             case 0b0000:
-                mode = CPUState::UserMode;
+                cpsr.mode = CPUState::UserMode;
                 break;
             case 0b0001:
-                mode = CPUState::FIQ;
+                cpsr.mode = CPUState::FIQ;
                 break;
             case 0b0010:
-                mode = CPUState::IRQ;
+                cpsr.mode = CPUState::IRQ;
                 break;
             case 0b0011:
-                mode = CPUState::SupervisorMode;
+                cpsr.mode = CPUState::SupervisorMode;
                 break;
             case 0b0111:
-                mode = CPUState::AbortMode;
+                cpsr.mode = CPUState::AbortMode;
                 break;
             case 0b1011:
-                mode = CPUState::UndefinedMode;
+                cpsr.mode = CPUState::UndefinedMode;
                 break;
             case 0b1111:
-                mode = CPUState::SystemMode;
+                cpsr.mode = CPUState::SystemMode;
                 break;
 
             default:
@@ -219,9 +216,45 @@ namespace gbaemu
                 break;
         }
 
-        currentRegs = regsHacks[mode];
+        currentRegs = regsHacks[cpsr.mode];
 
         return error;
+    }
+
+    bool CPUState::updateCPUMode()
+    {
+        uint8_t modeBits = regs.CPSR & cpsr_flags::MODE_BIT_MASK & 0xF;
+        return updateCPUMode(modeBits);
+    }
+
+    bool CPUState::setCPUMode(uint8_t modeBits)
+    {
+        regs.CPSR = (regs.CPSR & ~cpsr_flags::MODE_BIT_MASK) | modeBits;
+        return updateCPUMode(modeBits & cpsr_flags::MODE_BIT_MASK & 0xF);
+    }
+
+    void CPUState::updateCPSR(uint32_t value)
+    {
+        regs.CPSR = value;
+
+        cpsr.negative = isBitSet<uint32_t, cpsr_flags::N_FLAG>(value);
+        cpsr.zero = isBitSet<uint32_t, cpsr_flags::Z_FLAG>(value);
+        cpsr.carry = isBitSet<uint32_t, cpsr_flags::C_FLAG>(value);
+        cpsr.overflow = isBitSet<uint32_t, cpsr_flags::V_FLAG>(value);
+        cpsr.thumbMode = isBitSet<uint32_t, cpsr_flags::THUMB_STATE>(value);
+        cpsr.irqDisable = isBitSet<uint32_t, cpsr_flags::IRQ_DISABLE>(value);
+        updateCPUMode(value & cpsr_flags::MODE_BIT_MASK & 0xF);
+    }
+
+    void CPUState::clearFlags()
+    {
+        regs.CPSR &= cpsr_flags::MODE_BIT_MASK;
+        cpsr.negative = false;
+        cpsr.zero = false;
+        cpsr.carry = false;
+        cpsr.overflow = false;
+        cpsr.thumbMode = false;
+        cpsr.irqDisable = false;
     }
 
     std::string CPUState::toString() const
@@ -239,7 +272,7 @@ namespace gbaemu
                 ss << "(LR) ";
             else if (i == regs::SP_OFFSET)
                 ss << "(SP) ";
-            else if (i == regs::CPSR_OFFSET)
+            else if (i == 16 /*regs::CPSR_OFFSET*/)
                 ss << "(CPSR) ";
             else if (i == regs::SPSR_OFFSET)
                 ss << "(SPSR) ";
@@ -258,7 +291,7 @@ namespace gbaemu
         ss << "CPU Mode: " << cpuModeToString() << '\n';
         ss << "IRQ Req Reg: 0x" << std::hex << memory.ioHandler.internalRead16(memory::IO_REGS_OFFSET + 0x202) << '\n';
         ss << "IRQ IE Reg: 0x" << std::hex << memory.ioHandler.internalRead16(memory::IO_REGS_OFFSET + 0x200) << '\n';
-        ss << "IRQ EN CPSR: " << ((accessReg(regs::CPSR_OFFSET) & (1 << 7)) == 0) << std::endl;
+        ss << "IRQ EN CPSR: " << (!getFlag<cpsr_flags::IRQ_DISABLE>()) << std::endl;
         ss << "IRQ EN MASTER: 0x" << std::hex << memory.ioHandler.internalRead16(memory::IO_REGS_OFFSET + 0x208) << std::endl;
 
         return ss.str();
