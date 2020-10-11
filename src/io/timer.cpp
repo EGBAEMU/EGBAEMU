@@ -41,7 +41,8 @@ namespace gbaemu
             // else if deactivated active will be set to false as well -> on reenable still false
             active = active && nextActive;
 
-            timEnableBitset = bitSet<uint8_t, 1, id>(timEnableBitset, bmap<uint8_t>(nextActive));
+            timerGroup.timEnableBitset = bitSet<uint8_t, 1, id>(timerGroup.timEnableBitset, bmap<uint8_t>(nextActive));
+            timerGroup.checkRunCondition();
         }
     }
 
@@ -56,7 +57,7 @@ namespace gbaemu
     }
 
     template <uint8_t id>
-    TimerGroup::Timer<id>::Timer(InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, uint8_t &timEnableBitset) : irqHandler(irqHandler), nextTimer(nextTimer), timEnableBitset(timEnableBitset)
+    TimerGroup::Timer<id>::Timer(InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, TimerGroup &timerGroup) : irqHandler(irqHandler), nextTimer(nextTimer), timerGroup(timerGroup)
     {
     }
 
@@ -89,9 +90,14 @@ namespace gbaemu
     template <uint8_t id>
     void TimerGroup::Timer<id>::step(uint32_t cycles)
     {
-        // If this gets called be can safely assume that it is enabled
+        // If this gets called be can safely assume that it is enabled for the first time or is not in countUpTiming mode
 
         if (!active) {
+            //TODO we might extract this code entirely from the step function for less overhead!
+
+            // Update active flag
+            active = true;
+
             // Was previously disabled -> reconfigure timer
             uint16_t controlReg = le(regs.control);
 
@@ -99,7 +105,8 @@ namespace gbaemu
             if (countUpTiming) {
                 preShift = 0;
                 // If we are in count up timing then we can safely remove ourself from the enable bitset as we only count up through other timer overflows
-                timEnableBitset = bitSet<uint8_t, 1, id>(timEnableBitset, bmap<uint8_t, false>());
+                timerGroup.timEnableBitset = bitSet<uint8_t, 1, id>(timerGroup.timEnableBitset, bmap<uint8_t, false>());
+                timerGroup.checkRunCondition();
             } else {
                 preShift = preShifts[(controlReg & TIMER_PRESCALE_MASK)];
             }
@@ -118,24 +125,30 @@ namespace gbaemu
 
             //TODO 1 cycle for setup?
             --cycles;
+
+            if (countUpTiming) {
+                return;
+            }
         }
 
-        // if countUpTiming is true we only increment on overflow of the previous timer!
-        if (!countUpTiming) {
+        // Increment the timer counter and check for overflows
+        counter += cycles;
 
-            // Increment the timer counter and check for overflows
-            counter += cycles;
-
-            checkForOverflow();
-        }
-
-        // Update active flag
-        active = true;
+        checkForOverflow();
     }
 
-    TimerGroup::TimerGroup(CPU *cpu) : tim0(cpu->irqHandler, &tim1, timEnableBitset), tim1(cpu->irqHandler, &tim2, timEnableBitset), tim2(cpu->irqHandler, &tim3, timEnableBitset), tim3(cpu->irqHandler, nullptr, timEnableBitset)
+    TimerGroup::TimerGroup(CPU *cpu) : cpu(cpu), tim0(cpu->irqHandler, &tim1, *this), tim1(cpu->irqHandler, &tim2, *this), tim2(cpu->irqHandler, &tim3, *this), tim3(cpu->irqHandler, nullptr, *this)
     {
         reset();
+    }
+
+    void TimerGroup::checkRunCondition() const
+    {
+        if (timEnableBitset) {
+            cpu->state.execState |= CPUState::EXEC_TIMER;
+        } else {
+            cpu->state.execState &= ~CPUState::EXEC_TIMER;
+        }
     }
 
     template class TimerGroup::Timer<0>;

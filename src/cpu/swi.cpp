@@ -33,17 +33,20 @@ namespace gbaemu
             */
 
             // Save the current CPSR register value into SPSR_svc
-            *(cpu->state.getModeRegs(CPUState::SupervisorMode)[regs::SPSR_OFFSET]) = cpu->state.accessReg(regs::CPSR_OFFSET);
+            auto svcRegs = cpu->state.getModeRegs(CPUState::SupervisorMode);
+            *(svcRegs[regs::SPSR_OFFSET]) = cpu->state.getCurrentCPSR();
             // Save PC to LR_svc
-            *(cpu->state.getModeRegs(CPUState::SupervisorMode)[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + (cpu->state.thumbMode ? 2 : 4);
+            *(svcRegs[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + (cpu->state.getFlag<cpsr_flags::THUMB_STATE>() ? 2 : 4);
 
             // Ensure that the CPSR represents that we are in ARM mode again
             // Clear all flags & enforce supervisor mode
             // Also disable interrupts
-            cpu->state.accessReg(regs::CPSR_OFFSET) = 0b010011 | (1 << 7);
+            cpu->state.clearFlags();
+            cpu->state.setFlag<cpsr_flags::IRQ_DISABLE>(true);
+            cpu->state.setCPUMode(0b010011);
 
             // Offset to the swi routine
-            cpu->state.accessReg(regs::PC_OFFSET) = Memory::BIOS_SWI_HANDLER_OFFSET;
+            *svcRegs[regs::PC_OFFSET] = Memory::BIOS_SWI_HANDLER_OFFSET;
 
             cpu->state.cpuInfo.forceBranch = true;
         }
@@ -86,9 +89,9 @@ namespace gbaemu
 
             cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
 
-            cpu->state.cpuInfo.haltCPU = true;
+            cpu->state.execState |= CPUState::EXEC_HALT;
             // load IE
-            cpu->state.cpuInfo.haltCondition = cpu->state.memory.ioHandler.internalRead16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR);
+            cpu->state.haltCondition = cpu->state.memory.ioHandler.internalRead16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR);
         }
         void intrWait(CPU *cpu)
         {
@@ -97,19 +100,19 @@ namespace gbaemu
             // The function forcefully sets IME=1
             cpu->state.memory.ioHandler.externalWrite8(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 8, 0x1);
 
-            cpu->state.cpuInfo.haltCondition = cpu->state.accessReg(regs::R1_OFFSET);
+            cpu->state.haltCondition = cpu->state.accessReg(regs::R1_OFFSET);
 
+            cpu->state.execState |= CPUState::EXEC_HALT;
             if (cpu->state.accessReg(regs::R0_OFFSET)) {
                 // r0 = 1 = Discard old flags, wait until a NEW flag becomes set
                 // Discard current requests! : write into IF
-                cpu->state.cpuInfo.haltCPU = true;
 
                 //TODO only discard in R1 selected ones or all??
-                cpu->state.memory.ioHandler.externalWrite16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 2, cpu->state.cpuInfo.haltCondition);
+                cpu->state.memory.ioHandler.externalWrite16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 2, cpu->state.haltCondition);
             } else {
                 //0=Return immediately if an old flag was already set
                 // check if condition is currently satisfied and if so return else cause halt
-                cpu->state.cpuInfo.haltCPU = !cpu->irqHandler.checkForHaltCondition(cpu->state.cpuInfo.haltCondition);
+                cpu->irqHandler.checkForHaltCondition(cpu->state.haltCondition);
             }
         }
         void vBlankIntrWait(CPU *cpu)

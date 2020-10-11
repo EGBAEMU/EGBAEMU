@@ -155,6 +155,8 @@ namespace gbaemu
             friend class IO_Handler;
         };
 
+        CPU *cpu;
+
         DMA<DMA0> dma0;
         DMA<DMA1> dma1;
         DMA<DMA2> dma2;
@@ -165,7 +167,7 @@ namespace gbaemu
         const lcd::LCDController *lcdController;
 
       public:
-        DMAGroup(CPU *cpu) : dma0(cpu, *this), dma1(cpu, *this), dma2(cpu, *this), dma3(cpu, *this)
+        DMAGroup(CPU *cpu) : cpu(cpu), dma0(cpu, *this), dma1(cpu, *this), dma2(cpu, *this), dma3(cpu, *this)
         {
             reset();
         }
@@ -206,6 +208,8 @@ namespace gbaemu
         bool conditionSatisfied(StartCondition condition) const;
 
         void triggerCondition(StartCondition condition);
+
+        void checkRunCondition() const;
 
         friend class IO_Handler;
     };

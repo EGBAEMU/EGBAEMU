@@ -13,8 +13,8 @@ namespace gbaemu::arm
     void ArmExecutor::operator()(Args... args)
     {
         static_assert(id == INVALID);
-        std::cout << "ERROR: Arm executor: trying to execute invalid instruction!" << std::endl;
-        cpu->state.cpuInfo.hasCausedException = true;
+        cpu->state.executionInfo.message << "ERROR: Arm executor: trying to execute invalid instruction!" << std::endl;
+        cpu->state.execState = CPUState::EXEC_ERROR;
     }
 
     template <>
@@ -250,7 +250,8 @@ namespace gbaemu::arm
                 }
                 swi::biosCallHandler[index](cpu);
             } else {
-                std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
+                cpu->state.executionInfo.message << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
+                cpu->state.execState = CPUState::EXEC_ERROR;
             }
         }
     }

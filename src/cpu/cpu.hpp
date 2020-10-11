@@ -14,25 +14,6 @@
 namespace gbaemu
 {
 
-    enum CPUExecutionInfoType {
-        NORMAL,
-        WARNING,
-        EXCEPTION
-    };
-
-    struct CPUExecutionInfo {
-        CPUExecutionInfoType infoType;
-        std::string message;
-
-        CPUExecutionInfo() : infoType(NORMAL), message("Everything's good")
-        {
-        }
-
-        CPUExecutionInfo(CPUExecutionInfoType info, const std::string &msg) : infoType(info), message(msg)
-        {
-        }
-    };
-
     // forward declarations
     namespace arm
     {
@@ -53,11 +34,8 @@ namespace gbaemu
       public:
         static arm::ArmExecutor armExecutor;
         static thumb::ThumbExecutor thumbExecutor;
-        static InstructionDecodeAndExecutor armDecodeAndExecutor;
-        static InstructionDecodeAndExecutor thumbDecodeAndExecutor;
 
         CPUState state;
-        InstructionDecodeAndExecutor decodeAndExecute;
 
         DMAGroup dmaGroup;
 
@@ -66,21 +44,24 @@ namespace gbaemu
         InterruptHandler irqHandler;
         Keypad keypad;
 
-        /* If an error has occured more information can be found here. */
-        CPUExecutionInfo executionInfo;
-
         int32_t cyclesLeft;
 
         CPU();
 
-        void setLCDController(lcd::LCDController* lcdController);
+        void setLCDController(lcd::LCDController *lcdController);
 
         void reset();
 
         void initPipeline();
-        void execute(uint32_t inst, uint32_t pc);
         CPUExecutionInfoType step(uint32_t cycles);
 
+      private:
+        uint32_t postExecute();
+
+        template <uint8_t execState>
+        void execStep(uint32_t &prevPC);
+
+      public:
         template <bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry>
         void setFlags(uint64_t resultValue, bool msbOp1, bool msbOp2)
         {
@@ -100,14 +81,17 @@ namespace gbaemu
             bool overflow = msbOp1 == msbOp2 && (negative != msbOp1);
             bool carry = resultValue & (static_cast<uint64_t>(1) << 32);
 
-            if (nFlag)
+            if (nFlag) {
                 state.setFlag<cpsr_flags::N_FLAG>(negative);
+            }
 
-            if (zFlag)
+            if (zFlag) {
                 state.setFlag<cpsr_flags::Z_FLAG>(zero);
+            }
 
-            if (vFlag)
+            if (vFlag) {
                 state.setFlag<cpsr_flags::V_FLAG>(overflow);
+            }
 
             if (cFlag) {
                 state.setFlag<cpsr_flags::C_FLAG>(carry != invertCarry);

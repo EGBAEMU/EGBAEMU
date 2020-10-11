@@ -175,7 +175,7 @@ namespace gbaemu
                 }
 
                 // Change the PC to the address given by rs. Note that we have to mask out the thumb switch bit.
-                state.accessReg(regs::PC_OFFSET) = rsValue & ~1;
+                *currentRegs[regs::PC_OFFSET] = rsValue & ~1;
 
                 // This is a branch instruction so we need to consider self branches!
                 state.cpuInfo.forceBranch = true;
