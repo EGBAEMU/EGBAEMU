@@ -116,7 +116,7 @@ namespace gbaemu
 
     uint32_t CPU::postExecute()
     {
-        uint32_t postPc = state.accessReg(regs::PC_OFFSET);
+        uint32_t postPc;
 
         // We have a branch, return or something that changed our PC
         if (state.cpuInfo.forceBranch) {
@@ -133,7 +133,7 @@ namespace gbaemu
             state.cpuInfo.cycleCount += state.nonSeqCycles;
         } else {
             // Increment the pc counter to the next instruction
-            state.accessReg(regs::PC_OFFSET) += (state.getFlag<cpsr_flags::THUMB_STATE>() ? 2 : 4);
+            postPc = (state.accessReg(regs::PC_OFFSET) += (state.getFlag<cpsr_flags::THUMB_STATE>() ? 2 : 4));
         }
 
         // Add 1S cycle needed to fetch a instruction if not other requested
