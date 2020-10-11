@@ -285,7 +285,7 @@ int main(int argc, char **argv)
 #if RENDERER_USE_FB_CANVAS == 0
         window.present();
 #else
-        //windowCanvas.present();
+        windowCanvas.present();
 #endif
 
 #if LIMIT_FPS
