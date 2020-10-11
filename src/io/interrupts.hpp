@@ -2,7 +2,7 @@
 #define INTERRUPT_HPP
 
 #include "io_regs.hpp"
-#include "memory.hpp"
+#include "memory_defs.hpp"
 #include "packed.h"
 
 #include <cstdint>
@@ -83,7 +83,7 @@ namespace gbaemu
         void externalWrite8ToReg(uint32_t offset, uint8_t value);
 
       public:
-        static const constexpr uint32_t INTERRUPT_CONTROL_REG_ADDR = Memory::IO_REGS_OFFSET + 0x200;
+        static const constexpr uint32_t INTERRUPT_CONTROL_REG_ADDR = memory::IO_REGS_OFFSET + 0x200;
 
         InterruptHandler(CPU *cpu);
 

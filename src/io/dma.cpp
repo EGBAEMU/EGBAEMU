@@ -1,6 +1,7 @@
 
 #include "dma.hpp"
 #include "cpu/cpu.hpp"
+#include "decode/inst.hpp"
 #include "interrupts.hpp"
 #include "lcd/lcd-controller.hpp"
 #include "logging.hpp"
@@ -18,7 +19,6 @@ namespace gbaemu
     {
         state = IDLE;
         std::fill_n(reinterpret_cast<char *>(&regs), sizeof(regs), 0);
-        repeatTriggered = false;
     }
 
     const char *DMAGroup::countTypeToStr(AddrCntType updateKind)
@@ -82,9 +82,12 @@ namespace gbaemu
             // FSM actions
             switch (state) {
                 case IDLE:
-                    repeatTriggered = false;
                     extractRegValues();
-                    state = dmaGroup.conditionSatisfied(condition, repeatTriggered, repeat) ? STARTED : WAITING_PAUSED;
+                    if (dmaGroup.conditionSatisfied(condition)) {
+                        state = STARTED;
+                    } else {
+                        goToWaitingState();
+                    }
                     LOG_DMA(
                         std::cout << "INFO: Registered DMA" << std::dec << static_cast<uint32_t>(channel) << " transfer request." << std::endl;
                         std::cout << "      Source Addr: 0x" << std::hex << srcAddr << " Type: " << DMAGroup::countTypeToStr(srcCnt) << std::endl;
@@ -94,40 +97,16 @@ namespace gbaemu
                         std::cout << "      Repeat: " << repeat << std::endl;
                         if (channel == DMA3) {
                             std::cout << "      GamePak DRQ: " << gamePakDRQ << std::endl;
-                        }
-                        std::cout << "      32 bit mode: " << width32Bit << std::endl;
+                        } std::cout
+                        << "      32 bit mode: " << width32Bit << std::endl;
                         std::cout << "      IRQ on end: " << irqOnEnd << std::endl;);
 
                     // Initialization takes at least 2 cycles
                     info.cycleCount += 2;
 
                     // If eeprom does not yet know for sure which bus width it has we can determine it by passing DMA request to it!
-                    if (channel == DMA3 && memory.getBackupType() == Memory::EEPROM_V && !memory.eeprom->knowsBitWidth()) {
-
-                        // We only need changes for 14 Bit buswidth as we default to 8 bit
-                        memory.normalizeAddressRef(srcAddr, info);
-                        if (info.memReg == Memory::MemoryRegion::EEPROM_REGION) {
-                            const constexpr uint32_t bus14BitReadExpectedCount = 17;
-                            const constexpr uint32_t bus6BitReadExpectedCount = 9;
-                            if (count == bus14BitReadExpectedCount) {
-                                memory.eeprom->expand(14);
-                                break;
-                            } else if (count == bus6BitReadExpectedCount) {
-                                memory.eeprom->expand(6);
-                                break;
-                            }
-                        }
-
-                        memory.normalizeAddressRef(destAddr, info);
-                        if (info.memReg == Memory::MemoryRegion::EEPROM_REGION) {
-                            const constexpr uint32_t bus14BitWriteExpectedCount = 81;
-                            const constexpr uint32_t bus6BitWriteExpectedCount = 73;
-                            if (count == bus14BitWriteExpectedCount) {
-                                memory.eeprom->expand(14);
-                            } else if (count == bus6BitWriteExpectedCount) {
-                                memory.eeprom->expand(6);
-                            }
-                        }
+                    if (channel == DMA3 && memory.rom.eepromNeedsInit()) {
+                        memory.rom.initEEPROM(srcAddr, destAddr, count);
                     }
 
                     break;
@@ -143,12 +122,7 @@ namespace gbaemu
 
                     fetchCount();
 
-                    state = WAITING_PAUSED;
-                    break;
-                }
-
-                case WAITING_PAUSED: {
-                    state = dmaGroup.conditionSatisfied(condition, repeatTriggered, repeat) ? STARTED : WAITING_PAUSED;
+                    goToWaitingState();
                     break;
                 }
 
@@ -195,7 +169,6 @@ namespace gbaemu
                     // Handle edge case: repeat enabled but no start condition -> infinite DMA transfers
                     if (repeat && condition != NO_COND) {
                         state = REPEAT;
-                        repeatTriggered = true;
                     } else {
                         // return to idle state
                         state = IDLE;
@@ -211,8 +184,21 @@ namespace gbaemu
 
                     break;
                 }
+
+                case WAITING_PAUSED: {
+                    // Should not occur!
+                    break;
+                }
             }
         } while (state != IDLE && state != WAITING_PAUSED && info.cycleCount < cycles);
+    }
+
+    template <DMAGroup::DMAChannel channel>
+    void DMAGroup::DMA<channel>::goToWaitingState()
+    {
+        // indicate waiting, clear enable bit
+        dmaGroup.dmaEnableBitset &= ~(1 << channel);
+        state = WAITING_PAUSED;
     }
 
     template <DMAGroup::DMAChannel channel>
@@ -288,7 +274,7 @@ namespace gbaemu
         count = count == 0 ? (channel == DMA3 ? 0x10000 : 0x4000) : count;
     }
 
-    bool DMAGroup::conditionSatisfied(StartCondition condition, bool &repeatTriggered, bool repeat) const
+    bool DMAGroup::conditionSatisfied(StartCondition condition) const
     {
         bool conditionSatisfied = true;
         switch (condition) {
@@ -309,9 +295,27 @@ namespace gbaemu
                 break;
         }
 
-        // Ensure that the condition was once false before we execute repeat again!
-        repeatTriggered = repeatTriggered && conditionSatisfied;
-        return conditionSatisfied && (!repeat || (repeat && !repeatTriggered));
+        return conditionSatisfied;
+    }
+
+    void DMAGroup::triggerCondition(StartCondition condition)
+    {
+        if (dma0.state == WAITING_PAUSED && condition == dma0.condition) {
+            dma0.state = STARTED;
+            dmaEnableBitset |= 1 << DMA0;
+        }
+        if (dma1.state == WAITING_PAUSED && condition == dma1.condition) {
+            dma1.state = STARTED;
+            dmaEnableBitset |= 1 << DMA1;
+        }
+        if (dma2.state == WAITING_PAUSED && condition == dma2.condition) {
+            dma2.state = STARTED;
+            dmaEnableBitset |= 1 << DMA2;
+        }
+        if (dma3.state == WAITING_PAUSED && condition == dma3.condition) {
+            dma3.state = STARTED;
+            dmaEnableBitset |= 1 << DMA3;
+        }
     }
 
     template class DMAGroup::DMA<DMAGroup::DMA0>;

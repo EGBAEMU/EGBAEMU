@@ -50,9 +50,12 @@ namespace gbaemu::lcd
 
       public:
       private:
-        Canvas<color_t> &display;
+        Canvas<color_t> &frameBuffer;
         Memory &memory;
         InterruptHandler &irqHandler;
+#ifdef LEGACY_RENDERING
+        DMAGroup &dmaGroup;
+#endif
 
         Renderer renderer;
 
@@ -126,18 +129,15 @@ namespace gbaemu::lcd
         }
 
       public:
-        int32_t scale = 3;
-
       public:
-        LCDController(Canvas<color_t> &disp, CPU *cpu) : display(disp),
+        LCDController(Canvas<color_t> &disp, CPU *cpu) : frameBuffer(disp),
                                                          memory(cpu->state.memory), irqHandler(cpu->irqHandler),
-                                                         renderer(cpu->state.memory, cpu->irqHandler, internalRegs, display)
+#ifdef LEGACY_RENDERING
+                                                         dmaGroup(cpu->dmaGroup),
+#endif
+                                                         renderer(cpu->state.memory, cpu->irqHandler, internalRegs, frameBuffer)
         {
             scanline.buf.resize(SCREEN_WIDTH);
-
-#if (RENDERER_DECOMPOSE_LAYERS == 1) || (RENDERER_USE_FB_CANVAS == 1)
-            scale = 1;
-#endif
         }
 
         bool canAccessPPUMemory(bool isOAMRegion = false) const;

@@ -418,7 +418,6 @@ namespace gbaemu::lcd
 #endif
 #endif
 
-#define RENDERER_ENABLE_COLOR_EFFECTS 0
 #define RENDERER_DECOMPOSE_LAYERS 0
 
 #define RENDERER_DECOMPOSE_BG_COLOR 0xFFFF00FF

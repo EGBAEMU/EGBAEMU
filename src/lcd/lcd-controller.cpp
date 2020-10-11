@@ -50,10 +50,12 @@ namespace gbaemu::lcd
         if (displayCycle == 197120) {
             onVBlank();
             present();
+            dmaGroup.triggerCondition(DMAGroup::StartCondition::WAIT_VBLANK);
         }
 
         if (scanlineCycle == 0 && !scanline.vblanking) {
             drawScanline();
+            dmaGroup.triggerCondition(gbaemu::DMAGroup::StartCondition::WAIT_HBLANK);
         }
 
         if (scanlineCycle == 0) {
@@ -141,11 +143,9 @@ namespace gbaemu::lcd
     {
         /* If this bit is set, white lines are displayed. */
         if (le(regs.DISPCNT) & DISPCTL::FORCED_BLANK_MASK) {
-            color_t *outBuf = display.pixels() + scanline.y * display.getWidth();
+            color_t *outBuf = frameBuffer.pixels() + scanline.y * frameBuffer.getWidth();
 
-            /* white in 5-6-5 is 0xFFFF */
-            for (int32_t x = 0; x < SCREEN_WIDTH; ++x)
-                outBuf[x] = 0xFFFF;
+            std::fill_n(outBuf, SCREEN_WIDTH, 0xFFFF);
         } else {
             renderer.drawScanline(scanline.y);
         }

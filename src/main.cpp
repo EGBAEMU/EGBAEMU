@@ -10,6 +10,7 @@
 #include "cpu/cpu.hpp"
 #include "debugger.hpp"
 #include "input/keyboard_control.hpp"
+#include "input/virtualKeyboard.hpp"
 #include "lcd/lcd-controller.hpp"
 
 #if RENDERER_USE_FB_CANVAS == 0
@@ -19,7 +20,7 @@
 #endif
 
 #define PRINT_FPS true
-#define LIMIT_FPS true
+#define LIMIT_FPS false
 
 static volatile bool doRun = true;
 
@@ -57,6 +58,7 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 
         lcdController.drawScanline();
         lcdController.onHBlank();
+        cpu.dmaGroup.triggerCondition(gbaemu::DMAGroup::StartCondition::WAIT_HBLANK);
 
 #ifndef DEBUG_CLI
         executionInfo = cpu.step(272);
@@ -76,6 +78,7 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
     }
 
     lcdController.onVBlank();
+    cpu.dmaGroup.triggerCondition(gbaemu::DMAGroup::StartCondition::WAIT_VBLANK);
 
     for (int i = 0; i < 68; ++i) {
 #ifndef DEBUG_CLI
@@ -205,14 +208,11 @@ int main(int argc, char **argv)
     /* signal and window stuff */
     std::signal(SIGINT, handleSignal);
 
+    SDL_Init(0);
+    assert(SDL_InitSubSystem(SDL_INIT_EVENTS) == 0);
+
 #if RENDERER_USE_FB_CANVAS == 0
-    gbaemu::lcd::Window window(1280, 720);
-    auto canv = window.getCanvas();
-    canv.beginDraw();
-    canv.clear(0xFF365e7a);
-    canv.endDraw();
-    window.present();
-    gbaemu::lcd::WindowCanvas windowCanvas = window.getCanvas();
+    gbaemu::lcd::Window windowCanvas(1280, 720);
 #else
     gbaemu::lcd::FBCanvas windowCanvas(argv[ROM_IDX - 1]);
 #endif
@@ -225,23 +225,23 @@ int main(int argc, char **argv)
     gbaemu::InstructionExecutionInfo _info;
     std::cout << "Game Title: ";
     for (uint32_t i = 0; i < 12; ++i) {
-        std::cout << static_cast<char>(cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0A0 + i, _info));
+        std::cout << static_cast<char>(cpu.state.memory.read8(gbaemu::memory::EXT_ROM_OFFSET + 0x0A0 + i, _info));
     }
     std::cout << std::endl;
     std::cout << "Game Code: ";
     for (uint32_t i = 0; i < 4; ++i) {
-        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0AC + i, _info) << " ";
+        std::cout << std::hex << cpu.state.memory.read8(gbaemu::memory::EXT_ROM_OFFSET + 0x0AC + i, _info) << " ";
     }
     std::cout << std::endl;
     std::cout << "Maker Code: ";
     for (uint32_t i = 0; i < 2; ++i) {
-        std::cout << std::hex << cpu.state.memory.read8(gbaemu::Memory::EXT_ROM_OFFSET + 0x0B0 + i, _info) << " ";
+        std::cout << std::hex << cpu.state.memory.read8(gbaemu::memory::EXT_ROM_OFFSET + 0x0B0 + i, _info) << " ";
     }
     std::cout << std::endl;
 
     cpu.initPipeline();
 
-    std::cout << "Max legit ROM address: 0x" << std::hex << (gbaemu::Memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize() - 1) << std::endl;
+    std::cout << "Max legit ROM address: 0x" << std::hex << (gbaemu::memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize() - 1) << std::endl;
 
     gbaemu::keyboard::KeyboardController gameController(cpu.keypad);
 
@@ -253,6 +253,9 @@ int main(int argc, char **argv)
     std::cout << "INFO: Launching CLI thread" << std::endl;
     std::thread cliThread(CLILoop, std::ref(debugCLI));
 #endif
+
+    std::cout << "INFO: Launching virtualKeyboard thread" << std::endl;
+    std::thread virtualKeyboardThread(virtualKeyboardLoop, std::ref(doRun));
 
     using frames = std::chrono::duration<int64_t, std::ratio<1, 60>>; // 60Hz
 #if LIMIT_FPS
@@ -266,10 +269,10 @@ int main(int argc, char **argv)
     for (; doRun;) {
         SDL_Event event;
 
-        if (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE)
-                break;
-
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE) {
+                goto breakOuterLoop;
+            }
             gameController.processSDLEvent(event);
         }
 
@@ -282,11 +285,7 @@ int main(int argc, char **argv)
             break;
         }
 
-#if RENDERER_USE_FB_CANVAS == 0
-        window.present();
-#else
         windowCanvas.present();
-#endif
 
 #if LIMIT_FPS
         std::this_thread::sleep_until(nextFrame);
@@ -300,6 +299,7 @@ int main(int argc, char **argv)
         lastFrame = currentTime;
 #endif
     }
+breakOuterLoop:
 
     doRun = false;
 
@@ -309,6 +309,9 @@ int main(int argc, char **argv)
     /* When CLI is attached only quit command will exit the program! */
     cliThread.join();
 #endif
+    virtualKeyboardThread.join();
+
+    SDL_Quit();
 
     return 0;
 }
