@@ -99,7 +99,7 @@ namespace gbaemu::lcd
                 break;
             }
 
-            outBuf[x] = finalColor;
+            outBuf[x] = toBGR656(finalColor);
         }
     }
 
@@ -129,7 +129,7 @@ namespace gbaemu::lcd
                 break;
             }
 
-            outBuf[x] = finalColor;
+            outBuf[x] = toBGR656(finalColor);
         }
     }
 
@@ -169,7 +169,7 @@ namespace gbaemu::lcd
 
             /* early abort, no blending */
             if (!asFirst) {
-                outBuf[x] = firstColor;
+                outBuf[x] = toBGR656(firstColor);
                 continue;
             }
 
@@ -196,9 +196,9 @@ namespace gbaemu::lcd
 
             /* blend */
             if (asSecond)
-                outBuf[x] = applyColorEffect(firstColor, secondColor);
+                outBuf[x] = toBGR656(applyColorEffect(firstColor, secondColor));
             else
-                outBuf[x] = firstColor;
+                outBuf[x] = toBGR656(firstColor);
         }
     }
 
@@ -221,7 +221,7 @@ namespace gbaemu::lcd
                 if (color == TRANSPARENT)
                     color = RENDERER_DECOMPOSE_BG_COLOR;
 
-                outBuf[x] = color;
+                outBuf[x] = toBGR656(color);
             }
         }
 
@@ -233,8 +233,15 @@ namespace gbaemu::lcd
             if (color == TRANSPARENT)
                 color = RENDERER_DECOMPOSE_BG_COLOR;
 
-            outBuf[x] = color;
+            outBuf[x] = toBGR656(color);
         }
+    }
+
+    color_t Renderer::toBGR656(color_t color)
+    {
+        return ((color & 0x1F) << 11) |         /* blue */
+               (((color >> 5) & 0x1F) << 5) |   /* green */
+               ((color >> 11) & 0x1F);          /* red */
     }
 
     Renderer::Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers, Canvas<color_t> &targetCanvas) : memory(mem), irqHandler(irq), regs(registers), target(targetCanvas), objManager(std::make_shared<OBJManager>())
