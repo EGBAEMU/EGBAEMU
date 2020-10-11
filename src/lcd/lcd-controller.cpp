@@ -141,10 +141,11 @@ namespace gbaemu::lcd
     {
         /* If this bit is set, white lines are displayed. */
         if (le(regs.DISPCNT) & DISPCTL::FORCED_BLANK_MASK) {
-            color_t *outBuf = frameBuffer.pixels() + scanline.y * frameBuffer.getWidth();
+            color_t *outBuf = display.pixels() + scanline.y * display.getWidth();
 
+            /* white in 5-6-5 is 0xFFFF */
             for (int32_t x = 0; x < SCREEN_WIDTH; ++x)
-                outBuf[x] = WHITE;
+                outBuf[x] = 0xFFFF;
         } else {
             renderer.drawScanline(scanline.y);
         }
@@ -249,30 +250,6 @@ namespace gbaemu::lcd
 #ifndef LEGACY_RENDERING
         ++scanline.y;
 #endif
-    }
-
-    void LCDController::present()
-    {
-        color_t *dst = display.pixels();
-        int32_t dstStride = display.getWidth();
-
-        const color_t *src = frameBuffer.pixels();
-        int32_t srcStride = frameBuffer.getWidth();
-
-        int32_t h = frameBuffer.getHeight();
-        int32_t w = frameBuffer.getWidth();
-
-        for (int32_t y = 0; y < h; ++y) {
-            for (int32_t x = 0; x < w; ++x) {
-                color_t color = src[y * srcStride + x];
-
-                for (int32_t sy = 0; sy < scale; ++sy) {
-                    for (int32_t sx = 0; sx < scale; ++sx) {
-                        dst[(y * scale + sy) * dstStride + (x * scale + sx)] = color;
-                    }
-                }
-            }
-        }
     }
 
     bool LCDController::canAccessPPUMemory(bool isOAMRegion) const

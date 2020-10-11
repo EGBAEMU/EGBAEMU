@@ -56,8 +56,6 @@ namespace gbaemu::lcd
 
         Renderer renderer;
 
-        MemoryCanvas<color_t> frameBuffer;
-
         LCDColorPalette palette;
         LCDIORegs regs{0};
         LCDIORegs internalRegs{0};
@@ -111,7 +109,6 @@ namespace gbaemu::lcd
         void onHBlank();
         void onVBlank();
         void drawScanline();
-        void present();
 
 #ifndef LEGACY_RENDERING
         void clearBlankFlags();
@@ -134,12 +131,7 @@ namespace gbaemu::lcd
       public:
         LCDController(Canvas<color_t> &disp, CPU *cpu) : display(disp),
                                                          memory(cpu->state.memory), irqHandler(cpu->irqHandler),
-                                                         renderer(cpu->state.memory, cpu->irqHandler, internalRegs, frameBuffer),
-#if (RENDERER_DECOMPOSE_LAYERS == 1)
-                                                         frameBuffer(SCREEN_WIDTH * 3, SCREEN_HEIGHT * 4)
-#else
-                                                         frameBuffer(SCREEN_WIDTH, SCREEN_HEIGHT)
-#endif
+                                                         renderer(cpu->state.memory, cpu->irqHandler, internalRegs, display)
         {
             scanline.buf.resize(SCREEN_WIDTH);
 
