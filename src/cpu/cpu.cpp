@@ -81,6 +81,7 @@ namespace gbaemu
             prevPC = currentPC;
             state.cpuInfo.cycleCount = 0;
 
+            // If dma executes cpu is stalled!
             if (execState & CPUState::EXEC_DMA) {
                 dmaGroup.step(state.cpuInfo, cyclesLeft);
             } else {
@@ -88,24 +89,28 @@ namespace gbaemu
                     irqHandler.checkForHaltCondition(state.haltCondition);
                     state.cpuInfo.cycleCount = 1;
                 } else {
-                    if (execState & CPUState::EXEC_IRQ) {
+                    // We can only execute the interrupt if not disabled by CPSR register and if so we need a state change because we need to change into arm mode!
+                    if (execState & CPUState::EXEC_IRQ && !state.getFlag<cpsr_flags::IRQ_DISABLE>()) {
                         irqHandler.callIRQHandler();
-                    }
-
-                    if (execState & CPUState::EXEC_THUMB) {
-                        uint32_t inst = state.propagatePipeline<true>(currentPC);
-                        thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>(inst);
+                        //TODO how long does irq handler call take?
+                        state.cpuInfo.cycleCount = 1;
                     } else {
-                        uint32_t inst = state.propagatePipeline<false>(currentPC);
-                        if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
-                            arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
+                        if (execState & CPUState::EXEC_THUMB) {
+                            uint32_t inst = state.propagatePipeline<true>(currentPC);
+                            thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>(inst);
+                        } else {
+                            uint32_t inst = state.propagatePipeline<false>(currentPC);
+                            if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
+                                arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
+                            }
                         }
-                    }
 
-                    currentPC = postExecute();
+                        currentPC = postExecute();
+                    }
                 }
             }
 
+            // always execute the timer with the given time that lapsed
             if (execState & CPUState::EXEC_TIMER) {
                 timerGroup.step(state.cpuInfo.cycleCount);
             }
