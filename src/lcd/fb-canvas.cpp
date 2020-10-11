@@ -49,12 +49,12 @@ namespace gbaemu::lcd
 
     color_t *FBCanvas::pixels()
     {
-        return buffer.pixels();
+        return frameBuffer;
     }
 
     const color_t *FBCanvas::pixels() const
     {
-        return buffer.pixels();
+        return frameBuffer;
     }
 
     void FBCanvas::present()

@@ -23,8 +23,8 @@ namespace gbaemu::lcd
         virtual PixelType *pixels() = 0;
         virtual const PixelType *pixels() const = 0;
 
-        int32_t getWidth() const;
-        int32_t getHeight() const;
+        int32_t getWidth() const { return width; }
+        int32_t getHeight() const { return height; }
         void clear(PixelType color);
         void drawLine(int32_t x1, int32_t x2, int32_t y1, int32_t y2, PixelType color);
         void fillRect(int32_t x, int32_t y, int32_t w, int32_t h, PixelType color);

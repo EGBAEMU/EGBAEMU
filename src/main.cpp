@@ -99,7 +99,6 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
     }
 
     lcdController.clearBlankFlags();
-    lcdController.present();
 
     return false;
 }
@@ -286,7 +285,7 @@ int main(int argc, char **argv)
 #if RENDERER_USE_FB_CANVAS == 0
         window.present();
 #else
-        windowCanvas.present();
+        //windowCanvas.present();
 #endif
 
 #if LIMIT_FPS
@@ -297,7 +296,7 @@ int main(int argc, char **argv)
 #if !defined(DEBUG_CLI) && PRINT_FPS
         auto currentTime = std::chrono::system_clock::now();
         auto dt = std::chrono::duration_cast<std::chrono::microseconds>(currentTime - lastFrame);
-        std::cout << "Current FPS: " << (1000000.0 / dt.count()) << std::endl;
+        std::cout << "Current FPS: " << (1000000.0 / dt.count()) << " in " << std::dec << dt.count() << "us" << std::endl;
         lastFrame = currentTime;
 #endif
     }

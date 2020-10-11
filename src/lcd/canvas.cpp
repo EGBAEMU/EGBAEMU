@@ -7,18 +7,6 @@
 namespace gbaemu::lcd
 {
     template <class PixelType>
-    int32_t Canvas<PixelType>::getWidth() const
-    {
-        return width;
-    }
-
-    template <class PixelType>
-    int32_t Canvas<PixelType>::getHeight() const
-    {
-        return height;
-    }
-
-    template <class PixelType>
     void Canvas<PixelType>::clear(PixelType color)
     {
         auto pixs = pixels();

@@ -239,9 +239,9 @@ namespace gbaemu::lcd
 
     color_t Renderer::toBGR656(color_t color)
     {
-        return ((color & 0x1F) << 11) |         /* blue */
-               (((color >> 5) & 0x1F) << 5) |   /* green */
-               ((color >> 11) & 0x1F);          /* red */
+        return (((color >> 10) & 0x1F) << 11) |     /* blue */
+               (((color >> 5) & 0x1F) << 6)   |     /* green */
+               (color & 0x1F);                      /* red */
     }
 
     Renderer::Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers, Canvas<color_t> &targetCanvas) : memory(mem), irqHandler(irq), regs(registers), target(targetCanvas), objManager(std::make_shared<OBJManager>())
