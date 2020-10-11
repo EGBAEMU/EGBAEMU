@@ -175,20 +175,6 @@ namespace gbaemu::lcd
             affineTransform.dm[1] = 1;
         }
 
-        //assert(affineTransform.d[0] != 0 || affineTransform.d[1] != 0);
-
-        /*
-        if (affineTransform.d[0] == 0 && affineTransform.d[1] == 0) {
-            affineTransform.d[0] = 1;
-            affineTransform.d[1] = 0;
-        }
-
-        if (affineTransform.dm[0] == 0 && affineTransform.dm[1] == 0) {
-            affineTransform.dm[0] = 0;
-            affineTransform.dm[1] = 1;
-        }
-         */
-
         affineTransform.origin[0] = static_cast<common::math::real_t>(width) / 2;
         affineTransform.origin[1] = static_cast<common::math::real_t>(height) / 2;
 
