@@ -144,7 +144,7 @@ namespace gbaemu
         if (state.cpuInfo.noDefaultSCycle) {
             state.cpuInfo.noDefaultSCycle = false;
             // Fetch S cycle needs to be a N cycle -> add difference off N and S Cycle count to our cycle count
-            state.cpuInfo.cycleCount += state.memory.memCycles16(state.fetchInfo.memReg, false) - state.memory.memCycles16(state.fetchInfo.memReg, true);
+            state.cpuInfo.cycleCount += state.nonSeqCycles - state.seqCycles;
         }
 
         // PC sanity checks
