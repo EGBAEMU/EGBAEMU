@@ -89,9 +89,14 @@ namespace gbaemu
     template <uint8_t id>
     void TimerGroup::Timer<id>::step(uint32_t cycles)
     {
-        // If this gets called be can safely assume that it is enabled
+        // If this gets called be can safely assume that it is enabled for the first time or is not in countUpTiming mode
 
         if (!active) {
+            //TODO we might extract this code entirely from the step function for less overhead!
+
+            // Update active flag
+            active = true;
+
             // Was previously disabled -> reconfigure timer
             uint16_t controlReg = le(regs.control);
 
@@ -118,19 +123,16 @@ namespace gbaemu
 
             //TODO 1 cycle for setup?
             --cycles;
+
+            if (countUpTiming) {
+                return;
+            }
         }
 
-        // if countUpTiming is true we only increment on overflow of the previous timer!
-        if (!countUpTiming) {
+        // Increment the timer counter and check for overflows
+        counter += cycles;
 
-            // Increment the timer counter and check for overflows
-            counter += cycles;
-
-            checkForOverflow();
-        }
-
-        // Update active flag
-        active = true;
+        checkForOverflow();
     }
 
     TimerGroup::TimerGroup(CPU *cpu) : tim0(cpu->irqHandler, &tim1, timEnableBitset), tim1(cpu->irqHandler, &tim2, timEnableBitset), tim2(cpu->irqHandler, &tim3, timEnableBitset), tim3(cpu->irqHandler, nullptr, timEnableBitset)
