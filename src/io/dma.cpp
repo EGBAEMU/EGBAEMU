@@ -146,9 +146,8 @@ namespace gbaemu
                 }
 
                 case SEQ_COPY: {
-                    if (count == 0) {
-                        state = DONE;
-                    } else {
+                    while (count > 0 && info.cycleCount < cycles) {
+
                         if (width32Bit) {
                             uint32_t data = memory.read32(srcAddr, info, true, false, true);
                             memory.write32(destAddr, data, info, true);
@@ -161,6 +160,11 @@ namespace gbaemu
 
                         updateAddr(srcAddr, srcCnt);
                         updateAddr(destAddr, dstCnt);
+                    }
+                    if (count == 0) {
+                        state = DONE;
+                    } else {
+                        return;
                     }
                     break;
                 }
