@@ -89,9 +89,9 @@ namespace gbaemu
 
             cpu->state.memory.setBiosState(Bios::BIOS_AFTER_SWI);
 
-            cpu->state.cpuInfo.haltCPU = true;
+            cpu->state.execState |= CPUState::EXEC_HALT;
             // load IE
-            cpu->state.cpuInfo.haltCondition = cpu->state.memory.ioHandler.internalRead16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR);
+            cpu->state.haltCondition = cpu->state.memory.ioHandler.internalRead16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR);
         }
         void intrWait(CPU *cpu)
         {
@@ -100,19 +100,19 @@ namespace gbaemu
             // The function forcefully sets IME=1
             cpu->state.memory.ioHandler.externalWrite8(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 8, 0x1);
 
-            cpu->state.cpuInfo.haltCondition = cpu->state.accessReg(regs::R1_OFFSET);
+            cpu->state.haltCondition = cpu->state.accessReg(regs::R1_OFFSET);
 
+            cpu->state.execState |= CPUState::EXEC_HALT;
             if (cpu->state.accessReg(regs::R0_OFFSET)) {
                 // r0 = 1 = Discard old flags, wait until a NEW flag becomes set
                 // Discard current requests! : write into IF
-                cpu->state.cpuInfo.haltCPU = true;
 
                 //TODO only discard in R1 selected ones or all??
-                cpu->state.memory.ioHandler.externalWrite16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 2, cpu->state.cpuInfo.haltCondition);
+                cpu->state.memory.ioHandler.externalWrite16(InterruptHandler::INTERRUPT_CONTROL_REG_ADDR + 2, cpu->state.haltCondition);
             } else {
                 //0=Return immediately if an old flag was already set
                 // check if condition is currently satisfied and if so return else cause halt
-                cpu->state.cpuInfo.haltCPU = !cpu->irqHandler.checkForHaltCondition(cpu->state.cpuInfo.haltCondition);
+                cpu->irqHandler.checkForHaltCondition(cpu->state.haltCondition);
             }
         }
         void vBlankIntrWait(CPU *cpu)

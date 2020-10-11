@@ -41,7 +41,8 @@ namespace gbaemu
             // else if deactivated active will be set to false as well -> on reenable still false
             active = active && nextActive;
 
-            timEnableBitset = bitSet<uint8_t, 1, id>(timEnableBitset, bmap<uint8_t>(nextActive));
+            timerGroup.timEnableBitset = bitSet<uint8_t, 1, id>(timerGroup.timEnableBitset, bmap<uint8_t>(nextActive));
+            timerGroup.checkRunCondition();
         }
     }
 
@@ -56,7 +57,7 @@ namespace gbaemu
     }
 
     template <uint8_t id>
-    TimerGroup::Timer<id>::Timer(InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, uint8_t &timEnableBitset) : irqHandler(irqHandler), nextTimer(nextTimer), timEnableBitset(timEnableBitset)
+    TimerGroup::Timer<id>::Timer(InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, TimerGroup &timerGroup) : irqHandler(irqHandler), nextTimer(nextTimer), timerGroup(timerGroup)
     {
     }
 
@@ -104,7 +105,8 @@ namespace gbaemu
             if (countUpTiming) {
                 preShift = 0;
                 // If we are in count up timing then we can safely remove ourself from the enable bitset as we only count up through other timer overflows
-                timEnableBitset = bitSet<uint8_t, 1, id>(timEnableBitset, bmap<uint8_t, false>());
+                timerGroup.timEnableBitset = bitSet<uint8_t, 1, id>(timerGroup.timEnableBitset, bmap<uint8_t, false>());
+                timerGroup.checkRunCondition();
             } else {
                 preShift = preShifts[(controlReg & TIMER_PRESCALE_MASK)];
             }
@@ -135,9 +137,18 @@ namespace gbaemu
         checkForOverflow();
     }
 
-    TimerGroup::TimerGroup(CPU *cpu) : tim0(cpu->irqHandler, &tim1, timEnableBitset), tim1(cpu->irqHandler, &tim2, timEnableBitset), tim2(cpu->irqHandler, &tim3, timEnableBitset), tim3(cpu->irqHandler, nullptr, timEnableBitset)
+    TimerGroup::TimerGroup(CPU *cpu) : cpu(cpu), tim0(cpu->irqHandler, &tim1, *this), tim1(cpu->irqHandler, &tim2, *this), tim2(cpu->irqHandler, &tim3, *this), tim3(cpu->irqHandler, nullptr, *this)
     {
         reset();
+    }
+
+    void TimerGroup::checkRunCondition() const
+    {
+        if (timEnableBitset) {
+            cpu->state.execState |= CPUState::EXEC_TIMER;
+        } else {
+            cpu->state.execState &= ~CPUState::EXEC_TIMER;
+        }
     }
 
     template class TimerGroup::Timer<0>;

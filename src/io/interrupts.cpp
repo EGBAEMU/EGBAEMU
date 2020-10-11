@@ -30,6 +30,7 @@ namespace gbaemu
     {
         if (offset == offsetof(InterruptControlRegs, irqRequest) || offset == offsetof(InterruptControlRegs, irqRequest) + 1) {
             *(offset + reinterpret_cast<uint8_t *>(&regs)) &= ~value;
+            checkIRQStateCondition();
         } else if (offset == offsetof(InterruptControlRegs, waitStateCnt) || offset == offsetof(InterruptControlRegs, waitStateCnt) + 1) {
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
             cpu->state.memory.updateWaitCycles(le(regs.waitStateCnt));
@@ -40,6 +41,7 @@ namespace gbaemu
             }
 
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+            checkIRQStateCondition();
         }
     }
 
@@ -58,14 +60,22 @@ namespace gbaemu
     void InterruptHandler::setInterrupt()
     {
         regs.irqRequest |= le(static_cast<uint16_t>(static_cast<uint16_t>(1) << type));
+        checkIRQStateCondition();
     }
 
-    void InterruptHandler::checkForInterrupt()
+    void InterruptHandler::checkIRQStateCondition() const
     {
-        bool triggerIRQ = regs.irqRequest & regs.irqEnable & le<uint16_t>(0x3FFF);
+        if (masterIRQEn && (regs.irqRequest & regs.irqEnable & le<uint16_t>(0x3FFF))) {
+            cpu->state.execState |= CPUState::EXEC_IRQ;
+        } else {
+            cpu->state.execState &= ~CPUState::EXEC_IRQ;
+        }
+    }
 
-        // We can only execute the interrupt if all conditions are met
-        if (masterIRQEn && !cpu->state.getFlag<cpsr_flags::IRQ_DISABLE>() && triggerIRQ) {
+    void InterruptHandler::callIRQHandler() const
+    {
+        // We can only execute the interrupt if not disabled by CPSR register
+        if (!cpu->state.getFlag<cpsr_flags::IRQ_DISABLE>()) {
             /*
             BIOS Interrupt handling
             Upon interrupt execution, the CPU is switched into IRQ mode, and the physical interrupt vector is called - as this address
@@ -94,8 +104,6 @@ namespace gbaemu
             *(irqRegs[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + 4;
 
             // Change instruction mode to arm
-            cpu->decodeAndExecute = cpu->armDecodeAndExecutor;
-
             // Change the register mode to irq
             // Ensure that the CPSR represents that we are in ARM mode again
             // Clear all flags & enforce irq mode
@@ -112,7 +120,7 @@ namespace gbaemu
         }
     }
 
-    bool InterruptHandler::checkForHaltCondition(uint32_t mask)
+    void InterruptHandler::checkForHaltCondition(uint32_t mask) const
     {
         /*
             Halt mode is terminated when any enabled interrupts are requested, 
@@ -120,7 +128,10 @@ namespace gbaemu
         */
         mask &= 0x3FFF;
         uint16_t irqRequestReg = le(regs.irqRequest) & 0x3FFF;
-        return irqRequestReg & mask;
+        bool conditionSatisfied = irqRequestReg & mask;
+        if (conditionSatisfied) {
+            cpu->state.execState &= ~CPUState::EXEC_HALT;
+        }
     }
 
     template void InterruptHandler::setInterrupt<InterruptHandler::LCD_V_BLANK>();

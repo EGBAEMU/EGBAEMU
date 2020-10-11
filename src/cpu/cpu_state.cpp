@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <functional>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 
 namespace gbaemu
@@ -23,8 +24,9 @@ namespace gbaemu
         std::fill_n(reinterpret_cast<char *>(&pipeline), sizeof(pipeline), 0);
         std::fill_n(reinterpret_cast<char *>(&cpsr), sizeof(cpsr), 0);
         std::fill_n(reinterpret_cast<char *>(&cpuInfo), sizeof(cpuInfo), 0);
-        std::fill_n(reinterpret_cast<char *>(&dmaInfo), sizeof(dmaInfo), 0);
         std::fill_n(reinterpret_cast<char *>(&fetchInfo), sizeof(fetchInfo), 0);
+        execState = 0;
+        haltCondition = 0;
 
         // Ensure that system mode is also set in CPSR register!
         updateCPSR(0b11111);
@@ -169,7 +171,7 @@ namespace gbaemu
         return *(getCurrentRegs()[offset]);
     }
 
-    bool CPUState::updateCPUMode(uint8_t modeBits)
+    void CPUState::updateCPUMode(uint8_t modeBits)
     {
         /*
         The Mode Bits M4-M0 contain the current operating mode.
@@ -187,7 +189,6 @@ namespace gbaemu
                 11111b 1Fh 31 - System (privileged 'User' mode) (ARMv4 and up)
         Writing any other values into the Mode bits is not allowed. 
         */
-        bool error = false;
         switch (modeBits) {
             case 0b0000:
                 cpsr.mode = CPUState::UserMode;
@@ -212,25 +213,24 @@ namespace gbaemu
                 break;
 
             default:
-                error = true;
+                executionInfo.message << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(modeBits) << std::endl;
+                execState = CPUState::EXEC_ERROR;
                 break;
         }
 
         currentRegs = regsHacks[cpsr.mode];
-
-        return error;
     }
 
-    bool CPUState::updateCPUMode()
+    void CPUState::updateCPUMode()
     {
         uint8_t modeBits = regs.CPSR & cpsr_flags::MODE_BIT_MASK & 0xF;
-        return updateCPUMode(modeBits);
+        updateCPUMode(modeBits);
     }
 
-    bool CPUState::setCPUMode(uint8_t modeBits)
+    void CPUState::setCPUMode(uint8_t modeBits)
     {
         regs.CPSR = (regs.CPSR & ~cpsr_flags::MODE_BIT_MASK) | modeBits;
-        return updateCPUMode(modeBits & cpsr_flags::MODE_BIT_MASK & 0xF);
+        updateCPUMode(modeBits & cpsr_flags::MODE_BIT_MASK & 0xF);
     }
 
     void CPUState::updateCPSR(uint32_t value)
@@ -241,13 +241,15 @@ namespace gbaemu
         cpsr.zero = isBitSet<uint32_t, cpsr_flags::Z_FLAG>(value);
         cpsr.carry = isBitSet<uint32_t, cpsr_flags::C_FLAG>(value);
         cpsr.overflow = isBitSet<uint32_t, cpsr_flags::V_FLAG>(value);
-        cpsr.thumbMode = isBitSet<uint32_t, cpsr_flags::THUMB_STATE>(value);
         cpsr.irqDisable = isBitSet<uint32_t, cpsr_flags::IRQ_DISABLE>(value);
+        cpsr.thumbMode = isBitSet<uint32_t, cpsr_flags::THUMB_STATE>(value);
+        execState = (execState & ~EXEC_THUMB) | bmap<uint8_t>(cpsr.thumbMode);
         updateCPUMode(value & cpsr_flags::MODE_BIT_MASK & 0xF);
     }
 
     void CPUState::clearFlags()
     {
+        // Only keep the current mode!
         regs.CPSR &= cpsr_flags::MODE_BIT_MASK;
         cpsr.negative = false;
         cpsr.zero = false;
@@ -255,6 +257,8 @@ namespace gbaemu
         cpsr.overflow = false;
         cpsr.thumbMode = false;
         cpsr.irqDisable = false;
+
+        execState &= ~EXEC_THUMB;
     }
 
     std::string CPUState::toString() const

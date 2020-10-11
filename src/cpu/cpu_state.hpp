@@ -6,9 +6,21 @@
 #include "regs.hpp"
 #include <cstdint>
 #include <string>
+#include <sstream>
 
 namespace gbaemu
 {
+
+    enum CPUExecutionInfoType {
+        NORMAL,
+        WARNING,
+        EXCEPTION
+    };
+
+    struct CPUExecutionInfo {
+        CPUExecutionInfoType infoType = NORMAL;
+        std::stringstream message;
+    };
 
     struct CPUState {
       public:
@@ -21,6 +33,21 @@ namespace gbaemu
             UndefinedMode,
             SystemMode
         };
+
+        enum ExecutionState : uint8_t {
+            EXEC_THUMB = 1 << 0,
+            EXEC_DMA = 1 << 1,
+            EXEC_TIMER = 1 << 2,
+            EXEC_IRQ = 1 << 3,
+            EXEC_HALT = 1 << 4,
+            // Indicate that an exception occurred -> abort
+            EXEC_ERROR = 1 << 5,
+        };
+
+        uint8_t execState;
+
+        /* If an error has occured more information can be found here. */
+        CPUExecutionInfo executionInfo;
 
       private:
         struct Regs {
@@ -64,7 +91,9 @@ namespace gbaemu
         Memory memory;
 
         InstructionExecutionInfo cpuInfo;
-        InstructionExecutionInfo dmaInfo;
+
+        // CPU halting
+        uint32_t haltCondition;
 
         // Execute phase variables
         //TODO this can probably replace the additional N & S cycle fields
@@ -121,8 +150,12 @@ namespace gbaemu
             constexpr uint32_t mask = static_cast<uint32_t>(1) << flag;
             if (value) {
                 regs.CPSR |= mask;
+                if (flag == cpsr_flags::THUMB_STATE)
+                    execState |= EXEC_THUMB;
             } else {
                 regs.CPSR &= ~mask;
+                if (flag == cpsr_flags::THUMB_STATE)
+                    execState &= ~EXEC_THUMB;
             }
 
             (flag == cpsr_flags::N_FLAG ? cpsr.negative : (flag == cpsr_flags::Z_FLAG ? cpsr.zero : (flag == cpsr_flags::C_FLAG ? cpsr.carry : (flag == cpsr_flags::V_FLAG ? cpsr.overflow : (flag == cpsr_flags::IRQ_DISABLE ? cpsr.irqDisable : cpsr.thumbMode))))) = value;
@@ -145,11 +178,11 @@ namespace gbaemu
         }
 
         CPUMode getCPUMode() const { return cpsr.mode; }
-        bool updateCPUMode();
-        bool setCPUMode(uint8_t modeBits);
+        void updateCPUMode();
+        void setCPUMode(uint8_t modeBits);
 
       private:
-        bool updateCPUMode(uint8_t modeBits);
+        void updateCPUMode(uint8_t modeBits);
 
       public:
         std::string toString() const;

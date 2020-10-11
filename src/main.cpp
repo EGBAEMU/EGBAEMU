@@ -46,7 +46,8 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #ifndef DEBUG_CLI
         gbaemu::CPUExecutionInfoType executionInfo = cpu.step(960);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
-            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            std::cout << "CPU error occurred: " << std::endl;
+            std::cout << cpu.state.executionInfo.message.str() << std::endl;
             return true;
         }
 #else
@@ -64,7 +65,8 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #ifndef DEBUG_CLI
         executionInfo = cpu.step(272);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
-            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            std::cout << "CPU error occurred: " << std::endl;
+            std::cout << cpu.state.executionInfo.message.str() << std::endl;
             return true;
         }
 #else
@@ -85,7 +87,8 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #ifndef DEBUG_CLI
         gbaemu::CPUExecutionInfoType executionInfo = cpu.step(1232);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
-            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            std::cout << "CPU error occurred: " << std::endl;
+            std::cout << cpu.state.executionInfo.message.str() << std::endl;
             return true;
         }
 #else
@@ -123,7 +126,8 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #else
         gbaemu::CPUExecutionInfoType executionInfo = cpu.step(1);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
-            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            std::cout << "CPU error occurred: " << std::endl;
+            std::cout << cpu.state.executionInfo.message.str() << std::endl;
             return true;
         }
 #endif

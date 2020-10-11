@@ -430,8 +430,8 @@ namespace gbaemu
                 break;
 
             default:
-                std::cout << "ERROR: execDataProc can not handle instruction: " << instructionIDToString(id) << std::endl;
-                state.cpuInfo.hasCausedException = true;
+                state.executionInfo.message << "ERROR: execDataProc can not handle instruction: " << instructionIDToString(id) << std::endl;
+                state.execState = CPUState::EXEC_ERROR;
                 break;
         }
 
@@ -652,7 +652,6 @@ namespace gbaemu
             // I assume that we access user regs... because user mode is the only non-priviledged mode
             if (forceNonPrivAccess) {
                 currentRegs = state.getModeRegs(CPUState::UserMode);
-                std::cout << "WARNING: force non priviledeg access!" << std::endl;
             }
         }
 

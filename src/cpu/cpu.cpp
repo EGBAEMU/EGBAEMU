@@ -8,24 +8,12 @@
 #include "logging.hpp"
 
 #include <algorithm>
-#include <iostream>
 #include <sstream>
 
 namespace gbaemu
 {
     arm::ArmExecutor CPU::armExecutor;
     thumb::ThumbExecutor CPU::thumbExecutor;
-
-    InstructionDecodeAndExecutor CPU::armDecodeAndExecutor = [](uint32_t pc, CPUState &state) {
-        uint32_t inst = state.propagatePipeline<false>(pc);
-        if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
-            arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
-        }
-    };
-    InstructionDecodeAndExecutor CPU::thumbDecodeAndExecutor = [](uint32_t pc, CPUState &state) {
-        uint32_t inst = state.propagatePipeline<true>(pc);
-        thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>(inst);
-    };
 
     CPU::CPU() : dmaGroup(this), timerGroup(this), irqHandler(this), keypad(this)
     {
@@ -55,111 +43,84 @@ namespace gbaemu
         }
     }
 
-#define CPU_STEP_INNER_LOOP /* check if we need to call the irq routine */                       \
-    irqHandler.checkForInterrupt();                                                              \
-    /* clear all fields in cpuInfo */                                                            \
-    const constexpr InstructionExecutionInfo zeroInitExecInfo{0};                                \
-    state.cpuInfo = zeroInitExecInfo;                                                            \
-                                                                                                 \
-    uint32_t prevPC = state.getCurrentPC();                                                      \
-    execute(prevPC);                                                                             \
-                                                                                                 \
-    if (state.cpuInfo.hasCausedException) {                                                      \
-        /*TODO print cause*/                                                                     \
-        /*TODO set cause in memory class*/                                                       \
-                                                                                                 \
-        /*TODO maybe return reason? as this might be needed to exit a game?*/                    \
-        /* Abort*/                                                                               \
-        std::stringstream ss;                                                                    \
-        ss << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception\n"; \
-                                                                                                 \
-        executionInfo = CPUExecutionInfo(EXCEPTION, ss.str());                                   \
-                                                                                                 \
-        return CPUExecutionInfoType::EXCEPTION;                                                  \
-    }
-
-#define CPU_LOOP_END                               \
-    timerGroup.step(state.cpuInfo.cycleCount);     \
-                                                   \
-    cyclesLeft -= state.cpuInfo.cycleCount;        \
-                                                   \
-    if (cyclesLeft > 0) {                          \
-        dmaGroup.step(state.dmaInfo, cyclesLeft);  \
-                                                   \
-        cyclesLeft -= state.dmaInfo.cycleCount;    \
-        timerGroup.step(state.dmaInfo.cycleCount); \
-        state.dmaInfo.cycleCount = 0;              \
-    }
+// Trust me, you dont want to look at it :D
+#include "rep_case_constexpr_makros.h"
 
     CPUExecutionInfoType CPU::step(uint32_t cycles)
     {
         cyclesLeft += cycles;
 
-        if (cyclesLeft > 0) {
-            dmaGroup.step(state.dmaInfo, cyclesLeft);
+        uint32_t prevPC;
 
-            cyclesLeft -= state.dmaInfo.cycleCount;
-            timerGroup.step(state.dmaInfo.cycleCount);
-            state.dmaInfo.cycleCount = 0;
+        while (cyclesLeft > 0) {
 
-            if (state.memory.usesExternalBios()) {
-                while (cyclesLeft > 0) {
-                    CPU_STEP_INNER_LOOP
-                    CPU_LOOP_END
-                }
-            } else {
-                while (cyclesLeft > 0) {
-                    if (state.cpuInfo.haltCPU) {
-                        state.cpuInfo.haltCPU = !irqHandler.checkForHaltCondition(state.cpuInfo.haltCondition);
-                        state.cpuInfo.cycleCount = 1;
-                    } else {
-                        CPU_STEP_INNER_LOOP
-                    }
-                    CPU_LOOP_END
-                }
+            switch (state.execState) {
+                // We have 5 state bits that may interleave -> 2^5 cases = 32
+                REP_CASE_CONSTEXPR(32, uint8_t, 0, execStep<offset>(prevPC));
+                default:
+                    state.executionInfo.message << "ERROR unhandled CPU state: 0x" << std::hex << static_cast<uint32_t>(state.execState) << std::endl;
+                    // Fall through
+                case CPUState::EXEC_ERROR:
+                    state.executionInfo.message << "ERROR: Instruction at: 0x" << std::hex << prevPC << " has caused an exception\n";
+                    state.executionInfo.infoType = CPUExecutionInfoType::EXCEPTION;
+                    return CPUExecutionInfoType::EXCEPTION;
+                    break;
             }
         }
 
         return CPUExecutionInfoType::NORMAL;
     }
 
-    void CPU::execute(uint32_t prevPc)
+    // Use a template so that most ifs are constexpr -> better loop performance
+    template <uint8_t execState>
+    void CPU::execStep(uint32_t &prevPC)
     {
-        uint32_t prevCPSR = state.getCurrentCPSR();
+        uint32_t currentPC = state.getCurrentPC();
 
-        decodeAndExecute(prevPc, state);
+        do {
+            prevPC = currentPC;
+            state.cpuInfo.cycleCount = 0;
 
-        uint32_t postPc = state.accessReg(regs::PC_OFFSET);
-        // xor cpsr's to detect changes
-        uint32_t postCPSR = state.getCurrentCPSR() ^ prevCPSR;
-
-        // Check if arm/thumb mode has changed
-        if (postCPSR & (1 << cpsr_flags::THUMB_STATE)) {
-            bool newThumbMode = state.getFlag<cpsr_flags::THUMB_STATE>();
-            // Change from arm mode to thumb mode or vice versa
-            if (newThumbMode) {
-                decodeAndExecute = thumbDecodeAndExecutor;
+            if (execState & CPUState::EXEC_DMA) {
+                dmaGroup.step(state.cpuInfo, cyclesLeft);
             } else {
-                decodeAndExecute = armDecodeAndExecutor;
-            }
-            state.cpuInfo.forceBranch = true;
-        }
-        // Check if mode has changed
-        if (postCPSR & cpsr_flags::MODE_BIT_MASK) {
-            // update mode and make a sanity check!
-            if (state.updateCPUMode()) {
-                std::cout << "ERROR: invalid mode bits: 0x" << std::hex << static_cast<uint32_t>(state.getCurrentCPSR() & cpsr_flags::MODE_BIT_MASK) << " prevPC: 0x" << std::hex << prevPc << std::endl;
-                state.cpuInfo.hasCausedException = true;
-                return;
-            }
-        }
+                if (execState & CPUState::EXEC_HALT) {
+                    irqHandler.checkForHaltCondition(state.haltCondition);
+                    state.cpuInfo.cycleCount = 1;
+                } else {
+                    if (execState & CPUState::EXEC_IRQ) {
+                        irqHandler.callIRQHandler();
+                    }
 
-#ifdef DEBUG_CLI
-        assert(((prevPc != postPc) && !state.cpuInfo.forceBranch) == false);
-#endif
+                    if (execState & CPUState::EXEC_THUMB) {
+                        uint32_t inst = state.propagatePipeline<true>(currentPC);
+                        thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>(inst);
+                    } else {
+                        uint32_t inst = state.propagatePipeline<false>(currentPC);
+                        if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
+                            arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
+                        }
+                    }
+
+                    currentPC = postExecute();
+                }
+            }
+
+            if (execState & CPUState::EXEC_TIMER) {
+                timerGroup.step(state.cpuInfo.cycleCount);
+            }
+
+            cyclesLeft -= state.cpuInfo.cycleCount;
+        } while (cyclesLeft > 0 && execState == state.execState);
+    }
+
+    uint32_t CPU::postExecute()
+    {
+        uint32_t postPc = state.accessReg(regs::PC_OFFSET);
 
         // We have a branch, return or something that changed our PC
         if (state.cpuInfo.forceBranch) {
+            state.cpuInfo.forceBranch = false;
             // If an instruction jumps to a different memory area,
             // then all code cycles for that opcode are having waitstate characteristics
             // of the NEW memory area (except Thumb BL which still executes 1S in OLD area).
@@ -172,7 +133,7 @@ namespace gbaemu
             state.cpuInfo.cycleCount += state.nonSeqCycles;
         } else {
             // Increment the pc counter to the next instruction
-            state.accessReg(regs::PC_OFFSET) = postPc + (state.getFlag<cpsr_flags::THUMB_STATE>() ? 2 : 4);
+            state.accessReg(regs::PC_OFFSET) += (state.getFlag<cpsr_flags::THUMB_STATE>() ? 2 : 4);
         }
 
         // Add 1S cycle needed to fetch a instruction if not other requested
@@ -181,20 +142,21 @@ namespace gbaemu
         state.fetchInfo.cycleCount = 0;
 
         if (state.cpuInfo.noDefaultSCycle) {
+            state.cpuInfo.noDefaultSCycle = false;
             // Fetch S cycle needs to be a N cycle -> add difference off N and S Cycle count to our cycle count
             state.cpuInfo.cycleCount += state.memory.memCycles16(state.fetchInfo.memReg, false) - state.memory.memCycles16(state.fetchInfo.memReg, true);
         }
 
         // PC sanity checks
         if (state.fetchInfo.memReg == memory::BIOS && postPc >= state.memory.getBiosSize()) {
-            std::cout << "CRITIAL ERROR: PC(0x" << std::hex << postPc << ") points to bios address outside of our code! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
-            state.cpuInfo.hasCausedException = true;
-            return;
+            state.executionInfo.message << "CRITIAL ERROR: PC(0x" << std::hex << postPc << ") points to bios address outside of our code! Aborting!" << std::endl;
+            state.execState = CPUState::EXEC_ERROR;
         } else if (state.fetchInfo.memReg >= memory::EXT_ROM1 && postPc >= memory::EXT_ROM_OFFSET + state.memory.getRomSize()) {
-            std::cout << "CRITIAL ERROR: PC(0x" << std::hex << postPc << ") points out to address out of its ROM bounds! Aborting! PrevPC: 0x" << std::hex << prevPc << std::endl;
-            state.cpuInfo.hasCausedException = true;
-            return;
+            state.executionInfo.message << "CRITIAL ERROR: PC(0x" << std::hex << postPc << ") points out to address out of its ROM bounds! Aborting!" << std::endl;
+            state.execState = CPUState::EXEC_ERROR;
         }
+
+        return postPc;
     }
 
     void CPU::reset()
@@ -205,11 +167,43 @@ namespace gbaemu
         irqHandler.reset();
         keypad.reset();
 
-        decodeAndExecute = armDecodeAndExecutor;
         armExecutor.cpu = this;
         thumbExecutor.cpu = this;
         state.memory.ioHandler.cpu = this;
 
         cyclesLeft = 0;
     }
+
+    template void CPU::execStep<0>(uint32_t &);
+    template void CPU::execStep<1>(uint32_t &);
+    template void CPU::execStep<2>(uint32_t &);
+    template void CPU::execStep<3>(uint32_t &);
+    template void CPU::execStep<4>(uint32_t &);
+    template void CPU::execStep<5>(uint32_t &);
+    template void CPU::execStep<6>(uint32_t &);
+    template void CPU::execStep<7>(uint32_t &);
+    template void CPU::execStep<8>(uint32_t &);
+    template void CPU::execStep<9>(uint32_t &);
+    template void CPU::execStep<10>(uint32_t &);
+    template void CPU::execStep<11>(uint32_t &);
+    template void CPU::execStep<12>(uint32_t &);
+    template void CPU::execStep<13>(uint32_t &);
+    template void CPU::execStep<14>(uint32_t &);
+    template void CPU::execStep<15>(uint32_t &);
+    template void CPU::execStep<16>(uint32_t &);
+    template void CPU::execStep<17>(uint32_t &);
+    template void CPU::execStep<18>(uint32_t &);
+    template void CPU::execStep<19>(uint32_t &);
+    template void CPU::execStep<20>(uint32_t &);
+    template void CPU::execStep<21>(uint32_t &);
+    template void CPU::execStep<22>(uint32_t &);
+    template void CPU::execStep<23>(uint32_t &);
+    template void CPU::execStep<24>(uint32_t &);
+    template void CPU::execStep<25>(uint32_t &);
+    template void CPU::execStep<26>(uint32_t &);
+    template void CPU::execStep<27>(uint32_t &);
+    template void CPU::execStep<28>(uint32_t &);
+    template void CPU::execStep<29>(uint32_t &);
+    template void CPU::execStep<30>(uint32_t &);
+    template void CPU::execStep<31>(uint32_t &);
 } // namespace gbaemu

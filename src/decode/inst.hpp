@@ -52,12 +52,6 @@ namespace gbaemu
 
         // Needed for infinite loops caused by branching to current PC value -> no PC change would otherwise be interpreted as normal instruction and execution continues at PC + 4
         bool forceBranch;
-        // Invalid operation executed -> abort
-        bool hasCausedException;
-
-        // CPU halting
-        bool haltCPU;
-        uint32_t haltCondition;
 
         // resolved Memory Region
         memory::MemoryRegion memReg;
