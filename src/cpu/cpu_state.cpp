@@ -59,6 +59,8 @@ namespace gbaemu
 
         accessReg(gbaemu::regs::PC_OFFSET) = memory::EXT_ROM_OFFSET;
         fetchInfo.memReg = memory::EXT_ROM1;
+        seqCycles = memory.memCycles32(fetchInfo.memReg, true);
+        nonSeqCycles = memory.memCycles32(fetchInfo.memReg, false);
     }
 
     uint32_t CPUState::handleReadUnused() const
@@ -101,6 +103,7 @@ namespace gbaemu
         return value;
     }
 
+    template <bool thumbMode>
     uint32_t CPUState::propagatePipeline(uint32_t pc)
     {
         // propagate pipeline
@@ -140,10 +143,6 @@ namespace gbaemu
             STRINGIFY_CASE_ID(SystemMode);
         }
         return "UNKNOWN";
-    }
-
-    CPUState::~CPUState()
-    {
     }
 
     uint32_t CPUState::getCurrentPC() const
@@ -348,4 +347,6 @@ namespace gbaemu
         return ss.str();
     }
 
+    template uint32_t CPUState::propagatePipeline<true>(uint32_t);
+    template uint32_t CPUState::propagatePipeline<false>(uint32_t);
 } // namespace gbaemu

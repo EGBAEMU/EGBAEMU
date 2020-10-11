@@ -16,12 +16,16 @@ namespace gbaemu
     arm::ArmExecutor CPU::armExecutor;
     thumb::ThumbExecutor CPU::thumbExecutor;
 
-    InstructionDecodeAndExecutor CPU::armDecodeAndExecutor = [](uint32_t inst) {
+    InstructionDecodeAndExecutor CPU::armDecodeAndExecutor = [](uint32_t pc, CPUState &state) {
+        uint32_t inst = state.propagatePipeline<false>(pc);
         if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
             arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
         }
     };
-    InstructionDecodeAndExecutor CPU::thumbDecodeAndExecutor = &thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>;
+    InstructionDecodeAndExecutor CPU::thumbDecodeAndExecutor = [](uint32_t pc, CPUState &state) {
+        uint32_t inst = state.propagatePipeline<true>(pc);
+        thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>(inst);
+    };
 
     CPU::CPU() : dmaGroup(this), timerGroup(this), irqHandler(this), keypad(this)
     {
@@ -38,8 +42,17 @@ namespace gbaemu
     {
         // We need to fill the pipeline to the state where the instruction at PC is ready for execution -> fetched + decoded!
         uint32_t pc = state.accessReg(regs::PC_OFFSET);
-        state.propagatePipeline(pc - (state.thumbMode ? 4 : 8));
-        state.propagatePipeline(pc - (state.thumbMode ? 2 : 4));
+        if (state.thumbMode) {
+            state.propagatePipeline<true>(pc - 4);
+            state.propagatePipeline<true>(pc - 2);
+            state.seqCycles = state.memory.memCycles16(state.fetchInfo.memReg, true);
+            state.nonSeqCycles = state.memory.memCycles16(state.fetchInfo.memReg, false);
+        } else {
+            state.propagatePipeline<false>(pc - 8);
+            state.propagatePipeline<false>(pc - 4);
+            state.seqCycles = state.memory.memCycles32(state.fetchInfo.memReg, true);
+            state.nonSeqCycles = state.memory.memCycles32(state.fetchInfo.memReg, false);
+        }
     }
 
 #define CPU_STEP_INNER_LOOP /* check if we need to call the irq routine */                       \
@@ -49,7 +62,7 @@ namespace gbaemu
     state.cpuInfo = zeroInitExecInfo;                                                            \
                                                                                                  \
     uint32_t prevPC = state.getCurrentPC();                                                      \
-    execute(state.propagatePipeline(prevPC), prevPC);                                            \
+    execute(prevPC);                                                                             \
                                                                                                  \
     if (state.cpuInfo.hasCausedException) {                                                      \
         /*TODO print cause*/                                                                     \
@@ -110,11 +123,11 @@ namespace gbaemu
         return CPUExecutionInfoType::NORMAL;
     }
 
-    void CPU::execute(uint32_t inst, uint32_t prevPc)
+    void CPU::execute(uint32_t prevPc)
     {
         uint32_t prevCPSR = state.accessReg(regs::CPSR_OFFSET);
 
-        decodeAndExecute(inst);
+        decodeAndExecute(prevPc, state);
 
         uint32_t postPc = state.accessReg(regs::PC_OFFSET);
         // xor cpsr's to detect changes
@@ -151,14 +164,12 @@ namespace gbaemu
             // then all code cycles for that opcode are having waitstate characteristics
             // of the NEW memory area (except Thumb BL which still executes 1S in OLD area).
             // -> we have to undo the fetch added cycles and add it again after initPipeline
-            //TODO this might as well be memCycles32... fix this!!!
-            state.cpuInfo.cycleCount -= state.memory.memCycles16(state.fetchInfo.memReg, true);
+            state.cpuInfo.cycleCount -= state.seqCycles;
             postPc = state.normalizePC();
             initPipeline();
             // Replace first S cycle of pipeline fetch by an N cycle as its random access!
-            state.cpuInfo.cycleCount += state.memory.memCycles16(state.fetchInfo.memReg, false) - state.memory.memCycles16(state.fetchInfo.memReg, true);
             // Also apply additional 1S into new region
-            state.cpuInfo.cycleCount += state.memory.memCycles16(state.fetchInfo.memReg, true);
+            state.cpuInfo.cycleCount += state.nonSeqCycles;
         } else {
             // Increment the pc counter to the next instruction
             state.accessReg(regs::PC_OFFSET) = postPc + (state.thumbMode ? 2 : 4);
