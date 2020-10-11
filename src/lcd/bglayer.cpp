@@ -282,7 +282,7 @@ namespace gbaemu::lcd
                     int32_t msx = sx - (sx % mosaicWidth);
                     int32_t msy = sy - (sy % mosaicHeight);
 
-                    return LCDColorPalette::toR8G8B8(reinterpret_cast<const color16_t *>(frameBuffer)[msy * width + msx]);
+                    return reinterpret_cast<const color16_t *>(frameBuffer)[msy * width + msx];
                 };
             case Mode4:
                 /* 256 indexed colors */
