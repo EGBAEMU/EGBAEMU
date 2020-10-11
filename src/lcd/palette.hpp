@@ -17,11 +17,11 @@ namespace gbaemu::lcd
             Under certain conditions the palette can be split up into 16 partitions of 16 colors. This is what
             partition number and index refer to.
          */
-        color16_t getBgColor(uint32_t index) const;
-        color16_t getBgColor(uint32_t paletteNumber, uint32_t index) const;
-        color16_t getObjColor(uint32_t index) const;
-        color16_t getObjColor(uint32_t paletteNumber, uint32_t index) const;
-        color16_t getBackdropColor() const;
+        color_t getBgColor(uint32_t index) const;
+        color_t getBgColor(uint32_t paletteNumber, uint32_t index) const;
+        color_t getObjColor(uint32_t index) const;
+        color_t getObjColor(uint32_t paletteNumber, uint32_t index) const;
+        color_t getBackdropColor() const;
     };
 } // namespace gbaemu::lcd
 

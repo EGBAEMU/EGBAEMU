@@ -10,7 +10,7 @@ namespace gbaemu::lcd
         objPalette = reinterpret_cast<uint16_t *>(mem.bg_obj_ram + 0x200);
     }
 
-    color16_t LCDColorPalette::getBgColor(uint32_t index) const
+    color_t LCDColorPalette::getBgColor(uint32_t index) const
     {
         if (index == 0)
             return TRANSPARENT;
@@ -18,7 +18,7 @@ namespace gbaemu::lcd
         return bgPalette[index];
     }
 
-    color16_t LCDColorPalette::getBgColor(uint32_t paletteNumber, uint32_t index) const
+    color_t LCDColorPalette::getBgColor(uint32_t paletteNumber, uint32_t index) const
     {
         if (index == 0)
             return TRANSPARENT;
@@ -26,7 +26,7 @@ namespace gbaemu::lcd
         return getBgColor(paletteNumber * 16 + index);
     }
 
-    color16_t LCDColorPalette::getObjColor(uint32_t index) const
+    color_t LCDColorPalette::getObjColor(uint32_t index) const
     {
         if (index == 0)
             return TRANSPARENT;
@@ -34,7 +34,7 @@ namespace gbaemu::lcd
         return objPalette[index];
     }
 
-    color16_t LCDColorPalette::getObjColor(uint32_t paletteNumber, uint32_t index) const
+    color_t LCDColorPalette::getObjColor(uint32_t paletteNumber, uint32_t index) const
     {
         if (index == 0)
             return TRANSPARENT;
@@ -42,7 +42,7 @@ namespace gbaemu::lcd
         return getObjColor(paletteNumber * 16 + index);
     }
 
-    color16_t LCDColorPalette::getBackdropColor() const
+    color_t LCDColorPalette::getBackdropColor() const
     {
         return bgPalette[0];
     }
