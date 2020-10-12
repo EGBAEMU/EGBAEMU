@@ -162,8 +162,8 @@ namespace gbaemu
     uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq, bool readInstruction) const
     {
 
-        execInfo.cycleCount += memCycles16(addr, seq);
         execInfo.memReg = extractMemoryRegion(addr);
+        execInfo.cycleCount += memCycles16(execInfo.memReg, seq);
 
         uint8_t currValue;
 
