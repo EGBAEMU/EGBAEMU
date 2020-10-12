@@ -87,14 +87,17 @@ namespace gbaemu
 
         InterruptHandler(CPU *cpu);
 
-        void checkForInterrupt();
+        void callIRQHandler() const;
 
         template <InterruptType type>
         void setInterrupt();
 
-        bool checkForHaltCondition(uint32_t mask);
+        void checkForHaltCondition(uint32_t mask) const;
 
         void reset();
+
+      private:
+        void checkIRQStateCondition() const;
 
         friend class IO_Handler;
     };
