@@ -52,7 +52,7 @@ namespace gbaemu
         That is m=1 for Bit 31-8, m=2 for Bit 31-16, m=3 for Bit 31-24, and m=4 otherwise.
         */
         // bool a decides if it is a MLAL instruction or MULL
-        state.cpuInfo.cycleCount = (a ? 1 : 0);
+        state.cpuInfo.cycleCount += (a ? 1 : 0);
 
         if (((rsVal >> 8) & 0x00FFFFFF) == 0 || ((rsVal >> 8) & 0x00FFFFFF) == 0x00FFFFFF) {
             state.cpuInfo.cycleCount += 1;
@@ -134,7 +134,7 @@ namespace gbaemu
         That is m=1 for Bit31-8, m=2 for Bit31-16, m=3 for Bit31-24, and m=4 otherwise.
         */
         // bool a decides if it is a MLAL instruction or MULL
-        state.cpuInfo.cycleCount = (a ? 2 : 1);
+        state.cpuInfo.cycleCount += (a ? 2 : 1);
 
         if (((unExtRsVal >> 8) & 0x00FFFFFF) == 0 || (signMul && ((unExtRsVal >> 8) & 0x00FFFFFF) == 0x00FFFFFF)) {
             state.cpuInfo.cycleCount += 1;
@@ -163,15 +163,15 @@ namespace gbaemu
 
         // Execution Time: 1S+2N+1I. That is, 2N data cycles (added through Memory class), 1S code cycle, plus 1I(initial value)
 
-        state.cpuInfo.cycleCount = 1;
+        state.cpuInfo.cycleCount += 1;
 
         if (b) {
-            uint8_t memVal = state.memory.read8(memAddr, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS);
+            uint8_t memVal = state.memory.read8(memAddr, state.cpuInfo, false);
             state.memory.write8(memAddr, static_cast<uint8_t>(newMemVal & 0x0FF), state.cpuInfo);
             *currentRegs[rd] = static_cast<uint32_t>(memVal);
         } else {
             // LDR part
-            uint32_t alignedWord = state.memory.read32(memAddr, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS);
+            uint32_t alignedWord = state.memory.read32(memAddr, state.cpuInfo, false);
             alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memAddr & 0x03) * 8, false, false) & 0xFFFFFFFF;
             *currentRegs[rd] = alignedWord;
 
@@ -183,23 +183,25 @@ namespace gbaemu
     // Executes instructions belonging to the branch subsection
     void CPU::handleBranch(bool link, int32_t offset)
     {
-        uint32_t pc = state.getCurrentPC();
+        auto currentRegs = state.getCurrentRegs();
 
         // If link is set, R14 will receive the address of the next instruction to be executed. So if we are
         // jumping but want to remember where to return to after the subroutine finished that might be usefull.
         if (link) {
+            // Note that pc is already incremented by 4
             // Next instruction should be at: PC + 4
-            state.accessReg(regs::LR_OFFSET) = (pc + 4);
+            *currentRegs[regs::LR_OFFSET] = *currentRegs[regs::PC_OFFSET];
         }
 
         // Offset is given in units of 4. Thus we need to shift it first by two
-        offset *= 4;
+        offset <<= 2;
 
-        state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(pc) + 8 + offset);
+        // Note that pc is already incremented by 4
+        *currentRegs[regs::PC_OFFSET] += static_cast<uint32_t>(4 + offset);
 
         // Execution Time: 2S + 1N
-        // This is a branch instruction so we need to consider self branches!
-        state.cpuInfo.forceBranch = true;
+        // This is a branch instruction so we need to refill the pipeline!
+        refillPipelineAfterBranch<false>();
     }
 
     // Executes instructions belonging to the branch and execute subsection
@@ -212,16 +214,17 @@ namespace gbaemu
         // If the first bit of rn is set
         bool changeToThumb = rnValue & 0x00000001;
 
-        if (changeToThumb) {
-            state.setFlag<cpsr_flags::THUMB_STATE>(true);
-        }
-
         // Change the PC to the address given by rm. Note that we have to mask out the thumb switch bit.
-        state.accessReg(regs::PC_OFFSET) = rnValue & 0xFFFFFFFE;
+        *currentRegs[regs::PC_OFFSET] = rnValue & 0xFFFFFFFE;
 
         // Execution Time: 2S + 1N
-        // This is a branch instruction so we need to consider self branches!
-        state.cpuInfo.forceBranch = true;
+        // This is a branch instruction so we need to refill the pipeline!
+        if (changeToThumb) {
+            state.setFlag<cpsr_flags::THUMB_STATE>(true);
+            refillPipelineAfterBranch<true>();
+        } else {
+            refillPipelineAfterBranch<false>();
+        }
     }
 
 #define CREATE_CONSTEXPR_GETTER(Name, ...)                              \
@@ -253,7 +256,7 @@ namespace gbaemu
                             AND, EOR, MOV, MVN, ORR,
                             BIC, TEQ, TST)
     CREATE_CONSTEXPR_GETTER(DontUpdateRD,
-                            CMP, CMN, TST, TEQ)
+                            CMP, CMN, TST, TEQ, MSR_SPSR, MSR_CPSR)
     CREATE_CONSTEXPR_GETTER(InvertCarry,
                             CMP, SUB, SBC, RSB, RSC, NEG, SUB_SHORT_IMM)
     CREATE_CONSTEXPR_GETTER(MovSPSR,
@@ -288,13 +291,14 @@ namespace gbaemu
             uint32_t rmValue = *currentRegs[rm];
 
             if (rm == regs::PC_OFFSET) {
+                // Note that pc is already incremented by 2/4
                 // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
                 // PC+12 if I=0,R=1 (shift by register),
                 // otherwise PC+8 (shift by immediate).
                 if (!i && shiftByReg) {
-                    rmValue += thumb ? 6 : 12;
-                } else {
                     rmValue += thumb ? 4 : 8;
+                } else {
+                    rmValue += thumb ? 2 : 4;
                 }
             }
 
@@ -306,13 +310,14 @@ namespace gbaemu
 
         uint64_t rnValue = *currentRegs[rn];
         if (rn == regs::PC_OFFSET) {
+            // Note that pc is already incremented by 2 / 4
             // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
             // PC+12 if I=0,R=1 (shift by register),
             // otherwise PC+8 (shift by immediate).
             if (!i && shiftByReg) {
-                rnValue += thumb ? 6 : 12;
-            } else {
                 rnValue += thumb ? 4 : 8;
+            } else {
+                rnValue += thumb ? 2 : 4;
             }
         }
 
@@ -359,7 +364,7 @@ namespace gbaemu
                 if (r)
                     resultValue = *currentRegs[regs::SPSR_OFFSET];
                 else
-                    resultValue = *currentRegs[regs::CPSR_OFFSET];
+                    resultValue = state.getCurrentCPSR();
                 break;
             }
             case MSR_SPSR:
@@ -377,19 +382,21 @@ namespace gbaemu
 
                 constexpr bool r = id == MSR_SPSR;
 
+                // ensure that only fields that should be written to are changed!
+                resultValue = (shifterOperand & bitMask);
+
                 // Shady trick to fix destination register because extracted rd value is not used
                 if (r) {
                     rd = regs::SPSR_OFFSET;
                     // clear fields that should be written to
-                    resultValue = *currentRegs[regs::SPSR_OFFSET] & ~bitMask;
+                    resultValue |= *currentRegs[regs::SPSR_OFFSET] & ~bitMask;
+                    *currentRegs[regs::SPSR_OFFSET] = resultValue;
                 } else {
-                    rd = regs::CPSR_OFFSET;
+                    rd = 16 /*regs::CPSR_OFFSET*/;
                     // clear fields that should be written to
-                    resultValue = *currentRegs[regs::CPSR_OFFSET] & ~bitMask;
+                    resultValue |= state.getCurrentCPSR() & ~bitMask;
+                    state.updateCPSR(resultValue);
                 }
-
-                // ensure that only fields that should be written to are changed!
-                resultValue |= (shifterOperand & bitMask);
 
                 break;
             }
@@ -428,8 +435,8 @@ namespace gbaemu
                 break;
 
             default:
-                std::cout << "ERROR: execDataProc can not handle instruction: " << instructionIDToString(id) << std::endl;
-                state.cpuInfo.hasCausedException = true;
+                state.executionInfo.message << "ERROR: execDataProc can not handle instruction: " << instructionIDToString(id) << std::endl;
+                state.execState = CPUState::EXEC_ERROR;
                 break;
         }
 
@@ -437,7 +444,7 @@ namespace gbaemu
 
         // Special case 9000
         if (movSPSR && s && destPC) {
-            state.accessReg(regs::CPSR_OFFSET) = *currentRegs[regs::SPSR_OFFSET];
+            state.updateCPSR(*currentRegs[regs::SPSR_OFFSET]);
         } else if (s) {
             setFlags<updateNegative,
                      updateZero,
@@ -455,10 +462,10 @@ namespace gbaemu
         }
 
         if (!dontUpdateRD)
-            state.accessReg(rd) = static_cast<uint32_t>(resultValue);
+            *currentRegs[rd] = static_cast<uint32_t>(resultValue);
 
         if (destPC) {
-            state.cpuInfo.forceBranch = true;
+            refillPipeline();
         }
         if (shiftByReg) {
             state.cpuInfo.cycleCount += 1;
@@ -486,10 +493,10 @@ namespace gbaemu
 
         if (load) {
             // handle +1I
-            state.cpuInfo.cycleCount = 1;
+            state.cpuInfo.cycleCount += 1;
         } else {
             // same edge case as for STR
-            state.cpuInfo.noDefaultSCycle = true;
+            patchFetchToNCycle();
         }
 
         // The first read / write is non sequential but afterwards all accesses are sequential
@@ -535,6 +542,7 @@ namespace gbaemu
         }
 
         uint32_t patchMemAddr = 0;
+        bool refillPipelineNeeded = false;
 
         for (uint32_t i = 0; i < 16; ++i) {
             uint8_t currentIdx = (up ? i : 15 - i);
@@ -546,9 +554,7 @@ namespace gbaemu
 
                 if (load) {
                     if (currentIdx == regs::PC_OFFSET) {
-                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone, this->state.fetchInfo.memReg == memory::BIOS);
-                        // Special case for pipeline refill
-                        state.cpuInfo.forceBranch = true;
+                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone);
 
                         // More special cases
                         /*
@@ -556,11 +562,14 @@ namespace gbaemu
                         If instruction is LDM and R15 is in the list: (Mode Changes)
                           While R15 loaded, additionally: CPSR=SPSR_<current mode>
                         */
+                        // Special case for pipeline refill
                         if (forceUserRegisters) {
-                            *currentRegs[regs::CPSR_OFFSET] = *state.getCurrentRegs()[regs::SPSR_OFFSET];
+                            state.updateCPSR(state.accessReg(regs::SPSR_OFFSET));
                         }
+
+                        refillPipelineNeeded = true;
                     } else {
-                        *currentRegs[currentIdx] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone, this->state.fetchInfo.memReg == memory::BIOS);
+                        *currentRegs[currentIdx] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone);
                     }
                 } else {
                     // Shady hack to make edge case treatment easier
@@ -568,8 +577,9 @@ namespace gbaemu
                         patchMemAddr = address;
                     }
 
+                    // Note that pc is already incremented by 2/4
                     // Edge case of storing PC -> PC + 12 will be stored
-                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb ? 6 : 12) : 0), state.cpuInfo, nonSeqAccDone);
+                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb ? 4 : 8) : 0), state.cpuInfo, nonSeqAccDone);
                 }
 
                 nonSeqAccDone = true;
@@ -602,6 +612,10 @@ namespace gbaemu
             }
         } else if (writeback) {
             *currentRegs[rn] = address;
+        }
+
+        if (refillPipelineNeeded) {
+            refillPipeline();
         }
     }
 
@@ -650,7 +664,6 @@ namespace gbaemu
             // I assume that we access user regs... because user mode is the only non-priviledged mode
             if (forceNonPrivAccess) {
                 currentRegs = state.getModeRegs(CPUState::UserMode);
-                std::cout << "WARNING: force non priviledeg access!" << std::endl;
             }
         }
 
@@ -662,10 +675,10 @@ namespace gbaemu
 
         if (load) {
             // 1 I for beeing complex
-            state.cpuInfo.cycleCount = 1;
+            state.cpuInfo.cycleCount += 1;
         } else {
             // same edge case as for STR
-            state.cpuInfo.noDefaultSCycle = true;
+            patchFetchToNCycle();
         }
 
         /* offset is calculated differently, depending on the I-bit */
@@ -682,8 +695,12 @@ namespace gbaemu
         uint32_t rnValue = *currentRegs[rn];
         uint32_t rdValue = *currentRegs[rd];
 
-        if (rn == regs::PC_OFFSET) {
-            rnValue += thumb ? 4 : 8;
+        bool isRnPC = rn == regs::PC_OFFSET;
+        bool isRdPC = rd == regs::PC_OFFSET;
+
+        if (isRnPC) {
+            // Note that pc is already incremented by 2/4
+            rnValue += thumb ? 2 : 4;
 
             if (thumb) {
                 // special case for thumb PC_LD
@@ -692,13 +709,9 @@ namespace gbaemu
             }
         }
 
-        if (rd == regs::PC_OFFSET) {
-            if (load) {
-                // additional delays needed if PC gets loaded
-                state.cpuInfo.forceBranch = true;
-            } else {
-                rdValue += thumb ? 6 : 12;
-            }
+        if (!load && isRdPC) {
+            // Note that pc is already incremented by 2/4
+            rdValue += thumb ? 4 : 8;
         }
 
         offset = up ? offset : -offset;
@@ -712,7 +725,7 @@ namespace gbaemu
         /* transfer */
         if (load) {
             if (byte) {
-                *currentRegs[rd] = state.memory.read8(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS);
+                *currentRegs[rd] = state.memory.read8(memoryAddress, state.cpuInfo, false);
             } else {
                 // More edge case:
                 /*
@@ -722,7 +735,7 @@ namespace gbaemu
                 However, by isolating lower bits this may be used to read a halfword from memory. 
                 (Above applies to little endian mode, as used in GBA.)
                 */
-                uint32_t alignedWord = state.memory.read32(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS);
+                uint32_t alignedWord = state.memory.read32(memoryAddress, state.cpuInfo, false);
                 alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
                 *currentRegs[rd] = alignedWord;
             }
@@ -735,11 +748,22 @@ namespace gbaemu
             }
         }
 
-        if (!pre)
-            memoryAddress += offset;
+        if ((!pre || writeback) && (!load || rn != rd)) {
+            if (!pre) {
+                memoryAddress += offset;
+            }
 
-        if ((!pre || writeback) && (!load || rn != rd))
             *currentRegs[rn] = memoryAddress;
+
+            if (isRnPC) {
+                //TODO this is a very odd edge case!
+                std::cout << "WARNING very odd edge case" << std::endl;
+                refillPipelineAfterBranch<thumb>();
+            }
+        }
+        if (load && isRdPC) {
+            refillPipelineAfterBranch<thumb>();
+        }
     }
 
     template <InstructionID id, bool thumb>
@@ -787,31 +811,32 @@ namespace gbaemu
         constexpr bool load = id == LDRH || id == LDRSB || id == LDRSH;
         constexpr bool sign = id == LDRSB || id == LDRSH;
 
+        auto currentRegs = state.getCurrentRegs();
+
         //Execution Time: For Normal LDR, 1S+1N+1I. For LDR PC, 2S+2N+1I. For STRH 2N
 
         // both instructions have a + 1I for being complex
         if (load) {
             // 1N is handled by Memory class & 1S is handled globally
-            state.cpuInfo.cycleCount = 1;
+            state.cpuInfo.cycleCount += 1;
         } else {
             // same edge case as for STR
-            state.cpuInfo.noDefaultSCycle = true;
+            patchFetchToNCycle();
         }
 
-        uint32_t rnValue = state.accessReg(rn);
-        uint32_t rdValue = state.accessReg(rd);
+        uint32_t rnValue = *currentRegs[rn];
+        uint32_t rdValue = *currentRegs[rd];
 
-        if (rn == regs::PC_OFFSET) {
-            rnValue += thumb ? 4 : 8;
+        bool isRnPC = rn == regs::PC_OFFSET;
+        bool isRdPC = rd == regs::PC_OFFSET;
+
+        if (isRnPC) {
+            // Note that pc is already incremented by 2/4
+            rnValue += thumb ? 2 : 4;
         }
-
-        if (rd == regs::PC_OFFSET) {
-            if (load) {
-                // will PC be updated? if so we need an additional Prog N & S cycle
-                state.cpuInfo.forceBranch = true;
-            } else {
-                rdValue += thumb ? 6 : 12;
-            }
+        if (!load && isRdPC) {
+            // Note that pc is already incremented by 2/4
+            rdValue += thumb ? 4 : 8;
         }
 
         offset = up ? offset : -offset;
@@ -819,8 +844,9 @@ namespace gbaemu
         uint32_t memoryAddress;
         if (pre) {
             memoryAddress = rnValue + offset;
-        } else
+        } else {
             memoryAddress = rnValue;
+        }
 
         if (load) {
             uint32_t readData;
@@ -828,11 +854,11 @@ namespace gbaemu
                 // Handle misaligned address
                 if (sign && memoryAddress & 1) {
                     // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]         ;sign-expand BYTE value
-                    readData = signExt<int32_t, uint32_t, 8>(state.memory.read8(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS));
+                    readData = signExt<int32_t, uint32_t, 8>(state.memory.read8(memoryAddress, state.cpuInfo, false));
                 } else {
                     // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
                     // LDRH with ROR (see LDR with non word aligned)
-                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS));
+                    readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, state.cpuInfo, false));
                     readData = shifts::shift(readData, shifts::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
 
                     if (sign) {
@@ -840,14 +866,14 @@ namespace gbaemu
                     }
                 }
             } else {
-                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, state.cpuInfo, false, this->state.fetchInfo.memReg == memory::BIOS));
+                readData = static_cast<uint32_t>(state.memory.read8(memoryAddress, state.cpuInfo, false));
 
                 if (sign) {
                     readData = signExt<int32_t, uint32_t, transferSize>(readData);
                 }
             }
 
-            state.accessReg(rd) = readData;
+            *currentRegs[rd] = readData;
         } else {
             if (transferSize == 16) {
                 state.memory.write16(memoryAddress, rdValue, state.cpuInfo);
@@ -861,7 +887,17 @@ namespace gbaemu
                 memoryAddress += offset;
             }
 
-            state.accessReg(rn) = memoryAddress;
+            *currentRegs[rn] = memoryAddress;
+
+            if (isRnPC) {
+                //TODO this is a very odd edge case!
+                std::cout << "WARNING very odd edge case" << std::endl;
+                refillPipelineAfterBranch<thumb>();
+            }
+        }
+        if (load && isRdPC) {
+            // will PC be updated? if so we need an additional Prog N & S cycle
+            refillPipelineAfterBranch<thumb>();
         }
     }
 

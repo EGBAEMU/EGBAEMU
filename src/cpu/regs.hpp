@@ -25,7 +25,8 @@ namespace gbaemu
         static const uint32_t SP_OFFSET = 13;
         static const uint32_t LR_OFFSET = 14;
         static const uint32_t PC_OFFSET = 15;
-        static const uint32_t CPSR_OFFSET = 16;
+        // Avoid direct accesses!
+        //static const uint32_t CPSR_OFFSET = 16;
         static const uint32_t SPSR_OFFSET = 17;
     } // namespace regs
     namespace cpsr_flags
@@ -76,21 +77,22 @@ namespace gbaemu
                     11111b 1Fh 31 - System (privileged 'User' mode) (ARMv4 and up)
             Writing any other values into the Mode bits is not allowed. 
     */
-        static const uint32_t N_FLAG = 31;
-        static const uint32_t Z_FLAG = 30;
-        static const uint32_t C_FLAG = 29;
-        static const uint32_t V_FLAG = 28;
-        static const uint32_t IRQ_DISABLE = 7;
-        static const uint32_t FIQ_DISABLE = 6;
-        static const uint32_t THUMB_STATE = 5;
-        static const uint32_t MODE_BIT_MASK = 0x01F;
-
+        enum CPSR_FLAGS : uint8_t {
+            N_FLAG = 31,
+            Z_FLAG = 30,
+            C_FLAG = 29,
+            V_FLAG = 28,
+            IRQ_DISABLE = 7,
+            FIQ_DISABLE = 6,
+            THUMB_STATE = 5,
+        };
+        static const constexpr uint32_t MODE_BIT_MASK = 0x01F;
         /*
-        static const uint32_t N_FLAG_BITMASK = (1 << FLAG_N_OFFSET);
-        static const uint32_t Z_FLAG_BITMASK = (1 << FLAG_Z_OFFSET);
-        static const uint32_t C_FLAG_BITMASK = (1 << FLAG_C_OFFSET);
-        static const uint32_t V_FLAG_BITMASK = (1 << FLAG_V_OFFSET);
-        static const uint32_t THUMB_FLAG_BITMASK = (1 << THUMB_STATE_OFFSET);
+        static const constexpr uint32_t N_FLAG_BITMASK = (1 << FLAG_N_OFFSET);
+        static const constexpr uint32_t Z_FLAG_BITMASK = (1 << FLAG_Z_OFFSET);
+        static const constexpr uint32_t C_FLAG_BITMASK = (1 << FLAG_C_OFFSET);
+        static const constexpr uint32_t V_FLAG_BITMASK = (1 << FLAG_V_OFFSET);
+        static const constexpr uint32_t THUMB_FLAG_BITMASK = (1 << THUMB_STATE_OFFSET);
         */
     } // namespace cpsr_flags
 
