@@ -5,10 +5,22 @@
 #include "io/memory.hpp"
 #include "regs.hpp"
 #include <cstdint>
+#include <sstream>
 #include <string>
 
 namespace gbaemu
 {
+
+    enum CPUExecutionInfoType {
+        NORMAL,
+        WARNING,
+        EXCEPTION
+    };
+
+    struct CPUExecutionInfo {
+        CPUExecutionInfoType infoType = NORMAL;
+        std::stringstream message;
+    };
 
     struct CPUState {
       public:
@@ -21,6 +33,21 @@ namespace gbaemu
             UndefinedMode,
             SystemMode
         };
+
+        enum ExecutionState : uint8_t {
+            EXEC_THUMB = 1 << 0,
+            EXEC_DMA = 1 << 1,
+            EXEC_TIMER = 1 << 2,
+            EXEC_IRQ = 1 << 3,
+            EXEC_HALT = 1 << 4,
+            // Indicate that an exception occurred -> abort
+            EXEC_ERROR = 1 << 5,
+        };
+
+        uint8_t execState;
+
+        /* If an error has occured more information can be found here. */
+        CPUExecutionInfo executionInfo;
 
       private:
         struct Regs {
@@ -55,43 +82,47 @@ namespace gbaemu
             // System / User mode regs
             {regs.rx, regs.rx + 1, regs.rx + 2, regs.rx + 3, regs.rx + 4, regs.rx + 5, regs.rx + 6, regs.rx + 7, regs.rx + 8, regs.rx + 9, regs.rx + 10, regs.rx + 11, regs.rx + 12, regs.rx + 13, regs.rx + 14, regs.rx + 15, &regs.CPSR, &regs.CPSR}};
 
-        CPUMode mode;
         uint32_t *const *currentRegs;
 
+      public:
         /* pipeline */
         uint32_t pipeline[2];
-
-      public:
 
         Memory memory;
 
         InstructionExecutionInfo cpuInfo;
-        InstructionExecutionInfo dmaInfo;
 
-        // Execute phase variables
-        //TODO this can probably replace the additional N & S cycle fields
-        InstructionExecutionInfo fetchInfo;
+        // CPU halting
+        uint32_t haltCondition;
 
-        bool thumbMode;
+        uint8_t seqCycles;
+        uint8_t nonSeqCycles;
+
+        struct CPSR_Flags {
+            bool thumbMode;
+            bool negative;
+            bool zero;
+            bool carry;
+            bool overflow;
+
+            bool irqDisable;
+            CPUMode mode;
+        } cpsr;
 
       private:
-        uint32_t handleReadUnused() const;
+        uint32_t handleReadUnused();
 
       public:
         CPUState();
-        ~CPUState();
 
         void reset();
 
         uint32_t normalizePC();
-        uint32_t propagatePipeline(uint32_t pc);
-
-        CPUMode getCPUMode() const { return mode; }
-        bool updateCPUMode();
 
         const char *cpuModeToString() const;
 
         uint32_t getCurrentPC() const;
+        uint32_t &getPC();
 
         uint32_t *const *const getCurrentRegs() { return currentRegs; }
 
@@ -105,27 +136,53 @@ namespace gbaemu
 
         uint32_t accessReg(uint8_t offset) const;
 
-        template <uint32_t flag>
-        void setFlag(bool value = true)
+        template <cpsr_flags::CPSR_FLAGS flag>
+        inline void setFlag(bool value = true)
         {
+            static_assert(flag != cpsr_flags::FIQ_DISABLE);
+
             constexpr uint32_t mask = static_cast<uint32_t>(1) << flag;
-            if (value)
+            if (value) {
                 regs.CPSR |= mask;
-            else
+                if (flag == cpsr_flags::THUMB_STATE)
+                    execState |= EXEC_THUMB;
+            } else {
                 regs.CPSR &= ~mask;
+                if (flag == cpsr_flags::THUMB_STATE)
+                    execState &= ~EXEC_THUMB;
+            }
+
+            (flag == cpsr_flags::N_FLAG ? cpsr.negative : (flag == cpsr_flags::Z_FLAG ? cpsr.zero : (flag == cpsr_flags::C_FLAG ? cpsr.carry : (flag == cpsr_flags::V_FLAG ? cpsr.overflow : (flag == cpsr_flags::IRQ_DISABLE ? cpsr.irqDisable : cpsr.thumbMode))))) = value;
         }
 
-        template <uint32_t flag>
-        bool getFlag() const
+        template <cpsr_flags::CPSR_FLAGS flag>
+        inline bool getFlag() const
         {
-            constexpr uint32_t mask = static_cast<uint32_t>(1) << flag;
-            return regs.CPSR & mask;
+            static_assert(flag != cpsr_flags::FIQ_DISABLE);
+
+            return (flag == cpsr_flags::N_FLAG ? cpsr.negative : (flag == cpsr_flags::Z_FLAG ? cpsr.zero : (flag == cpsr_flags::C_FLAG ? cpsr.carry : (flag == cpsr_flags::V_FLAG ? cpsr.overflow : (flag == cpsr_flags::IRQ_DISABLE ? cpsr.irqDisable : cpsr.thumbMode)))));
         }
 
+        void clearFlags();
+
+        void updateCPSR(uint32_t value);
+        uint32_t getCurrentCPSR()
+        {
+            return regs.CPSR;
+        }
+
+        CPUMode getCPUMode() const { return cpsr.mode; }
+        void updateCPUMode();
+        void setCPUMode(uint8_t modeBits);
+
+      private:
+        void updateCPUMode(uint8_t modeBits);
+
+      public:
         std::string toString() const;
         std::string printStack(uint32_t words) const;
 
-        std::string disas(uint32_t addr, uint32_t cmds) const;
+        std::string disas(uint32_t addr, uint32_t cmds);
     };
 
 } // namespace gbaemu

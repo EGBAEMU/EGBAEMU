@@ -21,6 +21,8 @@
 #define PRINT_FPS true
 #define LIMIT_FPS false
 
+// #define DUMP_ROM
+
 static volatile bool doRun = true;
 
 static void handleSignal(int signum)
@@ -44,7 +46,8 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #ifndef DEBUG_CLI
         gbaemu::CPUExecutionInfoType executionInfo = cpu.step(960);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
-            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            std::cout << "CPU error occurred: " << std::endl;
+            std::cout << cpu.state.executionInfo.message.str() << std::endl;
             return true;
         }
 #else
@@ -62,7 +65,8 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #ifndef DEBUG_CLI
         executionInfo = cpu.step(272);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
-            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            std::cout << "CPU error occurred: " << std::endl;
+            std::cout << cpu.state.executionInfo.message.str() << std::endl;
             return true;
         }
 #else
@@ -83,15 +87,13 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #ifndef DEBUG_CLI
         gbaemu::CPUExecutionInfoType executionInfo = cpu.step(1232);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
-            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            std::cout << "CPU error occurred: " << std::endl;
+            std::cout << cpu.state.executionInfo.message.str() << std::endl;
             return true;
         }
 #else
         for (int j = 0; j < 1232; ++j) {
-            // if (prevPC != cpu.state.getCurrentPC())
-            // history.collect(&cpu, prevPC = cpu.state.getCurrentPC());
             if (debugCLI.step()) {
-                // history.dumpHistory();
                 return true;
             }
         }
@@ -121,7 +123,8 @@ static bool frame(gbaemu::CPU &cpu, gbaemu::lcd::LCDController &lcdController
 #else
         gbaemu::CPUExecutionInfoType executionInfo = cpu.step(1);
         if (executionInfo != gbaemu::CPUExecutionInfoType::NORMAL) {
-            std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+            std::cout << "CPU error occurred: " << std::endl;
+            std::cout << cpu.state.executionInfo.message.str() << std::endl;
             return true;
         }
 #endif
@@ -225,23 +228,47 @@ int main(int argc, char **argv)
     gbaemu::InstructionExecutionInfo _info;
     std::cout << "Game Title: ";
     for (uint32_t i = 0; i < 12; ++i) {
-        std::cout << static_cast<char>(cpu.state.memory.read8(gbaemu::memory::EXT_ROM_OFFSET + 0x0A0 + i, _info));
+        std::cout << static_cast<char>(cpu.state.memory.read8(gbaemu::memory::EXT_ROM_OFFSET + 0x0A0 + i, _info, false));
     }
     std::cout << std::endl;
     std::cout << "Game Code: ";
     for (uint32_t i = 0; i < 4; ++i) {
-        std::cout << std::hex << cpu.state.memory.read8(gbaemu::memory::EXT_ROM_OFFSET + 0x0AC + i, _info) << " ";
+        std::cout << std::hex << cpu.state.memory.read8(gbaemu::memory::EXT_ROM_OFFSET + 0x0AC + i, _info, false) << " ";
     }
     std::cout << std::endl;
     std::cout << "Maker Code: ";
     for (uint32_t i = 0; i < 2; ++i) {
-        std::cout << std::hex << cpu.state.memory.read8(gbaemu::memory::EXT_ROM_OFFSET + 0x0B0 + i, _info) << " ";
+        std::cout << std::hex << cpu.state.memory.read8(gbaemu::memory::EXT_ROM_OFFSET + 0x0B0 + i, _info, false) << " ";
     }
     std::cout << std::endl;
 
-    cpu.initPipeline();
+    cpu.refillPipelineAfterBranch<false>();
 
     std::cout << "Max legit ROM address: 0x" << std::hex << (gbaemu::memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize() - 1) << std::endl;
+
+#ifdef DUMP_ROM
+    {
+        // Decode the whole rom & print disas, good the ensure decoder isnt broken after changes!
+        gbaemu::Instruction instruction;
+        instruction.isArm = true;
+        gbaemu::InstructionExecutionInfo info{0};
+        std::cout << "ARM Dump:" << std::endl;
+        for (uint32_t i = gbaemu::memory::EXT_ROM_OFFSET; i < gbaemu::memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize(); i += 4) {
+            instruction.inst = cpu.state.memory.readInst32(i, info);
+            std::cout << instruction.toString() << std::endl;
+        }
+
+        std::cout << std::endl
+                  << std::endl
+                  << std::endl
+                  << "THUMB Dump:" << std::endl;
+        instruction.isArm = false;
+        for (uint32_t i = gbaemu::memory::EXT_ROM_OFFSET; i < gbaemu::memory::EXT_ROM_OFFSET + cpu.state.memory.getRomSize(); i += 2) {
+            instruction.inst = cpu.state.memory.readInst16(i, info);
+            std::cout << instruction.toString() << std::endl;
+        }
+    }
+#endif
 
     gbaemu::keyboard::KeyboardController gameController(cpu.keypad);
 

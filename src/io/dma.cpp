@@ -55,6 +55,8 @@ namespace gbaemu
         if (offset == offsetof(DMARegs, cntReg) + sizeof(regs.cntReg) - 1) {
             // Update the enable bitset to signal if dma is enabled or not!
             dmaGroup.dmaEnableBitset = bitSet<uint8_t, 1, channel>(dmaGroup.dmaEnableBitset, bmap<uint8_t>(isBitSet<uint8_t, DMA_CNT_REG_EN_OFF - (sizeof(regs.cntReg) - 1) * 8>(value)));
+            dmaGroup.checkRunCondition();
+
             state = IDLE;
 
             // game pak is only for DMA3
@@ -140,10 +142,10 @@ namespace gbaemu
                         state = SEQ_COPY;
 
                         if (width32Bit) {
-                            uint32_t data = memory.read32(srcAddr, info, false, false, true);
+                            uint32_t data = memory.readDMA32(srcAddr, info, false);
                             memory.write32(destAddr, data, info, false);
                         } else {
-                            uint16_t data = memory.read16(srcAddr, info, false, false, true);
+                            uint16_t data = memory.readDMA16(srcAddr, info, false);
                             memory.write16(destAddr, data, info, false);
                         }
 
@@ -156,14 +158,13 @@ namespace gbaemu
                     }
 
                     case SEQ_COPY: {
-                        if (count == 0) {
-                            state = DONE;
-                        } else {
+                        while (count > 0 && info.cycleCount < cycles) {
+
                             if (width32Bit) {
-                                uint32_t data = memory.read32(srcAddr, info, true, false, true);
+                                uint32_t data = memory.readDMA32(srcAddr, info, true);
                                 memory.write32(destAddr, data, info, true);
                             } else {
-                                uint16_t data = memory.read16(srcAddr, info, true, false, true);
+                                uint16_t data = memory.readDMA16(srcAddr, info, true);
                                 memory.write16(destAddr, data, info, true);
                             }
 
@@ -172,6 +173,11 @@ namespace gbaemu
                             updateAddr(srcAddr, srcCnt);
                             updateAddr(destAddr, dstCnt);
                         }
+                        if (count == 0) {
+                            state = DONE;
+                        } else {
+                            return;
+                        }
                         break;
                     }
 
@@ -179,6 +185,9 @@ namespace gbaemu
                         // Handle edge case: repeat enabled but no start condition -> infinite DMA transfers
                         if (repeat && condition != NO_COND) {
                             state = REPEAT_WAIT;
+                            // indicate waiting, clear enable bit
+                            dmaGroup.dmaEnableBitset &= ~(1 << channel);
+                            dmaGroup.checkRunCondition();
                         } else {
                             // return to idle state
                             state = IDLE;
@@ -186,6 +195,7 @@ namespace gbaemu
                             // Clear enable bit to indicate that we are done!
                             regs.cntReg &= ~le(DMA_CNT_REG_EN_MASK);
                             dmaGroup.dmaEnableBitset &= ~(1 << channel);
+                            dmaGroup.checkRunCondition();
 
                             if (irqOnEnd) {
                                 irqHandler.setInterrupt<static_cast<InterruptHandler::InterruptType>(InterruptHandler::InterruptType::DMA_0 + channel)>();
@@ -209,6 +219,8 @@ namespace gbaemu
     {
         // indicate waiting, clear enable bit
         dmaGroup.dmaEnableBitset &= ~(1 << channel);
+        dmaGroup.checkRunCondition();
+
         state = WAITING_PAUSED;
     }
 
@@ -330,6 +342,17 @@ namespace gbaemu
         if ((dma3.state == WAITING_PAUSED || dma3.state == REPEAT_WAIT) && condition == dma3.condition) {
             dma3.state = static_cast<DMAState>(dma3.state + 1);
             dmaEnableBitset |= 1 << DMA3;
+        }
+
+        checkRunCondition();
+    }
+
+    void DMAGroup::checkRunCondition() const
+    {
+        if (dmaEnableBitset) {
+            cpu->state.execState |= CPUState::EXEC_DMA;
+        } else {
+            cpu->state.execState &= ~CPUState::EXEC_DMA;
         }
     }
 

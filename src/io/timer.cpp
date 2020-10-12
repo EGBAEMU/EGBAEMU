@@ -41,7 +41,14 @@ namespace gbaemu
             // else if deactivated active will be set to false as well -> on reenable still false
             active = active && nextActive;
 
-            timEnableBitset = bitSet<uint8_t, 1, id>(timEnableBitset, bmap<uint8_t>(nextActive));
+            timerGroup.timEnableBitset = bitSet<uint8_t, 1, id>(timerGroup.timEnableBitset, bmap<uint8_t>(nextActive));
+
+            if (!active && nextActive) {
+                // Update active flag
+                active = true;
+                initialize();
+            }
+            timerGroup.checkRunCondition();
         }
     }
 
@@ -56,7 +63,7 @@ namespace gbaemu
     }
 
     template <uint8_t id>
-    TimerGroup::Timer<id>::Timer(InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, uint8_t &timEnableBitset) : irqHandler(irqHandler), nextTimer(nextTimer), timEnableBitset(timEnableBitset)
+    TimerGroup::Timer<id>::Timer(InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, TimerGroup &timerGroup) : irqHandler(irqHandler), nextTimer(nextTimer), timerGroup(timerGroup)
     {
     }
 
@@ -87,55 +94,58 @@ namespace gbaemu
     }
 
     template <uint8_t id>
-    void TimerGroup::Timer<id>::step(uint32_t cycles)
+    void TimerGroup::Timer<id>::initialize()
     {
-        // If this gets called be can safely assume that it is enabled
+        // If this gets called be can safely assume that it is enabled for the first time or is not in countUpTiming mode
+        // Was previously disabled -> reconfigure timer
+        uint16_t controlReg = le(regs.control);
 
-        if (!active) {
-            // Was previously disabled -> reconfigure timer
-            uint16_t controlReg = le(regs.control);
-
-            countUpTiming = id != 0 && (controlReg & TIMER_TIMING_MASK);
-            if (countUpTiming) {
-                preShift = 0;
-                // If we are in count up timing then we can safely remove ourself from the enable bitset as we only count up through other timer overflows
-                timEnableBitset = bitSet<uint8_t, 1, id>(timEnableBitset, bmap<uint8_t, false>());
-            } else {
-                preShift = preShifts[(controlReg & TIMER_PRESCALE_MASK)];
-            }
-
-            counter = static_cast<uint32_t>(le(regs.reload)) << preShift;
-            overflowVal = (static_cast<uint32_t>(1) << (preShift + 16));
-
-            irq = controlReg & TIMER_IRQ_EN_MASK;
-
-            LOG_TIM(
-                std::cout << "INFO: Enabled TIMER" << std::dec << static_cast<uint32_t>(id) << std::endl;
-                std::cout << "      Prescale: /" << std::dec << (static_cast<uint32_t>(1) << preShift) << std::endl;
-                std::cout << "      Count only up on prev Timer overflow: " << countUpTiming << std::endl;
-                std::cout << "      IRQ enable: " << irq << std::endl;
-                std::cout << "      Counter Value: 0x" << std::hex << static_cast<uint32_t>(counter >> preShift) << std::endl;);
-
-            //TODO 1 cycle for setup?
-            --cycles;
+        countUpTiming = id != 0 && (controlReg & TIMER_TIMING_MASK);
+        if (countUpTiming) {
+            preShift = 0;
+            // If we are in count up timing then we can safely remove ourself from the enable bitset as we only count up through other timer overflows
+            timerGroup.timEnableBitset = bitSet<uint8_t, 1, id>(timerGroup.timEnableBitset, bmap<uint8_t, false>());
+        } else {
+            preShift = preShifts[(controlReg & TIMER_PRESCALE_MASK)];
         }
 
-        // if countUpTiming is true we only increment on overflow of the previous timer!
-        if (!countUpTiming) {
+        counter = static_cast<uint32_t>(le(regs.reload)) << preShift;
+        overflowVal = (static_cast<uint32_t>(1) << (preShift + 16));
 
-            // Increment the timer counter and check for overflows
-            counter += cycles;
+        irq = controlReg & TIMER_IRQ_EN_MASK;
 
-            checkForOverflow();
-        }
-
-        // Update active flag
-        active = true;
+        LOG_TIM(
+            std::cout << "INFO: Enabled TIMER" << std::dec << static_cast<uint32_t>(id) << std::endl;
+            std::cout << "      Prescale: /" << std::dec << (static_cast<uint32_t>(1) << preShift) << std::endl;
+            std::cout << "      Preshift: " << std::dec << static_cast<uint32_t>(preShift) << std::endl;
+            std::cout << "      Count only up on prev Timer overflow: " << countUpTiming << std::endl;
+            std::cout << "      IRQ enable: " << irq << std::endl;
+            std::cout << "      Counter Value: 0x" << std::hex << static_cast<uint32_t>(counter >> preShift) << std::endl;
+            std::cout << "      Unshifted Counter Value: 0x" << std::hex << counter << std::endl;
+            std::cout << "      Unshifted Overflow Value: 0x" << std::hex << overflowVal << std::endl;);
     }
 
-    TimerGroup::TimerGroup(CPU *cpu) : tim0(cpu->irqHandler, &tim1, timEnableBitset), tim1(cpu->irqHandler, &tim2, timEnableBitset), tim2(cpu->irqHandler, &tim3, timEnableBitset), tim3(cpu->irqHandler, nullptr, timEnableBitset)
+    template <uint8_t id>
+    void TimerGroup::Timer<id>::step(uint32_t cycles)
+    {
+        // Increment the timer counter and check for overflows
+        counter += cycles;
+
+        checkForOverflow();
+    }
+
+    TimerGroup::TimerGroup(CPU *cpu) : cpu(cpu), tim0(cpu->irqHandler, &tim1, *this), tim1(cpu->irqHandler, &tim2, *this), tim2(cpu->irqHandler, &tim3, *this), tim3(cpu->irqHandler, nullptr, *this)
     {
         reset();
+    }
+
+    void TimerGroup::checkRunCondition() const
+    {
+        if (timEnableBitset) {
+            cpu->state.execState |= CPUState::EXEC_TIMER;
+        } else {
+            cpu->state.execState &= ~CPUState::EXEC_TIMER;
+        }
     }
 
     template class TimerGroup::Timer<0>;

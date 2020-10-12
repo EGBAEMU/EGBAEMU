@@ -10,8 +10,8 @@ namespace gbaemu::thumb
     void ThumbExecutor::operator()(Args... args)
     {
         static_assert(id == INVALID);
-        std::cout << "ERROR: Thumb executor: trying to execute invalid instruction!" << std::endl;
-        cpu->state.cpuInfo.hasCausedException = true;
+        cpu->state.executionInfo.message << "ERROR: Thumb executor: trying to execute invalid instruction!" << std::endl;
+        cpu->state.execState = CPUState::EXEC_ERROR;
     }
 
     template <>
@@ -321,11 +321,12 @@ namespace gbaemu::thumb
         } else {
             if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
                 if (index != 5 && index != 0x2B) {
-                    LOG_SWI(std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;);
+                    LOG_SWI(std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << (cpu->state.getCurrentPC() - 2) << std::endl;);
                 }
                 swi::biosCallHandler[index](cpu);
             } else {
-                std::cout << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << cpu->state.getCurrentPC() << std::endl;
+                cpu->state.executionInfo.message << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << (cpu->state.getCurrentPC() - 2) << std::endl;
+                cpu->state.execState = CPUState::EXEC_ERROR;
             }
         }
     }

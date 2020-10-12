@@ -120,30 +120,56 @@ namespace gbaemu
     {
     }
 
-    uint8_t Bios::read8(uint32_t addr, bool inst) const
+    uint8_t Bios::read8(uint32_t addr) const
     {
-        if (inst && addr < biosSize) {
+        if (execInBios && addr < biosSize) {
             return bios[addr];
         } else {
             return biosState >> ((addr & 3) << 3);
         }
     }
 
-    uint16_t Bios::read16(uint32_t addr, bool inst) const
+    uint16_t Bios::read16(uint32_t addr) const
     {
         uint32_t alignedAddr = addr & ~1;
-        if (inst && alignedAddr + sizeof(uint16_t) - 1 < biosSize) {
+        if (execInBios && alignedAddr + sizeof(uint16_t) - 1 < biosSize) {
             return le(*reinterpret_cast<const uint16_t *>(bios + alignedAddr));
         } else {
             return biosState >> ((addr & 2) << 3);
         }
     }
+    uint16_t Bios::read16Inst(uint32_t addr)
+    {
+        execInBios = true;
 
-    uint32_t Bios::read32(uint32_t addr, bool inst) const
+        uint32_t alignedAddr = addr & ~1;
+        if (alignedAddr + sizeof(uint16_t) - 1 < biosSize) {
+            uint16_t data = le(*reinterpret_cast<const uint16_t *>(bios + alignedAddr));
+            biosState = data;
+            return data;
+        } else {
+            return biosState >> ((addr & 2) << 3);
+        }
+    }
+
+    uint32_t Bios::read32(uint32_t addr) const
     {
         uint32_t alignedAddr = addr & ~3;
-        if (inst && alignedAddr + sizeof(uint32_t) - 1 < biosSize) {
+        if (execInBios && alignedAddr + sizeof(uint32_t) - 1 < biosSize) {
             return le(*reinterpret_cast<const uint32_t *>(bios + alignedAddr));
+        } else {
+            return biosState;
+        }
+    }
+    uint32_t Bios::read32Inst(uint32_t addr)
+    {
+        execInBios = true;
+
+        uint32_t alignedAddr = addr & ~3;
+        if (alignedAddr + sizeof(uint32_t) - 1 < biosSize) {
+            uint32_t data = le(*reinterpret_cast<const uint32_t *>(bios + alignedAddr));
+            biosState = data;
+            return data;
         } else {
             return biosState;
         }

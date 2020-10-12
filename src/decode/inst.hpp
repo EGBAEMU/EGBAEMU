@@ -47,18 +47,6 @@ namespace gbaemu
         */
         uint32_t cycleCount;
 
-        // Convert instruction fetch S cycle into N cycle (only relevant for STR AFAIK)
-        bool noDefaultSCycle;
-
-        // Needed for infinite loops caused by branching to current PC value -> no PC change would otherwise be interpreted as normal instruction and execution continues at PC + 4
-        bool forceBranch;
-        // Invalid operation executed -> abort
-        bool hasCausedException;
-
-        // CPU halting
-        bool haltCPU;
-        uint32_t haltCondition;
-
         // resolved Memory Region
         memory::MemoryRegion memReg;
     };
@@ -284,7 +272,6 @@ namespace gbaemu
         bool isArm = true;
 
       public:
-        ;
         std::string toString() const;
     };
 
@@ -297,7 +284,7 @@ namespace gbaemu
         }
     };
 
-    typedef std::function<void(uint32_t)> InstructionDecodeAndExecutor;
+    typedef std::function<void(uint32_t, CPUState&)> InstructionDecodeAndExecutor;
 
     bool extractOperand2(shifts::ShiftType &shiftType, uint8_t &shiftAmount, uint8_t &rm, uint8_t &rs, uint8_t &imm, uint16_t operand2, bool i);
 
