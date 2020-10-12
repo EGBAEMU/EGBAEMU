@@ -68,6 +68,8 @@ namespace gbaemu
             void reset();
 
           private:
+            void initialize();
+
             uint8_t read8FromReg(uint32_t offset);
             void write8ToReg(uint32_t offset, uint8_t value);
 

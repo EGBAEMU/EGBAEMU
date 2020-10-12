@@ -42,6 +42,12 @@ namespace gbaemu
             active = active && nextActive;
 
             timerGroup.timEnableBitset = bitSet<uint8_t, 1, id>(timerGroup.timEnableBitset, bmap<uint8_t>(nextActive));
+
+            if (!active && nextActive) {
+                // Update active flag
+                active = true;
+                initialize();
+            }
             timerGroup.checkRunCondition();
         }
     }
@@ -88,49 +94,40 @@ namespace gbaemu
     }
 
     template <uint8_t id>
-    void TimerGroup::Timer<id>::step(uint32_t cycles)
+    void TimerGroup::Timer<id>::initialize()
     {
         // If this gets called be can safely assume that it is enabled for the first time or is not in countUpTiming mode
+        // Was previously disabled -> reconfigure timer
+        uint16_t controlReg = le(regs.control);
 
-        if (!active) {
-            //TODO we might extract this code entirely from the step function for less overhead!
-
-            // Update active flag
-            active = true;
-
-            // Was previously disabled -> reconfigure timer
-            uint16_t controlReg = le(regs.control);
-
-            countUpTiming = id != 0 && (controlReg & TIMER_TIMING_MASK);
-            if (countUpTiming) {
-                preShift = 0;
-                // If we are in count up timing then we can safely remove ourself from the enable bitset as we only count up through other timer overflows
-                timerGroup.timEnableBitset = bitSet<uint8_t, 1, id>(timerGroup.timEnableBitset, bmap<uint8_t, false>());
-                timerGroup.checkRunCondition();
-            } else {
-                preShift = preShifts[(controlReg & TIMER_PRESCALE_MASK)];
-            }
-
-            counter = static_cast<uint32_t>(le(regs.reload)) << preShift;
-            overflowVal = (static_cast<uint32_t>(1) << (preShift + 16));
-
-            irq = controlReg & TIMER_IRQ_EN_MASK;
-
-            LOG_TIM(
-                std::cout << "INFO: Enabled TIMER" << std::dec << static_cast<uint32_t>(id) << std::endl;
-                std::cout << "      Prescale: /" << std::dec << (static_cast<uint32_t>(1) << preShift) << std::endl;
-                std::cout << "      Count only up on prev Timer overflow: " << countUpTiming << std::endl;
-                std::cout << "      IRQ enable: " << irq << std::endl;
-                std::cout << "      Counter Value: 0x" << std::hex << static_cast<uint32_t>(counter >> preShift) << std::endl;);
-
-            //TODO 1 cycle for setup?
-            --cycles;
-
-            if (countUpTiming) {
-                return;
-            }
+        countUpTiming = id != 0 && (controlReg & TIMER_TIMING_MASK);
+        if (countUpTiming) {
+            preShift = 0;
+            // If we are in count up timing then we can safely remove ourself from the enable bitset as we only count up through other timer overflows
+            timerGroup.timEnableBitset = bitSet<uint8_t, 1, id>(timerGroup.timEnableBitset, bmap<uint8_t, false>());
+        } else {
+            preShift = preShifts[(controlReg & TIMER_PRESCALE_MASK)];
         }
 
+        counter = static_cast<uint32_t>(le(regs.reload)) << preShift;
+        overflowVal = (static_cast<uint32_t>(1) << (preShift + 16));
+
+        irq = controlReg & TIMER_IRQ_EN_MASK;
+
+        LOG_TIM(
+            std::cout << "INFO: Enabled TIMER" << std::dec << static_cast<uint32_t>(id) << std::endl;
+            std::cout << "      Prescale: /" << std::dec << (static_cast<uint32_t>(1) << preShift) << std::endl;
+            std::cout << "      Preshift: " << std::dec << static_cast<uint32_t>(preShift) << std::endl;
+            std::cout << "      Count only up on prev Timer overflow: " << countUpTiming << std::endl;
+            std::cout << "      IRQ enable: " << irq << std::endl;
+            std::cout << "      Counter Value: 0x" << std::hex << static_cast<uint32_t>(counter >> preShift) << std::endl;
+            std::cout << "      Unshifted Counter Value: 0x" << std::hex << counter << std::endl;
+            std::cout << "      Unshifted Overflow Value: 0x" << std::hex << overflowVal << std::endl;);
+    }
+
+    template <uint8_t id>
+    void TimerGroup::Timer<id>::step(uint32_t cycles)
+    {
         // Increment the timer counter and check for overflows
         counter += cycles;
 
