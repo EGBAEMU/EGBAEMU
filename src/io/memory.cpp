@@ -124,7 +124,7 @@ namespace gbaemu
         cycles16Bit[0][memory::EXT_SRAM] = cycles16Bit[0][memory::EXT_SRAM_] =
             cycles16Bit[1][memory::EXT_SRAM] = cycles16Bit[1][memory::EXT_SRAM_] =
                 cycles32Bit[0][memory::EXT_SRAM] = cycles32Bit[0][memory::EXT_SRAM_] =
-                    cycles32Bit[1][memory::EXT_SRAM] = cycles32Bit[1][memory::EXT_SRAM_] = waitCycles_n[sramWaitCnt];
+                    cycles32Bit[1][memory::EXT_SRAM] = cycles32Bit[1][memory::EXT_SRAM_] = 1 + waitCycles_n[sramWaitCnt];
 
         // First Access (Non-sequential) and Second Access (Sequential) define the waitstates for N and S cycles
         // the actual access time is 1 clock cycle PLUS the number of waitstates.
