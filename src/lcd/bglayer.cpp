@@ -205,10 +205,7 @@ namespace gbaemu::lcd
     {
         const vec2 sf = affineTransform.origin + (useTrans ? vec2{0, 0} : affineTransform.dm * y);
         int32_t sx = static_cast<int32_t>(sf[0]);
-        int32_t sy = static_cast<int32_t>(sf[1]);
-
-        if (sy < 0 || sy >= static_cast<int32_t>(height))
-            return;
+        int32_t sy = fastMod<int32_t>(static_cast<int32_t>(sf[1]), static_cast<int32_t>(height));
 
         for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x, ++sx) {
             sx = fastMod<int32_t>(sx, width);
