@@ -14,16 +14,16 @@ namespace gbaemu::arm
         if (s)
             ss << "{S}";
 
-        ss << " r" << static_cast<uint32_t>(rd) << " r" << static_cast<uint32_t>(rm) << " r" << static_cast<uint32_t>(rs);
+        ss << " r" << std::dec << static_cast<uint32_t>(rd) << " r" << std::dec << static_cast<uint32_t>(rm) << " r" << std::dec << static_cast<uint32_t>(rs);
 
         if (id == MLA)
-            ss << " +r" << static_cast<uint32_t>(rn);
+            ss << " +r" << std::dec << static_cast<uint32_t>(rn);
     }
 
     template <>
     void ArmDisas::disas<MUL_ACC_LONG>(InstructionID id, bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm)
     {
-        ss << " r" << static_cast<uint32_t>(rd_msw) << ":r" << static_cast<uint32_t>(rd_lsw) << " r" << static_cast<uint32_t>(rs) << " r" << static_cast<uint32_t>(rm);
+        ss << " r" << std::dec << static_cast<uint32_t>(rd_msw) << ":r" << std::dec << static_cast<uint32_t>(rd_lsw) << " r" << std::dec << static_cast<uint32_t>(rs) << " r" << std::dec << static_cast<uint32_t>(rm);
     }
 
     template <>
@@ -43,19 +43,19 @@ namespace gbaemu::arm
     template <>
     void ArmDisas::disas<BRANCH_XCHG>(InstructionID id, uint8_t rn)
     {
-        ss << " r" << static_cast<uint32_t>(rn);
+        ss << " r" << std::dec << static_cast<uint32_t>(rn);
     }
 
     template <>
     void ArmDisas::disas<SIGN_TRANSF>(InstructionID id, bool b, bool p, bool u, bool w, uint8_t rn, uint8_t rd, uint8_t addrMode)
     {
         // Immediate in this category!
-        ss << " r" << rd;
+        ss << " r" << std::dec << static_cast<uint32_t>(rd);
 
         if (p) {
-            ss << " [r" << static_cast<uint32_t>(rn);
+            ss << " [r" << std::dec << static_cast<uint32_t>(rn);
         } else {
-            ss << " [[r" << static_cast<uint32_t>(rn) << "]";
+            ss << " [[r" << std::dec << static_cast<uint32_t>(rn) << "]";
         }
 
         if (b) {
@@ -99,9 +99,9 @@ namespace gbaemu::arm
 
             if (i) {
                 uint32_t roredImm = static_cast<uint32_t>(shift(imm, shiftType, shiftAmount, false, false));
-                ss << ", #" << roredImm;
+                ss << ", #" << std::dec << roredImm;
             } else {
-                ss << ", r" << std::dec << static_cast<uint32_t>(rm);
+                ss << ", r" << std::dec << std::dec << static_cast<uint32_t>(rm);
             }
 
         } else {
@@ -110,16 +110,16 @@ namespace gbaemu::arm
                 ss << "{S}";
 
             if (hasRD)
-                ss << " r" << static_cast<uint32_t>(rd);
+                ss << " r" << std::dec << static_cast<uint32_t>(rd);
 
             if (hasRN)
-                ss << " r" << static_cast<uint32_t>(rn);
+                ss << " r" << std::dec << static_cast<uint32_t>(rn);
 
             if (i) {
                 uint32_t roredImm = static_cast<uint32_t>(shift(imm, shiftType, shiftAmount, false, false));
-                ss << ", #" << roredImm;
+                ss << ", #" << std::dec << roredImm;
             } else {
-                ss << " r" << static_cast<uint32_t>(rm);
+                ss << " r" << std::dec << static_cast<uint32_t>(rm);
 
                 if (shiftByReg)
                     ss << "<<r" << std::dec << static_cast<uint32_t>(rs);
@@ -132,11 +132,11 @@ namespace gbaemu::arm
     template <>
     void ArmDisas::disas<BLOCK_DATA_TRANSF>(InstructionID id, bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList)
     {
-        ss << " r" << static_cast<uint32_t>(rn) << " { ";
+        ss << " r" << std::dec << static_cast<uint32_t>(rn) << " { ";
 
         for (uint32_t i = 0; i < 16; ++i)
             if (rList & (1 << i))
-                ss << "r" << i << ' ';
+                ss << "r" << std::dec << i << ' ';
 
         ss << '}';
     }
@@ -146,15 +146,15 @@ namespace gbaemu::arm
     {
         char upDown = up ? '+' : '-';
 
-        ss << " r" << static_cast<uint32_t>(rd);
+        ss << " r" << std::dec << static_cast<uint32_t>(rd);
 
         if (!i) {
             uint32_t immOff = addrMode & 0xFFF;
 
             if (pre)
-                ss << " [r" << static_cast<uint32_t>(rn);
+                ss << " [r" << std::dec << static_cast<uint32_t>(rn);
             else
-                ss << " [[r" << static_cast<uint32_t>(rn) << ']';
+                ss << " [[r" << std::dec << static_cast<uint32_t>(rn) << ']';
 
             ss << upDown << "0x" << std::hex << immOff << ']';
 
@@ -163,11 +163,11 @@ namespace gbaemu::arm
             uint32_t rm = addrMode & 0xF;
 
             if (pre)
-                ss << " [r" << static_cast<uint32_t>(rn);
+                ss << " [r" << std::dec << static_cast<uint32_t>(rn);
             else
-                ss << " [[r" << static_cast<uint32_t>(rn) << ']';
+                ss << " [[r" << std::dec << static_cast<uint32_t>(rn) << ']';
 
-            ss << upDown << "(r" << rm << "<<" << shiftAmount << ")]";
+            ss << upDown << "(r" << std::dec << rm << "<<" << std::dec << shiftAmount << ")]";
         }
     }
 
@@ -175,13 +175,12 @@ namespace gbaemu::arm
     void ArmDisas::disas<HW_TRANSF_REG_OFF>(InstructionID id, bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint8_t rm)
     {
         // No immediate in this category!
-        ss << " r" << static_cast<uint32_t>(rd);
+        ss << " r" << std::dec << static_cast<uint32_t>(rd);
 
-        // TODO: does p mean pre?
         if (pre) {
-            ss << " [r" << static_cast<uint32_t>(rn) << "+r" << static_cast<uint32_t>(rm) << ']';
+            ss << " [r" << std::dec << static_cast<uint32_t>(rn) << "+r" << std::dec << static_cast<uint32_t>(rm) << ']';
         } else {
-            ss << " [r" << static_cast<uint32_t>(rn) << "]+r" << static_cast<uint32_t>(rm);
+            ss << " [r" << std::dec << static_cast<uint32_t>(rn) << "]+r" << std::dec << static_cast<uint32_t>(rm);
         }
     }
 
@@ -189,12 +188,12 @@ namespace gbaemu::arm
     void ArmDisas::disas<HW_TRANSF_IMM_OFF>(InstructionID id, bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint8_t offset)
     {
         // Immediate in this category!
-        ss << " r" << static_cast<uint32_t>(rd);
+        ss << " r" << std::dec << static_cast<uint32_t>(rd);
 
         if (pre) {
-            ss << " [r" << static_cast<uint32_t>(rn) << "+0x" << std::hex << static_cast<uint32_t>(offset) << ']';
+            ss << " [r" << std::dec << static_cast<uint32_t>(rn) << "+0x" << std::hex << static_cast<uint32_t>(offset) << ']';
         } else {
-            ss << " [[r" << static_cast<uint32_t>(rn) << "]+0x" << std::hex << static_cast<uint32_t>(offset) << ']';
+            ss << " [[r" << std::dec << static_cast<uint32_t>(rn) << "]+0x" << std::hex << static_cast<uint32_t>(offset) << ']';
         }
     }
 
