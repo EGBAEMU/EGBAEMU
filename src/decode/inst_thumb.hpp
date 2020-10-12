@@ -44,7 +44,7 @@ namespace gbaemu
         // Load and store halfword
         static const uint16_t MASK_THUMB_LD_ST_HW = 0b1111000000000000;
         static const uint16_t VAL_THUMB_LD_ST_HW = 0b1000000000000000;
-        // SP-relative load and store
+        //SP-relative load and store
         static const uint16_t MASK_THUMB_LD_ST_REL_SP = 0b1111000000000000;
         static const uint16_t VAL_THUMB_LD_ST_REL_SP = 0b1001000000000000;
         // Load address
