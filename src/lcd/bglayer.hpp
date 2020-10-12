@@ -66,7 +66,10 @@ namespace gbaemu::lcd
         /* used in modes 3, 4, 5 */
         const void *getFrameBuffer() const;
 
-        std::function<color_t(int32_t, int32_t)> getPixelColorFunction();
+        void _drawScanline0(int32_t y);
+        void _drawScanline2(int32_t y);
+        void _drawScanline35(int32_t y);
+        void _drawScanline4(int32_t y);
         void drawScanline(int32_t y) override;
 
         /* used for sorting */

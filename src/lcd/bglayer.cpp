@@ -201,108 +201,53 @@ namespace gbaemu::lcd
         return memory.vram.rawAccess() + fbOff;
     }
 
-    std::function<color_t(int32_t, int32_t)> BGLayer::getPixelColorFunction()
+    void BGLayer::_drawScanline0(int32_t y)
     {
-        const void *bgMap = getBGMap();
-        const void *frameBuffer = getFrameBuffer();
+        const vec2 sf = affineTransform.origin + (useTrans ? vec2{0, 0} : affineTransform.dm * y);
+        int32_t sx = static_cast<int32_t>(sf[0]);
+        int32_t sy = static_cast<int32_t>(sf[1]);
 
-        /* select pixel color function */
-        switch (mode) {
-            case Mode0:
-                /*
-                    +-----------+
-                    | SC0 | SC1 |
-                    +-----+-----+
-                    | SC2 | SC3 |
-                    +-----+-----+
+        if (sy < 0 || sy >= static_cast<int32_t>(height))
+            return;
 
-                    Every bg map is at (bg base) + (sc index) * 0x800.
-                    Every SC has size 256x256 (32x32 tiles).
-                */
-                return [this](int32_t sx, int32_t sy) -> color_t {
-                    const BGMode0Entry *bgMap = reinterpret_cast<const BGMode0Entry *>(getBGMap(sx, sy));
+        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x, ++sx) {
+            sx = fastMod<int32_t>(sx, width);
 
-                    // We know that the result msx & msy can not be negative (sx & sy are positive and sx % mod n is always <= sx) -> we can apply greedy optimizations
-                    int32_t msx = sx - (sx % mosaicWidth);
-                    int32_t msy = sy - (sy % mosaicHeight);
+            const BGMode0Entry *bgMap = reinterpret_cast<const BGMode0Entry *>(getBGMap(sx, sy));
 
-                    /* sx, sy relative to the current bg map (size 32x32) */
-                    // int32_t relBGMapX = msx % 256;
-                    int32_t relBGMapX = msx & 255;
-                    // int32_t relBGMapY = msy % 256;
-                    int32_t relBGMapY = msy & 255;
-                    // int32_t tileX = relBGMapX / 8;
-                    int32_t tileX = relBGMapX >> 3;
-                    // int32_t tileY = relBGMapY / 8;
-                    int32_t tileY = relBGMapY >> 3;
+            // We know that the result msx & msy can not be negative (sx & sy are positive and sx % mod n is always <= sx) -> we can apply greedy optimizations
+            int32_t msx = sx - (sx % mosaicWidth);
+            int32_t msy = sy - (sy % mosaicHeight);
 
-                    // BGMode0EntryAttributes attrs(le(bgMap[tileY * 32 + tileX]));
-                    BGMode0EntryAttributes attrs(le(bgMap[(tileY << 5) + tileX]));
+            /* sx, sy relative to the current bg map (size 32x32) */
+            int32_t relBGMapX = msx & 255;
+            int32_t relBGMapY = msy & 255;
+            int32_t tileX = relBGMapX >> 3;
+            int32_t tileY = relBGMapY >> 3;
 
-                    // int32_t tx = attrs.hFlip ? (7 - (relBGMapX % 8)) : (relBGMapX % 8);
-                    int32_t tx = attrs.hFlip ? (7 - (relBGMapX & 7)) : (relBGMapX & 7);
-                    // int32_t ty = attrs.vFlip ? (7 - (relBGMapY % 8)) : (relBGMapY % 8);
-                    int32_t ty = attrs.vFlip ? (7 - (relBGMapY & 7)) : (relBGMapY & 7);
+            BGMode0EntryAttributes attrs(le(bgMap[(tileY << 5) + tileX]));
 
-                    // const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + attrs.tileNumber * (colorPalette256 ? 64 : 32);
-                    const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + (attrs.tileNumber << (colorPalette256 ? 6 : 5));
+            int32_t tx = attrs.hFlip ? (7 - (relBGMapX & 7)) : (relBGMapX & 7);
+            int32_t ty = attrs.vFlip ? (7 - (relBGMapY & 7)) : (relBGMapY & 7);
 
-                    if (colorPalette256) {
-                        // return palette.getBgColor(tile[ty * 8 + tx]);
-                        return palette.getBgColor(tile[(ty << 3) + tx]);
-                    } else {
-                        uint32_t row = reinterpret_cast<const uint32_t *>(tile)[ty];
-                        // uint32_t paletteIndex = (row >> (tx * 4)) & 0xF;
-                        uint32_t paletteIndex = (row >> (tx << 2)) & 0xF;
-                        return palette.getBgColor(attrs.paletteNumber, paletteIndex);
-                    }
-                };
-            case Mode2:
-                return [bgMap, this](int32_t sx, int32_t sy) -> color_t {
-                    // We know that the result msx & msy can not be negative (sx & sy are positive and sx % mod n is always <= sx) -> we can apply greedy optimizations
-                    int32_t msx = sx - (sx % mosaicWidth);
-                    int32_t msy = sy - (sy % mosaicHeight);
+            const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + (attrs.tileNumber << (colorPalette256 ? 6 : 5));
+            color_t finalColor;
 
-                    // int32_t tileX = msx / 8;
-                    int32_t tileX = msx >> 3;
-                    // int32_t tileY = msy / 8;
-                    int32_t tileY = msy >> 3;
-                    uint32_t tileNumber = reinterpret_cast<const uint8_t *>(bgMap)[tileY * (width / 8) + tileX];
-                    // const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + (tileNumber * 64);
-                    const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + (tileNumber << 6);
-                    // uint32_t paletteIndex = tile[(msy % 8) * 8 + (msx % 8)];
-                    uint32_t paletteIndex = tile[((msy & 7) << 3) + (msx & 7)];
+            if (colorPalette256) {
+                finalColor = palette.getBgColor(tile[(ty << 3) + tx]);
+            } else {
+                uint32_t row = reinterpret_cast<const uint32_t *>(tile)[ty];
+                uint32_t paletteIndex = (row >> (tx << 2)) & 0xF;
+                finalColor = palette.getBgColor(attrs.paletteNumber, paletteIndex);
+            }
 
-                    return palette.getBgColor(paletteIndex);
-                };
-            case Mode3:
-            case Mode5:
-                /* 32768 colors in color16 format */
-                return [frameBuffer, this](int32_t sx, int32_t sy) -> color_t {
-                    int32_t msx = sx - (sx % mosaicWidth);
-                    int32_t msy = sy - (sy % mosaicHeight);
-
-                    return reinterpret_cast<const color16_t *>(frameBuffer)[msy * width + msx];
-                };
-            case Mode4:
-                /* 256 indexed colors */
-                return [frameBuffer, this](int32_t sx, int32_t sy) -> color_t {
-                    int32_t msx = sx - (sx % mosaicWidth);
-                    int32_t msy = sy - (sy % mosaicHeight);
-
-                    return palette.getBgColor(reinterpret_cast<const uint8_t *>(frameBuffer)[msy * width + msx]);
-                };
-            default:
-                LOG_LCD(std::cout << "Invalid mode!" << std::endl;);
-                throw std::runtime_error("Invalid mode!");
+            scanline[x] = Fragment(finalColor, asFirstTarget, asSecondTarget, false);
         }
-
-        return std::function<color_t(int32_t, int32_t)>();
     }
 
-    void BGLayer::drawScanline(int32_t y)
+    void BGLayer::_drawScanline2(int32_t y)
     {
-        auto pixelColor = getPixelColorFunction();
+        const void *bgMap = getBGMap();
         vec2 s = affineTransform.origin + (useTrans ? vec2{0, 0} : affineTransform.dm * y);
 
         for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
@@ -315,12 +260,97 @@ namespace gbaemu::lcd
                     sy = fastMod<int32_t>(sy, height);
                 }
 
-                scanline[x] = Fragment(pixelColor(sx, sy), asFirstTarget, asSecondTarget, false);
+                int32_t msx = sx - (sx % mosaicWidth);
+                int32_t msy = sy - (sy % mosaicHeight);
+
+                int32_t tileX = msx >> 3;
+                int32_t tileY = msy >> 3;
+                uint32_t tileNumber = reinterpret_cast<const uint8_t *>(bgMap)[tileY * (width / 8) + tileX];
+                const uint8_t *tile = reinterpret_cast<const uint8_t *>(tiles) + (tileNumber << 6);
+                uint32_t paletteIndex = tile[((msy & 7) << 3) + (msx & 7)];
+
+                scanline[x] = Fragment(palette.getBgColor(paletteIndex), asFirstTarget, asSecondTarget, false);
             } else {
                 scanline[x] = Fragment(TRANSPARENT, asFirstTarget, asSecondTarget, false);
             }
 
             s += affineTransform.d;
+        }
+    }
+
+    void BGLayer::_drawScanline35(int32_t y)
+    {
+        const uint16_t *frameBuffer = reinterpret_cast<const uint16_t *>(getFrameBuffer());
+        vec2 s = affineTransform.origin + (useTrans ? vec2{0, 0} : affineTransform.dm * y);
+
+        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
+            int32_t sx = static_cast<int32_t>(s[0]);
+            int32_t sy = static_cast<int32_t>(s[1]);
+
+            if (wrap || (0 <= sx && sx < static_cast<int32_t>(width) && 0 <= sy && sy < static_cast<int32_t>(height))) {
+                if (wrap) {
+                    sx = fastMod<int32_t>(sx, width);
+                    sy = fastMod<int32_t>(sy, height);
+                }
+
+                int32_t msx = sx - (sx % mosaicWidth);
+                int32_t msy = sy - (sy % mosaicHeight);
+
+                scanline[x] = Fragment(frameBuffer[msy * width + msx], asFirstTarget, asSecondTarget, false);
+            } else {
+                scanline[x] = Fragment(TRANSPARENT, asFirstTarget, asSecondTarget, false);
+            }
+
+            s += affineTransform.d;
+        }
+    }
+
+    void BGLayer::_drawScanline4(int32_t y)
+    {
+        const uint8_t *frameBuffer = reinterpret_cast<const uint8_t *>(getFrameBuffer());
+        vec2 s = affineTransform.origin + (useTrans ? vec2{0, 0} : affineTransform.dm * y);
+
+        for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x) {
+            int32_t sx = static_cast<int32_t>(s[0]);
+            int32_t sy = static_cast<int32_t>(s[1]);
+
+            if (wrap || (0 <= sx && sx < static_cast<int32_t>(width) && 0 <= sy && sy < static_cast<int32_t>(height))) {
+                if (wrap) {
+                    sx = fastMod<int32_t>(sx, width);
+                    sy = fastMod<int32_t>(sy, height);
+                }
+
+                int32_t msx = sx - (sx % mosaicWidth);
+                int32_t msy = sy - (sy % mosaicHeight);
+
+                scanline[x] = Fragment(palette.getBgColor(frameBuffer[msy * width + msx]),
+                    asFirstTarget, asSecondTarget, false);
+            } else {
+                scanline[x] = Fragment(TRANSPARENT, asFirstTarget, asSecondTarget, false);
+            }
+
+            s += affineTransform.d;
+        }
+    }
+
+    void BGLayer::drawScanline(int32_t y)
+    {
+        switch (mode) {
+            case Mode0:
+                _drawScanline0(y);
+                break;
+            case Mode2:
+                _drawScanline2(y);
+                break;
+            case Mode3:
+            case Mode5:
+                _drawScanline35(y);
+                break;
+            case Mode4:
+                _drawScanline4(y);
+                break;
+            default:
+                break;
         }
     }
 

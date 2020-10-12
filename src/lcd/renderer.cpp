@@ -82,9 +82,10 @@ namespace gbaemu::lcd
     void Renderer::blendDefault(int32_t y, int32_t xTo)
     {
         color_t *outBuf = target.pixels() + y * target.getWidth();
+        const color_t backdrop = palette.getBackdropColor();
 
         for (int32_t x = 0; x < xTo; ++x) {
-            color_t finalColor = palette.getBackdropColor();
+            color_t finalColor = backdrop;
 
             for (const auto &l : layers) {
                 if (!l->enabled || !flagLayerEnabled(windowFeature.enabledMask.mask[x], l->layerID))
@@ -107,9 +108,10 @@ namespace gbaemu::lcd
     {
         color_t *outBuf = target.pixels() + y * target.getWidth();
         std::function<color_t(color_t, color_t)> applyColorEffect = colorEffects.getBlendingFunction();
+        const color_t backdrop = palette.getBackdropColor();
 
         for (int32_t x = 0; x < xTo; ++x) {
-            color_t finalColor = palette.getBackdropColor();
+            color_t finalColor = backdrop;
             uint8_t windowMask = windowFeature.enabledMask.mask[x];
 
             for (const auto &l : layers) {
@@ -137,14 +139,15 @@ namespace gbaemu::lcd
     {
         color_t *outBuf = target.pixels() + y * target.getWidth();
         std::function<color_t(color_t, color_t)> applyColorEffect = colorEffects.getBlendingFunction();
+        const color_t backdrop = palette.getBackdropColor();
 
         for (int32_t x = 0; x < xTo; ++x) {
             auto it = layers.cbegin();
             bool asFirst = false;
             bool asSecond = false;
-            color_t firstColor = palette.getBackdropColor();
-            color_t secondColor = palette.getBackdropColor();
-            color_t finalColor = palette.getBackdropColor();
+            color_t firstColor = backdrop;
+            color_t secondColor = backdrop;
+            color_t finalColor = backdrop;
 
             for (; it != layers.cend(); it++) {
                 const auto &l = *it;
