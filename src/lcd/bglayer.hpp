@@ -24,7 +24,9 @@ namespace gbaemu::lcd
     typedef uint16_t BGMode0Entry;
 
     struct BGMode0EntryAttributes {
+        BGMode0EntryAttributes() {}
         BGMode0EntryAttributes(BGMode0Entry entry);
+        void load(BGMode0Entry entry);
 
         uint16_t tileNumber;
         uint16_t paletteNumber;
