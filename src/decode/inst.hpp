@@ -47,12 +47,6 @@ namespace gbaemu
         */
         uint32_t cycleCount;
 
-        // Convert instruction fetch S cycle into N cycle (only relevant for STR AFAIK)
-        bool noDefaultSCycle;
-
-        // Needed for infinite loops caused by branching to current PC value -> no PC change would otherwise be interpreted as normal instruction and execution continues at PC + 4
-        bool forceBranch;
-
         // resolved Memory Region
         memory::MemoryRegion memReg;
     };

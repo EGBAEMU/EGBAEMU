@@ -19,41 +19,43 @@ namespace gbaemu
             extendedAddr <<= 1;
             uint32_t pcVal = *currentRegs[regs::PC_OFFSET];
             *currentRegs[regs::PC_OFFSET] = *currentRegs[regs::LR_OFFSET] + extendedAddr;
-            *currentRegs[regs::LR_OFFSET] = (pcVal + 2) | 1;
+            // Note that pc is already incremented by 2
+            *currentRegs[regs::LR_OFFSET] = pcVal | 1;
 
             // pipeline flush -> additional cycles needed
             // This is a branch instruction so we need to consider self branches!
-            state.cpuInfo.forceBranch = true;
+            refillPipelineAfterBranch<true>();
         } else {
             // First instruction
             extendedAddr <<= 12;
+            // Note that pc is already incremented by 2
             // The destination address range is (PC+4)-400000h..+3FFFFEh -> sign extension is needed
             // Apply sign extension!
             extendedAddr = signExt<int32_t, uint32_t, 23>(extendedAddr);
-            *currentRegs[regs::LR_OFFSET] = *currentRegs[regs::PC_OFFSET] + 4 + extendedAddr;
+            *currentRegs[regs::LR_OFFSET] = *currentRegs[regs::PC_OFFSET] + 2 + extendedAddr;
         }
     }
 
     void CPU::handleThumbUnconditionalBranch(int16_t offset)
     {
-        state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(state.getCurrentPC() + 4 + static_cast<int32_t>(offset) * 2);
+        // Note that pc is already incremented by 2
+        state.getPC() += static_cast<uint32_t>(2 + static_cast<int32_t>(offset) * 2);
 
         // Unconditional branches take 2S + 1N
         // This is a branch instruction so we need to consider self branches!
-        state.cpuInfo.forceBranch = true;
+        refillPipelineAfterBranch<true>();
     }
 
     void CPU::handleThumbConditionalBranch(uint8_t cond, int8_t offset)
     {
-
         // Branch will be executed if condition is met
         if (conditionSatisfied(static_cast<ConditionOPCode>(cond), state)) {
-
-            state.accessReg(regs::PC_OFFSET) = static_cast<uint32_t>(static_cast<int32_t>(state.getCurrentPC()) + 4 + (static_cast<int32_t>(offset) * 2));
+            // Note that pc is already incremented by 2
+            state.getPC() += 2 + (static_cast<int32_t>(offset) * 2);
 
             // If branch executed: 2S+1N
             // This is a branch instruction so we need to consider self branches!
-            state.cpuInfo.forceBranch = true;
+            refillPipelineAfterBranch<true>();
         }
     }
 
@@ -81,7 +83,8 @@ namespace gbaemu
         //          0: ADD  Rd,PC,#nn    ;Rd = (($+4) AND NOT 2) + nn
         //          1: ADD  Rd,SP,#nn    ;Rd = SP + nn
         // nn step 4
-        *currentRegs[rd] = (sp ? *currentRegs[regs::SP_OFFSET] : ((*currentRegs[regs::PC_OFFSET] + 4) & ~2)) + (static_cast<uint32_t>(offset) << 2);
+        // Note that pc is already incremented by 2
+        *currentRegs[rd] = (sp ? *currentRegs[regs::SP_OFFSET] : ((*currentRegs[regs::PC_OFFSET] + 2) & ~2)) + (static_cast<uint32_t>(offset) << 2);
 
         // Execution Time: 1S
     }
@@ -131,12 +134,9 @@ namespace gbaemu
 
         auto currentRegs = state.getCurrentRegs();
 
-        uint32_t rsValue = *currentRegs[rs] + (rs == regs::PC_OFFSET ? 4 : 0);
-        uint32_t rdValue = *currentRegs[rd] + (rd == regs::PC_OFFSET ? 4 : 0);
-
-        if (rd == regs::PC_OFFSET && (id == ADD || id == MOV)) {
-            state.cpuInfo.forceBranch = true;
-        }
+        // Note that pc is already incremented by 2
+        uint32_t rsValue = *currentRegs[rs] + (rs == regs::PC_OFFSET ? 2 : 0);
+        uint32_t rdValue = *currentRegs[rd] + (rd == regs::PC_OFFSET ? 2 : 0);
 
         switch (id) {
             case ADD:
@@ -165,20 +165,21 @@ namespace gbaemu
                 // If the first bit of rs is set
                 bool stayInThumbMode = rsValue & 0x00000001;
 
-                if (!stayInThumbMode) {
-                    state.setFlag<cpsr_flags::THUMB_STATE>(false);
-                }
-
                 // Except for BX R15: CPU switches to ARM state, and PC is auto-aligned as (($+4) AND NOT 2).
-                if (rs == 15) {
+                if (rs == regs::PC_OFFSET) {
                     rsValue &= ~2;
                 }
 
                 // Change the PC to the address given by rs. Note that we have to mask out the thumb switch bit.
                 *currentRegs[regs::PC_OFFSET] = rsValue & ~1;
 
-                // This is a branch instruction so we need to consider self branches!
-                state.cpuInfo.forceBranch = true;
+                // This is a branch instruction so we need to refill the pipeline!
+                if (!stayInThumbMode) {
+                    state.setFlag<cpsr_flags::THUMB_STATE>(false);
+                    refillPipelineAfterBranch<false>();
+                } else {
+                    refillPipelineAfterBranch<true>();
+                }
 
                 break;
             }
@@ -186,6 +187,10 @@ namespace gbaemu
             case NOP:
             default:
                 break;
+        }
+
+        if ((id == ADD || id == MOV) && rd == regs::PC_OFFSET) {
+            refillPipelineAfterBranch<true>();
         }
     }
 

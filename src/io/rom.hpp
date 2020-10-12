@@ -63,8 +63,10 @@ namespace gbaemu
         uint16_t read16(uint32_t addr) const;
         uint32_t read32(uint32_t addr) const;
         uint8_t read8ROM3_(uint32_t addr) const;
-        uint16_t read16ROM3_(uint32_t addr, bool dma) const;
-        uint32_t read32ROM3_(uint32_t addr, bool dma) const;
+        uint16_t read16ROM3_(uint32_t addr) const;
+        uint16_t read16ROM3_DMA(uint32_t addr) const;
+        uint32_t read32ROM3_(uint32_t addr) const;
+        uint32_t read32ROM3_DMA(uint32_t addr) const;
         uint8_t read8SRAM(uint32_t addr) const;
         uint16_t read16SRAM(uint32_t addr) const;
         uint32_t read32SRAM(uint32_t addr) const;

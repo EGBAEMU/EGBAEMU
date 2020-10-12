@@ -36,7 +36,8 @@ namespace gbaemu
             auto svcRegs = cpu->state.getModeRegs(CPUState::SupervisorMode);
             *(svcRegs[regs::SPSR_OFFSET]) = cpu->state.getCurrentCPSR();
             // Save PC to LR_svc
-            *(svcRegs[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + (cpu->state.getFlag<cpsr_flags::THUMB_STATE>() ? 2 : 4);
+            // Note that pc is already incremented by 2/4
+            *(svcRegs[regs::LR_OFFSET]) = cpu->state.getCurrentPC();
 
             // Ensure that the CPSR represents that we are in ARM mode again
             // Clear all flags & enforce supervisor mode
@@ -48,7 +49,7 @@ namespace gbaemu
             // Offset to the swi routine
             *svcRegs[regs::PC_OFFSET] = Memory::BIOS_SWI_HANDLER_OFFSET;
 
-            cpu->state.cpuInfo.forceBranch = true;
+            cpu->refillPipelineAfterBranch<false>();
         }
 
         void softReset(CPU *cpu)

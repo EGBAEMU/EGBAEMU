@@ -132,10 +132,10 @@ namespace gbaemu
                     state = SEQ_COPY;
 
                     if (width32Bit) {
-                        uint32_t data = memory.read32(srcAddr, info, false, false, true);
+                        uint32_t data = memory.readDMA32(srcAddr, info, false);
                         memory.write32(destAddr, data, info, false);
                     } else {
-                        uint16_t data = memory.read16(srcAddr, info, false, false, true);
+                        uint16_t data = memory.readDMA16(srcAddr, info, false);
                         memory.write16(destAddr, data, info, false);
                     }
 
@@ -151,10 +151,10 @@ namespace gbaemu
                     while (count > 0 && info.cycleCount < cycles) {
 
                         if (width32Bit) {
-                            uint32_t data = memory.read32(srcAddr, info, true, false, true);
+                            uint32_t data = memory.readDMA32(srcAddr, info, true);
                             memory.write32(destAddr, data, info, true);
                         } else {
-                            uint16_t data = memory.read16(srcAddr, info, true, false, true);
+                            uint16_t data = memory.readDMA16(srcAddr, info, true);
                             memory.write16(destAddr, data, info, true);
                         }
 
