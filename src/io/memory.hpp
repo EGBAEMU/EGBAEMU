@@ -178,11 +178,11 @@ namespace gbaemu
         void write16(uint32_t addr, uint16_t value, InstructionExecutionInfo &execInfo, bool seq = false);
         void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo &execInfo, bool seq = false);
 
-        uint8_t memCycles32(uint8_t reg, bool seq) const
+        uint8_t memCycles32(memory::MemoryRegion reg, bool seq) const
         {
             return cycles32Bit[bmap<uint8_t>(seq)][reg & 0xF];
         }
-        uint8_t memCycles16(uint8_t reg, bool seq) const
+        uint8_t memCycles16(memory::MemoryRegion reg, bool seq) const
         {
             return cycles16Bit[bmap<uint8_t>(seq)][reg & 0xF];
         }
