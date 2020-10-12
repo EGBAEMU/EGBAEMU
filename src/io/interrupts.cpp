@@ -75,25 +75,25 @@ namespace gbaemu
     void InterruptHandler::callIRQHandler() const
     {
         /*
-            BIOS Interrupt handling
-            Upon interrupt execution, the CPU is switched into IRQ mode, and the physical interrupt vector is called - as this address
-             is located in BIOS ROM, the BIOS will always execute the following code before it forwards control to the user handler:
-            1. switch to arm mode
-            2. save CPSR into SPSR_irq
-            3. save PC (or next PC) into LR_irq
-            4. switch to IRQ mode (also set CPSR accordingly)
-            5. jump to ROM appended bios irq handler
-            (other orders might be better)
-            00000124  b pc -8                    ; infinite loop as protection barrior between ROM code & bios code
-            00000128  stmfd  r13!,r0-r3,r12,r14  ;save registers to SP_irq
-            0000012C  mov    r0,4000000h         ;ptr+4 to 03FFFFFC (mirror of 03007FFC)
-            00000130  add    r14,r15,0h          ;retadr for USER handler $+8=138h
-            00000134  ldr    r15,[r0,-4h]        ;jump to [03FFFFFC] USER handler
-            00000138  ldmfd  r13!,r0-r3,r12,r14  ;restore registers from SP_irq
-            0000013C  subs   r15,r14,4h          ;return from IRQ (PC=LR-4, CPSR=SPSR)
-            As shown above, a pointer to the 32bit/ARM-code user handler must be setup in [03007FFCh]. By default, 160 bytes of memory 
-            are reserved for interrupt stack at 03007F00h-03007F9Fh.
-            */
+        BIOS Interrupt handling
+        Upon interrupt execution, the CPU is switched into IRQ mode, and the physical interrupt vector is called - as this address
+         is located in BIOS ROM, the BIOS will always execute the following code before it forwards control to the user handler:
+        1. switch to arm mode
+        2. save CPSR into SPSR_irq
+        3. save PC (or next PC) into LR_irq
+        4. switch to IRQ mode (also set CPSR accordingly)
+        5. jump to ROM appended bios irq handler
+        (other orders might be better)
+        00000124  b pc -8                    ; infinite loop as protection barrior between ROM code & bios code
+        00000128  stmfd  r13!,r0-r3,r12,r14  ;save registers to SP_irq
+        0000012C  mov    r0,4000000h         ;ptr+4 to 03FFFFFC (mirror of 03007FFC)
+        00000130  add    r14,r15,0h          ;retadr for USER handler $+8=138h
+        00000134  ldr    r15,[r0,-4h]        ;jump to [03FFFFFC] USER handler
+        00000138  ldmfd  r13!,r0-r3,r12,r14  ;restore registers from SP_irq
+        0000013C  subs   r15,r14,4h          ;return from IRQ (PC=LR-4, CPSR=SPSR)
+        As shown above, a pointer to the 32bit/ARM-code user handler must be setup in [03007FFCh]. By default, 160 bytes of memory 
+        are reserved for interrupt stack at 03007F00h-03007F9Fh.
+        */
 
         // Save the current CPSR register value into SPSR_irq
         auto irqRegs = cpu->state.getModeRegs(CPUState::IRQ);
@@ -113,8 +113,7 @@ namespace gbaemu
         *irqRegs[regs::PC_OFFSET] = Memory::BIOS_IRQ_HANDLER_OFFSET;
 
         // Flush the pipeline
-        cpu->state.normalizePC();
-        cpu->initPipeline();
+        cpu->refillPipelineAfterBranch<false>();
     }
 
     void InterruptHandler::checkForHaltCondition(uint32_t mask) const

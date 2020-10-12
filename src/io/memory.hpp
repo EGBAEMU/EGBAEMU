@@ -171,9 +171,20 @@ namespace gbaemu
             return rom.getRomSize();
         }
 
-        uint8_t read8(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq = false, bool readInstruction = false) const;
-        uint16_t read16(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
-        uint32_t read32(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq = false, bool readInstruction = false, bool dmaRequest = false) const;
+        void setExecInsideBios(bool execBios)
+        {
+            bios.setExecInsideBios(execBios);
+        }
+
+        uint8_t read8(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq) const;
+
+        uint16_t readInst16(uint32_t addr, InstructionExecutionInfo &execInfo);
+        uint32_t readInst32(uint32_t addr, InstructionExecutionInfo &execInfo);
+        uint16_t readDMA16(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq) const;
+        uint32_t readDMA32(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq) const;
+        uint16_t read16(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq) const;
+        uint32_t read32(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq) const;
+
         void write8(uint32_t addr, uint8_t value, InstructionExecutionInfo &execInfo, bool seq = false);
         void write16(uint32_t addr, uint16_t value, InstructionExecutionInfo &execInfo, bool seq = false);
         void write32(uint32_t addr, uint32_t value, InstructionExecutionInfo &execInfo, bool seq = false);

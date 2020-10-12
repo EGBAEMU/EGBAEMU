@@ -5,8 +5,8 @@
 #include "io/memory.hpp"
 #include "regs.hpp"
 #include <cstdint>
-#include <string>
 #include <sstream>
+#include <string>
 
 namespace gbaemu
 {
@@ -84,20 +84,16 @@ namespace gbaemu
 
         uint32_t *const *currentRegs;
 
+      public:
         /* pipeline */
         uint32_t pipeline[2];
 
-      public:
         Memory memory;
 
         InstructionExecutionInfo cpuInfo;
 
         // CPU halting
         uint32_t haltCondition;
-
-        // Execute phase variables
-        //TODO this can probably replace the additional N & S cycle fields
-        InstructionExecutionInfo fetchInfo;
 
         uint8_t seqCycles;
         uint8_t nonSeqCycles;
@@ -114,7 +110,7 @@ namespace gbaemu
         } cpsr;
 
       private:
-        uint32_t handleReadUnused() const;
+        uint32_t handleReadUnused();
 
       public:
         CPUState();
@@ -123,12 +119,10 @@ namespace gbaemu
 
         uint32_t normalizePC();
 
-        template <bool thumbMode>
-        uint32_t propagatePipeline(uint32_t pc);
-
         const char *cpuModeToString() const;
 
         uint32_t getCurrentPC() const;
+        uint32_t &getPC();
 
         uint32_t *const *const getCurrentRegs() { return currentRegs; }
 
@@ -188,7 +182,7 @@ namespace gbaemu
         std::string toString() const;
         std::string printStack(uint32_t words) const;
 
-        std::string disas(uint32_t addr, uint32_t cmds) const;
+        std::string disas(uint32_t addr, uint32_t cmds);
     };
 
 } // namespace gbaemu

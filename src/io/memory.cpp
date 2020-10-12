@@ -95,6 +95,7 @@ namespace gbaemu
 
         setBiosState(Bios::BIOS_AFTER_STARTUP);
         updateWaitCycles(0);
+        bios.setExecInsideBios(false);
     }
 
     void Memory::updateWaitCycles(uint16_t WAITCNT)
@@ -159,7 +160,7 @@ namespace gbaemu
         oam = nullptr;
     }
 
-    uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq, bool readInstruction) const
+    uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq) const
     {
 
         execInfo.memReg = extractMemoryRegion(addr);
@@ -208,7 +209,7 @@ namespace gbaemu
 
             case memory::BIOS:
                 if (addr < memory::BIOS_LIMIT) {
-                    currValue = bios.read8(addr, readInstruction);
+                    currValue = bios.read8(addr);
                     break;
                 }
                 // Fall through if not in bios area, as this is unused memory!
@@ -228,21 +229,74 @@ namespace gbaemu
         return currValue;
     }
 
-    /*
-    ARM CPU Memory Alignments
+    uint16_t Memory::readInst16(uint32_t addr, InstructionExecutionInfo &execInfo)
+    {
+        execInfo.memReg = extractMemoryRegion(addr);
+        execInfo.cycleCount += memCycles16(execInfo.memReg, true);
 
-    The CPU does NOT support accessing mis-aligned addresses (which would be rather slow because it'd have to merge/split that data into two accesses).
-    When reading/writing code/data to/from memory, Words and Halfwords must be located at well-aligned memory address, ie. 32bit words aligned by 4, and 16bit halfwords aligned by 2.
+        uint16_t currValue;
 
-    Mis-aligned STR,STRH,STM,LDM,LDRD,STRD,PUSH,POP (forced align)
-    The mis-aligned low bit(s) are ignored, the memory access goes to a forcibly aligned (rounded-down) memory address.
-    For LDRD/STRD, it isn't clearly defined if the address must be aligned by 8 (on the NDS, align-4 seems to be okay) (align-8 may be required on other CPUs with 64bit databus).
+        switch (execInfo.memReg) {
+            case memory::WRAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint16_t *>(wram + (addr & memory::WRAM_LIMIT & ~1) - memory::WRAM_OFFSET));
+                break;
+            case memory::IWRAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint16_t *>(iwram + (addr & memory::IWRAM_LIMIT & ~1) - memory::IWRAM_OFFSET));
+                break;
+            case memory::IO_REGS:
+                currValue = ioHandler.externalRead16(addr & ~1);
+                break;
+            case memory::BG_OBJ_RAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint16_t *>(bg_obj_ram + (addr & memory::BG_OBJ_RAM_LIMIT & ~1) - memory::BG_OBJ_RAM_OFFSET));
+                break;
+            case memory::VRAM:
+                currValue = vram.read16(addr);
+                break;
+            case memory::OAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint16_t *>(oam + (addr & memory::OAM_LIMIT & ~1) - memory::OAM_OFFSET));
+                break;
 
-    Mis-aligned LDR,SWP (rotated read)
-    Reads from forcibly aligned address "addr AND (NOT 3)", and does then rotate the data as "ROR (addr AND 3)*8". That effect is internally used by LDRB and LDRH opcodes (which do then mask-out the unused bits).
-    The SWP opcode works like a combination of LDR and STR, that means, it does read-rotated, but does write-unrotated.
-    */
-    uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq, bool readInstruction, bool dmaRequest) const
+            case memory::EXT_ROM1:
+            case memory::EXT_ROM1_:
+            case memory::EXT_ROM2:
+            case memory::EXT_ROM2_:
+            case memory::EXT_ROM3:
+                currValue = rom.read16(addr);
+                break;
+            case memory::EXT_ROM3_:
+                currValue = rom.read16ROM3_(addr);
+                break;
+            case memory::EXT_SRAM:
+            case memory::EXT_SRAM_:
+                currValue = rom.read16SRAM(addr);
+                break;
+
+            case memory::BIOS:
+                if (addr < memory::BIOS_LIMIT) {
+                    currValue = bios.read16Inst(addr);
+                    break;
+                }
+                // Fall through if not in bios area, as this is unused memory!
+            default:
+                // Unused Memory
+                currValue = readUnusedHandle();
+                // get the selected HW
+                currValue >>= ((addr & 2) << 3);
+                break;
+        }
+
+#ifdef DEBUG_CLI
+        if (memWatch.isAddressWatched(addr))
+            memWatch.addressCheckTrigger(addr, currValue);
+#endif
+
+        return currValue;
+    }
+    uint16_t Memory::readDMA16(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq) const
     {
         execInfo.memReg = extractMemoryRegion(addr);
         execInfo.cycleCount += memCycles16(execInfo.memReg, seq);
@@ -281,7 +335,7 @@ namespace gbaemu
                 currValue = rom.read16(addr);
                 break;
             case memory::EXT_ROM3_:
-                currValue = rom.read16ROM3_(addr, dmaRequest);
+                currValue = rom.read16ROM3_DMA(addr);
                 break;
             case memory::EXT_SRAM:
             case memory::EXT_SRAM_:
@@ -290,7 +344,74 @@ namespace gbaemu
 
             case memory::BIOS:
                 if (addr < memory::BIOS_LIMIT) {
-                    currValue = bios.read16(addr, readInstruction);
+                    currValue = bios.read16(addr);
+                    break;
+                }
+                // Fall through if not in bios area, as this is unused memory!
+            default:
+                // Unused Memory
+                currValue = readUnusedHandle();
+                // get the selected HW
+                currValue >>= ((addr & 2) << 3);
+                break;
+        }
+
+#ifdef DEBUG_CLI
+        if (memWatch.isAddressWatched(addr))
+            memWatch.addressCheckTrigger(addr, currValue);
+#endif
+
+        return currValue;
+    }
+    uint16_t Memory::read16(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq) const
+    {
+        execInfo.memReg = extractMemoryRegion(addr);
+        execInfo.cycleCount += memCycles16(execInfo.memReg, seq);
+
+        uint16_t currValue;
+
+        switch (execInfo.memReg) {
+            case memory::WRAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint16_t *>(wram + (addr & memory::WRAM_LIMIT & ~1) - memory::WRAM_OFFSET));
+                break;
+            case memory::IWRAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint16_t *>(iwram + (addr & memory::IWRAM_LIMIT & ~1) - memory::IWRAM_OFFSET));
+                break;
+            case memory::IO_REGS:
+                currValue = ioHandler.externalRead16(addr & ~1);
+                break;
+            case memory::BG_OBJ_RAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint16_t *>(bg_obj_ram + (addr & memory::BG_OBJ_RAM_LIMIT & ~1) - memory::BG_OBJ_RAM_OFFSET));
+                break;
+            case memory::VRAM:
+                currValue = vram.read16(addr);
+                break;
+            case memory::OAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint16_t *>(oam + (addr & memory::OAM_LIMIT & ~1) - memory::OAM_OFFSET));
+                break;
+
+            case memory::EXT_ROM1:
+            case memory::EXT_ROM1_:
+            case memory::EXT_ROM2:
+            case memory::EXT_ROM2_:
+            case memory::EXT_ROM3:
+                currValue = rom.read16(addr);
+                break;
+            case memory::EXT_ROM3_:
+                currValue = rom.read16ROM3_(addr);
+                break;
+            case memory::EXT_SRAM:
+            case memory::EXT_SRAM_:
+                currValue = rom.read16SRAM(addr);
+                break;
+
+            case memory::BIOS:
+                if (addr < memory::BIOS_LIMIT) {
+                    currValue = bios.read16(addr);
                     break;
                 }
                 // Fall through if not in bios area, as this is unused memory!
@@ -310,7 +431,73 @@ namespace gbaemu
         return currValue;
     }
 
-    uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq, bool readInstruction, bool dmaRequest) const
+    // TODO i dont like this copy & paste variant... but at least it allows const correctness :/
+    uint32_t Memory::readInst32(uint32_t addr, InstructionExecutionInfo &execInfo)
+    {
+        execInfo.memReg = extractMemoryRegion(addr);
+        execInfo.cycleCount += memCycles32(execInfo.memReg, true);
+
+        uint32_t currValue;
+
+        switch (execInfo.memReg) {
+            case memory::WRAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint32_t *>(wram + (addr & memory::WRAM_LIMIT & ~3) - memory::WRAM_OFFSET));
+                break;
+            case memory::IWRAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint32_t *>(iwram + (addr & memory::IWRAM_LIMIT & ~3) - memory::IWRAM_OFFSET));
+                break;
+            case memory::IO_REGS:
+                currValue = ioHandler.externalRead32(addr & ~3);
+                break;
+            case memory::BG_OBJ_RAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint32_t *>(bg_obj_ram + (addr & memory::BG_OBJ_RAM_LIMIT & ~3) - memory::BG_OBJ_RAM_OFFSET));
+                break;
+            case memory::VRAM:
+                currValue = vram.read32(addr);
+                break;
+            case memory::OAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint32_t *>(oam + (addr & memory::OAM_LIMIT & ~3) - memory::OAM_OFFSET));
+                break;
+
+            case memory::EXT_ROM1:
+            case memory::EXT_ROM1_:
+            case memory::EXT_ROM2:
+            case memory::EXT_ROM2_:
+            case memory::EXT_ROM3:
+                currValue = rom.read32(addr);
+                break;
+            case memory::EXT_ROM3_:
+                currValue = rom.read32ROM3_(addr);
+                break;
+            case memory::EXT_SRAM:
+            case memory::EXT_SRAM_:
+                currValue = rom.read32SRAM(addr);
+                break;
+
+            case memory::BIOS:
+                if (addr < memory::BIOS_LIMIT) {
+                    currValue = bios.read32Inst(addr);
+                    break;
+                }
+                // Fall through if not in bios area, as this is unused memory!
+            default:
+                // Unused Memory
+                currValue = readUnusedHandle();
+                break;
+        }
+
+#ifdef DEBUG_CLI
+        if (memWatch.isAddressWatched(addr))
+            memWatch.addressCheckTrigger(addr, currValue);
+#endif
+
+        return currValue;
+    }
+    uint32_t Memory::readDMA32(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq) const
     {
         execInfo.memReg = extractMemoryRegion(addr);
         execInfo.cycleCount += memCycles32(execInfo.memReg, seq);
@@ -349,7 +536,7 @@ namespace gbaemu
                 currValue = rom.read32(addr);
                 break;
             case memory::EXT_ROM3_:
-                currValue = rom.read32ROM3_(addr, dmaRequest);
+                currValue = rom.read32ROM3_DMA(addr);
                 break;
             case memory::EXT_SRAM:
             case memory::EXT_SRAM_:
@@ -358,7 +545,7 @@ namespace gbaemu
 
             case memory::BIOS:
                 if (addr < memory::BIOS_LIMIT) {
-                    currValue = bios.read32(addr, readInstruction);
+                    currValue = bios.read32(addr);
                     break;
                 }
                 // Fall through if not in bios area, as this is unused memory!
@@ -375,6 +562,73 @@ namespace gbaemu
 
         return currValue;
     }
+    uint32_t Memory::read32(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq) const
+    {
+        execInfo.memReg = extractMemoryRegion(addr);
+        execInfo.cycleCount += memCycles32(execInfo.memReg, seq);
+
+        uint32_t currValue;
+
+        switch (execInfo.memReg) {
+            case memory::WRAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint32_t *>(wram + (addr & memory::WRAM_LIMIT & ~3) - memory::WRAM_OFFSET));
+                break;
+            case memory::IWRAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint32_t *>(iwram + (addr & memory::IWRAM_LIMIT & ~3) - memory::IWRAM_OFFSET));
+                break;
+            case memory::IO_REGS:
+                currValue = ioHandler.externalRead32(addr & ~3);
+                break;
+            case memory::BG_OBJ_RAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint32_t *>(bg_obj_ram + (addr & memory::BG_OBJ_RAM_LIMIT & ~3) - memory::BG_OBJ_RAM_OFFSET));
+                break;
+            case memory::VRAM:
+                currValue = vram.read32(addr);
+                break;
+            case memory::OAM:
+                // Trivial mirroring
+                currValue = le(*reinterpret_cast<uint32_t *>(oam + (addr & memory::OAM_LIMIT & ~3) - memory::OAM_OFFSET));
+                break;
+
+            case memory::EXT_ROM1:
+            case memory::EXT_ROM1_:
+            case memory::EXT_ROM2:
+            case memory::EXT_ROM2_:
+            case memory::EXT_ROM3:
+                currValue = rom.read32(addr);
+                break;
+            case memory::EXT_ROM3_:
+                currValue = rom.read32ROM3_(addr);
+                break;
+            case memory::EXT_SRAM:
+            case memory::EXT_SRAM_:
+                currValue = rom.read32SRAM(addr);
+                break;
+
+            case memory::BIOS:
+                if (addr < memory::BIOS_LIMIT) {
+                    currValue = bios.read32(addr);
+                    break;
+                }
+                // Fall through if not in bios area, as this is unused memory!
+            default:
+                // Unused Memory
+                currValue = readUnusedHandle();
+                break;
+        }
+
+#ifdef DEBUG_CLI
+        if (memWatch.isAddressWatched(addr))
+            memWatch.addressCheckTrigger(addr, currValue);
+#endif
+
+        return currValue;
+    }
+
+
 
     void Memory::write8(uint32_t addr, uint8_t value, InstructionExecutionInfo &execInfo, bool seq)
     {

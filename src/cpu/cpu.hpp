@@ -52,12 +52,15 @@ namespace gbaemu
 
         void reset();
 
-        void initPipeline();
         CPUExecutionInfoType step(uint32_t cycles);
 
-      private:
-        uint32_t postExecute();
+        void patchFetchToNCycle();
+        template <bool thumbMode>
+        void refillPipelineAfterBranch();
 
+        void refillPipeline();
+
+      private:
         template <uint8_t execState>
         void execStep(uint32_t &prevPC);
 
