@@ -148,7 +148,7 @@ namespace gbaemu::lcd
         outsideWindow.id = OUTSIDE;
     }
 
-    void WindowFeature::load(const LCDIORegs &regs, int32_t y, color_t bdColor)
+    void WindowFeature::load(const LCDIORegs &regs, int32_t y)
     {
         normalWindows[0].load(regs);
         normalWindows[1].load(regs);
@@ -167,9 +167,6 @@ namespace gbaemu::lcd
             else
                 enabledMask.mask[x] = 0xFF;
         }
-
-        colorEffects.load(regs);
-        backdropColor = bdColor;
     }
 
     bool WindowFeature::isEnabled() const

@@ -36,36 +36,34 @@ namespace gbaemu::lcd
     PACK_STRUCT_DEF(OBJAttribute,
                     uint16_t attribute[3];);
 
+    struct OBJBitProps
+    {
+        uint8_t field;
+
+        bool visible() const noexcept { return field & 1; }
+        bool enabled() const noexcept { return field & 2; }
+        bool vFlip() const noexcept { return field & 4; }
+        bool hFlip() const noexcept { return field & 8; }
+    };
+
     /* Contains all the properties for a given obj index. */
     class OBJ
     {
-      private:
-        int32_t objIndex;
-
       public:
+        bool vFlip = false, hFlip = false, useColor256, mosaicEnabled;
+        uint32_t width = 0, height = 0;
+        uint8_t paletteNumber;
+        uint16_t tileNumber;
+        uint8_t tilesPerRow;
+        uint8_t bytesPerTile;
+
         bool visible = false;
         bool enabled;
-
-        OBJShape shape;
         OBJMode mode;
-        uint16_t priority;
+        uint8_t priority;
         int32_t xOff, yOff;
-        bool doubleSized, vFlip = false, hFlip = false, useColor256, mosaicEnabled;
-        uint32_t width = 0, height = 0;
-        uint16_t paletteNumber;
-        uint16_t tileNumber;
-        uint16_t tilesPerRow;
-        uint16_t bytesPerTile;
         OBJAffineTransform affineTransform;
-        int32_t cyclesRequired;
-
-        struct
-        {
-            int32_t left;
-            int32_t right;
-            int32_t top;
-            int32_t bottom;
-        } rect;
+        Rect rect;
 
       private:
         static OBJAttribute getAttribute(const uint8_t *attributes, uint32_t index);
@@ -113,8 +111,6 @@ namespace gbaemu::lcd
         const LCDIORegs &regs;
 
         std::vector<OBJ> objects;
-
-        std::vector<OBJ>::const_iterator getLastRenderedOBJ(int32_t cycleBudget) const;
 
       public:
         OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio, const std::shared_ptr<OBJManager>& manager);
