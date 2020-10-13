@@ -174,8 +174,8 @@ namespace gbaemu
             case BX: {
 
                 // If msbDst set this wont execute
-                if (msbDst)
-                    return;
+                // if (msbDst)
+                    // return;
 
                 // If the first bit of rs is set
                 bool stayInThumbMode = rsValue & 0x00000001;
