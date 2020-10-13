@@ -579,6 +579,15 @@ namespace gbaemu
 
         auto currentRegs = state.getCurrentRegs();
 
+        /*
+        When S Bit is set (S=1)
+        If instruction is LDM and R15 is in the list: (Mode Changes)
+          While R15 loaded, additionally: CPSR=SPSR_<current mode>
+        Otherwise: (User bank transfer)
+          Rlist is referring to User Bank Registers, R0-R15 (rather than
+          register related to the current mode, such like R14_svc etc.)
+          Base write-back should not be used for User bank transfer.
+        */
         if (forceUserRegisters && (!load || (rList & (1 << regs::PC_OFFSET)) == 0)) {
             currentRegs = state.getModeRegs(CPUState::UserMode);
         }
@@ -588,7 +597,6 @@ namespace gbaemu
         // Execution Time:
         // For normal LDM, nS+1N+1I. For LDM PC, (n+1)S+2N+1I.
         // For STM (n-1)S+2N. Where n is the number of words transferred.
-
         if (load) {
             // handle +1I
             state.cpuInfo.cycleCount += 1;

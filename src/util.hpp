@@ -16,7 +16,8 @@ namespace gbaemu
     T le(T val);
 #else
     template <class T>
-    constexpr T le(T val) {
+    constexpr T le(T val)
+    {
         return val;
     }
 #endif
