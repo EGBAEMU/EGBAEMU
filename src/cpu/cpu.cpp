@@ -178,7 +178,7 @@ namespace gbaemu
         state.cpuInfo.cycleCount -= state.seqCycles;
 
         // We need to fill the pipeline to the state where the instruction at PC is ready for execution -> fetched + decoded!
-        uint32_t pc = state.normalizePC();
+        uint32_t pc = state.normalizePC<thumbMode>();
         state.memory.setExecInsideBios(false);
         if (thumbMode) {
             state.pipeline[1] = state.memory.readInst16(pc, state.cpuInfo);

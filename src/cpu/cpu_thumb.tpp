@@ -6,7 +6,6 @@
 #include "decode/inst.hpp"
 #include "decode/inst_thumb.hpp"
 
-#include <iostream>
 #include <set>
 
 namespace gbaemu
@@ -169,11 +168,7 @@ namespace gbaemu
             }
 
             case MOV:
-                if (rd == rs && rd == regs::R8_OFFSET) {
-                    // NOP
-                } else {
-                    *currentRegs[rd] = rsValue;
-                }
+                *currentRegs[rd] = rsValue;
                 break;
 
             case BX: {
@@ -186,9 +181,10 @@ namespace gbaemu
                 bool stayInThumbMode = rsValue & 0x00000001;
 
                 // Except for BX R15: CPU switches to ARM state, and PC is auto-aligned as (($+4) AND NOT 2).
-                if (rs == regs::PC_OFFSET) {
-                    rsValue &= ~2;
-                }
+                // Automatically handled by refill pipeline
+                //if (rs == regs::PC_OFFSET) {
+                //    rsValue &= ~2;
+                //}
 
                 // Change the PC to the address given by rs. Note that we have to mask out the thumb switch bit.
                 *currentRegs[regs::PC_OFFSET] = rsValue & ~1;
@@ -214,7 +210,7 @@ namespace gbaemu
         }
     }
 
-        // shout-outs to https://smolka.dev/eggvance/progress-3/ & https://smolka.dev/eggvance/progress-5/
+    // shout-outs to https://smolka.dev/eggvance/progress-3/ & https://smolka.dev/eggvance/progress-5/
     // for his insane optimization ideas
     template <uint16_t hash>
     static constexpr thumb::ThumbInstructionCategory extractThumbCategoryFromHash()

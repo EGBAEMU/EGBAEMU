@@ -104,9 +104,10 @@ namespace gbaemu
         return value;
     }
 
+    template <bool thumbMode>
     uint32_t CPUState::normalizePC()
     {
-        return regs.rx[regs::PC_OFFSET] &= (cpsr.thumbMode ? 0xFFFFFFFE : 0xFFFFFFFC);
+        return regs.rx[regs::PC_OFFSET] &= (thumbMode ? 0xFFFFFFFE : 0xFFFFFFFC);
     }
 
     const char *CPUState::cpuModeToString() const
@@ -369,5 +370,8 @@ namespace gbaemu
 
         return ss.str();
     }
+
+    template uint32_t CPUState::normalizePC<true>();
+    template uint32_t CPUState::normalizePC<false>();
 
 } // namespace gbaemu
