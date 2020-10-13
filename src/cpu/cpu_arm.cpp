@@ -570,7 +570,11 @@ namespace gbaemu
                            : ((inst >> 16) & 0x0F);
         uint16_t rList = thumb ? (inst & 0x0FF) : (inst & 0x0FFFF);
         if (patchRList) {
-            rList |= static_cast<uint16_t>(1) << regs::PC_OFFSET;
+            if (load) {
+                rList |= static_cast<uint16_t>(1) << regs::PC_OFFSET;
+            } else {
+                rList |= static_cast<uint16_t>(1) << regs::LR_OFFSET;
+            }
         }
 
         auto currentRegs = state.getCurrentRegs();
