@@ -36,7 +36,7 @@ namespace gbaemu
     template <uint16_t hash>
     constexpr uint32_t dehashArm()
     {
-        return ((hash & 0xFF0) << 16) | ((hash & 0xF) << 4);
+        return (static_cast<uint32_t>(hash & 0xFF0) << 16) | ((hash & 0xF) << 4);
     }
     constexpr uint16_t constexprHashThumb(uint16_t inst)
     {
