@@ -628,8 +628,6 @@ namespace gbaemu
         return currValue;
     }
 
-
-
     void Memory::write8(uint32_t addr, uint8_t value, InstructionExecutionInfo &execInfo, bool seq)
     {
         execInfo.memReg = extractMemoryRegion(addr);

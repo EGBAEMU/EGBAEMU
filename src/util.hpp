@@ -16,7 +16,8 @@ namespace gbaemu
     T le(T val);
 #else
     template <class T>
-    constexpr T le(T val) {
+    constexpr T le(T val)
+    {
         return val;
     }
 #endif
@@ -85,6 +86,47 @@ namespace gbaemu
         } s;
         return s.x = val;
     }
+
+    template <class T>
+    uint8_t countBitsSet(T v)
+    {
+        // does work up to 128 bits
+        static_assert(sizeof(T) <= 128 / 8);
+        // Taken from: http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+        constexpr T alt1BitMask = static_cast<T>((~static_cast<T>(0)) / 3);          // alternaing bit mask i.e. 0b0101010101010101... (every second bit clear)
+        constexpr T alt2BitMask = static_cast<T>((~static_cast<T>(0)) / 0xF) * 3;    // alternaing bit mask i.e. 0b0011001100110011... (first 2 bits set per nibble)
+        constexpr T alt4BitMask = static_cast<T>((~static_cast<T>(0)) / 0xFF) * 0xF; // alternaing bit mask i.e. 0b0000111100001111... (first 4 bits set per byte)
+        constexpr T finalBitMask = static_cast<T>((~static_cast<T>(0)) / 0xFF);      // alternaing bit mask i.e. 0b0000000100000001... (only first bit set per byte)
+        v = v - ((v >> 1) & alt1BitMask);
+        v = (v & alt2BitMask) + ((v >> 2) & alt2BitMask);
+        v = (v + (v >> 4)) & alt4BitMask;
+        return static_cast<T>(v * finalBitMask) >> ((sizeof(T) - 1) * 8);
+    }
+
+#ifdef __GNUC__
+#define popcnt(x) __builtin_popcount(x)
+#elif _MSC_VER
+#include <intrin.h>
+#define popcnt(x) __popcnt(x)
+#else
+#define popcnt(x) countBitsSet<uint32_t>(x)
+#endif
+
+#ifdef __GNUC__
+#define ctz(x) __builtin_ctz(x)
+#elif _MSC_VER
+    uint8_t ctz(uint32_t value)
+    {
+        uint8_t trailing_zero = 0;
+        _BitScanForward(&trailing_zero, value);
+        return trailing_zero;
+    }
+#else
+    uint8_t ctz(uint32_t x)
+    {
+        return popcnt((x & -x) - 1);
+    }
+#endif
 
     template <class IntType>
     IntType fastMod(IntType value, IntType upperBound);

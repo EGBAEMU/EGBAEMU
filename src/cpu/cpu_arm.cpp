@@ -579,6 +579,15 @@ namespace gbaemu
 
         auto currentRegs = state.getCurrentRegs();
 
+        /*
+        When S Bit is set (S=1)
+        If instruction is LDM and R15 is in the list: (Mode Changes)
+          While R15 loaded, additionally: CPSR=SPSR_<current mode>
+        Otherwise: (User bank transfer)
+          Rlist is referring to User Bank Registers, R0-R15 (rather than
+          register related to the current mode, such like R14_svc etc.)
+          Base write-back should not be used for User bank transfer.
+        */
         if (forceUserRegisters && (!load || (rList & (1 << regs::PC_OFFSET)) == 0)) {
             currentRegs = state.getModeRegs(CPUState::UserMode);
         }
@@ -588,7 +597,6 @@ namespace gbaemu
         // Execution Time:
         // For normal LDM, nS+1N+1I. For LDM PC, (n+1)S+2N+1I.
         // For STM (n-1)S+2N. Where n is the number of words transferred.
-
         if (load) {
             // handle +1I
             state.cpuInfo.cycleCount += 1;
@@ -598,10 +606,55 @@ namespace gbaemu
         }
 
         // The first read / write is non sequential but afterwards all accesses are sequential
-        // because the memory class always adds non sequential accesses we need to handle this case explicitly
-        bool nonSeqAccDone = false;
+        // As there will always be at least one transfer we can patch the non sequential access and always add cycles as if sequential
+        memory::MemoryRegion memReg = Memory::extractMemoryRegion(address);
+        state.cpuInfo.cycleCount += state.memory.memCycles32(memReg, false) - state.memory.memCycles32(memReg, true);
 
-        //TODO is it fine to just walk in different direction?
+        // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
+        // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
+        if (!patchRList && rList == 0) {
+            // handle this odd case on its own!
+
+            // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
+            if (up)
+                *currentRegs[rn] += 0x40;
+            else
+                *currentRegs[rn] -= 0x40;
+
+            /*
+            empty rlist edge cases:
+            STMIA: str -> r0        // pre = false, up = true
+                r0 = r0 + 0x40
+            STMIB: str->r0 +4       // pre = true, up = true
+                r0 = r0 + 0x40
+            STMDB: str ->r0 - 0x40  // pre = true, up = false
+                r0 = r0 - 0x40
+            STMDA: str -> r0 -0x3C  // pre = false, up = false
+                r0 = r0 - 0x40
+            */
+            if (pre && up) {
+                address += 4;
+            } else if (pre && !up) {
+                address -= 0x40;
+            } else if (!pre && !up) {
+                address -= 0x3C;
+            }
+
+            if (load) {
+                *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, state.cpuInfo, true);
+                refillPipelineAfterBranch<thumb>();
+            } else {
+                // Note that pc is already incremented by 2/4
+                // Edge case of storing PC -> PC + 12 will be stored
+                state.memory.write32(address, *currentRegs[regs::PC_OFFSET] + (thumb ? 4 : 8), state.cpuInfo, true);
+            }
+
+            // fully handled edge case
+            return;
+        }
+
+        uint32_t unchangedAddr = address;
+
         /*
         Transfer Order
         The lowest Register in Rlist (R0 if its in the list) will be loaded/stored to/from the lowest memory address.
@@ -609,110 +662,73 @@ namespace gbaemu
         (ie. for DECREASING addressing modes, the CPU does first calculate the lowest address,
         and does then process rlist with increasing addresses; this detail can be important when accessing memory mapped I/O ports).
         */
-        uint32_t addrInc = up ? 4 : -static_cast<uint32_t>(4);
-
-        bool edgeCaseEmptyRlist = false;
-        // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
-        // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
-        /*
-        empty rlist edge cases:
-        STMIA: str -> r0        // pre = false, up = true
-            r0 = r0 + 0x40
-        STMIB: str->r0 +4       // pre = true, up = true
-            r0 = r0 + 0x40
-        STMDB: str ->r0 - 0x40  // pre = true, up = false
-            r0 = r0 - 0x40
-        STMDA: str -> r0 -0x3C  // pre = false, up = false
-            r0 = r0 - 0x40
-        */
-        if (rList == 0) {
-            edgeCaseEmptyRlist = true;
-            rList = (1 << regs::PC_OFFSET);
-            if (!up) {
-                addrInc = -(pre ? static_cast<uint32_t>(0x40) : static_cast<uint32_t>(0x3C));
-                if (!pre) {
-                    address += addrInc;
-                }
-            }
+        // get the count of bits set -> transfers that will be done!
+        uint8_t bitsSet = popcnt(rList);
+        if (!up) {
+            // Calculate lowest address to start with
+            address -= static_cast<uint32_t>(bitsSet) << 2;
         }
 
-        uint32_t patchMemAddr = 0;
-        bool refillPipelineNeeded = false;
-
-        for (uint32_t i = 0; i < 16; ++i) {
-            uint8_t currentIdx = (up ? i : 15 - i);
-            if (rList & (1 << currentIdx)) {
-
-                if (pre) {
-                    address += addrInc;
-                }
-
-                if (load) {
-                    if (currentIdx == regs::PC_OFFSET) {
-                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone);
-
-                        // More special cases
-                        /*
-                        When S Bit is set (S=1)
-                        If instruction is LDM and R15 is in the list: (Mode Changes)
-                          While R15 loaded, additionally: CPSR=SPSR_<current mode>
-                        */
-                        // Special case for pipeline refill
-                        if (forceUserRegisters) {
-                            state.updateCPSR(state.accessReg(regs::SPSR_OFFSET));
-                        }
-
-                        refillPipelineNeeded = true;
-                    } else {
-                        *currentRegs[currentIdx] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone);
-                    }
-                } else {
-                    // Shady hack to make edge case treatment easier
-                    if (rn == currentIdx) {
-                        patchMemAddr = address;
-                    }
-
-                    // Note that pc is already incremented by 2/4
-                    // Edge case of storing PC -> PC + 12 will be stored
-                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb ? 4 : 8) : 0), state.cpuInfo, nonSeqAccDone);
-                }
-
-                nonSeqAccDone = true;
-
-                if (!pre) {
-                    address += addrInc;
-                }
-            }
-        }
-
-        if (!edgeCaseEmptyRlist && (rList & (1 << rn)) && writeback) {
-            // Edge case: writeback enabled & rn is inside rlist
-            // If load then it was overwritten anyway & we should not do another writeback as writeback comes before read!
-            // else on STM it depends if this register was the first written to memory
-            // if so we need to write the unchanged memory address into memory (which is what we currently do by default)
-            // else we need to patch the written memory & store the address that would normally written back
-            if (!load) {
-                // Check if there are any registers that were written first to memory
-                if (rList & ((1 << rn) - 1)) {
-                    InstructionExecutionInfo info = state.cpuInfo;
-                    // We need to patch mem
-                    state.memory.write32(patchMemAddr, address, info);
-                }
-
-                // Also do the write back to the register!
-                *currentRegs[rn] = address;
-            }
-        } else if (edgeCaseEmptyRlist) {
-            // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
-            if (up)
-                *currentRegs[rn] += 0x40;
-            else
-                *currentRegs[rn] -= 0x40;
-        } else if (writeback) {
+        // Also do the write back to the register!
+        if (!up && writeback) {
+            // If decrementing we already have the correct address!
             *currentRegs[rn] = address;
+        } else if (up && writeback) {
+            // If incrementing we have to calculate the final address first
+            *currentRegs[rn] += (static_cast<uint32_t>(bitsSet) << 2);
         }
 
-        if (refillPipelineNeeded) {
+        // Edge case: writeback enabled & rn is inside rlist
+        // If load then it was overwritten anyway & we should not do another writeback as writeback comes before read!
+        // else on STM it depends if this register was the first written to memory
+        // if so we need to write the unchanged memory address into memory (and remove rn from the rList)
+        // else the address that would normally written back is stored into memory (out default behaviour)
+        // Check if edge case conditions are met & there are none registers that were written first to memory
+        if (!load && writeback && (rList & (1 << rn)) && (rList & ((1 << rn) - 1)) == 0) {
+            // write unchanged address value to memory
+            state.memory.write32(address + (up == pre ? 4 : 0), unchangedAddr, state.cpuInfo, true);
+            // update the address
+            address += 4;
+            // remove rn from rList
+            rList ^= 1 << rn;
+        }
+
+        bool loadedPC = load && (patchRList || (rList & (1 << regs::PC_OFFSET)));
+
+        // shout-outs to https://smolka.dev/eggvance/progress-5/
+        for (; rList != 0; rList &= rList - 1) {
+            uint8_t currentIdx = ctz(rList);
+
+            // See https://iitd-plos.github.io/col718/ref/arm-instructionset.pdf page 38ff.
+            if (up == pre) {
+                address += 4;
+            }
+
+            if (load) {
+                *currentRegs[currentIdx] = state.memory.read32(address, state.cpuInfo, true);
+            } else {
+                // Note that pc is already incremented by 2/4
+                // Edge case of storing PC -> PC + 12 will be stored
+                state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb ? 4 : 8) : 0), state.cpuInfo, true);
+            }
+
+            if (up != pre) {
+                address += 4;
+            }
+        }
+
+        if (loadedPC) {
+            // More special cases
+            /*
+            When S Bit is set (S=1)
+            If instruction is LDM and R15 is in the list: (Mode Changes)
+            While R15 loaded, additionally: CPSR=SPSR_<current mode>
+            */
+            // Special case for pipeline refill
+            if (forceUserRegisters) {
+                state.updateCPSR(state.accessReg(regs::SPSR_OFFSET));
+            }
+
             refillPipeline();
         }
     }
@@ -1105,278 +1121,8 @@ namespace gbaemu
         }
     }
 
-    // shout-outs to https://smolka.dev/eggvance/progress-3/ & https://smolka.dev/eggvance/progress-5/
-    // for his insane optimization ideas
-
-    template <uint32_t expandedHash>
-    static constexpr InstructionID getALUOpInstruction()
-    {
-        constexpr uint8_t opCode = (expandedHash >> 21) & 0x0F;
-        constexpr bool s = expandedHash & (1 << 20);
-        switch (opCode) {
-            case 0b0000:
-                return AND;
-            case 0b0001:
-                return EOR;
-            case 0b0010:
-                return SUB;
-            case 0b0011:
-                return RSB;
-            case 0b0100:
-                return ADD;
-            case 0b0101:
-                return ADC;
-            case 0b0110:
-                return SBC;
-            case 0b0111:
-                return RSC;
-            case 0b1000:
-                if (s) {
-                    return TST;
-                } else {
-                    return MRS_CPSR;
-                }
-            case 0b1001:
-                if (s) {
-                    return TEQ;
-                } else {
-                    return MSR_CPSR;
-                }
-            case 0b1010:
-                if (s) {
-                    return CMP;
-                } else {
-                    return MRS_SPSR;
-                }
-            case 0b1011:
-                if (s) {
-                    return CMN;
-                } else {
-                    return MSR_SPSR;
-                }
-            case 0b1100:
-                return ORR;
-            case 0b1101:
-                return MOV;
-            case 0b1110:
-                return BIC;
-            case 0b1111:
-                return MVN;
-        }
-        return INVALID;
-    }
-
-    template <uint16_t hash>
-    static constexpr arm::ARMInstructionCategory extractArmCategoryFromHash()
-    {
-        if ((hash & constexprHashArm(arm::MASK_MUL_ACC)) == constexprHashArm(arm::VAL_MUL_ACC)) {
-            return arm::MUL_ACC;
-        }
-        if ((hash & constexprHashArm(arm::MASK_MUL_ACC_LONG)) == constexprHashArm(arm::VAL_MUL_ACC_LONG)) {
-            return arm::MUL_ACC_LONG;
-        }
-        if ((hash & constexprHashArm(arm::MASK_BRANCH_XCHG)) == constexprHashArm(arm::VAL_BRANCH_XCHG)) {
-            return arm::BRANCH_XCHG;
-        }
-        if ((hash & constexprHashArm(arm::MASK_DATA_SWP)) == constexprHashArm(arm::VAL_DATA_SWP)) {
-            return arm::DATA_SWP;
-        }
-        if ((hash & constexprHashArm(arm::MASK_HW_TRANSF_REG_OFF)) == constexprHashArm(arm::VAL_HW_TRANSF_REG_OFF)) {
-            return arm::HW_TRANSF_REG_OFF;
-        }
-        if ((hash & constexprHashArm(arm::MASK_HW_TRANSF_IMM_OFF)) == constexprHashArm(arm::VAL_HW_TRANSF_IMM_OFF)) {
-            return arm::HW_TRANSF_IMM_OFF;
-        }
-        if ((hash & constexprHashArm(arm::MASK_SIGN_TRANSF)) == constexprHashArm(arm::VAL_SIGN_TRANSF)) {
-            constexpr bool l = (dehashArm<hash>() >> 20) & 1;
-            constexpr bool h = (dehashArm<hash>() >> 5) & 1;
-
-            if ((!l && h) || (!l && !h))
-                return arm::INVALID_CAT;
-            return arm::SIGN_TRANSF;
-        }
-        if ((hash & constexprHashArm(arm::MASK_DATA_PROC_PSR_TRANSF)) == constexprHashArm(arm::VAL_DATA_PROC_PSR_TRANSF)) {
-            return arm::DATA_PROC_PSR_TRANSF;
-        }
-        if ((hash & constexprHashArm(arm::MASK_LS_REG_UBYTE)) == constexprHashArm(arm::VAL_LS_REG_UBYTE)) {
-            return arm::LS_REG_UBYTE;
-        }
-        if ((hash & constexprHashArm(arm::MASK_BLOCK_DATA_TRANSF)) == constexprHashArm(arm::VAL_BLOCK_DATA_TRANSF)) {
-            return arm::BLOCK_DATA_TRANSF;
-        }
-        if ((hash & constexprHashArm(arm::MASK_BRANCH)) == constexprHashArm(arm::VAL_BRANCH)) {
-            return arm::BRANCH;
-        }
-        if ((hash & constexprHashArm(arm::MASK_SOFTWARE_INTERRUPT)) == constexprHashArm(arm::VAL_SOFTWARE_INTERRUPT)) {
-            return arm::SOFTWARE_INTERRUPT;
-        }
-        return arm::INVALID_CAT;
-    }
-
-    template <uint16_t hash>
-    constexpr CPU::InstExecutor CPU::resolveArmHashHandler()
-    {
-        constexpr uint32_t expandedHash = dehashArm<hash>();
-
-        switch (extractArmCategoryFromHash<hash>()) {
-            case arm::MUL_ACC: {
-                constexpr bool a = (expandedHash >> 21) & 1;
-                constexpr bool s = (expandedHash >> 20) & 1;
-                return &CPU::handleMultAcc<a, s, false>;
-            }
-            case arm::MUL_ACC_LONG: {
-                constexpr bool signMul = (expandedHash >> 22) & 1;
-                constexpr bool a = (expandedHash >> 21) & 1;
-                constexpr bool s = (expandedHash >> 20) & 1;
-                return &CPU::handleMultAccLong<a, s, signMul>;
-            }
-            case arm::BRANCH_XCHG:
-                return &CPU::handleBranchAndExchange;
-            case arm::DATA_SWP: {
-                constexpr bool b = (expandedHash >> 22) & 1;
-                return &CPU::handleDataSwp<b>;
-            }
-            case arm::HW_TRANSF_REG_OFF: {
-
-                constexpr bool p = (expandedHash >> 24) & 1;
-                constexpr bool u = (expandedHash >> 23) & 1;
-                constexpr bool w = (expandedHash >> 21) & 1;
-                constexpr bool l = (expandedHash >> 20) & 1;
-
-                // register offset variants
-                if (l) {
-                    // HW_TRANSF_REG_OFF, LDRH
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, LDRH, false, p, u, w, arm::HW_TRANSF_REG_OFF, thumb::INVALID_CAT>;
-                } else {
-                    // HW_TRANSF_REG_OFF, STRH
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, STRH, false, p, u, w, arm::HW_TRANSF_REG_OFF, thumb::INVALID_CAT>;
-                }
-            }
-            case arm::HW_TRANSF_IMM_OFF: {
-
-                constexpr bool p = (expandedHash >> 24) & 1;
-                constexpr bool u = (expandedHash >> 23) & 1;
-                constexpr bool w = (expandedHash >> 21) & 1;
-                constexpr bool l = (expandedHash >> 20) & 1;
-
-                if (l) {
-                    // HW_TRANSF_IMM_OFF, LDRH
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, LDRH, false, p, u, w, arm::HW_TRANSF_IMM_OFF, thumb::INVALID_CAT>;
-                } else {
-                    // HW_TRANSF_IMM_OFF, STRH
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, STRH, false, p, u, w, arm::HW_TRANSF_IMM_OFF, thumb::INVALID_CAT>;
-                }
-            }
-            case arm::SIGN_TRANSF: {
-                // extHash, id, thumb, pre, up, writeback, armCat, thumbCat>
-
-                constexpr bool p = (expandedHash >> 24) & 1;
-                constexpr bool u = (expandedHash >> 23) & 1;
-                constexpr bool b = (expandedHash >> 22) & 1;
-                constexpr bool w = (expandedHash >> 21) & 1;
-
-                constexpr bool l = (expandedHash >> 20) & 1;
-                constexpr bool h = (expandedHash >> 5) & 1;
-
-                if (l && !h) {
-                    // SIGN_TRANSF, LDRSB
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<b, LDRSB, false, p, u, w, arm::SIGN_TRANSF, thumb::INVALID_CAT>;
-                } else if (l && h) {
-                    // SIGN_TRANSF, LDRSH
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<b, LDRSH, false, p, u, w, arm::SIGN_TRANSF, thumb::INVALID_CAT>;
-                } else {
-                    // INVALID_CAT, INVALID
-                    return &CPU::handleInvalid;
-                }
-            }
-            case arm::DATA_PROC_PSR_TRANSF: {
-                constexpr InstructionID id = getALUOpInstruction<expandedHash>();
-                constexpr bool i = (expandedHash >> 25) & 1;
-                constexpr bool s = expandedHash & (1 << 20);
-
-                return &CPU::execDataProc<id, i, s, false>;
-            }
-            case arm::LS_REG_UBYTE: {
-                constexpr bool i = (expandedHash >> 25) & 1;
-                constexpr bool p = (expandedHash >> 24) & 1;
-                constexpr bool u = (expandedHash >> 23) & 1;
-                constexpr bool b = (expandedHash >> 22) & 1;
-                constexpr bool w = (expandedHash >> 21) & 1;
-                constexpr bool l = (expandedHash >> 20) & 1;
-
-                if (!b && l) {
-                    return &CPU::execLoadStoreRegUByte<LDR, false, p, u, i, w, thumb::INVALID_CAT>;
-                } else if (b && l) {
-                    return &CPU::execLoadStoreRegUByte<LDRB, false, p, u, i, w, thumb::INVALID_CAT>;
-                } else if (!b && !l) {
-                    return &CPU::execLoadStoreRegUByte<STR, false, p, u, i, w, thumb::INVALID_CAT>;
-                } else {
-                    return &CPU::execLoadStoreRegUByte<STRB, false, p, u, i, w, thumb::INVALID_CAT>;
-                }
-            }
-            case arm::BLOCK_DATA_TRANSF: {
-                constexpr bool pre = (expandedHash >> 24) & 1;
-                constexpr bool up = (expandedHash >> 23) & 1;
-                constexpr bool writeback = (expandedHash >> 21) & 1;
-                constexpr bool forceUserRegisters = (expandedHash >> 22) & 1;
-                constexpr bool load = (expandedHash >> 20) & 1;
-                return &CPU::execDataBlockTransfer<false, pre, up, writeback, forceUserRegisters, load>;
-            }
-            case arm::BRANCH: {
-                constexpr bool link = (expandedHash >> 24) & 1;
-                return &CPU::handleBranch<link>;
-            }
-            case arm::SOFTWARE_INTERRUPT:
-                return &CPU::softwareInterrupt<false>;
-            case arm::INVALID_CAT:
-                return &CPU::handleInvalid;
-        }
-
-        return &CPU::handleInvalid;
-    }
-
-#define DECODE_LUT_ENTRY(hash) CPU::resolveArmHashHandler<hash>()
-#define DECODE_LUT_ENTRY_4(hash)        \
-    DECODE_LUT_ENTRY(hash + 0 * 1),     \
-        DECODE_LUT_ENTRY(hash + 1 * 1), \
-        DECODE_LUT_ENTRY(hash + 2 * 1), \
-        DECODE_LUT_ENTRY(hash + 3 * 1)
-#define DECODE_LUT_ENTRY_16(hash)         \
-    DECODE_LUT_ENTRY_4(hash + 0 * 4),     \
-        DECODE_LUT_ENTRY_4(hash + 1 * 4), \
-        DECODE_LUT_ENTRY_4(hash + 2 * 4), \
-        DECODE_LUT_ENTRY_4(hash + 3 * 4)
-#define DECODE_LUT_ENTRY_64(hash)           \
-    DECODE_LUT_ENTRY_16(hash + 0 * 16),     \
-        DECODE_LUT_ENTRY_16(hash + 1 * 16), \
-        DECODE_LUT_ENTRY_16(hash + 2 * 16), \
-        DECODE_LUT_ENTRY_16(hash + 3 * 16)
-#define DECODE_LUT_ENTRY_256(hash)          \
-    DECODE_LUT_ENTRY_64(hash + 0 * 64),     \
-        DECODE_LUT_ENTRY_64(hash + 1 * 64), \
-        DECODE_LUT_ENTRY_64(hash + 2 * 64), \
-        DECODE_LUT_ENTRY_64(hash + 3 * 64)
-#define DECODE_LUT_ENTRY_1024(hash)           \
-    DECODE_LUT_ENTRY_256(hash + 0 * 256),     \
-        DECODE_LUT_ENTRY_256(hash + 1 * 256), \
-        DECODE_LUT_ENTRY_256(hash + 2 * 256), \
-        DECODE_LUT_ENTRY_256(hash + 3 * 256)
-#define DECODE_LUT_ENTRY_4096(hash)             \
-    DECODE_LUT_ENTRY_1024(hash + 0 * 1024),     \
-        DECODE_LUT_ENTRY_1024(hash + 1 * 1024), \
-        DECODE_LUT_ENTRY_1024(hash + 2 * 1024), \
-        DECODE_LUT_ENTRY_1024(hash + 3 * 1024)
-
-    const CPU::InstExecutor CPU::armExeLUT[4096] = {DECODE_LUT_ENTRY_4096(0)};
-
-#undef DECODE_LUT_ENTRY
-#undef DECODE_LUT_ENTRY_4
-#undef DECODE_LUT_ENTRY_16
-#undef DECODE_LUT_ENTRY_64
-#undef DECODE_LUT_ENTRY_512
-#undef DECODE_LUT_ENTRY_1024
-#undef DECODE_LUT_ENTRY_4096
-
 } // namespace gbaemu
+
+#include "create_arm_lut.tpp"
 
 #include "cpu_thumb.tpp"
