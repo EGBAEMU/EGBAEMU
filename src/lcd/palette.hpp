@@ -12,7 +12,6 @@ namespace gbaemu::lcd
         /* 256 entries */
         const color16_t *objPalette;
 
-        static color_t toR8G8B8(color16_t color);
         void loadPalette(Memory &mem);
         /*
             Under certain conditions the palette can be split up into 16 partitions of 16 colors. This is what
@@ -23,7 +22,6 @@ namespace gbaemu::lcd
         color_t getObjColor(uint32_t index) const;
         color_t getObjColor(uint32_t paletteNumber, uint32_t index) const;
         color_t getBackdropColor() const;
-        void drawPalette(int32_t size, color_t *target, int32_t stride);
     };
 } // namespace gbaemu::lcd
 

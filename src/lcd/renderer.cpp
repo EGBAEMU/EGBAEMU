@@ -82,9 +82,10 @@ namespace gbaemu::lcd
     void Renderer::blendDefault(int32_t y, int32_t xTo)
     {
         color_t *outBuf = target.pixels() + y * target.getWidth();
+        const color_t backdrop = palette.getBackdropColor();
 
         for (int32_t x = 0; x < xTo; ++x) {
-            color_t finalColor = palette.getBackdropColor();
+            color_t finalColor = backdrop;
 
             for (const auto &l : layers) {
                 if (!l->enabled || !flagLayerEnabled(windowFeature.enabledMask.mask[x], l->layerID))
@@ -99,7 +100,7 @@ namespace gbaemu::lcd
                 break;
             }
 
-            outBuf[x] = finalColor;
+            outBuf[x] = toBGR656(finalColor);
         }
     }
 
@@ -107,9 +108,10 @@ namespace gbaemu::lcd
     {
         color_t *outBuf = target.pixels() + y * target.getWidth();
         std::function<color_t(color_t, color_t)> applyColorEffect = colorEffects.getBlendingFunction();
+        const color_t backdrop = palette.getBackdropColor();
 
         for (int32_t x = 0; x < xTo; ++x) {
-            color_t finalColor = palette.getBackdropColor();
+            color_t finalColor = backdrop;
             uint8_t windowMask = windowFeature.enabledMask.mask[x];
 
             for (const auto &l : layers) {
@@ -129,7 +131,7 @@ namespace gbaemu::lcd
                 break;
             }
 
-            outBuf[x] = finalColor;
+            outBuf[x] = toBGR656(finalColor);
         }
     }
 
@@ -137,14 +139,15 @@ namespace gbaemu::lcd
     {
         color_t *outBuf = target.pixels() + y * target.getWidth();
         std::function<color_t(color_t, color_t)> applyColorEffect = colorEffects.getBlendingFunction();
+        const color_t backdrop = palette.getBackdropColor();
 
         for (int32_t x = 0; x < xTo; ++x) {
             auto it = layers.cbegin();
             bool asFirst = false;
             bool asSecond = false;
-            color_t firstColor = palette.getBackdropColor();
-            color_t secondColor = palette.getBackdropColor();
-            color_t finalColor = palette.getBackdropColor();
+            color_t firstColor = backdrop;
+            color_t secondColor = backdrop;
+            color_t finalColor = backdrop;
 
             for (; it != layers.cend(); it++) {
                 const auto &l = *it;
@@ -169,7 +172,7 @@ namespace gbaemu::lcd
 
             /* early abort, no blending */
             if (!asFirst) {
-                outBuf[x] = firstColor;
+                outBuf[x] = toBGR656(firstColor);
                 continue;
             }
 
@@ -196,9 +199,9 @@ namespace gbaemu::lcd
 
             /* blend */
             if (asSecond)
-                outBuf[x] = applyColorEffect(firstColor, secondColor);
+                outBuf[x] = toBGR656(applyColorEffect(firstColor, secondColor));
             else
-                outBuf[x] = firstColor;
+                outBuf[x] = toBGR656(firstColor);
         }
     }
 
@@ -221,7 +224,7 @@ namespace gbaemu::lcd
                 if (color == TRANSPARENT)
                     color = RENDERER_DECOMPOSE_BG_COLOR;
 
-                outBuf[x] = color;
+                outBuf[x] = toBGR656(color);
             }
         }
 
@@ -233,8 +236,15 @@ namespace gbaemu::lcd
             if (color == TRANSPARENT)
                 color = RENDERER_DECOMPOSE_BG_COLOR;
 
-            outBuf[x] = color;
+            outBuf[x] = toBGR656(color);
         }
+    }
+
+    color_t Renderer::toBGR656(color_t color)
+    {
+        return (((color >> 10) & 0x1F) << 11) |     /* blue */
+               (((color >> 5) & 0x1F) << 6)   |     /* green */
+               (color & 0x1F);                      /* red */
     }
 
     Renderer::Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers, Canvas<color_t> &targetCanvas) : memory(mem), irqHandler(irq), regs(registers), target(targetCanvas), objManager(std::make_shared<OBJManager>())

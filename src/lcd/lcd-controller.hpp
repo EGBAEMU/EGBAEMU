@@ -112,7 +112,6 @@ namespace gbaemu::lcd
         void onHBlank();
         void onVBlank();
         void drawScanline();
-        void present();
 
 #ifndef LEGACY_RENDERING
         void clearBlankFlags();

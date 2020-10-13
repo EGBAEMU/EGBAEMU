@@ -55,6 +55,7 @@ namespace gbaemu::lcd
         void blendBrightness(int32_t y, int32_t xTo = SCREEN_WIDTH);
         void blendAlpha(int32_t y, int32_t xTo = SCREEN_WIDTH);
         void blendDecomposed(int32_t y);
+        static color_t toBGR656(color_t color);
 
       public:
         Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers, Canvas<color_t>& targetCanvas);

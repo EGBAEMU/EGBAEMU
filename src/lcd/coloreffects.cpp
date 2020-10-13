@@ -39,25 +39,38 @@ namespace gbaemu::lcd
                 return [&](color_t first, color_t second) -> color_t {
                     color_t finalColor = 0;
 
-                    for (uint32_t i = 0; i < 4; ++i) {
-                        color_t top = (first >> (i * 8)) & 0xFF;
-                        color_t bot = (second >> (i * 8)) & 0xFF;
-                        color_t chan = std::min(255u, top * eva / 16 + bot * evb / 16);
-                        finalColor |= chan << (i * 8);
+                    for (uint32_t i = 0; i < 3; ++i) {
+                        color_t top = (first >> (i * 5)) & 0x1F;
+                        color_t bot = (second >> (i * 5)) & 0x1F;
+                        color_t chan = std::min<color_t>(31u, top * eva / 16 + bot * evb / 16);
+                        finalColor |= chan << (i * 5);
                     }
 
                     return finalColor;
                 };
             case BLDCNT::BrightnessIncrease:
                 return [&](color_t first, color_t second) -> color_t {
-                    color_t inverted = colSub(0xFFFFFFFF, first);
-                    color_t scaledEvy = colScale(inverted, evy);
-                    return colAdd(first, scaledEvy);
+                    color_t finalColor = 0;
+
+                    for (uint32_t i = 0; i < 3; ++i) {
+                        color_t top = (first >> (i * 5)) & 0x1F;
+                        color_t inv = 0x1F - top;
+                        color_t scaled = (inv * evy) / 16;
+                        finalColor |= ((top + scaled) & 0x1F) << (i * 5);
+                    }
+
+                    return finalColor;
                 };
             case BLDCNT::BrightnessDecrease:
                 return [&](color_t first, color_t second) -> color_t {
-                    color_t scaledEvy = colScale(first, evy);
-                    return colSub(first, scaledEvy);
+                    color_t finalColor = 0;
+
+                    for (uint32_t i = 0; i < 3; ++i) {
+                        color_t top = (first >> (i * 5)) & 0x1F;
+                        finalColor |= (0x1F - (top * evy) / 16) << (i * 5);
+                    }
+
+                    return finalColor;
                 };
             default:
                 throw std::runtime_error("Invalid color effect.");

@@ -175,20 +175,6 @@ namespace gbaemu::lcd
             affineTransform.dm[1] = 1;
         }
 
-        //assert(affineTransform.d[0] != 0 || affineTransform.d[1] != 0);
-
-        /*
-        if (affineTransform.d[0] == 0 && affineTransform.d[1] == 0) {
-            affineTransform.d[0] = 1;
-            affineTransform.d[1] = 0;
-        }
-
-        if (affineTransform.dm[0] == 0 && affineTransform.dm[1] == 0) {
-            affineTransform.dm[0] = 0;
-            affineTransform.dm[1] = 1;
-        }
-         */
-
         affineTransform.origin[0] = static_cast<common::math::real_t>(width) / 2;
         affineTransform.origin[1] = static_cast<common::math::real_t>(height) / 2;
 
@@ -384,14 +370,9 @@ namespace gbaemu::lcd
                 if (x < obj->rect.left || x >= obj->rect.right)
                     continue;
 
-                //const auto obj = *pObj;
                 const vec2 s = obj->affineTransform.d * (fx - obj->affineTransform.screenRef[0]) +
                                obj->affineTransform.dm * (fy - obj->affineTransform.screenRef[1]) +
                                obj->affineTransform.origin;
-
-                //const common::math::vect<2, int32_t> s = obj->affineTransform.d * (x - obj->affineTransform.screenRef[0]) +
-                //    obj->affineTransform.dm * (y - obj->affineTransform.screenRef[1]) +
-                //    obj->affineTransform.origin;
 
                 const int32_t sx = static_cast<int32_t>(s[0]);
                 const int32_t sy = static_cast<int32_t>(s[1]);
@@ -400,7 +381,6 @@ namespace gbaemu::lcd
                     const int32_t msx = obj->mosaicEnabled ? (sx - (sx % mosaicWidth)) : sx;
                     const int32_t msy = obj->mosaicEnabled ? (sy - (sy % mosaicHeight)) : sy;
                     const color_t color = obj->pixelColor(msx, msy, objTiles, palette, use2dMapping);
-                    //obj->pixelColor(msx, msy, objTiles, palette, use2dMapping);
 
                     if (color == TRANSPARENT)
                         continue;

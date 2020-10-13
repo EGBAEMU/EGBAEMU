@@ -56,18 +56,7 @@ namespace gbaemu::lcd
 
     void FBCanvas::present()
     {
-        const color_t *srcPixels = buffer.pixels();
-        color16_t *dstPixels = frameBuffer;
-
-        for (int32_t i = 0; i < width * height; ++i) {
-            color_t srcColor = srcPixels[i];
-
-            color_t r = (srcColor >> 16) & 0xFF;
-            color_t g = (srcColor >> 8) & 0xFF;
-            color_t b = srcColor & 0xFF;
-
-            dstPixels[i] = (r >> 3) | ((g >> 2) << 5) | ((b >> 3) << 11);
-        }
+        std::copy(buffer.pixels(), buffer.pixels() + (buffer.getWidth() * buffer.getHeight()), frameBuffer);
     }
 }
 #endif

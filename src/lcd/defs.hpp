@@ -14,72 +14,23 @@
 
 namespace gbaemu::lcd
 {
-    /* The usual 8-8-8-8 bit ARGB color format, also used by SDL. */
-    typedef uint32_t color_t;
-    static const constexpr color_t TRANSPARENT = 0x00000000,
-                                   BLACK = 0xFF000000,
-                                   WHITE = 0xFFFFFFFF,
-                                   RED = 0xFFFF0000,
-                                   GREEN = 0xFF00FF00,
-                                   BLUE = 0xFF0000FF,
-                                   MAGENTA = RED | BLUE,
-                                   CYAN = GREEN | BLUE;
-
-    /* channel wise color addition */
-    static color_t colAdd(color_t a, color_t b)
-    {
-        color_t result = 0;
-
-        for (uint32_t i = 0; i < 4; ++i) {
-            color_t ca = (a >> (i * 8)) & 0xFF;
-            color_t cb = (b >> (i * 8)) & 0xFF;
-            color_t cs = std::min(ca + cb, 0xFFu);
-
-            result |= (cs << (i * 8));
-        }
-
-        return result;
-    }
-
-    /* channel wise color subtraction */
-    static color_t colSub(color_t a, color_t b)
-    {
-        color_t result = 0;
-
-        for (uint32_t i = 0; i < 4; ++i) {
-            color_t ca = (a >> (i * 8)) & 0xFF;
-            color_t cb = (b >> (i * 8)) & 0xFF;
-            color_t cs = (cb > ca) ? 0 : (ca - cb);
-
-            result |= (cs << (i * 8));
-        }
-
-        return result;
-    }
-
-    /* channel wise color scale */
-    static color_t colScale(color_t a, uint32_t scalar)
-    {
-        assert(scalar <= 16);
-
-        color_t result = 0;
-
-        for (uint32_t i = 0; i < 4; ++i) {
-            color_t ca = (a >> (i * 8)) & 0xFF; //std::min(a >> (i * 8), 255u);
-            color_t cs = (ca * scalar) / 16;
-
-            result |= (cs << (i * 8));
-        }
-
-        return result;
-    }
-
     /* This type is also used to represent 5-5-5 bit colors. */
     typedef uint16_t color16_t;
+    typedef color16_t color_t;
     typedef common::math::real_t real_t;
     typedef common::math::vec<2> vec2;
     typedef common::math::vec<3> vec3;
     typedef common::math::mat<3, 3> mat3x3;
+
+    /* 0x0 is considered black, that's why the first bit is interpreted as transparent */
+    static const constexpr color_t TRANSPARENT = 0x8000,
+                                   BLACK = 0x0,
+                                   WHITE = 0x7FFF,
+                                   RED = 0x7C00,
+                                   GREEN = 0x3E0,
+                                   BLUE = 0x1F,
+                                   MAGENTA = RED | BLUE,
+                                   CYAN = GREEN | BLUE;
 
     static const constexpr uint32_t SCREEN_WIDTH = 240;
     static const constexpr uint32_t SCREEN_HEIGHT = 160;
@@ -354,7 +305,7 @@ namespace gbaemu::lcd
         bool overrideEnabled = true;
         uint16_t priority;
         /* contains the final pixels */
-        std::vector<Fragment> scanline;
+        std::array<Fragment, SCREEN_WIDTH> scanline;
 
         bool asFirstTarget;
         bool asSecondTarget;
@@ -363,7 +314,7 @@ namespace gbaemu::lcd
 
         const bool isBGLayer;
 
-        Layer(LayerID layerID, bool isBGLayer) : enabled(false), scanline(SCREEN_WIDTH), layerID(layerID), isBGLayer(isBGLayer)
+        Layer(LayerID layerID, bool isBGLayer) : enabled(false), layerID(layerID), isBGLayer(isBGLayer)
         {
         }
 
