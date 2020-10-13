@@ -311,4 +311,13 @@ namespace gbaemu
         }
     }
 
+    uint16_t hashArm(uint32_t inst)
+    {
+        return ((inst >> 16) & 0xFF0) | ((inst >> 4) & 0xF);
+    }
+    uint16_t hashThumb(uint16_t inst)
+    {
+        return inst >> 6;
+    }
+
 } // namespace gbaemu
