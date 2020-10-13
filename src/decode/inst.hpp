@@ -284,10 +284,10 @@ namespace gbaemu
         }
     };
 
-    typedef std::function<void(uint32_t, CPUState&)> InstructionDecodeAndExecutor;
-
     bool extractOperand2(shifts::ShiftType &shiftType, uint8_t &shiftAmount, uint8_t &rm, uint8_t &rs, uint8_t &imm, uint16_t operand2, bool i);
 
+    uint16_t hashArm(uint32_t inst);
+    uint16_t hashThumb(uint16_t inst);
 } // namespace gbaemu
 
 #endif

@@ -419,6 +419,9 @@ namespace gbaemu::debugger
                 std::cout << "CPU error occurred: " << std::endl;
                 std::cout << cpu.state.executionInfo.message.str() << std::endl;
             }
+#ifdef DUMP_CPU_STATE
+            std::cout << cpu.state.toString() << std::endl;
+#endif
             cpuExecutionMutex.unlock();
         }
 
