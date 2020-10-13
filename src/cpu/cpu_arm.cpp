@@ -949,7 +949,7 @@ namespace gbaemu
                         Immediate Offset (lower 4bits)  (0-255, together with upper bits)
              */
 
-    template <uint32_t extHash, InstructionID id, bool thumb, bool pre, bool up, bool writeback, arm::ARMInstructionCategory armCat, thumb::ThumbInstructionCategory thumbCat>
+    template <bool b, InstructionID id, bool thumb, bool pre, bool up, bool writeback, arm::ARMInstructionCategory armCat, thumb::ThumbInstructionCategory thumbCat>
     void CPU::execHalfwordDataTransferImmRegSignedTransfer(uint32_t instruction)
     {
         /*
@@ -994,7 +994,7 @@ namespace gbaemu
             switch (armCat) {
                 case arm::SIGN_TRANSF: {
 
-                    if ((extHash >> 22) & 1)
+                    if (b)
                         offset = (((instruction >> 8) & 0x0F) << 4) | (instruction & 0x0F);
                     else
                         offset = state.accessReg(instruction & 0x0F);
@@ -1243,10 +1243,10 @@ namespace gbaemu
                 // register offset variants
                 if (l) {
                     // HW_TRANSF_REG_OFF, LDRH
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<expandedHash, LDRH, false, p, u, w, arm::HW_TRANSF_REG_OFF, thumb::INVALID_CAT>;
+                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, LDRH, false, p, u, w, arm::HW_TRANSF_REG_OFF, thumb::INVALID_CAT>;
                 } else {
                     // HW_TRANSF_REG_OFF, STRH
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<expandedHash, STRH, false, p, u, w, arm::HW_TRANSF_REG_OFF, thumb::INVALID_CAT>;
+                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, STRH, false, p, u, w, arm::HW_TRANSF_REG_OFF, thumb::INVALID_CAT>;
                 }
             }
             case arm::HW_TRANSF_IMM_OFF: {
@@ -1258,10 +1258,10 @@ namespace gbaemu
 
                 if (l) {
                     // HW_TRANSF_IMM_OFF, LDRH
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<expandedHash, LDRH, false, p, u, w, arm::HW_TRANSF_IMM_OFF, thumb::INVALID_CAT>;
+                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, LDRH, false, p, u, w, arm::HW_TRANSF_IMM_OFF, thumb::INVALID_CAT>;
                 } else {
                     // HW_TRANSF_IMM_OFF, STRH
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<expandedHash, STRH, false, p, u, w, arm::HW_TRANSF_IMM_OFF, thumb::INVALID_CAT>;
+                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, STRH, false, p, u, w, arm::HW_TRANSF_IMM_OFF, thumb::INVALID_CAT>;
                 }
             }
             case arm::SIGN_TRANSF: {
@@ -1269,7 +1269,7 @@ namespace gbaemu
 
                 constexpr bool p = (expandedHash >> 24) & 1;
                 constexpr bool u = (expandedHash >> 23) & 1;
-                // constexpr bool b = (expandedHash >> 22) & 1;
+                constexpr bool b = (expandedHash >> 22) & 1;
                 constexpr bool w = (expandedHash >> 21) & 1;
 
                 constexpr bool l = (expandedHash >> 20) & 1;
@@ -1277,10 +1277,10 @@ namespace gbaemu
 
                 if (l && !h) {
                     // SIGN_TRANSF, LDRSB
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<expandedHash, LDRSB, false, p, u, w, arm::SIGN_TRANSF, thumb::INVALID_CAT>;
+                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<b, LDRSB, false, p, u, w, arm::SIGN_TRANSF, thumb::INVALID_CAT>;
                 } else if (l && h) {
                     // SIGN_TRANSF, LDRSH
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<expandedHash, LDRSH, false, p, u, w, arm::SIGN_TRANSF, thumb::INVALID_CAT>;
+                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<b, LDRSH, false, p, u, w, arm::SIGN_TRANSF, thumb::INVALID_CAT>;
                 } else {
                     // INVALID_CAT, INVALID
                     return &CPU::handleInvalid;

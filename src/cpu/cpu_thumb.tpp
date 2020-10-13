@@ -421,16 +421,16 @@ namespace gbaemu
                 switch (opCode) {
                     case 0b00:
                         //LD_ST_SIGN_EXT, STRH;
-                        return &CPU::execHalfwordDataTransferImmRegSignedTransfer<expandedHash, STRH, true, true, true, false, arm::INVALID_CAT, thumb::LD_ST_SIGN_EXT>;
+                        return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, STRH, true, true, true, false, arm::INVALID_CAT, thumb::LD_ST_SIGN_EXT>;
                     case 0b01:
                         // LD_ST_SIGN_EXT, LDRSB
-                        return &CPU::execHalfwordDataTransferImmRegSignedTransfer<expandedHash, LDRSB, true, true, true, false, arm::INVALID_CAT, thumb::LD_ST_SIGN_EXT>;
+                        return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, LDRSB, true, true, true, false, arm::INVALID_CAT, thumb::LD_ST_SIGN_EXT>;
                     case 0b10:
                         // LD_ST_SIGN_EXT, LDRH
-                        return &CPU::execHalfwordDataTransferImmRegSignedTransfer<expandedHash, LDRH, true, true, true, false, arm::INVALID_CAT, thumb::LD_ST_SIGN_EXT>;
+                        return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, LDRH, true, true, true, false, arm::INVALID_CAT, thumb::LD_ST_SIGN_EXT>;
                     case 0b11:
                         // LD_ST_SIGN_EXT, LDRSH
-                        return &CPU::execHalfwordDataTransferImmRegSignedTransfer<expandedHash, LDRSH, true, true, true, false, arm::INVALID_CAT, thumb::LD_ST_SIGN_EXT>;
+                        return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, LDRSH, true, true, true, false, arm::INVALID_CAT, thumb::LD_ST_SIGN_EXT>;
                 }
             }
             case thumb::LD_ST_IMM_OFF: {
@@ -464,10 +464,10 @@ namespace gbaemu
 
                 if (l) {
                     // LD_ST_HW, LDRH
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<expandedHash, LDRH, true, true, true, false, arm::INVALID_CAT, thumb::LD_ST_HW>;
+                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, LDRH, true, true, true, false, arm::INVALID_CAT, thumb::LD_ST_HW>;
                 } else {
                     // LD_ST_HW, STRH
-                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<expandedHash, STRH, true, true, true, false, arm::INVALID_CAT, thumb::LD_ST_HW>;
+                    return &CPU::execHalfwordDataTransferImmRegSignedTransfer<false, STRH, true, true, true, false, arm::INVALID_CAT, thumb::LD_ST_HW>;
                 }
             }
             case thumb::LD_ST_REL_SP: {

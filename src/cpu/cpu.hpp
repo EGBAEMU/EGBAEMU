@@ -126,7 +126,7 @@ namespace gbaemu
         /* bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode */
         template <InstructionID id, bool thumb, bool pre, bool up, bool i, bool writeback, thumb::ThumbInstructionCategory thumbCat>
         void execLoadStoreRegUByte(uint32_t inst);
-        template <uint32_t extHash, InstructionID id, bool thumb, bool pre, bool up, bool writeback, arm::ARMInstructionCategory armCat, thumb::ThumbInstructionCategory thumbCat>
+        template <bool b, InstructionID id, bool thumb, bool pre, bool up, bool writeback, arm::ARMInstructionCategory armCat, thumb::ThumbInstructionCategory thumbCat>
         void execHalfwordDataTransferImmRegSignedTransfer(uint32_t inst);
         template <bool thumb>
         void softwareInterrupt(uint32_t inst);
