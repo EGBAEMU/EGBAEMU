@@ -59,10 +59,12 @@ namespace gbaemu
         uint8_t rs = thumb ? ((instruction >> 3) & 0x7) : ((instruction >> 8) & 0x0F);
         uint8_t rm = thumb ? (rd) : (instruction & 0x0F);
 
+#ifdef DEBUG_CLI
         // Check given restrictions
         if (rd == regs::PC_OFFSET || rn == regs::PC_OFFSET || rs == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
             std::cout << "ERROR: MUL/MLA PC register may not be involved in calculations!" << std::endl;
         }
+#endif
 
         auto currentRegs = state.getCurrentRegs();
         const uint32_t rmVal = *currentRegs[rm];
@@ -117,12 +119,14 @@ namespace gbaemu
         uint8_t rs = (instruction >> 8) & 0x0F;
         uint8_t rm = instruction & 0x0F;
 
+#ifdef DEBUG_CLI
         if (rd_lsw == rd_msw || rd_lsw == rm || rd_msw == rm) {
             std::cout << "ERROR: SMULL/SMLAL/UMULL/UMLAL lo, high & rm registers may not be the same!" << std::endl;
         }
         if (rd_lsw == regs::PC_OFFSET || rd_msw == regs::PC_OFFSET || rs == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
             std::cout << "ERROR: SMULL/SMLAL/UMULL/UMLAL PC register may not be involved in calculations!" << std::endl;
         }
+#endif
 
         auto currentRegs = state.getCurrentRegs();
 
@@ -200,9 +204,11 @@ namespace gbaemu
         uint8_t rd = (instruction >> 12) & 0x0F;
         uint8_t rm = instruction & 0x0F;
 
+#ifdef DEBUG_CLI
         if (rd == regs::PC_OFFSET || rn == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
             std::cout << "ERROR: SWP/SWPB PC register may not be involved in calculations!" << std::endl;
         }
+#endif
 
         auto currentRegs = state.getCurrentRegs();
         uint32_t newMemVal = *currentRegs[rm];
