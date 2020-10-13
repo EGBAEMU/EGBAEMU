@@ -338,7 +338,7 @@ namespace gbaemu
         uint16_t operand2 = inst & 0x0FFF;
 
         if (thumb && cat == thumb::MOV_CMP_ADD_SUB_IMM) {
-            rn = (inst >> 8) & 0x7);
+            rn = (inst >> 8) & 0x7;
             rd = rn;
             operand2 = inst & 0x0FF;
         } else if (thumb && cat == thumb::ADD_SUB) {
