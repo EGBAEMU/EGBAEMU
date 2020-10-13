@@ -372,6 +372,7 @@ namespace gbaemu
             case thumb::BR_XCHG: {
 
                 constexpr uint8_t opCode = (expandedHash >> 8) & 0x3;
+                constexpr bool msbDst = (expandedHash >> 7) & 1;
 
                 switch (opCode) {
                     case 0b00:
@@ -384,7 +385,12 @@ namespace gbaemu
                         //Assemblers/Disassemblers should use MOV R8,R8 as NOP (in THUMB mode)
                         return &CPU::handleThumbBranchXCHG<MOV>;
                     case 0b11:
-                        return &CPU::handleThumbBranchXCHG<BX>;
+                        if (msbDst) {
+                            //BLX
+                            return &CPU::handleInvalid;
+                        } else {
+                            return &CPU::handleThumbBranchXCHG<BX>;
+                        }
                 }
             }
             case thumb::PC_LD:
