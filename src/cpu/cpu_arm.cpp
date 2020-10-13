@@ -333,11 +333,19 @@ namespace gbaemu
         static_assert(id != INVALID);
         static_assert(!thumb || (cat == thumb::ADD_SUB || cat == thumb::MOV_CMP_ADD_SUB_IMM || cat == thumb::ALU_OP));
 
-        uint8_t rn = thumb ? (cat == thumb::MOV_CMP_ADD_SUB_IMM ? (inst >> 3) & 0x7 : (inst >> 8) & 0x7) : (inst >> 16) & 0x0F;
-        uint8_t rd = thumb ? (cat == thumb::MOV_CMP_ADD_SUB_IMM ? ((inst >> 6) & 0x7) : rn) : (inst >> 12) & 0x0F;
-        uint16_t operand2 = thumb ? (cat == thumb::MOV_CMP_ADD_SUB_IMM ? ((inst >> 6) & 0x7) : inst & 0x0FF) : inst & 0x0FFF;
+        uint8_t rn = (inst >> 16) & 0x0F;
+        uint8_t rd = (inst >> 12) & 0x0F;
+        uint16_t operand2 = inst & 0x0FFF;
 
-        if (thumb && (cat == thumb::ALU_OP)) {
+        if (thumb && cat == thumb::MOV_CMP_ADD_SUB_IMM) {
+            rn = (inst >> 8) & 0x7);
+            rd = rn;
+            operand2 = inst & 0x0FF;
+        } else if (thumb && cat == thumb::ADD_SUB) {
+            rn = (inst >> 3) & 0x7;
+            rd = (inst & 0x7);
+            operand2 = ((inst >> 6) & 0x7);
+        } else if (thumb && cat == thumb::ALU_OP) {
 
             constexpr shifts::ShiftType origShiftType = getShiftType(origID);
 
