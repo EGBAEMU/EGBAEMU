@@ -4,21 +4,67 @@
 #include "swi.hpp"
 #include "util.hpp"
 
+#include "decode/inst_arm.hpp"
+
 #include <iostream>
 #include <set>
 
 namespace gbaemu
 {
-
-    template <InstructionID id>
-    void CPU::handleMultAcc(bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm)
+    constexpr shifts::ShiftType getShiftType(InstructionID id)
     {
-        constexpr bool a = id == MLA;
+        switch (id) {
+            case LSL:
+                return shifts::ShiftType::LSL;
+            case LSR:
+                return shifts::ShiftType::LSR;
+            case ASR:
+                return shifts::ShiftType::ASR;
+            case ROR:
+                return shifts::ShiftType::ROR;
+            default:
+                return shifts::ShiftType::LSL;
+        }
+    }
 
+    // shout-outs to https://smolka.dev/eggvance/progress-3/ & https://smolka.dev/eggvance/progress-5/
+    // for his insane optimization ideas
+    constexpr uint16_t constexprHashArm(uint32_t inst)
+    {
+        return ((inst >> 16) & 0xFF0) | ((inst >> 4) & 0xF);
+    }
+    template <uint16_t hash>
+    constexpr uint32_t dehashArm()
+    {
+        return (static_cast<uint32_t>(hash & 0xFF0) << 16) | ((hash & 0xF) << 4);
+    }
+    constexpr uint16_t constexprHashThumb(uint16_t inst)
+    {
+        return inst >> 6;
+    }
+    template <uint16_t hash>
+    constexpr uint16_t dehashThumb()
+    {
+        return hash << 6;
+    }
+
+    template <bool a, bool s, bool thumb>
+    void CPU::handleMultAcc(uint32_t instruction)
+    {
+        /*
+        void handleMultAcc(bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm);
+        */
+        uint8_t rd = thumb ? (instruction & 0x7) : ((instruction >> 16) & 0x0F);
+        uint8_t rn = thumb ? (0) : ((instruction >> 12) & 0x0F);
+        uint8_t rs = thumb ? ((instruction >> 3) & 0x7) : ((instruction >> 8) & 0x0F);
+        uint8_t rm = thumb ? (rd) : (instruction & 0x0F);
+
+#ifdef DEBUG_CLI
         // Check given restrictions
         if (rd == regs::PC_OFFSET || rn == regs::PC_OFFSET || rs == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
             std::cout << "ERROR: MUL/MLA PC register may not be involved in calculations!" << std::endl;
         }
+#endif
 
         auto currentRegs = state.getCurrentRegs();
         const uint32_t rmVal = *currentRegs[rm];
@@ -65,18 +111,22 @@ namespace gbaemu
         }
     }
 
-    template <InstructionID id>
-    void CPU::handleMultAccLong(bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm)
+    template <bool a, bool s, bool signMul>
+    void CPU::handleMultAccLong(uint32_t instruction)
     {
-        constexpr bool signMul = id == SMLAL || id == SMULL;
-        constexpr bool a = id == SMLAL || id == UMLAL;
+        uint8_t rd_msw = (instruction >> 16) & 0x0F;
+        uint8_t rd_lsw = (instruction >> 12) & 0x0F;
+        uint8_t rs = (instruction >> 8) & 0x0F;
+        uint8_t rm = instruction & 0x0F;
 
+#ifdef DEBUG_CLI
         if (rd_lsw == rd_msw || rd_lsw == rm || rd_msw == rm) {
             std::cout << "ERROR: SMULL/SMLAL/UMULL/UMLAL lo, high & rm registers may not be the same!" << std::endl;
         }
         if (rd_lsw == regs::PC_OFFSET || rd_msw == regs::PC_OFFSET || rs == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
             std::cout << "ERROR: SMULL/SMLAL/UMULL/UMLAL PC register may not be involved in calculations!" << std::endl;
         }
+#endif
 
         auto currentRegs = state.getCurrentRegs();
 
@@ -147,15 +197,18 @@ namespace gbaemu
         }
     }
 
-    template <InstructionID id>
-    void CPU::handleDataSwp(uint8_t rn, uint8_t rd, uint8_t rm)
+    template <bool b>
+    void CPU::handleDataSwp(uint32_t instruction)
     {
-        constexpr bool b = id == SWPB;
-        //TODO maybe replace by LDR followed by STR?
+        uint8_t rn = (instruction >> 16) & 0x0F;
+        uint8_t rd = (instruction >> 12) & 0x0F;
+        uint8_t rm = instruction & 0x0F;
 
+#ifdef DEBUG_CLI
         if (rd == regs::PC_OFFSET || rn == regs::PC_OFFSET || rm == regs::PC_OFFSET) {
             std::cout << "ERROR: SWP/SWPB PC register may not be involved in calculations!" << std::endl;
         }
+#endif
 
         auto currentRegs = state.getCurrentRegs();
         uint32_t newMemVal = *currentRegs[rm];
@@ -181,8 +234,11 @@ namespace gbaemu
     }
 
     // Executes instructions belonging to the branch subsection
-    void CPU::handleBranch(bool link, int32_t offset)
+    template <bool link>
+    void CPU::handleBranch(uint32_t instruction)
     {
+        int32_t offset = signExt<int32_t, uint32_t, 24>(instruction & 0x00FFFFFF);
+
         auto currentRegs = state.getCurrentRegs();
 
         // If link is set, R14 will receive the address of the next instruction to be executed. So if we are
@@ -205,8 +261,9 @@ namespace gbaemu
     }
 
     // Executes instructions belonging to the branch and execute subsection
-    void CPU::handleBranchAndExchange(uint8_t rn)
+    void CPU::handleBranchAndExchange(uint32_t instruction)
     {
+        uint8_t rn = static_cast<uint8_t>(instruction & 0x0F);
         auto currentRegs = state.getCurrentRegs();
 
         // Load the content of register given by rm
@@ -265,9 +322,39 @@ namespace gbaemu
                             RSC, SBC, ADD_SHORT_IMM, SUB_SHORT_IMM)
 
     /* ALU functions */
-    template <InstructionID id, bool thumb>
-    void CPU::execDataProc(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2)
+    template <InstructionID id, bool i, bool s, bool thumb, thumb::ThumbInstructionCategory cat, InstructionID origID>
+    void CPU::execDataProc(uint32_t inst)
     {
+        static_assert(id != INVALID);
+        static_assert(!thumb || (cat == thumb::ADD_SUB || cat == thumb::MOV_CMP_ADD_SUB_IMM || cat == thumb::ALU_OP));
+
+        uint8_t rn = (inst >> 16) & 0x0F;
+        uint8_t rd = (inst >> 12) & 0x0F;
+        uint16_t operand2 = inst & 0x0FFF;
+
+        if (thumb && cat == thumb::MOV_CMP_ADD_SUB_IMM) {
+            rn = (inst >> 8) & 0x7;
+            rd = rn;
+            operand2 = inst & 0x0FF;
+        } else if (thumb && cat == thumb::ADD_SUB) {
+            rn = (inst >> 3) & 0x7;
+            rd = (inst & 0x7);
+            operand2 = ((inst >> 6) & 0x7);
+        } else if (thumb && cat == thumb::ALU_OP) {
+
+            constexpr shifts::ShiftType origShiftType = getShiftType(origID);
+
+            rd = inst & 0x7;
+            rn = rd;
+            uint8_t rs = (inst >> 3) & 0x7;
+
+            if (id == MOV)
+                //TODO previously we did: uint8_t shiftAmount = rsValue & 0xFF; we might need to enforce this in execDataProc as well!
+                // Set bit 4 for shiftAmountFromReg flag & move regs at their positions & include the shifttype to use
+                operand2 = (static_cast<uint16_t>(1) << 4) | rd | (static_cast<uint16_t>(rs) << 8) | (static_cast<uint16_t>(origShiftType) << 5);
+            else
+                operand2 = rs;
+        }
 
         bool carry = state.getFlag<cpsr_flags::C_FLAG>();
 
@@ -370,15 +457,15 @@ namespace gbaemu
             case MSR_SPSR:
             case MSR_CPSR: {
                 // true iff write to flag field is allowed 31-24
-                bool f = rn & 0x08;
+                bool f_ = rn & 0x08;
                 // true iff write to status field is allowed 23-16
-                bool s = rn & 0x04;
+                bool s_ = rn & 0x04;
                 // true iff write to extension field is allowed 15-8
-                bool x = rn & 0x02;
+                bool x_ = rn & 0x02;
                 // true iff write to control field is allowed 7-0
-                bool c = rn & 0x01;
+                bool c_ = rn & 0x01;
 
-                uint32_t bitMask = (f ? 0xFF000000 : 0) | (s ? 0x00FF0000 : 0) | (x ? 0x0000FF00 : 0) | (c ? 0x000000FF : 0);
+                uint32_t bitMask = (f_ ? 0xFF000000 : 0) | (s_ ? 0x00FF0000 : 0) | (x_ ? 0x0000FF00 : 0) | (c_ ? 0x000000FF : 0);
 
                 constexpr bool r = id == MSR_SPSR;
 
@@ -472,15 +559,35 @@ namespace gbaemu
         }
     }
 
-    template <InstructionID id, bool thumb>
-    void CPU::execDataBlockTransfer(bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList)
+    template <bool thumb, bool pre, bool up, bool writeback, bool forceUserRegisters, bool load, bool patchRList, bool useSP>
+    void CPU::execDataBlockTransfer(uint32_t inst)
     {
-        auto currentRegs = state.getCurrentRegs();
-
+        static_assert(!(!thumb && patchRList));
+        static_assert(!(!thumb && useSP));
         //TODO NOTE: this instruction is reused for handleThumbMultLoadStore & handleThumbPushPopRegister
 
-        constexpr bool load = id == LDM || id == LDMIA;
+        uint8_t rn = thumb ? (useSP ? regs::SP_OFFSET : ((inst >> 8) & 0x7))
+                           : ((inst >> 16) & 0x0F);
+        uint16_t rList = thumb ? (inst & 0x0FF) : (inst & 0x0FFFF);
+        if (patchRList) {
+            if (load) {
+                rList |= static_cast<uint16_t>(1) << regs::PC_OFFSET;
+            } else {
+                rList |= static_cast<uint16_t>(1) << regs::LR_OFFSET;
+            }
+        }
 
+        auto currentRegs = state.getCurrentRegs();
+
+        /*
+        When S Bit is set (S=1)
+        If instruction is LDM and R15 is in the list: (Mode Changes)
+          While R15 loaded, additionally: CPSR=SPSR_<current mode>
+        Otherwise: (User bank transfer)
+          Rlist is referring to User Bank Registers, R0-R15 (rather than
+          register related to the current mode, such like R14_svc etc.)
+          Base write-back should not be used for User bank transfer.
+        */
         if (forceUserRegisters && (!load || (rList & (1 << regs::PC_OFFSET)) == 0)) {
             currentRegs = state.getModeRegs(CPUState::UserMode);
         }
@@ -490,7 +597,6 @@ namespace gbaemu
         // Execution Time:
         // For normal LDM, nS+1N+1I. For LDM PC, (n+1)S+2N+1I.
         // For STM (n-1)S+2N. Where n is the number of words transferred.
-
         if (load) {
             // handle +1I
             state.cpuInfo.cycleCount += 1;
@@ -500,10 +606,55 @@ namespace gbaemu
         }
 
         // The first read / write is non sequential but afterwards all accesses are sequential
-        // because the memory class always adds non sequential accesses we need to handle this case explicitly
-        bool nonSeqAccDone = false;
+        // As there will always be at least one transfer we can patch the non sequential access and always add cycles as if sequential
+        memory::MemoryRegion memReg = Memory::extractMemoryRegion(address);
+        state.cpuInfo.cycleCount += state.memory.memCycles32(memReg, false) - state.memory.memCycles32(memReg, true);
 
-        //TODO is it fine to just walk in different direction?
+        // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
+        // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
+        if (!patchRList && rList == 0) {
+            // handle this odd case on its own!
+
+            // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
+            if (up)
+                *currentRegs[rn] += 0x40;
+            else
+                *currentRegs[rn] -= 0x40;
+
+            /*
+            empty rlist edge cases:
+            STMIA: str -> r0        // pre = false, up = true
+                r0 = r0 + 0x40
+            STMIB: str->r0 +4       // pre = true, up = true
+                r0 = r0 + 0x40
+            STMDB: str ->r0 - 0x40  // pre = true, up = false
+                r0 = r0 - 0x40
+            STMDA: str -> r0 -0x3C  // pre = false, up = false
+                r0 = r0 - 0x40
+            */
+            if (pre && up) {
+                address += 4;
+            } else if (pre && !up) {
+                address -= 0x40;
+            } else if (!pre && !up) {
+                address -= 0x3C;
+            }
+
+            if (load) {
+                *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, state.cpuInfo, true);
+                refillPipelineAfterBranch<thumb>();
+            } else {
+                // Note that pc is already incremented by 2/4
+                // Edge case of storing PC -> PC + 12 will be stored
+                state.memory.write32(address, *currentRegs[regs::PC_OFFSET] + (thumb ? 4 : 8), state.cpuInfo, true);
+            }
+
+            // fully handled edge case
+            return;
+        }
+
+        uint32_t unchangedAddr = address;
+
         /*
         Transfer Order
         The lowest Register in Rlist (R0 if its in the list) will be loaded/stored to/from the lowest memory address.
@@ -511,156 +662,165 @@ namespace gbaemu
         (ie. for DECREASING addressing modes, the CPU does first calculate the lowest address,
         and does then process rlist with increasing addresses; this detail can be important when accessing memory mapped I/O ports).
         */
-        uint32_t addrInc = up ? 4 : -static_cast<uint32_t>(4);
-
-        bool edgeCaseEmptyRlist = false;
-        uint32_t edgeCaseEmptyRlistAddrInc = 0;
-        // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
-        // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
-        /*
-        empty rlist edge cases:
-        STMIA: str -> r0
-            r0 = r0 + 0x40
-        STMIB: str->r0 +4
-            r0 = r0 + 0x40
-        STMDB: str ->r0 - 0x40
-            r0 = r0 - 0x40
-        STMDA: str -> r0 -0x3C
-            r0 = r0 - 0x40
-        */
-        if (rList == 0) {
-            edgeCaseEmptyRlist = true;
-            rList = (1 << regs::PC_OFFSET);
-            writeback = true;
-            if (up) {
-                edgeCaseEmptyRlistAddrInc = static_cast<uint32_t>(0x3C);
-            } else {
-                addrInc = -(pre ? static_cast<uint32_t>(0x40) : static_cast<uint32_t>(0x3C));
-                edgeCaseEmptyRlistAddrInc = pre ? 0 : -static_cast<uint32_t>(4);
-                pre = true;
-            }
+        // get the count of bits set -> transfers that will be done!
+        uint8_t bitsSet = popcnt(rList);
+        if (!up) {
+            // Calculate lowest address to start with
+            address -= static_cast<uint32_t>(bitsSet) << 2;
         }
 
-        uint32_t patchMemAddr = 0;
-        bool refillPipelineNeeded = false;
-
-        for (uint32_t i = 0; i < 16; ++i) {
-            uint8_t currentIdx = (up ? i : 15 - i);
-            if (rList & (1 << currentIdx)) {
-
-                if (pre) {
-                    address += addrInc;
-                }
-
-                if (load) {
-                    if (currentIdx == regs::PC_OFFSET) {
-                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone);
-
-                        // More special cases
-                        /*
-                        When S Bit is set (S=1)
-                        If instruction is LDM and R15 is in the list: (Mode Changes)
-                          While R15 loaded, additionally: CPSR=SPSR_<current mode>
-                        */
-                        // Special case for pipeline refill
-                        if (forceUserRegisters) {
-                            state.updateCPSR(state.accessReg(regs::SPSR_OFFSET));
-                        }
-
-                        refillPipelineNeeded = true;
-                    } else {
-                        *currentRegs[currentIdx] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone);
-                    }
-                } else {
-                    // Shady hack to make edge case treatment easier
-                    if (rn == currentIdx) {
-                        patchMemAddr = address;
-                    }
-
-                    // Note that pc is already incremented by 2/4
-                    // Edge case of storing PC -> PC + 12 will be stored
-                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb ? 4 : 8) : 0), state.cpuInfo, nonSeqAccDone);
-                }
-
-                nonSeqAccDone = true;
-
-                if (!pre) {
-                    address += addrInc;
-                }
-            }
-        }
-
-        // Final edge case address patch
-        address += edgeCaseEmptyRlistAddrInc;
-
-        if (!edgeCaseEmptyRlist && (rList & (1 << rn)) && writeback) {
-            // Edge case: writeback enabled & rn is inside rlist
-            // If load then it was overwritten anyway & we should not do another writeback as writeback comes before read!
-            // else on STM it depends if this register was the first written to memory
-            // if so we need to write the unchanged memory address into memory (which is what we currently do by default)
-            // else we need to patch the written memory & store the address that would normally written back
-            if (!load) {
-                // Check if there are any registers that were written first to memory
-                if (rList & ((1 << rn) - 1)) {
-                    InstructionExecutionInfo info = state.cpuInfo;
-                    // We need to patch mem
-                    state.memory.write32(patchMemAddr, address, info);
-                }
-
-                // Also do the write back to the register!
-                *currentRegs[rn] = address;
-            }
-        } else if (writeback) {
+        // Also do the write back to the register!
+        if (!up && writeback) {
+            // If decrementing we already have the correct address!
             *currentRegs[rn] = address;
+        } else if (up && writeback) {
+            // If incrementing we have to calculate the final address first
+            *currentRegs[rn] += (static_cast<uint32_t>(bitsSet) << 2);
         }
 
-        if (refillPipelineNeeded) {
+        // Edge case: writeback enabled & rn is inside rlist
+        // If load then it was overwritten anyway & we should not do another writeback as writeback comes before read!
+        // else on STM it depends if this register was the first written to memory
+        // if so we need to write the unchanged memory address into memory (and remove rn from the rList)
+        // else the address that would normally written back is stored into memory (out default behaviour)
+        // Check if edge case conditions are met & there are none registers that were written first to memory
+        if (!load && writeback && (rList & (1 << rn)) && (rList & ((1 << rn) - 1)) == 0) {
+            // write unchanged address value to memory
+            state.memory.write32(address + (up == pre ? 4 : 0), unchangedAddr, state.cpuInfo, true);
+            // update the address
+            address += 4;
+            // remove rn from rList
+            rList ^= 1 << rn;
+        }
+
+        bool loadedPC = load && (patchRList || (rList & (1 << regs::PC_OFFSET)));
+
+        // shout-outs to https://smolka.dev/eggvance/progress-5/
+        for (; rList != 0; rList &= rList - 1) {
+            uint8_t currentIdx = ctz(rList);
+
+            // See https://iitd-plos.github.io/col718/ref/arm-instructionset.pdf page 38ff.
+            if (up == pre) {
+                address += 4;
+            }
+
+            if (load) {
+                *currentRegs[currentIdx] = state.memory.read32(address, state.cpuInfo, true);
+            } else {
+                // Note that pc is already incremented by 2/4
+                // Edge case of storing PC -> PC + 12 will be stored
+                state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb ? 4 : 8) : 0), state.cpuInfo, true);
+            }
+
+            if (up != pre) {
+                address += 4;
+            }
+        }
+
+        if (loadedPC) {
+            // More special cases
+            /*
+            When S Bit is set (S=1)
+            If instruction is LDM and R15 is in the list: (Mode Changes)
+            While R15 loaded, additionally: CPSR=SPSR_<current mode>
+            */
+            // Special case for pipeline refill
+            if (forceUserRegisters) {
+                state.updateCPSR(state.accessReg(regs::SPSR_OFFSET));
+            }
+
             refillPipeline();
         }
     }
 
-    template <InstructionID id, bool thumb>
-    void CPU::execLoadStoreRegUByte(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode)
+    template <InstructionID id, bool thumb, bool pre, bool up, bool i, bool writeback, thumb::ThumbInstructionCategory thumbCat>
+    // rn, rd, addrMode
+    void CPU::execLoadStoreRegUByte(uint32_t inst)
     {
         /*
-                Opcode Format
+            Opcode Format
 
-                Bit    Expl.
-                31-28  Condition (Must be 1111b for PLD)
-                27-26  Must be 01b for this instruction
-                25     I - Immediate Offset Flag (0=Immediate, 1=Shifted Register)
-                24     P - Pre/Post (0=post; add offset after transfer, 1=pre; before trans.)
-                23     U - Up/Down Bit (0=down; subtract offset from base, 1=up; add to base)
-                22     B - Byte/Word bit (0=transfer 32bit/word, 1=transfer 8bit/byte)
-                When above Bit 24 P=0 (Post-indexing, write-back is ALWAYS enabled):
-                    21     T - Memory Management (0=Normal, 1=Force non-privileged access)
-                When above Bit 24 P=1 (Pre-indexing, write-back is optional):
-                    21     W - Write-back bit (0=no write-back, 1=write address into base)
-                20     L - Load/Store bit (0=Store to memory, 1=Load from memory)
-                        0: STR{cond}{B}{T} Rd,<Address>   ;[Rn+/-<offset>]=Rd
-                        1: LDR{cond}{B}{T} Rd,<Address>   ;Rd=[Rn+/-<offset>]
-                        (1: PLD <Address> ;Prepare Cache for Load, see notes below)
-                        Whereas, B=Byte, T=Force User Mode (only for POST-Indexing)
-                19-16  Rn - Base register               (R0..R15) (including R15=PC+8)
-                15-12  Rd - Source/Destination Register (R0..R15) (including R15=PC+12)
-                When above I=0 (Immediate as Offset)
-                    11-0   Unsigned 12bit Immediate Offset (0-4095, steps of 1)
-                When above I=1 (Register shifted by Immediate as Offset)
-                    11-7   Is - Shift amount      (1-31, 0=Special/See below)
-                    6-5    Shift Type             (0=LSL, 1=LSR, 2=ASR, 3=ROR)
-                    4      Must be 0 (Reserved, see The Undefined Instruction)
-                    3-0    Rm - Offset Register   (R0..R14) (not including PC=R15)
-             */
+            Bit    Expl.
+            31-28  Condition (Must be 1111b for PLD)
+            27-26  Must be 01b for this instruction
+            25     I - Immediate Offset Flag (0=Immediate, 1=Shifted Register)
+            24     P - Pre/Post (0=post; add offset after transfer, 1=pre; before trans.)
+            23     U - Up/Down Bit (0=down; subtract offset from base, 1=up; add to base)
+            22     B - Byte/Word bit (0=transfer 32bit/word, 1=transfer 8bit/byte)
+            When above Bit 24 P=0 (Post-indexing, write-back is ALWAYS enabled):
+                21     T - Memory Management (0=Normal, 1=Force non-privileged access)
+            When above Bit 24 P=1 (Pre-indexing, write-back is optional):
+                21     W - Write-back bit (0=no write-back, 1=write address into base)
+            20     L - Load/Store bit (0=Store to memory, 1=Load from memory)
+                    0: STR{cond}{B}{T} Rd,<Address>   ;[Rn+/-<offset>]=Rd
+                    1: LDR{cond}{B}{T} Rd,<Address>   ;Rd=[Rn+/-<offset>]
+                    (1: PLD <Address> ;Prepare Cache for Load, see notes below)
+                    Whereas, B=Byte, T=Force User Mode (only for POST-Indexing)
+            19-16  Rn - Base register               (R0..R15) (including R15=PC+8)
+            15-12  Rd - Source/Destination Register (R0..R15) (including R15=PC+12)
+            When above I=0 (Immediate as Offset)
+                11-0   Unsigned 12bit Immediate Offset (0-4095, steps of 1)
+            When above I=1 (Register shifted by Immediate as Offset)
+                11-7   Is - Shift amount      (1-31, 0=Special/See below)
+                6-5    Shift Type             (0=LSL, 1=LSR, 2=ASR, 3=ROR)
+                4      Must be 0 (Reserved, see The Undefined Instruction)
+                3-0    Rm - Offset Register   (R0..R14) (not including PC=R15)
+         */
+
+        uint8_t rn, rd;
+        uint16_t addrMode;
+
+        static_assert(!thumb || (thumbCat == thumb::PC_LD || thumbCat == thumb::LD_ST_REL_OFF || thumbCat == thumb::LD_ST_IMM_OFF || thumbCat == thumb::LD_ST_REL_SP));
+
+        if (thumb) {
+            switch (thumbCat) {
+                case thumb::PC_LD: {
+                    rn = regs::PC_OFFSET;
+                    rd = (inst >> 8) & 0x7;
+                    addrMode = (static_cast<uint16_t>(inst & 0x0FF) << 2);
+                    break;
+                }
+                case thumb::LD_ST_REL_OFF: {
+                    rn = (inst >> 3) & 0x7; /* rb */
+                    rd = inst & 0x7;        /* rd */
+                    addrMode = static_cast<uint16_t>(shifts::ShiftType::LSL << 5) | static_cast<uint16_t>((inst >> 6) & 0x7 /* ro */);
+                    break;
+                }
+                case thumb::LD_ST_IMM_OFF: {
+                    rn = (inst >> 3) & 0x7; /* rb */
+                    rd = inst & 0x7;        /* rd */
+                    uint8_t offset = (inst >> 6) & 0x1F;
+
+                    if (id == STR || id == LDR)
+                        addrMode = static_cast<uint16_t>(offset) << 2;
+                    else
+                        addrMode = static_cast<uint16_t>(offset);
+
+                    break;
+                }
+                case thumb::LD_ST_REL_SP: {
+                    rn = regs::SP_OFFSET;
+                    rd = (inst >> 8) & 0x7; /* rd */
+                    addrMode = static_cast<uint16_t>(inst & 0x0FF /* offset */) << 2;
+                    break;
+                }
+                default:
+                    break;
+            }
+        } else {
+            rn = (inst >> 16) & 0x0F;
+            rd = (inst >> 12) & 0x0F;
+            addrMode = inst & 0x0FFF;
+        }
 
         constexpr bool load = id == LDR || id == LDRB;
         constexpr bool byte = id == LDRB || id == STRB;
-
-        bool immediate = !i;
+        constexpr bool immediate = !i;
 
         auto currentRegs = state.getCurrentRegs();
 
         if (!pre) {
-            bool forceNonPrivAccess = writeback;
+            constexpr bool forceNonPrivAccess = writeback;
             // I assume that we access user regs... because user mode is the only non-priviledged mode
             if (forceNonPrivAccess) {
                 currentRegs = state.getModeRegs(CPUState::UserMode);
@@ -766,11 +926,8 @@ namespace gbaemu
         }
     }
 
-    template <InstructionID id, bool thumb>
-    void CPU::execHalfwordDataTransferImmRegSignedTransfer(bool pre, bool up, bool writeback,
-                                                           uint8_t rn, uint8_t rd, uint32_t offset)
-    {
-        /*
+    /*
+            ARM Instruction Description:
                 Bit    Expl.
                 31-28  Condition
                 27-25  Must be 000b for this instruction
@@ -807,9 +964,72 @@ namespace gbaemu
                         Immediate Offset (lower 4bits)  (0-255, together with upper bits)
              */
 
+    template <bool b, InstructionID id, bool thumb, bool pre, bool up, bool writeback, arm::ARMInstructionCategory armCat, thumb::ThumbInstructionCategory thumbCat>
+    void CPU::execHalfwordDataTransferImmRegSignedTransfer(uint32_t instruction)
+    {
+        /*
+        Previous parameter: bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset
+        */
+
+        // Sanity checks:
+        static_assert(thumb || (armCat == arm::SIGN_TRANSF || armCat == arm::HW_TRANSF_IMM_OFF || armCat == arm::HW_TRANSF_REG_OFF));
+        static_assert(!thumb || (thumbCat == thumb::LD_ST_SIGN_EXT || thumbCat == thumb::LD_ST_HW));
+
         constexpr uint8_t transferSize = (id == LDRH || id == STRH || id == LDRSH) ? 16 : 8;
         constexpr bool load = id == LDRH || id == LDRSB || id == LDRSH;
         constexpr bool sign = id == LDRSB || id == LDRSH;
+
+        uint8_t rn;
+        uint8_t rd;
+        uint32_t offset;
+
+        if (thumb) {
+            switch (thumbCat) {
+                case thumb::LD_ST_SIGN_EXT: {
+                    rn = (instruction >> 3) & 0x7;
+                    rd = instruction & 0x7;
+                    offset = state.accessReg((instruction >> 6) & 0x7);
+                    break;
+                }
+                case thumb::LD_ST_HW: {
+                    rn = (instruction >> 3) & 0x7;
+                    rd = instruction & 0x7;
+                    offset = static_cast<uint16_t>((instruction >> 6) & 0x1F) << 1;
+                    break;
+                }
+                default: {
+                    // Cry
+                }
+            }
+        } else {
+
+            rn = (instruction >> 16) & 0x0F;
+            rd = (instruction >> 12) & 0x0F;
+
+            switch (armCat) {
+                case arm::SIGN_TRANSF: {
+
+                    if (b)
+                        offset = (((instruction >> 8) & 0x0F) << 4) | (instruction & 0x0F);
+                    else
+                        offset = state.accessReg(instruction & 0x0F);
+
+                    break;
+                }
+                case arm::HW_TRANSF_IMM_OFF: {
+                    /* called addr_mode in detailed doc but is really offset because immediate flag I is 1 */
+                    offset = (((instruction >> 8) & 0x0F) << 4) | (instruction & 0x0F);
+                    break;
+                }
+                case arm::HW_TRANSF_REG_OFF: {
+                    offset = state.accessReg(instruction & 0x0F);
+                    break;
+                }
+                default: {
+                    // Cry
+                }
+            }
+        }
 
         auto currentRegs = state.getCurrentRegs();
 
@@ -901,79 +1121,8 @@ namespace gbaemu
         }
     }
 
-    template void CPU::handleMultAcc<MLA>(bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm);
-    template void CPU::handleMultAcc<MUL>(bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm);
-
-    template void CPU::handleDataSwp<SWP>(uint8_t rn, uint8_t rd, uint8_t rm);
-    template void CPU::handleDataSwp<SWPB>(uint8_t rn, uint8_t rd, uint8_t rm);
-
-    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<LDRH, false>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
-    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<STRH, false>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
-    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<LDRSB, false>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
-    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<LDRSH, false>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
-
-    template void CPU::execDataProc<AND, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<EOR, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<SUB, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<RSB, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<ADD, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<ADC, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<SBC, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<RSC, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<TST, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<MRS_CPSR, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<MRS_SPSR, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<TEQ, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<MSR_CPSR, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<MSR_SPSR, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<CMP, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<CMN, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<ORR, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<MOV, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<BIC, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<MVN, false>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-
-    template void CPU::execLoadStoreRegUByte<LDR, false>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
-    template void CPU::execLoadStoreRegUByte<LDRB, false>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
-    template void CPU::execLoadStoreRegUByte<STR, false>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
-    template void CPU::execLoadStoreRegUByte<STRB, false>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
-
-    template void CPU::execDataBlockTransfer<LDM>(bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList);
-    template void CPU::execDataBlockTransfer<STM>(bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList);
-
-    template void CPU::handleMultAccLong<SMULL>(bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm);
-    template void CPU::handleMultAccLong<SMLAL>(bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm);
-    template void CPU::handleMultAccLong<UMLAL>(bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm);
-    template void CPU::handleMultAccLong<UMULL>(bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm);
-
-    template void CPU::execDataProc<SUB, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<ADD_SHORT_IMM, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<SUB_SHORT_IMM, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execLoadStoreRegUByte<STR, true>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
-    template void CPU::execLoadStoreRegUByte<STRB, true>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
-    template void CPU::execLoadStoreRegUByte<LDR, true>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
-    template void CPU::execLoadStoreRegUByte<LDRB, true>(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
-    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<STRH, true>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
-    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<LDRSB, true>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
-    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<LDRH, true>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
-    template void CPU::execHalfwordDataTransferImmRegSignedTransfer<LDRSH, true>(bool pre, bool up, bool writeback, uint8_t rn, uint8_t rd, uint32_t offset);
-
-    template void CPU::execDataBlockTransfer<LDM, true>(bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList);
-    template void CPU::execDataBlockTransfer<STM, true>(bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList);
-
-    template void CPU::execDataProc<ADD, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<AND, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<EOR, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<MOV, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<ADC, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<SBC, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<TST, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<NEG, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<CMP, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<CMN, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<ORR, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<MUL, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<BIC, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-    template void CPU::execDataProc<MVN, true>(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-
 } // namespace gbaemu
+
+#include "create_arm_lut.tpp"
+
+#include "cpu_thumb.tpp"

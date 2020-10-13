@@ -117,6 +117,7 @@ namespace gbaemu
 
         void reset();
 
+        template <bool thumbMode>
         uint32_t normalizePC();
 
         const char *cpuModeToString() const;

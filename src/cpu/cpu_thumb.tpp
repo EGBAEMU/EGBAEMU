@@ -3,14 +3,17 @@
 #include "swi.hpp"
 #include "util.hpp"
 
-#include <iostream>
+#include "decode/inst.hpp"
+#include "decode/inst_thumb.hpp"
+
 #include <set>
 
 namespace gbaemu
 {
-
-    void CPU::handleThumbLongBranchWithLink(bool h, uint16_t offset)
+    template <bool h>
+    void CPU::handleThumbLongBranchWithLink(uint32_t instruction)
     {
+        uint16_t offset = instruction & 0x07FF;
         auto currentRegs = state.getCurrentRegs();
 
         uint32_t extendedAddr = static_cast<uint32_t>(offset);
@@ -36,8 +39,10 @@ namespace gbaemu
         }
     }
 
-    void CPU::handleThumbUnconditionalBranch(int16_t offset)
+    void CPU::handleThumbUnconditionalBranch(uint32_t instruction)
     {
+        int16_t offset = signExt<int16_t, uint16_t, 11>(static_cast<uint16_t>(instruction & 0x07FF));
+
         // Note that pc is already incremented by 2
         state.getPC() += static_cast<uint32_t>(2 + static_cast<int32_t>(offset) * 2);
 
@@ -46,8 +51,11 @@ namespace gbaemu
         refillPipelineAfterBranch<true>();
     }
 
-    void CPU::handleThumbConditionalBranch(uint8_t cond, int8_t offset)
+    void CPU::handleThumbConditionalBranch(uint32_t instruction)
     {
+        int8_t offset = static_cast<int8_t>(instruction & 0x0FF);
+        uint8_t cond = (instruction >> 8) & 0x0F;
+
         // Branch will be executed if condition is met
         if (conditionSatisfied(static_cast<ConditionOPCode>(cond), state)) {
             // Note that pc is already incremented by 2
@@ -59,8 +67,10 @@ namespace gbaemu
         }
     }
 
-    void CPU::handleThumbAddOffsetToStackPtr(bool s, uint8_t offset)
+    template <bool s>
+    void CPU::handleThumbAddOffsetToStackPtr(uint32_t instruction)
     {
+        uint8_t offset = instruction & 0x7F;
         // nn - Unsigned Offset    (0-508, step 4)
         uint32_t extOffset = static_cast<uint32_t>(offset) << 2;
 
@@ -75,8 +85,13 @@ namespace gbaemu
         // Execution Time: 1S
     }
 
-    void CPU::handleThumbRelAddr(bool sp, uint8_t offset, uint8_t rd)
+    template <bool sp>
+    void CPU::handleThumbRelAddr(uint32_t instruction)
     {
+
+        uint8_t offset = instruction & 0x0FF;
+        uint8_t rd = (instruction >> 8) & 0x7;
+
         auto currentRegs = state.getCurrentRegs();
 
         // bool sp
@@ -89,26 +104,14 @@ namespace gbaemu
         // Execution Time: 1S
     }
 
-    static constexpr shifts::ShiftType getShiftType(InstructionID id)
-    {
-        switch (id) {
-            case LSL:
-                return shifts::ShiftType::LSL;
-            case LSR:
-                return shifts::ShiftType::LSR;
-            case ASR:
-                return shifts::ShiftType::ASR;
-            case ROR:
-                return shifts::ShiftType::ROR;
-            default:
-                return shifts::ShiftType::LSL;
-        }
-    }
-
     template <InstructionID id>
-    void CPU::handleThumbMoveShiftedReg(uint8_t rs, uint8_t rd, uint8_t offset)
+    void CPU::handleThumbMoveShiftedReg(uint32_t inst)
     {
         constexpr shifts::ShiftType shiftType = getShiftType(id);
+
+        uint8_t rs = (inst >> 3) & 0x7;
+        uint8_t rd = inst & 0x7;
+        uint8_t offset = (inst >> 6) & 0x1F;
 
         uint32_t rsValue = state.accessReg(rs);
         uint64_t rdValue = shifts::shift(rsValue, shiftType, offset, state.getFlag<cpsr_flags::C_FLAG>(), true);
@@ -129,8 +132,15 @@ namespace gbaemu
     }
 
     template <InstructionID id>
-    void CPU::handleThumbBranchXCHG(uint8_t rd, uint8_t rs)
+    void CPU::handleThumbBranchXCHG(uint32_t instruction)
     {
+        // Destination Register most significant bit (or BL/BLX flag)
+        uint8_t msbDst = (instruction >> 7) & 1;
+        // Source Register most significant bit
+        uint8_t msbSrc = (instruction >> 6) & 1;
+
+        uint8_t rd = (instruction & 0x7) | (msbDst << 3);
+        uint8_t rs = ((instruction >> 3) & 0x7) | (msbSrc << 3);
 
         auto currentRegs = state.getCurrentRegs();
 
@@ -162,13 +172,19 @@ namespace gbaemu
                 break;
 
             case BX: {
+
+                // If msbDst set this wont execute
+                // if (msbDst)
+                    // return;
+
                 // If the first bit of rs is set
                 bool stayInThumbMode = rsValue & 0x00000001;
 
                 // Except for BX R15: CPU switches to ARM state, and PC is auto-aligned as (($+4) AND NOT 2).
-                if (rs == regs::PC_OFFSET) {
-                    rsValue &= ~2;
-                }
+                // Automatically handled by refill pipeline
+                //if (rs == regs::PC_OFFSET) {
+                //    rsValue &= ~2;
+                //}
 
                 // Change the PC to the address given by rs. Note that we have to mask out the thumb switch bit.
                 *currentRegs[regs::PC_OFFSET] = rsValue & ~1;
@@ -194,59 +210,6 @@ namespace gbaemu
         }
     }
 
-    template <InstructionID id, InstructionID origID>
-    void CPU::handleThumbALUops(uint8_t rs, uint8_t rd)
-    {
-
-        constexpr shifts::ShiftType shiftType = getShiftType(origID);
-
-        uint16_t operand2;
-
-        switch (id) {
-            case MOV:
-                //TODO previously we did: uint8_t shiftAmount = rsValue & 0xFF; we might need to enforce this in execDataProc as well!
-                // Set bit 4 for shiftAmountFromReg flag & move regs at their positions & include the shifttype to use
-                operand2 = (static_cast<uint16_t>(1) << 4) | rd | (static_cast<uint16_t>(rs) << 8) | (static_cast<uint16_t>(shiftType) << 5);
-                break;
-
-            case MUL: {
-                handleMultAcc<MUL>(true, rd, 0, rs, rd);
-                return;
-            }
-
-            default:
-                // We only want the value of rs & nothing else
-                operand2 = rs;
-                break;
-        }
-
-        execDataProc<id, true>(false, true, rd, rd, operand2);
-    }
-
-    template void CPU::handleThumbMoveShiftedReg<LSL>(uint8_t rs, uint8_t rd, uint8_t offset);
-    template void CPU::handleThumbMoveShiftedReg<LSR>(uint8_t rs, uint8_t rd, uint8_t offset);
-    template void CPU::handleThumbMoveShiftedReg<ASR>(uint8_t rs, uint8_t rd, uint8_t offset);
-
-    template void CPU::handleThumbBranchXCHG<ADD>(uint8_t rd, uint8_t rs);
-    template void CPU::handleThumbBranchXCHG<CMP>(uint8_t rd, uint8_t rs);
-    template void CPU::handleThumbBranchXCHG<MOV>(uint8_t rd, uint8_t rs);
-    template void CPU::handleThumbBranchXCHG<BX>(uint8_t rd, uint8_t rs);
-
-    template void CPU::handleThumbALUops<AND, AND>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<EOR, EOR>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<MOV, LSL>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<MOV, LSR>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<MOV, ASR>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<MOV, ROR>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<ADC, ADC>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<SBC, SBC>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<TST, TST>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<NEG, NEG>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<CMP, CMP>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<CMN, CMN>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<ORR, ORR>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<MUL, MUL>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<BIC, BIC>(uint8_t rs, uint8_t rd);
-    template void CPU::handleThumbALUops<MVN, MVN>(uint8_t rs, uint8_t rd);
-
 } // namespace gbaemu
+
+#include "create_thumb_lut.tpp"
