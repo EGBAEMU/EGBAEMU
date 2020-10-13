@@ -606,10 +606,55 @@ namespace gbaemu
         }
 
         // The first read / write is non sequential but afterwards all accesses are sequential
-        // because the memory class always adds non sequential accesses we need to handle this case explicitly
-        bool nonSeqAccDone = false;
+        // As there will always be at least one transfer we can patch the non sequential access and always add cycles as if sequential
+        memory::MemoryRegion memReg = Memory::extractMemoryRegion(address);
+        state.cpuInfo.cycleCount += state.memory.memCycles32(memReg, false) - state.memory.memCycles32(memReg, true);
 
-        //TODO is it fine to just walk in different direction?
+        // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
+        // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
+        if (!patchRList && rList == 0) {
+            // handle this odd case on its own!
+
+            // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
+            if (up)
+                *currentRegs[rn] += 0x40;
+            else
+                *currentRegs[rn] -= 0x40;
+
+            /*
+            empty rlist edge cases:
+            STMIA: str -> r0        // pre = false, up = true
+                r0 = r0 + 0x40
+            STMIB: str->r0 +4       // pre = true, up = true
+                r0 = r0 + 0x40
+            STMDB: str ->r0 - 0x40  // pre = true, up = false
+                r0 = r0 - 0x40
+            STMDA: str -> r0 -0x3C  // pre = false, up = false
+                r0 = r0 - 0x40
+            */
+            if (pre && up) {
+                address += 4;
+            } else if (pre && !up) {
+                address -= 0x40;
+            } else if (!pre && !up) {
+                address -= 0x3C;
+            }
+
+            if (load) {
+                *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, state.cpuInfo, true);
+                refillPipelineAfterBranch<thumb>();
+            } else {
+                // Note that pc is already incremented by 2/4
+                // Edge case of storing PC -> PC + 12 will be stored
+                state.memory.write32(address, *currentRegs[regs::PC_OFFSET] + (thumb ? 4 : 8), state.cpuInfo, true);
+            }
+
+            // fully handled edge case
+            return;
+        }
+
+        uint32_t unchangedAddr = address;
+
         /*
         Transfer Order
         The lowest Register in Rlist (R0 if its in the list) will be loaded/stored to/from the lowest memory address.
@@ -617,110 +662,73 @@ namespace gbaemu
         (ie. for DECREASING addressing modes, the CPU does first calculate the lowest address,
         and does then process rlist with increasing addresses; this detail can be important when accessing memory mapped I/O ports).
         */
-        uint32_t addrInc = up ? 4 : -static_cast<uint32_t>(4);
-
-        bool edgeCaseEmptyRlist = false;
-        // Handle edge case: Empty Rlist: R15 loaded/stored (ARMv4 only)
-        // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
-        /*
-        empty rlist edge cases:
-        STMIA: str -> r0        // pre = false, up = true
-            r0 = r0 + 0x40
-        STMIB: str->r0 +4       // pre = true, up = true
-            r0 = r0 + 0x40
-        STMDB: str ->r0 - 0x40  // pre = true, up = false
-            r0 = r0 - 0x40
-        STMDA: str -> r0 -0x3C  // pre = false, up = false
-            r0 = r0 - 0x40
-        */
-        if (rList == 0) {
-            edgeCaseEmptyRlist = true;
-            rList = (1 << regs::PC_OFFSET);
-            if (!up) {
-                addrInc = -(pre ? static_cast<uint32_t>(0x40) : static_cast<uint32_t>(0x3C));
-                if (!pre) {
-                    address += addrInc;
-                }
-            }
+        // get the count of bits set -> transfers that will be done!
+        uint8_t bitsSet = popcnt(rList);
+        if (!up) {
+            // Calculate lowest address to start with
+            address -= static_cast<uint32_t>(bitsSet) << 2;
         }
 
-        uint32_t patchMemAddr = 0;
-        bool refillPipelineNeeded = false;
-
-        for (uint32_t i = 0; i < 16; ++i) {
-            uint8_t currentIdx = (up ? i : 15 - i);
-            if (rList & (1 << currentIdx)) {
-
-                if (pre) {
-                    address += addrInc;
-                }
-
-                if (load) {
-                    if (currentIdx == regs::PC_OFFSET) {
-                        *currentRegs[regs::PC_OFFSET] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone);
-
-                        // More special cases
-                        /*
-                        When S Bit is set (S=1)
-                        If instruction is LDM and R15 is in the list: (Mode Changes)
-                          While R15 loaded, additionally: CPSR=SPSR_<current mode>
-                        */
-                        // Special case for pipeline refill
-                        if (forceUserRegisters) {
-                            state.updateCPSR(state.accessReg(regs::SPSR_OFFSET));
-                        }
-
-                        refillPipelineNeeded = true;
-                    } else {
-                        *currentRegs[currentIdx] = state.memory.read32(address, state.cpuInfo, nonSeqAccDone);
-                    }
-                } else {
-                    // Shady hack to make edge case treatment easier
-                    if (rn == currentIdx) {
-                        patchMemAddr = address;
-                    }
-
-                    // Note that pc is already incremented by 2/4
-                    // Edge case of storing PC -> PC + 12 will be stored
-                    state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb ? 4 : 8) : 0), state.cpuInfo, nonSeqAccDone);
-                }
-
-                nonSeqAccDone = true;
-
-                if (!pre) {
-                    address += addrInc;
-                }
-            }
-        }
-
-        if (!edgeCaseEmptyRlist && (rList & (1 << rn)) && writeback) {
-            // Edge case: writeback enabled & rn is inside rlist
-            // If load then it was overwritten anyway & we should not do another writeback as writeback comes before read!
-            // else on STM it depends if this register was the first written to memory
-            // if so we need to write the unchanged memory address into memory (which is what we currently do by default)
-            // else we need to patch the written memory & store the address that would normally written back
-            if (!load) {
-                // Check if there are any registers that were written first to memory
-                if (rList & ((1 << rn) - 1)) {
-                    InstructionExecutionInfo info = state.cpuInfo;
-                    // We need to patch mem
-                    state.memory.write32(patchMemAddr, address, info);
-                }
-
-                // Also do the write back to the register!
-                *currentRegs[rn] = address;
-            }
-        } else if (edgeCaseEmptyRlist) {
-            // Empty Rlist: R15 loaded/stored (ARMv4 only), and Rb=Rb+/-40h (ARMv4-v5).
-            if (up)
-                *currentRegs[rn] += 0x40;
-            else
-                *currentRegs[rn] -= 0x40;
-        } else if (writeback) {
+        // Also do the write back to the register!
+        if (!up && writeback) {
+            // If decrementing we already have the correct address!
             *currentRegs[rn] = address;
+        } else if (up && writeback) {
+            // If incrementing we have to calculate the final address first
+            *currentRegs[rn] += (static_cast<uint32_t>(bitsSet) << 2);
         }
 
-        if (refillPipelineNeeded) {
+        // Edge case: writeback enabled & rn is inside rlist
+        // If load then it was overwritten anyway & we should not do another writeback as writeback comes before read!
+        // else on STM it depends if this register was the first written to memory
+        // if so we need to write the unchanged memory address into memory (and remove rn from the rList)
+        // else the address that would normally written back is stored into memory (out default behaviour)
+        // Check if edge case conditions are met & there are none registers that were written first to memory
+        if (!load && writeback && (rList & (1 << rn)) && (rList & ((1 << rn) - 1)) == 0) {
+            // write unchanged address value to memory
+            state.memory.write32(address + (up == pre ? 4 : 0), unchangedAddr, state.cpuInfo, true);
+            // update the address
+            address += 4;
+            // remove rn from rList
+            rList ^= 1 << rn;
+        }
+
+        bool loadedPC = load && (patchRList || (rList & (1 << regs::PC_OFFSET)));
+
+        // shout-outs to https://smolka.dev/eggvance/progress-5/
+        for (; rList != 0; rList &= rList - 1) {
+            uint8_t currentIdx = ctz(rList);
+
+            // See https://iitd-plos.github.io/col718/ref/arm-instructionset.pdf page 38ff.
+            if (up == pre) {
+                address += 4;
+            }
+
+            if (load) {
+                *currentRegs[currentIdx] = state.memory.read32(address, state.cpuInfo, true);
+            } else {
+                // Note that pc is already incremented by 2/4
+                // Edge case of storing PC -> PC + 12 will be stored
+                state.memory.write32(address, *currentRegs[currentIdx] + (currentIdx == regs::PC_OFFSET ? (thumb ? 4 : 8) : 0), state.cpuInfo, true);
+            }
+
+            if (up != pre) {
+                address += 4;
+            }
+        }
+
+        if (loadedPC) {
+            // More special cases
+            /*
+            When S Bit is set (S=1)
+            If instruction is LDM and R15 is in the list: (Mode Changes)
+            While R15 loaded, additionally: CPSR=SPSR_<current mode>
+            */
+            // Special case for pipeline refill
+            if (forceUserRegisters) {
+                state.updateCPSR(state.accessReg(regs::SPSR_OFFSET));
+            }
+
             refillPipeline();
         }
     }
