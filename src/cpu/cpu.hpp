@@ -109,12 +109,12 @@ namespace gbaemu
         // ARM instructions execution helpers
         template <bool a, bool s, bool thumb = false>
         void handleMultAcc(uint32_t inst);
-        template <uint32_t extHash>
+        template <bool a, bool s, bool signMul>
         void handleMultAccLong(uint32_t inst);
-        template <uint32_t extHash>
+        template <bool b>
         void handleDataSwp(uint32_t inst);
         // Executes instructions belonging to the branch subsection
-        template <uint32_t extHash>
+        template <bool link>
         void handleBranch(uint32_t inst);
         // Executes instructions belonging to the branch and execute subsection
         void handleBranchAndExchange(uint32_t inst);

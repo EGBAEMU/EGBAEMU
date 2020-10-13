@@ -109,17 +109,9 @@ namespace gbaemu
         }
     }
 
-    template <uint32_t extHash>
+    template <bool a, bool s, bool signMul>
     void CPU::handleMultAccLong(uint32_t instruction)
     {
-        /*
-        constexpr bool signMul = id == SMLAL || id == SMULL;
-        constexpr bool a = id == SMLAL || id == UMLAL;
-        */
-        constexpr bool signMul = (extHash >> 22) & 1;
-        constexpr bool a = (extHash >> 21) & 1;
-        constexpr bool s = (extHash >> 20) & 1;
-
         uint8_t rd_msw = (instruction >> 16) & 0x0F;
         uint8_t rd_lsw = (instruction >> 12) & 0x0F;
         uint8_t rs = (instruction >> 8) & 0x0F;
@@ -201,11 +193,9 @@ namespace gbaemu
         }
     }
 
-    template <uint32_t extHash>
+    template <bool b>
     void CPU::handleDataSwp(uint32_t instruction)
     {
-        constexpr bool b = (extHash >> 22) & 1;
-
         uint8_t rn = (instruction >> 16) & 0x0F;
         uint8_t rd = (instruction >> 12) & 0x0F;
         uint8_t rm = instruction & 0x0F;
@@ -238,10 +228,9 @@ namespace gbaemu
     }
 
     // Executes instructions belonging to the branch subsection
-    template <uint32_t extHash>
+    template <bool link>
     void CPU::handleBranch(uint32_t instruction)
     {
-        constexpr bool link = (extHash >> 24) & 1;
         int32_t offset = signExt<int32_t, uint32_t, 24>(instruction & 0x00FFFFFF);
 
         auto currentRegs = state.getCurrentRegs();
@@ -1221,18 +1210,22 @@ namespace gbaemu
 
         switch (extractArmCategoryFromHash<hash>()) {
             case arm::MUL_ACC: {
-
                 constexpr bool a = (expandedHash >> 21) & 1;
                 constexpr bool s = (expandedHash >> 20) & 1;
-
                 return &CPU::handleMultAcc<a, s, false>;
             }
-            case arm::MUL_ACC_LONG:
-                return &CPU::handleMultAccLong<expandedHash>;
+            case arm::MUL_ACC_LONG: {
+                constexpr bool signMul = (expandedHash >> 22) & 1;
+                constexpr bool a = (expandedHash >> 21) & 1;
+                constexpr bool s = (expandedHash >> 20) & 1;
+                return &CPU::handleMultAccLong<a, s, signMul>;
+            }
             case arm::BRANCH_XCHG:
                 return &CPU::handleBranchAndExchange;
-            case arm::DATA_SWP:
-                return &CPU::handleDataSwp<expandedHash>;
+            case arm::DATA_SWP: {
+                constexpr bool b = (expandedHash >> 22) & 1;
+                return &CPU::handleDataSwp<b>;
+            }
             case arm::HW_TRANSF_REG_OFF: {
 
                 constexpr bool p = (expandedHash >> 24) & 1;
@@ -1319,8 +1312,10 @@ namespace gbaemu
                 constexpr bool load = (expandedHash >> 20) & 1;
                 return &CPU::execDataBlockTransfer<false, pre, up, writeback, forceUserRegisters, load>;
             }
-            case arm::BRANCH:
-                return &CPU::handleBranch<expandedHash>;
+            case arm::BRANCH: {
+                constexpr bool link = (expandedHash >> 24) & 1;
+                return &CPU::handleBranch<link>;
+            }
             case arm::SOFTWARE_INTERRUPT:
                 return &CPU::softwareInterrupt<false>;
             case arm::INVALID_CAT:
