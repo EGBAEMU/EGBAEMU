@@ -11,7 +11,8 @@
 namespace gbaemu::lcd
 {
     FBCanvas::FBCanvas(const char *deviceString) : Canvas(SCREEN_WIDTH, SCREEN_HEIGHT),
-                                                   buffer(SCREEN_WIDTH, SCREEN_HEIGHT)
+                                                   buffer({MemoryCanvas<color_t>(SCREEN_WIDTH, SCREEN_HEIGHT), MemoryCanvas<color_t>(SCREEN_WIDTH, SCREEN_HEIGHT)}),
+                                                   fbCopyThread(fbCopyLoop, std::ref(waitForFB), std::ref(*this))
     {
         size = fbWidth * fbHeight * sizeof(color16_t);
         device = open(deviceString, O_RDWR);
@@ -30,6 +31,9 @@ namespace gbaemu::lcd
 
     FBCanvas::~FBCanvas()
     {
+        run = false;
+        fbCopyThread.join();
+
         munmap(frameBuffer, size);
         close(device);
     }
@@ -46,17 +50,34 @@ namespace gbaemu::lcd
 
     color_t *FBCanvas::pixels()
     {
-        return buffer.pixels();
+        return buffer[currentBuf].pixels();
     }
 
     const color_t *FBCanvas::pixels() const
     {
-        return buffer.pixels();
+        return buffer[currentBuf].pixels();
+    }
+
+    void FBCanvas::fbCopyLoop(std::condition_variable &waitForFB, const FBCanvas &canvas)
+    {
+        std::mutex mtx;
+        std::unique_lock<std::mutex> lck(mtx);
+
+        const size_t size = (canvas.buffer[0].getWidth() * canvas.buffer[0].getHeight());
+
+        while(canvas.run) {
+            if (waitForFB.wait_for(lck, std::chrono::milliseconds(500)) == std::cv_status::timeout) {
+                continue;
+            }
+            int lastBuf = (canvas.currentBuf + 1) & 1;
+            std::copy(canvas.buffer[lastBuf].pixels(), canvas.buffer[lastBuf].pixels() + size, canvas.frameBuffer);
+        }
     }
 
     void FBCanvas::present()
     {
-        std::copy(buffer.pixels(), buffer.pixels() + (buffer.getWidth() * buffer.getHeight()), frameBuffer);
+        currentBuf = (currentBuf + 1) & 1;
+        waitForFB.notify_one();
     }
 }
 #endif
