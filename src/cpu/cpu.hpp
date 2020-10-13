@@ -32,9 +32,14 @@ namespace gbaemu
     {
 
       public:
-        static arm::ArmExecutor armExecutor;
-        static thumb::ThumbExecutor thumbExecutor;
+        // using InstExecutor = void (CPU::*)(uint32_t);
+        typedef void(CPU::*InstExecutor)(uint32_t);
 
+      private:
+        static const InstExecutor thumbExeLUT[1024];
+        static const InstExecutor armExeLUT[4096];
+
+      public:
         CPUState state;
 
         DMAGroup dmaGroup;
@@ -102,42 +107,57 @@ namespace gbaemu
         }
 
         // ARM instructions execution helpers
-        template <InstructionID id>
-        void handleMultAcc(bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm);
-        template <InstructionID id>
-        void handleMultAccLong(bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm);
-        template <InstructionID id>
-        void handleDataSwp(uint8_t rn, uint8_t rd, uint8_t rm);
+        template <bool a, bool s, bool thumb = false>
+        void handleMultAcc(uint32_t inst);
+        template <uint32_t extHash>
+        void handleMultAccLong(uint32_t inst);
+        template <uint32_t extHash>
+        void handleDataSwp(uint32_t inst);
         // Executes instructions belonging to the branch subsection
-        void handleBranch(bool link, int32_t offset);
+        template <uint32_t extHash>
+        void handleBranch(uint32_t inst);
         // Executes instructions belonging to the branch and execute subsection
-        void handleBranchAndExchange(uint8_t rn);
+        void handleBranchAndExchange(uint32_t inst);
         /* ALU functions */
-        template <InstructionID id, bool thumb = false>
-        void execDataProc(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-        template <InstructionID id, bool thumb = false>
-        void execDataBlockTransfer(bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList);
-        template <InstructionID id, bool thumb = false>
-        void execLoadStoreRegUByte(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
-        template <InstructionID id, bool thumb = false>
-        void execHalfwordDataTransferImmRegSignedTransfer(bool pre, bool up, bool writeback,
-                                                          uint8_t rn, uint8_t rd, uint32_t offset);
+        template <InstructionID id, bool i, bool s, bool thumb, thumb::ThumbInstructionCategory cat = thumb::INVALID_CAT, InstructionID origID = INVALID>
+        void execDataProc(uint32_t inst);
+        template <bool thumb, bool pre, bool up, bool writeback, bool forceUserRegisters, bool load, bool patchRlist = false, bool useSP = false>
+        void execDataBlockTransfer(uint32_t inst);
+        /* bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode */
+        template <InstructionID id, bool thumb, bool pre, bool up, bool i, bool writeback, thumb::ThumbInstructionCategory thumbCat>
+        void execLoadStoreRegUByte(uint32_t inst);
+        template <uint32_t extHash, InstructionID id, bool thumb, bool pre, bool up, bool writeback, arm::ARMInstructionCategory armCat, thumb::ThumbInstructionCategory thumbCat>
+        void execHalfwordDataTransferImmRegSignedTransfer(uint32_t inst);
+        template <bool thumb>
+        void softwareInterrupt(uint32_t inst);
+
+        void handleInvalid(uint32_t);
 
         // THUMB instruction execution helpers
-        void handleThumbLongBranchWithLink(bool h, uint16_t offset);
-        void handleThumbUnconditionalBranch(int16_t offset);
-        void handleThumbConditionalBranch(uint8_t cond, int8_t offset);
-        void handleThumbAddOffsetToStackPtr(bool s, uint8_t offset);
-        void handleThumbRelAddr(bool sp, uint8_t offset, uint8_t rd);
+        template <bool link>
+        void handleThumbLongBranchWithLink(uint32_t inst);
+        void handleThumbUnconditionalBranch(uint32_t inst);
+        void handleThumbConditionalBranch(uint32_t inst);
+        template <bool s>
+        void handleThumbAddOffsetToStackPtr(uint32_t inst);
+        template <bool sp>
+        void handleThumbRelAddr(uint32_t inst);
 
         template <InstructionID id>
-        void handleThumbMoveShiftedReg(uint8_t rs, uint8_t rd, uint8_t offset);
+        void handleThumbMoveShiftedReg(uint32_t inst);
         template <InstructionID id>
-        void handleThumbBranchXCHG(uint8_t rd, uint8_t rs);
-        template <InstructionID id, InstructionID origID>
-        void handleThumbALUops(uint8_t rs, uint8_t rd);
+        void handleThumbBranchXCHG(uint32_t inst);
+
+        template <uint16_t hash>
+        static constexpr InstExecutor resolveThumbHashHandler();
+
+        template <uint16_t hash>
+        static constexpr InstExecutor resolveArmHashHandler();
     };
 
 } // namespace gbaemu
+
+// #include "cpu_arm.tpp"
+// #include "cpu_thumb.tpp"
 
 #endif /* CPU_HPP */

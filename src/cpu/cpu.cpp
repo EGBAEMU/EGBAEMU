@@ -1,19 +1,17 @@
 #include "cpu.hpp"
 
-#include "cpu_arm_executor.hpp"
-#include "cpu_thumb_executor.hpp"
+#include "decode/inst.hpp"
 #include "decode/inst_arm.hpp"
 #include "decode/inst_thumb.hpp"
 #include "lcd/lcd-controller.hpp"
 #include "logging.hpp"
+#include "swi.hpp"
 
 #include <algorithm>
 #include <sstream>
 
 namespace gbaemu
 {
-    arm::ArmExecutor CPU::armExecutor;
-    thumb::ThumbExecutor CPU::thumbExecutor;
 
     CPU::CPU() : dmaGroup(this), timerGroup(this), irqHandler(this), keypad(this)
     {
@@ -24,6 +22,38 @@ namespace gbaemu
     {
         dmaGroup.setLCDController(lcdController);
         state.memory.ioHandler.lcdController = lcdController;
+    }
+
+    void CPU::handleInvalid(uint32_t inst)
+    {
+        (void)inst;
+        state.executionInfo.message << "ERROR: trying to execute invalid instruction!" << std::endl;
+        state.execState = CPUState::EXEC_ERROR;
+    }
+
+    template <bool thumb>
+    void CPU::softwareInterrupt(uint32_t inst)
+    {
+        uint8_t index;
+
+        if (thumb)
+            index = inst & 0x0FF;
+        else
+            index = static_cast<uint8_t>((inst & 0x00FFFFFF) >> 16);
+
+        if (state.memory.usesExternalBios()) {
+            swi::callBiosCodeSWIHandler(this);
+        } else {
+            if (index < sizeof(swi::biosCallHandler) / sizeof(swi::biosCallHandler[0])) {
+                if (index != 5 && index != 0x2B) {
+                    LOG_SWI(std::cout << "Info: trying to call bios handler: " << swi::biosCallHandlerStr[index] << " at PC: 0x" << std::hex << (state.getCurrentPC() - 4) << std::endl;);
+                }
+                swi::biosCallHandler[index](this);
+            } else {
+                state.executionInfo.message << "ERROR: trying to call invalid bios call handler: " << std::hex << index << " at PC: 0x" << std::hex << (state.getCurrentPC() - 4) << std::endl;
+                state.execState = CPUState::EXEC_ERROR;
+            }
+        }
     }
 
 // Trust me, you dont want to look at it :D
@@ -88,14 +118,14 @@ namespace gbaemu
                             // already increment PC
                             state.getPC() = currentPC + 2;
                             state.pipeline[0] = state.memory.readInst16(currentPC + 4, state.cpuInfo);
-                            thumb::ThumbInstructionDecoder<thumb::ThumbExecutor>::decode<CPU::thumbExecutor>(inst);
+                            (this->*thumbExeLUT[hashThumb(inst)])(inst);
                         } else {
                             // fetch new instruction to fill the pipeline
                             // already increment PC
                             state.getPC() = currentPC + 4;
                             state.pipeline[0] = state.memory.readInst32(currentPC + 8, state.cpuInfo);
-                            if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), CPU::armExecutor.cpu->state)) {
-                                arm::ARMInstructionDecoder<arm::ArmExecutor>::decode<CPU::armExecutor>(inst);
+                            if (conditionSatisfied(static_cast<ConditionOPCode>(inst >> 28), state)) {
+                                (this->*armExeLUT[hashArm(inst)])(inst);
                             }
                         }
                         currentPC = state.getCurrentPC();
@@ -175,8 +205,6 @@ namespace gbaemu
         irqHandler.reset();
         keypad.reset();
 
-        armExecutor.cpu = this;
-        thumbExecutor.cpu = this;
         state.memory.ioHandler.cpu = this;
 
         cyclesLeft = 0;
@@ -185,36 +213,6 @@ namespace gbaemu
     template void CPU::refillPipelineAfterBranch<true>();
     template void CPU::refillPipelineAfterBranch<false>();
 
-    template void CPU::execStep<0>(uint32_t &);
-    template void CPU::execStep<1>(uint32_t &);
-    template void CPU::execStep<2>(uint32_t &);
-    template void CPU::execStep<3>(uint32_t &);
-    template void CPU::execStep<4>(uint32_t &);
-    template void CPU::execStep<5>(uint32_t &);
-    template void CPU::execStep<6>(uint32_t &);
-    template void CPU::execStep<7>(uint32_t &);
-    template void CPU::execStep<8>(uint32_t &);
-    template void CPU::execStep<9>(uint32_t &);
-    template void CPU::execStep<10>(uint32_t &);
-    template void CPU::execStep<11>(uint32_t &);
-    template void CPU::execStep<12>(uint32_t &);
-    template void CPU::execStep<13>(uint32_t &);
-    template void CPU::execStep<14>(uint32_t &);
-    template void CPU::execStep<15>(uint32_t &);
-    template void CPU::execStep<16>(uint32_t &);
-    template void CPU::execStep<17>(uint32_t &);
-    template void CPU::execStep<18>(uint32_t &);
-    template void CPU::execStep<19>(uint32_t &);
-    template void CPU::execStep<20>(uint32_t &);
-    template void CPU::execStep<21>(uint32_t &);
-    template void CPU::execStep<22>(uint32_t &);
-    template void CPU::execStep<23>(uint32_t &);
-    template void CPU::execStep<24>(uint32_t &);
-    template void CPU::execStep<25>(uint32_t &);
-    template void CPU::execStep<26>(uint32_t &);
-    template void CPU::execStep<27>(uint32_t &);
-    template void CPU::execStep<28>(uint32_t &);
-    template void CPU::execStep<29>(uint32_t &);
-    template void CPU::execStep<30>(uint32_t &);
-    template void CPU::execStep<31>(uint32_t &);
+    template void CPU::softwareInterrupt<true>(uint32_t);
+    template void CPU::softwareInterrupt<false>(uint32_t);
 } // namespace gbaemu
