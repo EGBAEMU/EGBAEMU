@@ -73,22 +73,12 @@ namespace gbaemu::lcd
 
             vFlip = isBitSet<uint16_t, OBJ_ATTRIBUTE::V_FLIP_OFFSET>(attr.attribute[1]);
             hFlip = isBitSet<uint16_t, OBJ_ATTRIBUTE::H_FLIP_OFFSET>(attr.attribute[1]);
-        } else {
-            enabled = true;
         }
 
         /* 16x16 palette */
         useColor256 = isBitSet<uint16_t, OBJ_ATTRIBUTE::COLOR_PALETTE_OFFSET>(attr.attribute[0]);
 
-        yOff = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::Y_COORD_MASK, OBJ_ATTRIBUTE::Y_COORD_OFFSET);
-        xOff = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::X_COORD_MASK, OBJ_ATTRIBUTE::X_COORD_OFFSET);
-        xOff = signExt<int32_t, uint16_t, 9>(xOff);
-
-        OBJShape shape = static_cast<OBJShape>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_SHAPE_MASK, OBJ_ATTRIBUTE::OBJ_SHAPE_OFFSET));
-        uint16_t size = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::OBJ_SIZE_MASK, OBJ_ATTRIBUTE::OBJ_SIZE_OFFSET);
         tileNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::CHAR_NAME_MASK, OBJ_ATTRIBUTE::CHAR_NAME_OFFSET);
-        mosaicEnabled = isBitSet<uint16_t, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET>(attr.attribute[0]);
-        mode = static_cast<OBJMode>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MODE_MASK, OBJ_ATTRIBUTE::OBJ_MODE_OFFSET));
 
         if (useColor256)
             tileNumber /= 2;
@@ -96,6 +86,17 @@ namespace gbaemu::lcd
         /* bitmap modes */
         if (Mode3 <= bgMode && bgMode <= Mode5 && tileNumber < 512)
             return;
+
+        visible = true;
+
+        yOff = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::Y_COORD_MASK, OBJ_ATTRIBUTE::Y_COORD_OFFSET);
+        xOff = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::X_COORD_MASK, OBJ_ATTRIBUTE::X_COORD_OFFSET);
+        xOff = signExt<int32_t, uint16_t, 9>(xOff);
+
+        OBJShape shape = static_cast<OBJShape>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_SHAPE_MASK, OBJ_ATTRIBUTE::OBJ_SHAPE_OFFSET));
+        uint16_t size = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::OBJ_SIZE_MASK, OBJ_ATTRIBUTE::OBJ_SIZE_OFFSET);
+        mosaicEnabled = isBitSet<uint16_t, OBJ_ATTRIBUTE::OBJ_MOSAIC_OFFSET>(attr.attribute[0]);
+        mode = static_cast<OBJMode>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_MODE_MASK, OBJ_ATTRIBUTE::OBJ_MODE_OFFSET));
 
         /*
             Size  Square   Horizontal  Vertical
@@ -188,8 +189,6 @@ namespace gbaemu::lcd
             affineTransform.screenRef[0] = static_cast<common::math::real_t>(xOff + static_cast<int32_t>(width) / 2);
             affineTransform.screenRef[1] = static_cast<common::math::real_t>(yOff + static_cast<int32_t>(height) / 2);
         }
-
-        visible = true;
 
         cyclesRequired = width * height * (doubleSized || useRotScale ? 2 : 1) + (doubleSized || useRotScale ? 10 : 0);
 
