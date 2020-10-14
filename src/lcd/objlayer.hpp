@@ -58,7 +58,6 @@ namespace gbaemu::lcd
         uint8_t bytesPerTile;
 
         bool visible = false;
-        bool enabled;
         OBJMode mode;
         uint8_t priority;
         int32_t xOff, yOff;

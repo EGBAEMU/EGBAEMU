@@ -53,7 +53,6 @@ namespace gbaemu::lcd
     {
         /* by default */
         visible = false;
-        enabled = true;
 
         const OBJAttribute attr = getAttribute(attributes, index);
         priority = static_cast<uint16_t>(bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PRIORITY_MASK, OBJ_ATTRIBUTE::PRIORITY_OFFSET));
@@ -65,7 +64,7 @@ namespace gbaemu::lcd
         bool useRotScale = isBitSet<uint16_t, OBJ_ATTRIBUTE::ROT_SCALE_OFFSET>(attr.attribute[0]);
 
         if (!useRotScale) {
-            enabled = !isBitSet<uint16_t, OBJ_ATTRIBUTE::DISABLE_OFFSET>(attr.attribute[0]);
+            bool enabled = !isBitSet<uint16_t, OBJ_ATTRIBUTE::DISABLE_OFFSET>(attr.attribute[0]);
 
             if (!enabled)
                 return;
@@ -79,8 +78,14 @@ namespace gbaemu::lcd
 
         tileNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::CHAR_NAME_MASK, OBJ_ATTRIBUTE::CHAR_NAME_OFFSET);
 
-        if (useColor256)
+        if (useColor256) {
             tileNumber /= 2;
+            tilesPerRow = 16;
+            bytesPerTile = 64;
+        } else {
+            tilesPerRow = 32;
+            bytesPerTile = 32;
+        }
 
         /* bitmap modes */
         if (Mode3 <= bgMode && bgMode <= Mode5 && tileNumber < 512)
@@ -107,7 +112,7 @@ namespace gbaemu::lcd
         /* TODO: Maybe there is a better way to do this. */
         switch (shape) {
             case SQUARE:
-                width = height = (size + 1) << 3;
+                width = height = 8 << size;
                 break;
             case HORIZONTAL:
                 width = 16 << ((size + 1) >> 1);
@@ -121,8 +126,6 @@ namespace gbaemu::lcd
         }
 
         paletteNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PALETTE_NUMBER_MASK, OBJ_ATTRIBUTE::PALETTE_NUMBER_OFFSET);
-        tilesPerRow = useColor256 ? 16 : 32;
-        bytesPerTile = useColor256 ? 64 : 32;
         bool doubleSized = useRotScale && isBitSet<uint16_t, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET>(attr.attribute[0]);
 
         if (useRotScale) {
