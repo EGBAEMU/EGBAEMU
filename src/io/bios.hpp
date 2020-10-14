@@ -24,6 +24,8 @@ namespace gbaemu
         size_t biosSize;
         bool externalBios;
 
+        bool execInBios;
+
         uint32_t biosState;
 
       public:
@@ -46,11 +48,18 @@ namespace gbaemu
             this->biosState = state;
         }
 
+        void setExecInsideBios(bool execBios)
+        {
+            this->execInBios = execBios;
+        }
+
         void setExternalBios(const uint8_t *bios, size_t biosSize);
 
-        uint8_t read8(uint32_t addr, bool inst) const;
-        uint16_t read16(uint32_t addr, bool inst) const;
-        uint32_t read32(uint32_t addr, bool inst) const;
+        uint8_t read8(uint32_t addr) const;
+        uint16_t read16(uint32_t addr) const;
+        uint16_t read16Inst(uint32_t addr);
+        uint32_t read32(uint32_t addr) const;
+        uint32_t read32Inst(uint32_t addr);
     };
 } // namespace gbaemu
 #endif

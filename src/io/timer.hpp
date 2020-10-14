@@ -51,7 +51,7 @@ namespace gbaemu
             InterruptHandler &irqHandler;
             Timer<(id < 3) ? id + 1 : id> *const nextTimer;
 
-            uint8_t &timEnableBitset;
+            TimerGroup &timerGroup;
 
             uint32_t counter;
             uint32_t overflowVal;
@@ -63,11 +63,13 @@ namespace gbaemu
           public:
             void step(uint32_t cycles);
 
-            Timer(InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, uint8_t &timEnableBitset);
+            Timer(InterruptHandler &irqHandler, Timer<(id < 3) ? id + 1 : id> *nextTimer, TimerGroup &timerGroup);
 
             void reset();
 
           private:
+            void initialize();
+
             uint8_t read8FromReg(uint32_t offset);
             void write8ToReg(uint32_t offset, uint8_t value);
 
@@ -78,6 +80,8 @@ namespace gbaemu
             friend class Timer<(id > 0) ? id - 1 : id>;
             friend class IO_Handler;
         };
+
+        CPU *cpu;
 
         Timer<0> tim0;
         Timer<1> tim1;
@@ -115,6 +119,8 @@ namespace gbaemu
         }
 
         TimerGroup(CPU *cpu);
+
+        void checkRunCondition() const;
 
         friend class IO_Handler;
     };

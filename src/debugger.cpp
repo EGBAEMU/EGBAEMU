@@ -80,11 +80,11 @@ namespace gbaemu::debugger
         InstructionExecutionInfo execInfo{0};
         switch (bitSize) {
             case 8:
-                value = state.memory.read8(memAddr, execInfo);
+                value = state.memory.read8(memAddr, execInfo, false);
             case 16:
-                value = state.memory.read16(memAddr, execInfo);
+                value = state.memory.read16(memAddr, execInfo, false);
             case 32:
-                value = state.memory.read32(memAddr, execInfo);
+                value = state.memory.read32(memAddr, execInfo, false);
         }
 
         prevMemValue = value;
@@ -98,11 +98,11 @@ namespace gbaemu::debugger
         InstructionExecutionInfo execInfo{0};
         switch (bitSize) {
             case 8:
-                value = state.memory.read8(memAddr, execInfo);
+                value = state.memory.read8(memAddr, execInfo, false);
             case 16:
-                value = state.memory.read16(memAddr, execInfo);
+                value = state.memory.read16(memAddr, execInfo, false);
             case 32:
-                value = state.memory.read32(memAddr, execInfo);
+                value = state.memory.read32(memAddr, execInfo, false);
             default:
                 return false;
         }
@@ -296,7 +296,7 @@ namespace gbaemu::debugger
 
         if (words[0] == "reset") {
             cpu.reset();
-            cpu.initPipeline();
+            cpu.refillPipelineAfterBranch<false>();
             return;
         }
 
@@ -416,8 +416,12 @@ namespace gbaemu::debugger
             CPUExecutionInfoType executionInfo = cpu.step(1);
             if (executionInfo != CPUExecutionInfoType::NORMAL) {
                 state = HALTED;
-                std::cout << "CPU error occurred: " << cpu.executionInfo.message << std::endl;
+                std::cout << "CPU error occurred: " << std::endl;
+                std::cout << cpu.state.executionInfo.message.str() << std::endl;
             }
+#ifdef DUMP_CPU_STATE
+            std::cout << cpu.state.toString() << std::endl;
+#endif
             cpuExecutionMutex.unlock();
         }
 
@@ -497,7 +501,7 @@ namespace gbaemu::debugger
     {
         WatchEvent backup = watchEvent;
         InstructionExecutionInfo execInfo{0};
-        auto value = cpu.state.memory.read8(addr, execInfo);
+        auto value = cpu.state.memory.read8(addr, execInfo, false);
         watchEvent = backup;
         return value;
     }
@@ -506,7 +510,7 @@ namespace gbaemu::debugger
     {
         WatchEvent backup = watchEvent;
         InstructionExecutionInfo execInfo{0};
-        auto value = cpu.state.memory.read16(addr, execInfo);
+        auto value = cpu.state.memory.read16(addr, execInfo, false);
         watchEvent = backup;
         return value;
     }
@@ -515,7 +519,7 @@ namespace gbaemu::debugger
     {
         WatchEvent backup = watchEvent;
         InstructionExecutionInfo execInfo{0};
-        auto value = cpu.state.memory.read32(addr, execInfo);
+        auto value = cpu.state.memory.read32(addr, execInfo, false);
         watchEvent = backup;
         return value;
     }

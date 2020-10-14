@@ -14,25 +14,6 @@
 namespace gbaemu
 {
 
-    enum CPUExecutionInfoType {
-        NORMAL,
-        WARNING,
-        EXCEPTION
-    };
-
-    struct CPUExecutionInfo {
-        CPUExecutionInfoType infoType;
-        std::string message;
-
-        CPUExecutionInfo() : infoType(NORMAL), message("Everything's good")
-        {
-        }
-
-        CPUExecutionInfo(CPUExecutionInfoType info, const std::string &msg) : infoType(info), message(msg)
-        {
-        }
-    };
-
     // forward declarations
     namespace arm
     {
@@ -51,13 +32,15 @@ namespace gbaemu
     {
 
       public:
-        static arm::ArmExecutor armExecutor;
-        static thumb::ThumbExecutor thumbExecutor;
-        static InstructionDecodeAndExecutor armDecodeAndExecutor;
-        static InstructionDecodeAndExecutor thumbDecodeAndExecutor;
+        // using InstExecutor = void (CPU::*)(uint32_t);
+        typedef void(CPU::*InstExecutor)(uint32_t);
 
+      private:
+        static const InstExecutor thumbExeLUT[1024];
+        static const InstExecutor armExeLUT[4096];
+
+      public:
         CPUState state;
-        InstructionDecodeAndExecutor decodeAndExecute;
 
         DMAGroup dmaGroup;
 
@@ -66,21 +49,27 @@ namespace gbaemu
         InterruptHandler irqHandler;
         Keypad keypad;
 
-        /* If an error has occured more information can be found here. */
-        CPUExecutionInfo executionInfo;
-
         int32_t cyclesLeft;
 
         CPU();
 
-        void setLCDController(lcd::LCDController* lcdController);
+        void setLCDController(lcd::LCDController *lcdController);
 
         void reset();
 
-        void initPipeline();
-        void execute(uint32_t inst, uint32_t pc);
         CPUExecutionInfoType step(uint32_t cycles);
 
+        void patchFetchToNCycle();
+        template <bool thumbMode>
+        void refillPipelineAfterBranch();
+
+        void refillPipeline();
+
+      private:
+        template <uint8_t execState>
+        void execStep(uint32_t &prevPC);
+
+      public:
         template <bool nFlag, bool zFlag, bool vFlag, bool cFlag, bool invertCarry>
         void setFlags(uint64_t resultValue, bool msbOp1, bool msbOp2)
         {
@@ -100,14 +89,17 @@ namespace gbaemu
             bool overflow = msbOp1 == msbOp2 && (negative != msbOp1);
             bool carry = resultValue & (static_cast<uint64_t>(1) << 32);
 
-            if (nFlag)
+            if (nFlag) {
                 state.setFlag<cpsr_flags::N_FLAG>(negative);
+            }
 
-            if (zFlag)
+            if (zFlag) {
                 state.setFlag<cpsr_flags::Z_FLAG>(zero);
+            }
 
-            if (vFlag)
+            if (vFlag) {
                 state.setFlag<cpsr_flags::V_FLAG>(overflow);
+            }
 
             if (cFlag) {
                 state.setFlag<cpsr_flags::C_FLAG>(carry != invertCarry);
@@ -115,42 +107,57 @@ namespace gbaemu
         }
 
         // ARM instructions execution helpers
-        template <InstructionID id>
-        void handleMultAcc(bool s, uint8_t rd, uint8_t rn, uint8_t rs, uint8_t rm);
-        template <InstructionID id>
-        void handleMultAccLong(bool s, uint8_t rd_msw, uint8_t rd_lsw, uint8_t rs, uint8_t rm);
-        template <InstructionID id>
-        void handleDataSwp(uint8_t rn, uint8_t rd, uint8_t rm);
+        template <bool a, bool s, bool thumb = false>
+        void handleMultAcc(uint32_t inst);
+        template <bool a, bool s, bool signMul>
+        void handleMultAccLong(uint32_t inst);
+        template <bool b>
+        void handleDataSwp(uint32_t inst);
         // Executes instructions belonging to the branch subsection
-        void handleBranch(bool link, int32_t offset);
+        template <bool link>
+        void handleBranch(uint32_t inst);
         // Executes instructions belonging to the branch and execute subsection
-        void handleBranchAndExchange(uint8_t rn);
+        void handleBranchAndExchange(uint32_t inst);
         /* ALU functions */
-        template <InstructionID id, bool thumb = false>
-        void execDataProc(bool i, bool s, uint8_t rn, uint8_t rd, uint16_t operand2);
-        template <InstructionID id, bool thumb = false>
-        void execDataBlockTransfer(bool pre, bool up, bool writeback, bool forceUserRegisters, uint8_t rn, uint16_t rList);
-        template <InstructionID id, bool thumb = false>
-        void execLoadStoreRegUByte(bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode);
-        template <InstructionID id, bool thumb = false>
-        void execHalfwordDataTransferImmRegSignedTransfer(bool pre, bool up, bool writeback,
-                                                          uint8_t rn, uint8_t rd, uint32_t offset);
+        template <InstructionID id, bool i, bool s, bool thumb, thumb::ThumbInstructionCategory cat = thumb::INVALID_CAT, InstructionID origID = INVALID>
+        void execDataProc(uint32_t inst);
+        template <bool thumb, bool pre, bool up, bool writeback, bool forceUserRegisters, bool load, bool patchRlist = false, bool useSP = false>
+        void execDataBlockTransfer(uint32_t inst);
+        /* bool pre, bool up, bool i, bool writeback, uint8_t rn, uint8_t rd, uint16_t addrMode */
+        template <InstructionID id, bool thumb, bool pre, bool up, bool i, bool writeback, thumb::ThumbInstructionCategory thumbCat>
+        void execLoadStoreRegUByte(uint32_t inst);
+        template <bool b, InstructionID id, bool thumb, bool pre, bool up, bool writeback, arm::ARMInstructionCategory armCat, thumb::ThumbInstructionCategory thumbCat>
+        void execHalfwordDataTransferImmRegSignedTransfer(uint32_t inst);
+        template <bool thumb>
+        void softwareInterrupt(uint32_t inst);
+
+        void handleInvalid(uint32_t);
 
         // THUMB instruction execution helpers
-        void handleThumbLongBranchWithLink(bool h, uint16_t offset);
-        void handleThumbUnconditionalBranch(int16_t offset);
-        void handleThumbConditionalBranch(uint8_t cond, int8_t offset);
-        void handleThumbAddOffsetToStackPtr(bool s, uint8_t offset);
-        void handleThumbRelAddr(bool sp, uint8_t offset, uint8_t rd);
+        template <bool link>
+        void handleThumbLongBranchWithLink(uint32_t inst);
+        void handleThumbUnconditionalBranch(uint32_t inst);
+        void handleThumbConditionalBranch(uint32_t inst);
+        template <bool s>
+        void handleThumbAddOffsetToStackPtr(uint32_t inst);
+        template <bool sp>
+        void handleThumbRelAddr(uint32_t inst);
 
         template <InstructionID id>
-        void handleThumbMoveShiftedReg(uint8_t rs, uint8_t rd, uint8_t offset);
+        void handleThumbMoveShiftedReg(uint32_t inst);
         template <InstructionID id>
-        void handleThumbBranchXCHG(uint8_t rd, uint8_t rs);
-        template <InstructionID id, InstructionID origID>
-        void handleThumbALUops(uint8_t rs, uint8_t rd);
+        void handleThumbBranchXCHG(uint32_t inst);
+
+        template <uint16_t hash>
+        static constexpr InstExecutor resolveThumbHashHandler();
+
+        template <uint16_t hash>
+        static constexpr InstExecutor resolveArmHashHandler();
     };
 
 } // namespace gbaemu
+
+// #include "cpu_arm.tpp"
+// #include "cpu_thumb.tpp"
 
 #endif /* CPU_HPP */

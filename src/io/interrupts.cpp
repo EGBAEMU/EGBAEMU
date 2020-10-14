@@ -30,6 +30,7 @@ namespace gbaemu
     {
         if (offset == offsetof(InterruptControlRegs, irqRequest) || offset == offsetof(InterruptControlRegs, irqRequest) + 1) {
             *(offset + reinterpret_cast<uint8_t *>(&regs)) &= ~value;
+            checkIRQStateCondition();
         } else if (offset == offsetof(InterruptControlRegs, waitStateCnt) || offset == offsetof(InterruptControlRegs, waitStateCnt) + 1) {
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
             cpu->state.memory.updateWaitCycles(le(regs.waitStateCnt));
@@ -40,6 +41,7 @@ namespace gbaemu
             }
 
             *(offset + reinterpret_cast<uint8_t *>(&regs)) = value;
+            checkIRQStateCondition();
         }
     }
 
@@ -58,60 +60,63 @@ namespace gbaemu
     void InterruptHandler::setInterrupt()
     {
         regs.irqRequest |= le(static_cast<uint16_t>(static_cast<uint16_t>(1) << type));
+        checkIRQStateCondition();
     }
 
-    void InterruptHandler::checkForInterrupt()
+    void InterruptHandler::checkIRQStateCondition() const
     {
-        bool triggerIRQ = regs.irqRequest & regs.irqEnable & le<uint16_t>(0x3FFF);
-
-        // We can only execute the interrupt if all conditions are met
-        if (masterIRQEn && !cpu->state.getFlag<cpsr_flags::IRQ_DISABLE>() && triggerIRQ) {
-            /*
-            BIOS Interrupt handling
-            Upon interrupt execution, the CPU is switched into IRQ mode, and the physical interrupt vector is called - as this address
-             is located in BIOS ROM, the BIOS will always execute the following code before it forwards control to the user handler:
-            1. switch to arm mode
-            2. save CPSR into SPSR_irq
-            3. save PC (or next PC) into LR_irq
-            4. switch to IRQ mode (also set CPSR accordingly)
-            5. jump to ROM appended bios irq handler
-            (other orders might be better)
-            00000124  b pc -8                    ; infinite loop as protection barrior between ROM code & bios code
-            00000128  stmfd  r13!,r0-r3,r12,r14  ;save registers to SP_irq
-            0000012C  mov    r0,4000000h         ;ptr+4 to 03FFFFFC (mirror of 03007FFC)
-            00000130  add    r14,r15,0h          ;retadr for USER handler $+8=138h
-            00000134  ldr    r15,[r0,-4h]        ;jump to [03FFFFFC] USER handler
-            00000138  ldmfd  r13!,r0-r3,r12,r14  ;restore registers from SP_irq
-            0000013C  subs   r15,r14,4h          ;return from IRQ (PC=LR-4, CPSR=SPSR)
-            As shown above, a pointer to the 32bit/ARM-code user handler must be setup in [03007FFCh]. By default, 160 bytes of memory 
-            are reserved for interrupt stack at 03007F00h-03007F9Fh.
-            */
-
-            // Save the current CPSR register value into SPSR_irq
-            *(cpu->state.getModeRegs(CPUState::IRQ)[regs::SPSR_OFFSET]) = cpu->state.accessReg(regs::CPSR_OFFSET);
-            // Save PC to LR_irq
-            *(cpu->state.getModeRegs(CPUState::IRQ)[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + 4;
-
-            // Change instruction mode to arm
-            cpu->decodeAndExecute = cpu->armDecodeAndExecutor;
-            cpu->state.thumbMode = false;
-
-            // Change the register mode to irq
-            // Ensure that the CPSR represents that we are in ARM mode again
-            // Clear all flags & enforce irq mode
-            // Also disable interrupts
-            cpu->state.accessReg(regs::CPSR_OFFSET) = 0b010010 | (1 << 7);
-            cpu->state.accessReg(regs::PC_OFFSET) = Memory::BIOS_IRQ_HANDLER_OFFSET;
-
-            cpu->state.updateCPUMode();
-
-            // Flush the pipeline
-            cpu->state.normalizePC();
-            cpu->initPipeline();
+        if (masterIRQEn && (regs.irqRequest & regs.irqEnable & le<uint16_t>(0x3FFF))) {
+            cpu->state.execState |= CPUState::EXEC_IRQ;
+        } else {
+            cpu->state.execState &= ~CPUState::EXEC_IRQ;
         }
     }
 
-    bool InterruptHandler::checkForHaltCondition(uint32_t mask)
+    void InterruptHandler::callIRQHandler() const
+    {
+        /*
+        BIOS Interrupt handling
+        Upon interrupt execution, the CPU is switched into IRQ mode, and the physical interrupt vector is called - as this address
+         is located in BIOS ROM, the BIOS will always execute the following code before it forwards control to the user handler:
+        1. switch to arm mode
+        2. save CPSR into SPSR_irq
+        3. save PC (or next PC) into LR_irq
+        4. switch to IRQ mode (also set CPSR accordingly)
+        5. jump to ROM appended bios irq handler
+        (other orders might be better)
+        00000124  b pc -8                    ; infinite loop as protection barrior between ROM code & bios code
+        00000128  stmfd  r13!,r0-r3,r12,r14  ;save registers to SP_irq
+        0000012C  mov    r0,4000000h         ;ptr+4 to 03FFFFFC (mirror of 03007FFC)
+        00000130  add    r14,r15,0h          ;retadr for USER handler $+8=138h
+        00000134  ldr    r15,[r0,-4h]        ;jump to [03FFFFFC] USER handler
+        00000138  ldmfd  r13!,r0-r3,r12,r14  ;restore registers from SP_irq
+        0000013C  subs   r15,r14,4h          ;return from IRQ (PC=LR-4, CPSR=SPSR)
+        As shown above, a pointer to the 32bit/ARM-code user handler must be setup in [03007FFCh]. By default, 160 bytes of memory 
+        are reserved for interrupt stack at 03007F00h-03007F9Fh.
+        */
+
+        // Save the current CPSR register value into SPSR_irq
+        auto irqRegs = cpu->state.getModeRegs(CPUState::IRQ);
+        *(irqRegs[regs::SPSR_OFFSET]) = cpu->state.getCurrentCPSR();
+        // Save PC to LR_irq
+        *(irqRegs[regs::LR_OFFSET]) = cpu->state.getCurrentPC() + 4;
+
+        // Change instruction mode to arm
+        // Change the register mode to irq
+        // Ensure that the CPSR represents that we are in ARM mode again
+        // Clear all flags & enforce irq mode
+        // Also disable interrupts
+        cpu->state.clearFlags();
+        cpu->state.setFlag<cpsr_flags::IRQ_DISABLE>(true);
+        cpu->state.setCPUMode(0b010010);
+
+        *irqRegs[regs::PC_OFFSET] = Memory::BIOS_IRQ_HANDLER_OFFSET;
+
+        // Flush the pipeline
+        cpu->refillPipelineAfterBranch<false>();
+    }
+
+    void InterruptHandler::checkForHaltCondition(uint32_t mask) const
     {
         /*
             Halt mode is terminated when any enabled interrupts are requested, 
@@ -119,7 +124,10 @@ namespace gbaemu
         */
         mask &= 0x3FFF;
         uint16_t irqRequestReg = le(regs.irqRequest) & 0x3FFF;
-        return irqRequestReg & mask;
+        bool conditionSatisfied = irqRequestReg & mask;
+        if (conditionSatisfied) {
+            cpu->state.execState &= ~CPUState::EXEC_HALT;
+        }
     }
 
     template void InterruptHandler::setInterrupt<InterruptHandler::LCD_V_BLANK>();

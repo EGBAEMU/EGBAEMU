@@ -55,7 +55,7 @@ namespace gbaemu
             this->ext_sram = nullptr;
         }
         this->romSize = romSize;
-        uint8_t* newRom = new uint8_t[this->romSize];
+        uint8_t *newRom = new uint8_t[this->romSize];
         std::copy_n(rom, romSize, newRom);
         this->rom = newRom;
 
@@ -204,26 +204,34 @@ namespace gbaemu
             return read8(addr);
         }
     }
-    uint16_t ROM::read16ROM3_(uint32_t addr, bool dma) const
+    uint16_t ROM::read16ROM3_(uint32_t addr) const
     {
         if (eeprom && isAddrEEPROM(addr)) {
-            if (dma) {
-                return eeprom->read();
-            } else {
-                return 0x01;
-            }
+            return 0x01;
         } else {
             return read16(addr);
         }
     }
-    uint32_t ROM::read32ROM3_(uint32_t addr, bool dma) const
+    uint16_t ROM::read16ROM3_DMA(uint32_t addr) const
     {
         if (eeprom && isAddrEEPROM(addr)) {
-            if (dma) {
-                return eeprom->read();
-            } else {
-                return 0x01;
-            }
+            return eeprom->read();
+        } else {
+            return read16(addr);
+        }
+    }
+    uint32_t ROM::read32ROM3_(uint32_t addr) const
+    {
+        if (eeprom && isAddrEEPROM(addr)) {
+            return 0x01;
+        } else {
+            return read32(addr);
+        }
+    }
+    uint32_t ROM::read32ROM3_DMA(uint32_t addr) const
+    {
+        if (eeprom && isAddrEEPROM(addr)) {
+            return eeprom->read();
         } else {
             return read32(addr);
         }

@@ -116,53 +116,53 @@ namespace gbaemu
     value 0b 0000 1111 0000 0000 0000 0000 0000 0000
  */
         // Multiply (accumulate) cond 000000 A S Rd Rn Rs 1 0 0 1 Rm
-        static const uint32_t MASK_MUL_ACC = 0b00001111110000000000000011110000;
-        static const uint32_t VAL_MUL_ACC = 0b00000000000000000000000010010000;
+        static const constexpr uint32_t MASK_MUL_ACC = 0b00001111110000000000000011110000;
+        static const constexpr uint32_t VAL_MUL_ACC = 0b00000000000000000000000010010000;
         // Multiply (accumulate) long   cond 00001UAS Rd_MSW Rd_LSW Rn 1001Rm
-        static const uint32_t MASK_MUL_ACC_LONG = 0b00001111100000000000000011110000;
-        static const uint32_t VAL_MUL_ACC_LONG = 0b00000000100000000000000010010000;
+        static const constexpr uint32_t MASK_MUL_ACC_LONG = 0b00001111100000000000000011110000;
+        static const constexpr uint32_t VAL_MUL_ACC_LONG = 0b00000000100000000000000010010000;
         // Branch and exchangecond0001001011 1 1 111111110001Rn
-        static const uint32_t MASK_BRANCH_XCHG = 0b00001111111111111111111111110000;
-        static const uint32_t VAL_BRANCH_XCHG = 0b00000001001011111111111100010000;
+        static const constexpr uint32_t MASK_BRANCH_XCHG = 0b00001111111111111111111111110000;
+        static const constexpr uint32_t VAL_BRANCH_XCHG = 0b00000001001011111111111100010000;
         // Single data swap   cond 00010B00Rn Rd 00001001Rm
-        static const uint32_t MASK_DATA_SWP = 0b00001111101100000000111111110000;
-        static const uint32_t VAL_DATA_SWP = 0b00000001000000000000000010010000;
+        static const constexpr uint32_t MASK_DATA_SWP = 0b00001111101100000000111111110000;
+        static const constexpr uint32_t VAL_DATA_SWP = 0b00000001000000000000000010010000;
         // Halfword data transfer, register offset   cond 000PU0WLRn Rd 00001011Rm
-        static const uint32_t MASK_HW_TRANSF_REG_OFF = 0b00001110010000000000111111110000;
-        static const uint32_t VAL_HW_TRANSF_REG_OFF = 0b00000000000000000000000010110000;
+        static const constexpr uint32_t MASK_HW_TRANSF_REG_OFF = 0b00001110010000000000111111110000;
+        static const constexpr uint32_t VAL_HW_TRANSF_REG_OFF = 0b00000000000000000000000010110000;
         // Halfword data transfer, immediate offset   cond 000PU1WLRn Rd offset 1011    offset
-        static const uint32_t MASK_HW_TRANSF_IMM_OFF = 0b00001110010000000000000011110000;
-        static const uint32_t VAL_HW_TRANSF_IMM_OFF = 0b00000000010000000000000010110000;
+        static const constexpr uint32_t MASK_HW_TRANSF_IMM_OFF = 0b00001110010000000000000011110000;
+        static const constexpr uint32_t VAL_HW_TRANSF_IMM_OFF = 0b00000000010000000000000010110000;
         // Signed data transfer (byte/halfword)   cond 000PUBWLRn Rd addr_mode11H1addr_mod
-        static const uint32_t MASK_SIGN_TRANSF = 0b00001110000000000000000011010000;
-        static const uint32_t VAL_SIGN_TRANSF = 0b00000000000000000000000011010000;
+        static const constexpr uint32_t MASK_SIGN_TRANSF = 0b00001110000000000000000011010000;
+        static const constexpr uint32_t VAL_SIGN_TRANSF = 0b00000000000000000000000011010000;
         // Data processing and PSR transfercond   0  Iopcode SRn Rd operand2
-        static const uint32_t MASK_DATA_PROC_PSR_TRANSF = 0b00001100000000000000000000000000;
-        static const uint32_t VAL_DATA_PROC_PSR_TRANSF = 0b00000000000000000000000000000000;
+        static const constexpr uint32_t MASK_DATA_PROC_PSR_TRANSF = 0b00001100000000000000000000000000;
+        static const constexpr uint32_t VAL_DATA_PROC_PSR_TRANSF = 0b00000000000000000000000000000000;
         //  Load/store register/unsigned bytecond
-        static const uint32_t MASK_LS_REG_UBYTE = 0b00001100000000000000000000000000;
-        static const uint32_t VAL_LS_REG_UBYTE = 0b00000100000000000000000000000000;
+        static const constexpr uint32_t MASK_LS_REG_UBYTE = 0b00001100000000000000000000000000;
+        static const constexpr uint32_t VAL_LS_REG_UBYTE = 0b00000100000000000000000000000000;
         // Undefined cond 01 1 1
-        static const uint32_t MASK_UNDEFINED = 0b00001110000000000000000000010000;
-        static const uint32_t VAL_UNDEFINED = 0b00000110000000000000000000010000;
+        static const constexpr uint32_t MASK_UNDEFINED = 0b00001110000000000000000000010000;
+        static const constexpr uint32_t VAL_UNDEFINED = 0b00000110000000000000000000010000;
         // Block data transfercond100PU0WLRnregisterli
-        static const uint32_t MASK_BLOCK_DATA_TRANSF = 0b00001110000000000000000000000000;
-        static const uint32_t VAL_BLOCK_DATA_TRANSF = 0b00001000000000000000000000000000;
+        static const constexpr uint32_t MASK_BLOCK_DATA_TRANSF = 0b00001110000000000000000000000000;
+        static const constexpr uint32_t VAL_BLOCK_DATA_TRANSF = 0b00001000000000000000000000000000;
         //Branch cond 1 01 L offset
-        static const uint32_t MASK_BRANCH = 0b00001110000000000000000000000000;
-        static const uint32_t VAL_BRANCH = 0b00001010000000000000000000000000;
+        static const constexpr uint32_t MASK_BRANCH = 0b00001110000000000000000000000000;
+        static const constexpr uint32_t VAL_BRANCH = 0b00001010000000000000000000000000;
         // Coprocessor data transfer cond 1 1 0 P U N W L Rn CRd CP# offset
-        static const uint32_t MASK_COPROC_DATA_TRANSF = 0b00001110000000000000000000000000;
-        static const uint32_t VAL_COPROC_DATA_TRANSF = 0b00001100000000000000000000000000;
+        static const constexpr uint32_t MASK_COPROC_DATA_TRANSF = 0b00001110000000000000000000000000;
+        static const constexpr uint32_t VAL_COPROC_DATA_TRANSF = 0b00001100000000000000000000000000;
         // Coprocessor data operationcond1110CP opcodeCRn CRd CP# CP 0CRm
-        static const uint32_t MASK_COPROC_OP = 0b00001111000000000000000000010000;
-        static const uint32_t VAL_COPROC_OP = 0b00001110000000000000000000000000;
+        static const constexpr uint32_t MASK_COPROC_OP = 0b00001111000000000000000000010000;
+        static const constexpr uint32_t VAL_COPROC_OP = 0b00001110000000000000000000000000;
         // Coprocessor register transfercond1110 CP opc   LCRn Rd CP# CP 1CRm
-        static const uint32_t MASK_COPROC_REG_TRANSF = 0b00001111000000000000000000010000;
-        static const uint32_t VAL_COPROC_REG_TRANSF = 0b00001110000000000000000000010000;
+        static const constexpr uint32_t MASK_COPROC_REG_TRANSF = 0b00001111000000000000000000010000;
+        static const constexpr uint32_t VAL_COPROC_REG_TRANSF = 0b00001110000000000000000000010000;
         // Software interrupt cond 1 1 1 1 ignored by processor
-        static const uint32_t MASK_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
-        static const uint32_t VAL_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
+        static const constexpr uint32_t MASK_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
+        static const constexpr uint32_t VAL_SOFTWARE_INTERRUPT = 0b00001111000000000000000000000000;
 
         template <class Executor>
         class ARMInstructionDecoder

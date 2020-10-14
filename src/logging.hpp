@@ -1,7 +1,10 @@
 #ifndef LOGGING_HPP
 #define LOGGING_HPP
 
-// #define DEBUG_CLI
+//#define DEBUG_CLI
+#ifdef DEBUG_CLI
+//#define DUMP_CPU_STATE
+#endif
 // #define DEBUG_ALL
 
 // #define LEGACY_RENDERING
