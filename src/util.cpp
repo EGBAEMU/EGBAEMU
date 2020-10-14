@@ -101,6 +101,7 @@ namespace gbaemu
 
 template uint16_t gbaemu::bitGet<uint16_t>(uint16_t, uint16_t, uint16_t);
 
+template uint64_t gbaemu::bmap<uint64_t>(bool);
 template uint32_t gbaemu::bmap<uint32_t>(bool);
 template uint16_t gbaemu::bmap<uint16_t>(bool);
 template uint8_t gbaemu::bmap<uint8_t>(bool);

@@ -81,13 +81,13 @@ namespace gbaemu
 
                 switch (opCode) {
                     case 0b00:
-                        return &CPU::execDataProc<ADD, false, true, true, thumb::ADD_SUB>;
+                        return &CPU::execDataProc<ADD, false, true, false, true, thumb::ADD_SUB>;
                     case 0b01:
-                        return &CPU::execDataProc<SUB, false, true, true, thumb::ADD_SUB>;
+                        return &CPU::execDataProc<SUB, false, true, false, true, thumb::ADD_SUB>;
                     case 0b10:
-                        return &CPU::execDataProc<ADD_SHORT_IMM, true, true, true, thumb::ADD_SUB>;
+                        return &CPU::execDataProc<ADD_SHORT_IMM, true, true, false, true, thumb::ADD_SUB>;
                     case 0b11:
-                        return &CPU::execDataProc<SUB_SHORT_IMM, true, true, true, thumb::ADD_SUB>;
+                        return &CPU::execDataProc<SUB_SHORT_IMM, true, true, false, true, thumb::ADD_SUB>;
                 }
                 break;
             }
@@ -113,13 +113,13 @@ namespace gbaemu
 
                 switch (opCode) {
                     case 0b00:
-                        return &CPU::execDataProc<MOV, true, true, true, thumb::MOV_CMP_ADD_SUB_IMM>;
+                        return &CPU::execDataProc<MOV, true, true, false, true, thumb::MOV_CMP_ADD_SUB_IMM>;
                     case 0b01:
-                        return &CPU::execDataProc<CMP, true, true, true, thumb::MOV_CMP_ADD_SUB_IMM>;
+                        return &CPU::execDataProc<CMP, true, true, false, true, thumb::MOV_CMP_ADD_SUB_IMM>;
                     case 0b10:
-                        return &CPU::execDataProc<ADD, true, true, true, thumb::MOV_CMP_ADD_SUB_IMM>;
+                        return &CPU::execDataProc<ADD, true, true, false, true, thumb::MOV_CMP_ADD_SUB_IMM>;
                     case 0b11:
-                        return &CPU::execDataProc<SUB, true, true, true, thumb::MOV_CMP_ADD_SUB_IMM>;
+                        return &CPU::execDataProc<SUB, true, true, false, true, thumb::MOV_CMP_ADD_SUB_IMM>;
                 }
 
                 break;
@@ -129,37 +129,37 @@ namespace gbaemu
 
                 switch (opCode) {
                     case 0b0000:
-                        return &CPU::execDataProc<AND, false, true, true, thumb::ALU_OP, AND>;
+                        return &CPU::execDataProc<AND, false, true, false, true, thumb::ALU_OP, AND>;
                     case 0b0001:
-                        return &CPU::execDataProc<EOR, false, true, true, thumb::ALU_OP, EOR>;
+                        return &CPU::execDataProc<EOR, false, true, false, true, thumb::ALU_OP, EOR>;
                     case 0b0010:;
-                        return &CPU::execDataProc<MOV, false, true, true, thumb::ALU_OP, LSL>;
+                        return &CPU::execDataProc<MOV, false, true, true, true, thumb::ALU_OP, LSL>;
                     case 0b0011:
-                        return &CPU::execDataProc<MOV, false, true, true, thumb::ALU_OP, LSR>;
+                        return &CPU::execDataProc<MOV, false, true, true, true, thumb::ALU_OP, LSR>;
                     case 0b0100:
-                        return &CPU::execDataProc<MOV, false, true, true, thumb::ALU_OP, ASR>;
+                        return &CPU::execDataProc<MOV, false, true, true, true, thumb::ALU_OP, ASR>;
                     case 0b0101:
-                        return &CPU::execDataProc<ADC, false, true, true, thumb::ALU_OP, ADC>;
+                        return &CPU::execDataProc<ADC, false, true, false, true, thumb::ALU_OP, ADC>;
                     case 0b0110:
-                        return &CPU::execDataProc<SBC, false, true, true, thumb::ALU_OP, SBC>;
+                        return &CPU::execDataProc<SBC, false, true, false, true, thumb::ALU_OP, SBC>;
                     case 0b0111:
-                        return &CPU::execDataProc<MOV, false, true, true, thumb::ALU_OP, ROR>;
+                        return &CPU::execDataProc<MOV, false, true, true, true, thumb::ALU_OP, ROR>;
                     case 0b1000:
-                        return &CPU::execDataProc<TST, false, true, true, thumb::ALU_OP, TST>;
+                        return &CPU::execDataProc<TST, false, true, false, true, thumb::ALU_OP, TST>;
                     case 0b1001:
-                        return &CPU::execDataProc<NEG, false, true, true, thumb::ALU_OP, NEG>;
+                        return &CPU::execDataProc<NEG, false, true, false, true, thumb::ALU_OP, NEG>;
                     case 0b1010:
-                        return &CPU::execDataProc<CMP, false, true, true, thumb::ALU_OP, CMP>;
+                        return &CPU::execDataProc<CMP, false, true, false, true, thumb::ALU_OP, CMP>;
                     case 0b1011:
-                        return &CPU::execDataProc<CMN, false, true, true, thumb::ALU_OP, CMN>;
+                        return &CPU::execDataProc<CMN, false, true, false, true, thumb::ALU_OP, CMN>;
                     case 0b1100:
-                        return &CPU::execDataProc<ORR, false, true, true, thumb::ALU_OP, ORR>;
+                        return &CPU::execDataProc<ORR, false, true, false, true, thumb::ALU_OP, ORR>;
                     case 0b1101:
                         return &CPU::handleMultAcc<false, true, true>;
                     case 0b1110:
-                        return &CPU::execDataProc<BIC, false, true, true, thumb::ALU_OP, BIC>;
+                        return &CPU::execDataProc<BIC, false, true, false, true, thumb::ALU_OP, BIC>;
                     case 0b1111:
-                        return &CPU::execDataProc<MVN, false, true, true, thumb::ALU_OP, MVN>;
+                        return &CPU::execDataProc<MVN, false, true, false, true, thumb::ALU_OP, MVN>;
                 }
                 break;
             }

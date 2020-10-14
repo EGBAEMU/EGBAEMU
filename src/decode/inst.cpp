@@ -131,7 +131,15 @@ namespace gbaemu
 
     namespace shifts
     {
-        uint64_t shift(uint32_t value, ShiftType type, uint8_t amount, bool oldCarry, bool shiftByImm)
+        uint32_t rorShiftValueUnalignedAddr(uint32_t value, uint8_t amount) {
+            if (amount == 0)
+                return value;
+
+            return (value >> amount) | (value << (32 - amount));
+        }
+
+        template <bool shiftByImm>
+        uint64_t shift(uint32_t value, ShiftType type, uint8_t amount, bool oldCarry)
         {
             // Only the least significant byte of the contents of Rs is used to determine the shift amount. -> uint8_t rules!
 
@@ -151,7 +159,7 @@ namespace gbaemu
 
             // Edge cases for shifts by register value: Value of 0 does nothing & keeps old carry!
             if (!shiftByImm && amount == 0) {
-                return extendedVal | (oldCarry ? (static_cast<uint64_t>(1) << 32) : 0x0);
+                return extendedVal | (bmap<uint64_t>(oldCarry) << 32);
             }
 
             switch (type) {
@@ -189,7 +197,7 @@ namespace gbaemu
 
                     // ROR#0: Interpreted as RRX#1 (RCR), like ROR#1, but Op2 Bit 31 set to old C.
                     if (initialZeroAmount) {
-                        res = (res & ~(static_cast<uint32_t>(1) << 31)) | (oldCarry ? (static_cast<uint32_t>(1) << 31) : 0);
+                        res = (res & ~(static_cast<uint32_t>(1) << 31)) | (bmap<uint64_t>(oldCarry) << 31);
                     }
 
                     /*
@@ -204,6 +212,9 @@ namespace gbaemu
                     return value;
             }
         }
+
+        template uint64_t shift<true>(uint32_t value, ShiftType type, uint8_t amount, bool oldCarry);
+        template uint64_t shift<false>(uint32_t value, ShiftType type, uint8_t amount, bool oldCarry);
     } // namespace shifts
 
     static thumb::ThumbDisas thumbDisas;

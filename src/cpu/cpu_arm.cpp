@@ -225,7 +225,7 @@ namespace gbaemu
         } else {
             // LDR part
             uint32_t alignedWord = state.memory.read32(memAddr, state.cpuInfo, false);
-            alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memAddr & 0x03) * 8, false, false) & 0xFFFFFFFF;
+            alignedWord = shifts::rorShiftValueUnalignedAddr(alignedWord, (memAddr & 0x03) * 8);
             *currentRegs[rd] = alignedWord;
 
             // STR part
@@ -322,9 +322,11 @@ namespace gbaemu
                             RSC, SBC, ADD_SHORT_IMM, SUB_SHORT_IMM)
 
     /* ALU functions */
-    template <InstructionID id, bool i, bool s, bool thumb, thumb::ThumbInstructionCategory cat, InstructionID origID>
+    template <InstructionID id, bool i, bool s, bool shiftAmountFromReg, bool thumb, thumb::ThumbInstructionCategory cat, InstructionID origID>
     void CPU::execDataProc(uint32_t inst)
     {
+
+        static_assert(!i || !shiftAmountFromReg);
         static_assert(id != INVALID);
         static_assert(!thumb || (cat == thumb::ADD_SUB || cat == thumb::MOV_CMP_ADD_SUB_IMM || cat == thumb::ALU_OP));
 
@@ -358,22 +360,24 @@ namespace gbaemu
 
         bool carry = state.getFlag<cpsr_flags::C_FLAG>();
 
-        /* calculate shifter operand */
-        shifts::ShiftType shiftType;
-        uint8_t shiftAmount;
-        uint8_t rm;
-        uint8_t rs;
-        uint8_t imm;
-        uint64_t shifterOperand;
-        bool shiftByReg = extractOperand2(shiftType, shiftAmount, rm, rs, imm, operand2, i);
-
         const auto currentRegs = state.getCurrentRegs();
 
+        uint64_t shifterOperand;
+        shifts::ShiftType shiftType = shifts::ShiftType::ROR;
+        uint8_t shiftAmount = 0;
         if (i) {
-            shifterOperand = shifts::shift(imm, shifts::ShiftType::ROR, shiftAmount, carry, false);
+            shifterOperand = shifts::shift<false>(operand2 & 0x0FF, shifts::ShiftType::ROR, ((operand2 >> 8) & 0x0F) * 2, carry);
         } else {
-            if (shiftByReg)
+            /* calculate shifter operand */
+            shiftType = static_cast<shifts::ShiftType>((operand2 >> 5) & 0b11);
+            uint8_t rm = operand2 & 0xF;
+
+            if (shiftAmountFromReg) {
+                uint8_t rs = (operand2 >> 8) & 0x0F;
                 shiftAmount = *currentRegs[rs];
+            } else {
+                shiftAmount = (operand2 >> 7) & 0b11111;
+            }
 
             uint32_t rmValue = *currentRegs[rm];
 
@@ -382,14 +386,14 @@ namespace gbaemu
                 // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
                 // PC+12 if I=0,R=1 (shift by register),
                 // otherwise PC+8 (shift by immediate).
-                if (!i && shiftByReg) {
+                if (!i && shiftAmountFromReg) {
                     rmValue += thumb ? 4 : 8;
                 } else {
                     rmValue += thumb ? 2 : 4;
                 }
             }
 
-            shifterOperand = shifts::shift(rmValue, shiftType, shiftAmount, carry, !shiftByReg);
+            shifterOperand = shifts::shift<!shiftAmountFromReg>(rmValue, shiftType, shiftAmount, carry);
         }
 
         bool shifterOperandCarry = shifterOperand & (static_cast<uint64_t>(1) << 32);
@@ -401,7 +405,7 @@ namespace gbaemu
             // When using R15 as operand (Rm or Rn), the returned value depends on the instruction:
             // PC+12 if I=0,R=1 (shift by register),
             // otherwise PC+8 (shift by immediate).
-            if (!i && shiftByReg) {
+            if (!i && shiftAmountFromReg) {
                 rnValue += thumb ? 4 : 8;
             } else {
                 rnValue += thumb ? 2 : 4;
@@ -543,7 +547,7 @@ namespace gbaemu
                 (shifterOperand >> 31) & 1);
 
             if (updateCarryFromShiftOp &&
-                (shiftType != shifts::ShiftType::LSL || shiftAmount != 0)) {
+                (i || shiftType != shifts::ShiftType::LSL || shiftAmount != 0)) {
                 state.setFlag<cpsr_flags::C_FLAG>(shifterOperandCarry);
             }
         }
@@ -554,7 +558,7 @@ namespace gbaemu
         if (destPC) {
             refillPipeline();
         }
-        if (shiftByReg) {
+        if (!i && shiftAmountFromReg) {
             state.cpuInfo.cycleCount += 1;
         }
     }
@@ -849,7 +853,7 @@ namespace gbaemu
             auto shiftType = static_cast<shifts::ShiftType>((addrMode >> 5) & 0b11);
             uint8_t rm = addrMode & 0xF;
 
-            offset = shifts::shift(*currentRegs[rm], shiftType, shiftAmount, state.getFlag<cpsr_flags::C_FLAG>(), true) & 0xFFFFFFFF;
+            offset = shifts::shift<true>(*currentRegs[rm], shiftType, shiftAmount, state.getFlag<cpsr_flags::C_FLAG>()) & 0xFFFFFFFF;
         }
 
         uint32_t rnValue = *currentRegs[rn];
@@ -896,7 +900,7 @@ namespace gbaemu
                 (Above applies to little endian mode, as used in GBA.)
                 */
                 uint32_t alignedWord = state.memory.read32(memoryAddress, state.cpuInfo, false);
-                alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
+                alignedWord = shifts::rorShiftValueUnalignedAddr(alignedWord, (memoryAddress & 0x03) * 8);
                 *currentRegs[rd] = alignedWord;
             }
         } else {
@@ -1079,7 +1083,7 @@ namespace gbaemu
                     // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
                     // LDRH with ROR (see LDR with non word aligned)
                     readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, state.cpuInfo, false));
-                    readData = shifts::shift(readData, shifts::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
+                    readData = shifts::rorShiftValueUnalignedAddr(readData, (memoryAddress & 0x01) * 8);
 
                     if (sign) {
                         readData = signExt<int32_t, uint32_t, transferSize>(readData);

@@ -98,7 +98,7 @@ namespace gbaemu::arm
             ss << (c ? "c" : "");
 
             if (i) {
-                uint32_t roredImm = static_cast<uint32_t>(shift(imm, shiftType, shiftAmount, false, false));
+                uint32_t roredImm = static_cast<uint32_t>(shifts::shift<false>(imm, shiftType, shiftAmount, false));
                 ss << ", #" << std::dec << roredImm;
             } else {
                 ss << ", r" << std::dec << std::dec << static_cast<uint32_t>(rm);
@@ -116,7 +116,7 @@ namespace gbaemu::arm
                 ss << " r" << std::dec << static_cast<uint32_t>(rn);
 
             if (i) {
-                uint32_t roredImm = static_cast<uint32_t>(shift(imm, shiftType, shiftAmount, false, false));
+                uint32_t roredImm = static_cast<uint32_t>(shifts::shift<false>(imm, shiftType, shiftAmount, false));
                 ss << ", #" << std::dec << roredImm;
             } else {
                 ss << " r" << std::dec << static_cast<uint32_t>(rm);

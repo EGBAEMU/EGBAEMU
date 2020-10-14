@@ -119,7 +119,7 @@ namespace gbaemu
         // Executes instructions belonging to the branch and execute subsection
         void handleBranchAndExchange(uint32_t inst);
         /* ALU functions */
-        template <InstructionID id, bool i, bool s, bool thumb, thumb::ThumbInstructionCategory cat = thumb::INVALID_CAT, InstructionID origID = INVALID>
+        template <InstructionID id, bool i, bool s, bool shiftAmountFromReg, bool thumb, thumb::ThumbInstructionCategory cat = thumb::INVALID_CAT, InstructionID origID = INVALID>
         void execDataProc(uint32_t inst);
         template <bool thumb, bool pre, bool up, bool writeback, bool forceUserRegisters, bool load, bool patchRlist = false, bool useSP = false>
         void execDataBlockTransfer(uint32_t inst);
