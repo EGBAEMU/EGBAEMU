@@ -80,20 +80,9 @@ namespace gbaemu::lcd
         bool intersectsWithScanline(real_t fy) const;
     };
 
-    /* Loads objects once. Every layer then can take the objects it needs. */
-    class OBJManager
-    {
-    public:
-        std::array<OBJ, 128> objects;
-        OBJManager();
-        void load(const uint8_t *attributes, BGMode bgMode);  
-    };
-
     class OBJLayer : public Layer
     {
       public:
-        std::shared_ptr<OBJManager> objManager;
-
         BGMode mode;
         /* depends on bg mode */
         const uint8_t *objTiles;
@@ -117,9 +106,10 @@ namespace gbaemu::lcd
         std::vector<OBJ>::const_iterator getLastRenderedOBJ(int32_t cycleBudget) const;
 
       public:
-        OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio, const std::shared_ptr<OBJManager>& manager);
+        OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio);
         void setMode(BGMode bgMode, bool mapping2d);
-        void loadOBJs(int32_t y, const std::function<bool(const OBJ&, real_t, uint16_t)>& filter);
+        // void loadOBJs(int32_t y, const std::function<bool(const OBJ&, real_t, uint16_t)>& filter);
+        void prepareLoadOBJs();
         void drawScanline(int32_t y) override;
         std::string toString() const;
     };

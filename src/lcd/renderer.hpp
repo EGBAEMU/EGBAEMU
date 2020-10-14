@@ -33,7 +33,6 @@ namespace gbaemu::lcd
         LCDColorPalette palette;
         WindowFeature windowFeature;
         ColorEffects colorEffects;
-        std::shared_ptr<OBJManager> objManager;
 
         /* backdrop layer, BG0-BG4, OBJ0-OBJ4 */
         std::array<std::shared_ptr<BGLayer>, 4> backgroundLayers;

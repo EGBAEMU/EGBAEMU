@@ -237,18 +237,6 @@ namespace gbaemu::lcd
         return negDot && posDot;
     }
 
-    OBJManager::OBJManager()
-    {
-        for (auto& obj : objects)
-            obj.enabled = false;
-    }
-
-    void OBJManager::load(const uint8_t *attributes, BGMode bgMode)
-    {
-        for (int32_t i = 0; i < 128; ++i)
-            objects[i] = OBJ(attributes, i, bgMode);
-    }
-
     std::vector<OBJ>::const_iterator OBJLayer::getLastRenderedOBJ(int32_t cycleBudget) const
     {
         auto it = objects.cbegin();
@@ -264,9 +252,8 @@ namespace gbaemu::lcd
         return it;
     }
 
-    OBJLayer::OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio, const std::shared_ptr<OBJManager>& manager) :
-        Layer(static_cast<LayerID>(prio + 4), false),
-        memory(mem), palette(plt), regs(ioRegs), objects(128), objManager(manager)
+    OBJLayer::OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio) : Layer(static_cast<LayerID>(prio + 4), false),
+                                                                                                                                                memory(mem), palette(plt), regs(ioRegs), objects(128)
     {
         /* OBJ layers are always enabled */
         enabled = true;
@@ -300,19 +287,9 @@ namespace gbaemu::lcd
         mosaicHeight = bitGet(le(regs.MOSAIC), MOSAIC::OBJ_MOSAIC_VSIZE_MASK, MOSAIC::OBJ_MOSAIC_VSIZE_OFFSET) + 1;
     }
 
-    void OBJLayer::loadOBJs(int32_t y, const std::function<bool(const OBJ&, real_t, uint16_t)>& filter)
+    void OBJLayer::prepareLoadOBJs()
     {
-        real_t fy = static_cast<real_t>(y);
         objects.resize(0);
-
-        for (const auto& obj : objManager->objects) {
-            if (!filter(obj, fy, priority))
-                continue;
-
-            if (obj.visible)
-                objects.push_back(obj);
-        }
-
         asFirstTarget = isBitSet<uint16_t, BLDCNT::OBJ_FIRST_TARGET_OFFSET>(le(regs.BLDCNT));
         asSecondTarget = isBitSet<uint16_t, BLDCNT::OBJ_SECOND_TARGET_OFFSET>(le(regs.BLDCNT));
     }

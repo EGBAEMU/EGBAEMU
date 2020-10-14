@@ -11,10 +11,10 @@ namespace gbaemu::lcd
         backgroundLayers[2] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG2);
         backgroundLayers[3] = std::make_shared<BGLayer>(palette, memory, BGIndex::BG3);
 
-        objLayers[0] = std::make_shared<OBJLayer>(memory, palette, regs, 0, objManager);
-        objLayers[1] = std::make_shared<OBJLayer>(memory, palette, regs, 1, objManager);
-        objLayers[2] = std::make_shared<OBJLayer>(memory, palette, regs, 2, objManager);
-        objLayers[3] = std::make_shared<OBJLayer>(memory, palette, regs, 3, objManager);
+        objLayers[0] = std::make_shared<OBJLayer>(memory, palette, regs, 0);
+        objLayers[1] = std::make_shared<OBJLayer>(memory, palette, regs, 1);
+        objLayers[2] = std::make_shared<OBJLayer>(memory, palette, regs, 2);
+        objLayers[3] = std::make_shared<OBJLayer>(memory, palette, regs, 3);
 
         for (uint32_t i = 0; i < 8; ++i) {
             if (i <= 3)
@@ -23,7 +23,7 @@ namespace gbaemu::lcd
                 layers[i] = backgroundLayers[i - 4];
         }
 
-        windowOBJLayer = std::make_shared<OBJLayer>(memory, palette, regs, 0, objManager);
+        windowOBJLayer = std::make_shared<OBJLayer>(memory, palette, regs, 0);
         windowFeature.objWindow.objLayer = windowOBJLayer;
     }
 
@@ -40,38 +40,57 @@ namespace gbaemu::lcd
         BGMode bgMode = static_cast<BGMode>(le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK);
         bool use2dMapping = !(le(regs.DISPCNT) & DISPCTL::OBJ_CHAR_VRAM_MAPPING_MASK);
 
-        /* load objects */
-        const uint8_t *oamBase = memory.oam;
-        objManager->load(oamBase, bgMode);
-
-        /* All background layers can be enabled/disabled with a single flag. */
-        bool masterEnObjLayer = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_OBJ_MASK;
-        objLayers[0]->enabled = objLayers[1]->enabled = objLayers[2]->enabled= objLayers[3]->enabled = masterEnObjLayer;
-        if (masterEnObjLayer) {
-            /* load objects for each layer */
-            for (auto &l : objLayers) {
-                l->setMode(bgMode, use2dMapping);
-                l->loadOBJs(y, [](const OBJ &obj, real_t fy, uint16_t priority) -> bool { return obj.priority == priority &&
-                                                                                                 obj.visible &&
-                                                                                                 obj.mode != OBJ_WINDOW &&
-                                                                                                 obj.intersectsWithScanline(fy); });
-            }
-        }
-
         /* Which background layers are enabled to begin with? */
-        for (uint32_t i = 0; i < 4; ++i) {
-            bool bgEnabled = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
-            backgroundLayers[i]->enabled = bgEnabled;
-            if (bgEnabled) {
-                backgroundLayers[i]->loadSettings(bgMode, regs);
-            }
+        backgroundLayers[0]->enabled = backgroundLayers[1]->enabled = backgroundLayers[2]->enabled = backgroundLayers[3]->enabled = false;
+        uint8_t enableBitset = (le(regs.DISPCNT) >> 8) & 0xF;
+        for (; enableBitset != 0; enableBitset &= enableBitset - 1) {
+            uint8_t i = ctz(enableBitset);
+            backgroundLayers[i]->enabled = true;
+            backgroundLayers[i]->loadSettings(bgMode, regs);
         }
 
         /* window objects */
         windowOBJLayer->setMode(bgMode, use2dMapping);
-        windowOBJLayer->loadOBJs(y, [](const OBJ &obj, real_t fy, uint16_t priority) -> bool { return obj.visible &&
-                                                                                                      obj.mode == OBJ_WINDOW &&
-                                                                                                      obj.intersectsWithScanline(fy); });
+        windowOBJLayer->prepareLoadOBJs();
+
+        /* load objects */
+        const uint8_t *oamBase = memory.oam;
+
+        /* All background layers can be enabled/disabled with a single flag. */
+        bool masterEnObjLayer = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_OBJ_MASK;
+        objLayers[0]->enabled = objLayers[1]->enabled = objLayers[2]->enabled = objLayers[3]->enabled = masterEnObjLayer;
+        if (masterEnObjLayer) {
+            objLayers[0]->setMode(bgMode, use2dMapping);
+            objLayers[0]->prepareLoadOBJs();
+            objLayers[1]->setMode(bgMode, use2dMapping);
+            objLayers[1]->prepareLoadOBJs();
+            objLayers[2]->setMode(bgMode, use2dMapping);
+            objLayers[2]->prepareLoadOBJs();
+            objLayers[3]->setMode(bgMode, use2dMapping);
+            objLayers[3]->prepareLoadOBJs();
+
+            /* load objects for each layer */
+            real_t fy = static_cast<real_t>(y);
+            for (int i = 0; i < 128; ++i) {
+                OBJ obj(oamBase, i, bgMode);
+                if (obj.visible && obj.intersectsWithScanline(fy)) {
+                    if (obj.mode == OBJ_WINDOW) {
+                        windowOBJLayer->objects.push_back(obj);
+                    } else {
+                        // We know that objLayers have a static priority and that objLayers is sorted accordingly
+                        objLayers[obj.priority]->objects.push_back(obj);
+                    }
+                }
+            }
+        } else {
+            real_t fy = static_cast<real_t>(y);
+            for (int i = 0; i < 128; ++i) {
+                OBJ obj(oamBase, i, bgMode);
+                if (obj.visible && obj.mode == OBJ_WINDOW && obj.intersectsWithScanline(fy)) {
+                    windowOBJLayer->objects.push_back(obj);
+                }
+            }
+        }
 
         palette.loadPalette(memory);
         windowFeature.load(regs, y, palette.getBackdropColor());
@@ -243,12 +262,12 @@ namespace gbaemu::lcd
 
     color_t Renderer::toBGR656(color_t color)
     {
-        return (((color >> 10) & 0x1F) << 11) |     /* blue */
-               (((color >> 5) & 0x1F) << 6)   |     /* green */
-               (color & 0x1F);                      /* red */
+        return (((color >> 10) & 0x1F) << 11) | /* blue */
+               (((color >> 5) & 0x1F) << 6) |   /* green */
+               (color & 0x1F);                  /* red */
     }
 
-    Renderer::Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers, Canvas<color_t> &targetCanvas) : memory(mem), irqHandler(irq), regs(registers), target(targetCanvas), objManager(std::make_shared<OBJManager>())
+    Renderer::Renderer(Memory &mem, InterruptHandler &irq, const LCDIORegs &registers, Canvas<color_t> &targetCanvas) : memory(mem), irqHandler(irq), regs(registers), target(targetCanvas)
     {
         setupLayers();
     }
