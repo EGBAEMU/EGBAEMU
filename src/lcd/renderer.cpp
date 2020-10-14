@@ -38,32 +38,33 @@ namespace gbaemu::lcd
     {
         /* copy registers, they cannot be modified when rendering */
         BGMode bgMode = static_cast<BGMode>(le(regs.DISPCNT) & DISPCTL::BG_MODE_MASK);
-
-        /* Which background layers are enabled to begin with? */
-        for (uint32_t i = 0; i < 4; ++i)
-            backgroundLayers[i]->enabled = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
-
-        /* All background layers can be enabled/disabled with a single flag. */
-        for (uint32_t i = 0; i < 4; ++i)
-            objLayers[i]->enabled = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_OBJ_MASK;
-
-        for (uint32_t i = 0; i < 4; ++i)
-            if (backgroundLayers[i]->enabled)
-                backgroundLayers[i]->loadSettings(bgMode, regs);
-
         bool use2dMapping = !(le(regs.DISPCNT) & DISPCTL::OBJ_CHAR_VRAM_MAPPING_MASK);
 
         /* load objects */
         const uint8_t *oamBase = memory.oam;
         objManager->load(oamBase, bgMode);
 
-        /* load objects for each layer */
-        for (auto &l : objLayers) {
-            l->setMode(bgMode, use2dMapping);
-            l->loadOBJs(y, [](const OBJ &obj, real_t fy, uint16_t priority) -> bool { return obj.priority == priority &&
-                                                                                             obj.visible &&
-                                                                                             obj.mode != OBJ_WINDOW &&
-                                                                                             obj.intersectsWithScanline(fy); });
+        /* All background layers can be enabled/disabled with a single flag. */
+        bool masterEnObjLayer = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_OBJ_MASK;
+        objLayers[0]->enabled = objLayers[1]->enabled = objLayers[2]->enabled= objLayers[3]->enabled = masterEnObjLayer;
+        if (masterEnObjLayer) {
+            /* load objects for each layer */
+            for (auto &l : objLayers) {
+                l->setMode(bgMode, use2dMapping);
+                l->loadOBJs(y, [](const OBJ &obj, real_t fy, uint16_t priority) -> bool { return obj.priority == priority &&
+                                                                                                 obj.visible &&
+                                                                                                 obj.mode != OBJ_WINDOW &&
+                                                                                                 obj.intersectsWithScanline(fy); });
+            }
+        }
+
+        /* Which background layers are enabled to begin with? */
+        for (uint32_t i = 0; i < 4; ++i) {
+            bool bgEnabled = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_BGN_MASK(i);
+            backgroundLayers[i]->enabled = bgEnabled;
+            if (bgEnabled) {
+                backgroundLayers[i]->loadSettings(bgMode, regs);
+            }
         }
 
         /* window objects */
