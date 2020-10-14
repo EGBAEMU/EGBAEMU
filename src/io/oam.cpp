@@ -25,7 +25,7 @@ namespace gbaemu
     {
         GBA_MEM_CLEAR(mem, memory::OAM);
         for (auto &obj : objects) {
-            obj.enabled = false;
+            obj.visible = false;
         }
     }
 
