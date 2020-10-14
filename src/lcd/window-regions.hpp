@@ -106,14 +106,11 @@ namespace gbaemu::lcd
         NormalWindow normalWindows[2];
         OBJWindow objWindow;
         OutsideWindow outsideWindow;
-
-        ColorEffects colorEffects;
-        color_t backdropColor;
       public:
         EnabledMask enabledMask;
 
         WindowFeature();
-        void load(const LCDIORegs &regs, int32_t y, color_t bdColor);
+        void load(const LCDIORegs &regs, int32_t y);
         bool isEnabled() const;
         std::string toString() const;
     };

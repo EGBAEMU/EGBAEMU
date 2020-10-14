@@ -30,6 +30,9 @@ release: gbaemu
 profiling: CCFLAGS += -Ofast -g -pg
 profiling: LDFLAGS += -Ofast -pg --no-pie
 profiling: release
+cprofiling: CCFLAGS += -g -O2
+cprofiling: LDFLAGS = -O2
+cprofiling: gbaemu
 
 gbaemu: $(objs)
 	@mkdir -p $(OUT)
