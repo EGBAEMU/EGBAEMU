@@ -131,6 +131,13 @@ namespace gbaemu
 
     namespace shifts
     {
+        uint32_t rorShiftValueUnalignedAddr(uint32_t value, uint8_t amount) {
+            if (amount == 0)
+                return value;
+
+            return (value >> amount) | (value << (32 - amount));
+        }
+
         template <bool shiftByImm>
         uint64_t shift(uint32_t value, ShiftType type, uint8_t amount, bool oldCarry)
         {

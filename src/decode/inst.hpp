@@ -171,6 +171,8 @@ namespace gbaemu
 
         template <bool shiftByImm>
         uint64_t shift(uint32_t value, ShiftType type, uint8_t amount, bool oldCarry);
+
+        uint32_t rorShiftValueUnalignedAddr(uint32_t value, uint8_t amount);
     } // namespace shifts
 
     namespace arm
