@@ -23,6 +23,9 @@ namespace gbaemu
 
         void write16(uint32_t offset, uint16_t value);
         void write32(uint32_t offset, uint32_t value);
+
+        private:
+          void delegateDecode(uint32_t offset, uint16_t value);
     };
 
 } // namespace gbaemu
