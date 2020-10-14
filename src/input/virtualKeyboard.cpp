@@ -67,7 +67,7 @@ void virtualKeyboardLoop(volatile bool &run)
         char c = serialGetchar(serialPort);
         // the messages are interpreted as follow: up to 7 bits for the index and the LSB bit for the key state
         // Key press is encoded as 1 & key release is encoded as 0
-        int index = c >> 1;
+        uint8_t index = static_cast<uint8_t>(c) >> 1;
         if (index < sizeof(keyMapping) / sizeof(keyMapping[0])) {
             event.type = (c & 1) ? SDL_KEYDOWN : SDL_KEYUP ;
             event.key.keysym.sym = keyMapping[index];
