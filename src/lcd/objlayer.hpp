@@ -54,8 +54,8 @@ namespace gbaemu::lcd
         uint32_t width = 0, height = 0;
         uint8_t paletteNumber;
         uint16_t tileNumber;
-        uint8_t tilesPerRow;
-        uint8_t bytesPerTile;
+        uint8_t tilesPerRowShift;
+        uint8_t bytesPerTileShift;
 
         bool visible = false;
         OBJMode mode;

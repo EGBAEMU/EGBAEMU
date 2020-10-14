@@ -80,11 +80,15 @@ namespace gbaemu::lcd
 
         if (useColor256) {
             tileNumber /= 2;
-            tilesPerRow = 16;
-            bytesPerTile = 64;
+            // tilesPerRow = 16;
+            tilesPerRowShift = 4;
+            // bytesPerTile = 64;
+            bytesPerTileShift = 6;
         } else {
-            tilesPerRow = 32;
-            bytesPerTile = 32;
+            // tilesPerRow = 32;
+            tilesPerRowShift = 5;
+            // bytesPerTile = 32;
+            bytesPerTileShift = 5;
         }
 
         /* bitmap modes */
@@ -177,10 +181,12 @@ namespace gbaemu::lcd
         const int32_t flippedTileX = hFlip ? (width / 8 - 1 - tileX) : tileX;
         const int32_t flippedTileY = vFlip ? (height / 8 - 1 - tileY) : tileY;
 
-        const uint32_t tileIndex = use2dMapping ? (tileNumber + flippedTileX + flippedTileY * tilesPerRow) : (tileNumber + flippedTileX + flippedTileY * (width / 8));
+        //const uint32_t tileIndex = use2dMapping ? (tileNumber + flippedTileX + flippedTileY * tilesPerRow) : (tileNumber + flippedTileX + flippedTileY * (width / 8));
+        const uint32_t tileIndex = use2dMapping ? (tileNumber + flippedTileX + (flippedTileY << tilesPerRowShift)) : (tileNumber + flippedTileX + flippedTileY * (width / 8));
 
         /* finding the actual tile */
-        const uint8_t *tile = objTiles + tileIndex * bytesPerTile;
+        // const uint8_t *tile = objTiles + tileIndex * bytesPerTile;
+        const uint8_t *tile = objTiles + (tileIndex << bytesPerTileShift);
         const int32_t tx = hFlip ? (7 - (sx % 8)) : (sx % 8);
         const int32_t ty = vFlip ? (7 - (sy % 8)) : (sy % 8);
 
