@@ -2,7 +2,10 @@
 #define PALETTE_HPP
 
 #include "defs.hpp"
-#include <io/memory.hpp>
+
+namespace gbaemu {
+    class Memory;
+}
 
 namespace gbaemu::lcd
 {

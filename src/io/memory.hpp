@@ -5,6 +5,7 @@
 #include "io_regs.hpp"
 #include "logging.hpp"
 #include "memory_defs.hpp"
+#include "oam.hpp"
 #include "rom.hpp"
 #include "util.hpp"
 #include "vram.hpp"
@@ -89,9 +90,6 @@ namespace gbaemu
     Unused Memory Area
       10000000-FFFFFFFF   Not used (upper 4bits of address bus unused)
     */
-#define GBA_ALLOC_MEM_REG(x) new uint8_t[x##_LIMIT - x##_OFFSET + 1]
-#define GBA_MEM_CLEAR(arr, x) std::fill_n(arr, x##_LIMIT - x##_OFFSET + 1, 0)
-#define GBA_MEM_CLEAR_VALUE(arr, x, value) std::fill_n(arr, x##_LIMIT - x##_OFFSET + 1, (value))
 
     class Memory
     {
@@ -119,11 +117,11 @@ namespace gbaemu
 
       public:
         uint8_t *bg_obj_ram;
-        uint8_t *oam;
 
         ROM rom;
         Bios bios;
         VRAM vram;
+        OAM oam;
         IO_Handler ioHandler;
 
         // needed to handle read from unused memory regions

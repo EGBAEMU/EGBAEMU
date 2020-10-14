@@ -54,7 +54,7 @@ namespace gbaemu::lcd
         bool use2dMapping = !(le(regs.DISPCNT) & DISPCTL::OBJ_CHAR_VRAM_MAPPING_MASK);
 
         /* load objects */
-        const uint8_t *oamBase = memory.oam;
+        const uint8_t *oamBase = memory.oam.mem;
         objManager->load(oamBase, bgMode);
 
         /* load objects for each layer */

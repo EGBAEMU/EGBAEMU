@@ -1,4 +1,5 @@
 #include "palette.hpp"
+#include "io/memory.hpp"
 
 namespace gbaemu::lcd
 {

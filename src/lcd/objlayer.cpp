@@ -334,7 +334,7 @@ namespace gbaemu::lcd
         mode = bgMode;
 
         const uint8_t *vramBase = memory.vram.rawAccess();
-        const uint8_t *oamBase = memory.oam;
+        const uint8_t *oamBase = memory.oam.mem;
         objTiles = vramBase + 0x10000;
 
         switch (mode) {
