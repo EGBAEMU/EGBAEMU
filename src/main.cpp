@@ -208,8 +208,8 @@ int main(int argc, char **argv)
     /* signal and window stuff */
     std::signal(SIGINT, handleSignal);
 
-    SDL_Init(0);
-    assert(SDL_InitSubSystem(SDL_INIT_EVENTS) == 0);
+    //SDL_Init(0);
+    //assert(SDL_InitSubSystem(SDL_INIT_EVENTS) == 0);
 
 #if RENDERER_USE_FB_CANVAS == 0
     gbaemu::lcd::Window windowCanvas(1280, 720);
@@ -255,7 +255,7 @@ int main(int argc, char **argv)
 #endif
 
     std::cout << "INFO: Launching virtualKeyboard thread" << std::endl;
-    std::thread virtualKeyboardThread(virtualKeyboardLoop, std::ref(doRun));
+    //std::thread virtualKeyboardThread(virtualKeyboardLoop, std::ref(doRun));
 
     using frames = std::chrono::duration<int64_t, std::ratio<1, 60>>; // 60Hz
 #if LIMIT_FPS
@@ -266,15 +266,19 @@ int main(int argc, char **argv)
     auto lastFrame = std::chrono::system_clock::now() + frames{0};
 #endif
 
-    for (; doRun;) {
-        SDL_Event event;
+    int32_t frameCount = 500;
 
+    for (; doRun;) {
+        //SDL_Event event;
+
+        /*
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE) {
                 goto breakOuterLoop;
             }
             gameController.processSDLEvent(event);
         }
+         */
 
         if (frame(cpu, lcdController
 #ifdef DEBUG_CLI
@@ -287,6 +291,9 @@ int main(int argc, char **argv)
 
         windowCanvas.present();
 
+        if (frameCount-- < 0)
+            doRun = false;
+
 #if LIMIT_FPS
         std::this_thread::sleep_until(nextFrame);
         nextFrame += frames{1};
@@ -295,7 +302,7 @@ int main(int argc, char **argv)
 #if !defined(DEBUG_CLI) && PRINT_FPS
         auto currentTime = std::chrono::system_clock::now();
         auto dt = std::chrono::duration_cast<std::chrono::microseconds>(currentTime - lastFrame);
-        std::cout << "Current FPS: " << (1000000.0 / dt.count()) << " in " << std::dec << dt.count() << "us" << std::endl;
+        std::cout << "Current FPS: " << (1000000.0 / dt.count()) << " in " << std::dec << dt.count() << "us, frame " << frameCount << std::endl;
         lastFrame = currentTime;
 #endif
     }
@@ -309,9 +316,9 @@ breakOuterLoop:
     /* When CLI is attached only quit command will exit the program! */
     cliThread.join();
 #endif
-    virtualKeyboardThread.join();
+    //virtualKeyboardThread.join();
 
-    SDL_Quit();
+    //SDL_Quit();
 
     return 0;
 }
