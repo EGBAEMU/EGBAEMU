@@ -211,8 +211,8 @@ int main(int argc, char **argv)
     /* signal and window stuff */
     std::signal(SIGINT, handleSignal);
 
-    //SDL_Init(0);
-    //assert(SDL_InitSubSystem(SDL_INIT_EVENTS) == 0);
+    SDL_Init(0);
+    assert(SDL_InitSubSystem(SDL_INIT_EVENTS) == 0);
 
 #if RENDERER_USE_FB_CANVAS == 0
     gbaemu::lcd::Window windowCanvas(1280, 720);
@@ -282,7 +282,7 @@ int main(int argc, char **argv)
 #endif
 
     std::cout << "INFO: Launching virtualKeyboard thread" << std::endl;
-    //std::thread virtualKeyboardThread(virtualKeyboardLoop, std::ref(doRun));
+    std::thread virtualKeyboardThread(virtualKeyboardLoop, std::ref(doRun));
 
     using frames = std::chrono::duration<int64_t, std::ratio<1, 60>>; // 60Hz
 #if LIMIT_FPS
@@ -296,16 +296,14 @@ int main(int argc, char **argv)
     int32_t frameCount = 500;
 
     for (; doRun;) {
-        //SDL_Event event;
+        SDL_Event event;
 
-        /*
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT || event.window.event == SDL_WINDOWEVENT_CLOSE) {
                 goto breakOuterLoop;
             }
             gameController.processSDLEvent(event);
         }
-         */
 
         if (frame(cpu, lcdController
 #ifdef DEBUG_CLI
@@ -343,9 +341,9 @@ breakOuterLoop:
     /* When CLI is attached only quit command will exit the program! */
     cliThread.join();
 #endif
-    //virtualKeyboardThread.join();
+    virtualKeyboardThread.join();
 
-    //SDL_Quit();
+    SDL_Quit();
 
     return 0;
 }
