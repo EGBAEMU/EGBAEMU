@@ -41,29 +41,7 @@ namespace gbaemu::lcd
             height = (size <= 1) ? 256 : 512;
             width = (size % 2 == 0) ? 256 : 512;
         } else if (bgMode == 2 || (bgMode == 1 && index == BG2)) {
-            switch (size) {
-                case 0:
-                    width = 128;
-                    height = 128;
-                    break;
-                case 1:
-                    width = 256;
-                    height = 256;
-                    break;
-                case 2:
-                    width = 512;
-                    height = 512;
-                    break;
-                case 3:
-                    width = 1024;
-                    height = 1024;
-                    break;
-                default:
-                    width = 0;
-                    height = 0;
-                    LOG_LCD(std::cout << "WARNING: Invalid screen size!\n";);
-                    break;
-            }
+            width = height = 128 << size;
         } else if (bgMode == 3) {
             width = 240;
             height = 160;
