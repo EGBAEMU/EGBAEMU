@@ -225,7 +225,7 @@ namespace gbaemu
         } else {
             // LDR part
             uint32_t alignedWord = state.memory.read32(memAddr, state.cpuInfo, false);
-            alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memAddr & 0x03) * 8, false, false) & 0xFFFFFFFF;
+            alignedWord = shifts::shift<false>(alignedWord, shifts::ShiftType::ROR, (memAddr & 0x03) * 8, false) & 0xFFFFFFFF;
             *currentRegs[rd] = alignedWord;
 
             // STR part
@@ -366,7 +366,7 @@ namespace gbaemu
         shifts::ShiftType shiftType = shifts::ShiftType::ROR;
         uint8_t shiftAmount = 0;
         if (i) {
-            shifterOperand = shifts::shift(operand2 & 0x0FF, shifts::ShiftType::ROR, ((operand2 >> 8) & 0x0F) * 2, carry, false);
+            shifterOperand = shifts::shift<false>(operand2 & 0x0FF, shifts::ShiftType::ROR, ((operand2 >> 8) & 0x0F) * 2, carry);
         } else {
             /* calculate shifter operand */
             shiftType = static_cast<shifts::ShiftType>((operand2 >> 5) & 0b11);
@@ -393,7 +393,7 @@ namespace gbaemu
                 }
             }
 
-            shifterOperand = shifts::shift(rmValue, shiftType, shiftAmount, carry, !shiftAmountFromReg);
+            shifterOperand = shifts::shift<!shiftAmountFromReg>(rmValue, shiftType, shiftAmount, carry);
         }
 
         bool shifterOperandCarry = shifterOperand & (static_cast<uint64_t>(1) << 32);
@@ -853,7 +853,7 @@ namespace gbaemu
             auto shiftType = static_cast<shifts::ShiftType>((addrMode >> 5) & 0b11);
             uint8_t rm = addrMode & 0xF;
 
-            offset = shifts::shift(*currentRegs[rm], shiftType, shiftAmount, state.getFlag<cpsr_flags::C_FLAG>(), true) & 0xFFFFFFFF;
+            offset = shifts::shift<true>(*currentRegs[rm], shiftType, shiftAmount, state.getFlag<cpsr_flags::C_FLAG>()) & 0xFFFFFFFF;
         }
 
         uint32_t rnValue = *currentRegs[rn];
@@ -900,7 +900,7 @@ namespace gbaemu
                 (Above applies to little endian mode, as used in GBA.)
                 */
                 uint32_t alignedWord = state.memory.read32(memoryAddress, state.cpuInfo, false);
-                alignedWord = shifts::shift(alignedWord, shifts::ShiftType::ROR, (memoryAddress & 0x03) * 8, false, false) & 0xFFFFFFFF;
+                alignedWord = shifts::shift<false>(alignedWord, shifts::ShiftType::ROR, (memoryAddress & 0x03) * 8, false) & 0xFFFFFFFF;
                 *currentRegs[rd] = alignedWord;
             }
         } else {
@@ -1083,7 +1083,7 @@ namespace gbaemu
                     // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
                     // LDRH with ROR (see LDR with non word aligned)
                     readData = static_cast<uint32_t>(state.memory.read16(memoryAddress, state.cpuInfo, false));
-                    readData = shifts::shift(readData, shifts::ShiftType::ROR, (memoryAddress & 0x01) * 8, false, false) & 0xFFFFFFFF;
+                    readData = shifts::shift<false>(readData, shifts::ShiftType::ROR, (memoryAddress & 0x01) * 8, false) & 0xFFFFFFFF;
 
                     if (sign) {
                         readData = signExt<int32_t, uint32_t, transferSize>(readData);

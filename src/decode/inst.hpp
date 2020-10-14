@@ -169,7 +169,8 @@ namespace gbaemu
             ROR
         };
 
-        uint64_t shift(uint32_t value, ShiftType type, uint8_t amount, bool oldCarry, bool shiftByImm);
+        template <bool shiftByImm>
+        uint64_t shift(uint32_t value, ShiftType type, uint8_t amount, bool oldCarry);
     } // namespace shifts
 
     namespace arm

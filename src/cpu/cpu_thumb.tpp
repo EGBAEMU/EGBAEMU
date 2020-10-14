@@ -114,7 +114,7 @@ namespace gbaemu
         uint8_t offset = (inst >> 6) & 0x1F;
 
         uint32_t rsValue = state.accessReg(rs);
-        uint64_t rdValue = shifts::shift(rsValue, shiftType, offset, state.getFlag<cpsr_flags::C_FLAG>(), true);
+        uint64_t rdValue = shifts::shift<true>(rsValue, shiftType, offset, state.getFlag<cpsr_flags::C_FLAG>());
 
         state.accessReg(rd) = static_cast<uint32_t>(rdValue & 0x0FFFFFFFF);
 
