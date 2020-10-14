@@ -186,15 +186,13 @@ namespace gbaemu::lcd
     {
         switch (mode) {
             case Mode0: {
-                // int32_t scIndex = (sx / 256) + (sy / 256) * 2;
-                uint32_t scIndex = (sx >> 8) + ((sy >> 8) << 1);
+                int32_t scIndex = (sx / 256) + (sy / 256) * 2;
 
                 /* only exception */
                 if (size == 2 && scIndex == 2)
                     scIndex = 1;
 
-                // return bgMapBase + scIndex * 0x800;
-                return bgMapBase + (scIndex << 11);
+                return bgMapBase + scIndex * 0x800;
             }
             case Mode2:
                 return bgMapBase;
@@ -211,7 +209,6 @@ namespace gbaemu::lcd
 
     void BGLayer::_drawScanline0(int32_t y)
     {
-        /* aggressive pre calculation */
         const vec2 sf = affineTransform.origin + (useTrans ? vec2{0, 0} : affineTransform.dm * y);
         const int32_t sy = fastMod<int32_t>(static_cast<int32_t>(sf[1]), static_cast<int32_t>(height));
         const int32_t msy = sy - (sy % mosaicHeight);
@@ -230,20 +227,17 @@ namespace gbaemu::lcd
         int32_t sx = static_cast<int32_t>(sf[0]);
 
         const void *bgMaps[] = {
-            getBGMap(sx, sy),
-            getBGMap(sx + 256, sy)
+            getBGMap(fastMod<int32_t>(sx, width), sy),
+            getBGMap(fastMod<int32_t>(sx + 256, width), sy)
         };
 
         if (colorPalette256) {
             for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x, ++sx) {
                 sx = fastMod<int32_t>(sx, width);
-                /* compiler optimizes division better than me */
                 const BGMode0Entry *bgMap = reinterpret_cast<const BGMode0Entry *>(bgMaps[sx / 256]);
 
-                // We know that the result msx & msy can not be negative (sx & sy are positive and sx % mod n is always <= sx) -> we can apply greedy optimizations
                 const int32_t msx = sx - (sx % mosaicWidth);
 
-                /* sx, sy relative to the current bg map (size 32x32) */
                 const int32_t relBGMapX = msx & 255;
                 const int32_t tileX = relBGMapX >> 3;
 
@@ -263,13 +257,10 @@ namespace gbaemu::lcd
         } else {
             for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x, ++sx) {
                 sx = fastMod<int32_t>(sx, width);
-                /* compiler optimizes division better than me */
                 const BGMode0Entry *bgMap = reinterpret_cast<const BGMode0Entry *>(bgMaps[sx / 256]);
 
-                // We know that the result msx & msy can not be negative (sx & sy are positive and sx % mod n is always <= sx) -> we can apply greedy optimizations
                 const int32_t msx = sx - (sx % mosaicWidth);
 
-                /* sx, sy relative to the current bg map (size 32x32) */
                 const int32_t relBGMapX = msx & 255;
                 const int32_t tileX = relBGMapX >> 3;
 
@@ -289,7 +280,6 @@ namespace gbaemu::lcd
                 scanline[x].props = fragmentProps;
             }
         }
-        
     }
 
     void BGLayer::_drawScanline2(int32_t y)
