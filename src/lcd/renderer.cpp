@@ -93,7 +93,7 @@ namespace gbaemu::lcd
         }
 
         palette.loadPalette(memory);
-        windowFeature.load(regs, y, palette.getBackdropColor());
+        windowFeature.load(regs, y);
         colorEffects.load(regs);
 
         sortLayers();

@@ -54,9 +54,8 @@ namespace gbaemu::lcd
         /* by default */
         visible = false;
         enabled = true;
-        objIndex = index;
 
-        const OBJAttribute attr = getAttribute(attributes, objIndex);
+        const OBJAttribute attr = getAttribute(attributes, index);
         priority = static_cast<uint16_t>(bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PRIORITY_MASK, OBJ_ATTRIBUTE::PRIORITY_OFFSET));
 
         /* this OBJ does not belong on the current layer */
@@ -124,7 +123,7 @@ namespace gbaemu::lcd
         paletteNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PALETTE_NUMBER_MASK, OBJ_ATTRIBUTE::PALETTE_NUMBER_OFFSET);
         tilesPerRow = useColor256 ? 16 : 32;
         bytesPerTile = useColor256 ? 64 : 32;
-        doubleSized = useRotScale && isBitSet<uint16_t, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET>(attr.attribute[0]);
+        bool doubleSized = useRotScale && isBitSet<uint16_t, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET>(attr.attribute[0]);
 
         if (useRotScale) {
             uint16_t index = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::ROT_SCALE_PARAM_MASK, OBJ_ATTRIBUTE::ROT_SCALE_PARAM_OFFSET);
@@ -153,8 +152,6 @@ namespace gbaemu::lcd
             affineTransform.screenRef[1] = static_cast<common::math::real_t>(yOff + static_cast<int32_t>(height) / 2);
         }
 
-        cyclesRequired = width * height * (doubleSized || useRotScale ? 2 : 1) + (doubleSized || useRotScale ? 10 : 0);
-
         rect.left = xOff;
         rect.top = yOff;
         rect.right = xOff + width * (doubleSized ? 2 : 1);
@@ -164,15 +161,6 @@ namespace gbaemu::lcd
     std::string OBJ::toString() const
     {
         std::stringstream ss;
-
-        ss << "visible: " << (visible ? "yes" : "no") << '\n';
-        ss << "obj index: " << std::dec << objIndex << '\n';
-        ss << "xy off: " << xOff << ' ' << yOff << '\n';
-        ss << "double sized: " << (doubleSized ? "yes" : "no") << '\n';
-        ss << "width height: " << width << 'x' << height << '\n';
-        ss << "origin: " << affineTransform.origin << '\n';
-        ss << "screen ref: " << affineTransform.screenRef << '\n';
-        ss << "d dm: " << affineTransform.d << ' ' << affineTransform.dm << '\n';
 
         return ss.str();
     }
@@ -237,23 +225,8 @@ namespace gbaemu::lcd
         return negDot && posDot;
     }
 
-    std::vector<OBJ>::const_iterator OBJLayer::getLastRenderedOBJ(int32_t cycleBudget) const
-    {
-        auto it = objects.cbegin();
-        int32_t usedCycles = 0;
-
-        for (; it != objects.cend(); it++) {
-            usedCycles += it->cyclesRequired;
-
-            if (usedCycles > cycleBudget)
-                break;
-        }
-
-        return it;
-    }
-
     OBJLayer::OBJLayer(Memory &mem, LCDColorPalette &plt, const LCDIORegs &ioRegs, uint16_t prio) : Layer(static_cast<LayerID>(prio + 4), false),
-                                                                                                                                                memory(mem), palette(plt), regs(ioRegs), objects(128)
+                                                                                                    memory(mem), palette(plt), regs(ioRegs), objects(128)
     {
         /* OBJ layers are always enabled */
         enabled = true;
@@ -273,10 +246,13 @@ namespace gbaemu::lcd
         objTiles = vramBase + 0x10000;
 
         switch (mode) {
-            case Mode0: case Mode1: case Mode2:
+            case Mode0:
+            case Mode1:
+            case Mode2:
                 areaSize = 32 * 1024;
                 break;
-            case Mode3: case Mode4:
+            case Mode3:
+            case Mode4:
                 areaSize = 16 * 1024;
                 break;
         }
@@ -306,27 +282,27 @@ namespace gbaemu::lcd
             /* iterate over the objects beginning with OBJ0 (on top) */
             for (auto obj = objects.cbegin(); obj != objects.cend(); ++obj) {
                 /* only the screen rectangle of that sprite is scanned */
-                if (x < obj->rect.left || x >= obj->rect.right)
+                if (x < (obj)->rect.left || x >= (obj)->rect.right)
                     continue;
 
-                const vec2 s = obj->affineTransform.d * (fx - obj->affineTransform.screenRef[0]) +
-                               obj->affineTransform.dm * (fy - obj->affineTransform.screenRef[1]) +
-                               obj->affineTransform.origin;
+                const vec2 s = (obj)->affineTransform.d * (fx - (obj)->affineTransform.screenRef[0]) +
+                               (obj)->affineTransform.dm * (fy - (obj)->affineTransform.screenRef[1]) +
+                               (obj)->affineTransform.origin;
 
                 const int32_t sx = static_cast<int32_t>(s[0]);
                 const int32_t sy = static_cast<int32_t>(s[1]);
 
-                if (0 <= sx && sx < static_cast<int32_t>(obj->width) && 0 <= sy && sy < static_cast<int32_t>(obj->height)) {
-                    const int32_t msx = obj->mosaicEnabled ? (sx - (sx % mosaicWidth)) : sx;
-                    const int32_t msy = obj->mosaicEnabled ? (sy - (sy % mosaicHeight)) : sy;
-                    const color_t color = obj->pixelColor(msx, msy, objTiles, palette, use2dMapping);
+                if (0 <= sx && sx < static_cast<int32_t>((obj)->width) && 0 <= sy && sy < static_cast<int32_t>((obj)->height)) {
+                    const int32_t msx = (obj)->mosaicEnabled ? (sx - (sx % mosaicWidth)) : sx;
+                    const int32_t msy = (obj)->mosaicEnabled ? (sy - (sy % mosaicHeight)) : sy;
+                    const color_t color = (obj)->pixelColor(msx, msy, objTiles, palette, use2dMapping);
 
                     if (color == TRANSPARENT)
                         continue;
 
                     /* if the color is not transparent it's the final color */
                     scanline[x].color = color;
-                    scanline[x].props |= (obj->mode == SEMI_TRANSPARENT) ? 4 : 0;
+                    scanline[x].props |= ((obj)->mode == SEMI_TRANSPARENT) ? 4 : 0;
                     break;
                 }
             }
