@@ -105,56 +105,19 @@ namespace gbaemu::lcd
             2     32x32    32x16       16x32
             3     64x64    64x32       32x64
             */
-
         /* TODO: Maybe there is a better way to do this. */
         switch (shape) {
             case SQUARE:
-                if (size == 0) {
-                    width = 8;
-                    height = 8;
-                } else if (size == 1) {
-                    width = 16;
-                    height = 16;
-                } else if (size == 2) {
-                    width = 32;
-                    height = 32;
-                } else {
-                    width = 64;
-                    height = 64;
-                }
-
+                width = height = (size + 1) << 3;
                 break;
             case HORIZONTAL:
-                if (size == 0) {
-                    width = 16;
-                    height = 8;
-                } else if (size == 1) {
-                    width = 32;
-                    height = 8;
-                } else if (size == 2) {
-                    width = 32;
-                    height = 16;
-                } else {
-                    width = 64;
-                    height = 32;
-                }
-
+                width = 16 << ((size + 1) >> 1);
+                height = 8 << (size >> 1);
                 break;
             case VERTICAL:
-                if (size == 0) {
-                    width = 8;
-                    height = 16;
-                } else if (size == 1) {
-                    width = 8;
-                    height = 32;
-                } else if (size == 2) {
-                    width = 16;
-                    height = 32;
-                } else {
-                    width = 32;
-                    height = 64;
-                }
-
+                // as in HORIZONTAL but with changed variables
+                height = 16 << ((size + 1) >> 1);
+                width = 8 << (size >> 1);
                 break;
         }
 
