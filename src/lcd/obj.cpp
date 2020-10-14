@@ -2,10 +2,13 @@
 
 #include <sstream>
 
-namespace gbaemu::lcd {
-    void OBJ::writeAndDecode16(uint8_t offset, uint16_t value) {
+namespace gbaemu::lcd
+{
+    void OBJ::writeAndDecode16(uint8_t offset, uint16_t value)
+    {
         //TODO
     }
+
     OBJAttribute OBJ::getAttribute(const uint8_t *attributes, uint32_t index)
     {
         auto uints = reinterpret_cast<const uint16_t *>(attributes + (index * 0x8));
@@ -234,4 +237,4 @@ namespace gbaemu::lcd {
 
         return negDot && posDot;
     }
-}
+} // namespace gbaemu::lcd

@@ -71,8 +71,8 @@ namespace gbaemu::lcd
 
             /* load objects for each layer */
             real_t fy = static_cast<real_t>(y);
-            for (int i = 0; i < 128; ++i) {
-                OBJ obj(oamBase, i, bgMode);
+            for (auto it = memory.oam.getUpdateObjs(bgMode); it != memory.oam.getEndIt(); ++it) {
+                const auto& obj = *it;
                 if (obj.visible && obj.intersectsWithScanline(fy)) {
                     if (obj.mode == OBJ_WINDOW) {
                         windowOBJLayer->objects.push_back(obj);
@@ -84,8 +84,8 @@ namespace gbaemu::lcd
             }
         } else {
             real_t fy = static_cast<real_t>(y);
-            for (int i = 0; i < 128; ++i) {
-                OBJ obj(oamBase, i, bgMode);
+            for (auto it = memory.oam.getUpdateObjs(bgMode); it != memory.oam.getEndIt(); ++it) {
+                const auto &obj = *it;
                 if (obj.visible && obj.mode == OBJ_WINDOW && obj.intersectsWithScanline(fy)) {
                     windowOBJLayer->objects.push_back(obj);
                 }
