@@ -226,15 +226,17 @@ namespace gbaemu::lcd
 
         int32_t sx = static_cast<int32_t>(sf[0]);
 
+        /*
         const void *bgMaps[] = {
             getBGMap(fastMod<int32_t>(sx, width), sy),
             getBGMap(fastMod<int32_t>(sx + 256, width), sy)
         };
+         */
 
         if (colorPalette256) {
             for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x, ++sx) {
                 sx = fastMod<int32_t>(sx, width);
-                const BGMode0Entry *bgMap = reinterpret_cast<const BGMode0Entry *>(bgMaps[sx / 256]);
+                const BGMode0Entry *bgMap = reinterpret_cast<const BGMode0Entry *>(getBGMap(sx, sy));
 
                 const int32_t msx = sx - (sx % mosaicWidth);
 
@@ -257,7 +259,7 @@ namespace gbaemu::lcd
         } else {
             for (int32_t x = 0; x < static_cast<int32_t>(SCREEN_WIDTH); ++x, ++sx) {
                 sx = fastMod<int32_t>(sx, width);
-                const BGMode0Entry *bgMap = reinterpret_cast<const BGMode0Entry *>(bgMaps[sx / 256]);
+                const BGMode0Entry *bgMap = reinterpret_cast<const BGMode0Entry *>(getBGMap(sx, sy));
 
                 const int32_t msx = sx - (sx % mosaicWidth);
 
