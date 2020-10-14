@@ -191,8 +191,9 @@ namespace gbaemu
                 constexpr InstructionID id = getALUOpInstruction<expandedHash>();
                 constexpr bool i = (expandedHash >> 25) & 1;
                 constexpr bool s = expandedHash & (1 << 20);
+                constexpr bool shiftAmountFromReg = (expandedHash >> 4) & 1;
 
-                return &CPU::execDataProc<id, i, s, false>;
+                return &CPU::execDataProc<id, i, s, !i && shiftAmountFromReg, false>;
             }
             case arm::LS_REG_UBYTE: {
                 constexpr bool i = (expandedHash >> 25) & 1;
