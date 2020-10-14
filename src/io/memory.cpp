@@ -73,25 +73,27 @@ namespace gbaemu
         return ss.str();
     }
 #endif
+#define GBA_ALLOC_MEM_REG(x) new uint8_t[x##_LIMIT - x##_OFFSET + 1]
+#define GBA_MEM_CLEAR(arr, x) std::fill_n(arr, x##_LIMIT - x##_OFFSET + 1, 0)
+#define GBA_MEM_CLEAR_VALUE(arr, x, value) std::fill_n(arr, x##_LIMIT - x##_OFFSET + 1, (value))
 
     Memory::Memory(std::function<uint32_t()> readUnusedHandle) : readUnusedHandle(readUnusedHandle)
     {
         wram = GBA_ALLOC_MEM_REG(memory::WRAM);
         iwram = GBA_ALLOC_MEM_REG(memory::IWRAM);
         bg_obj_ram = GBA_ALLOC_MEM_REG(memory::BG_OBJ_RAM);
-        oam = GBA_ALLOC_MEM_REG(memory::OAM);
         reset();
     }
 
     void Memory::reset()
     {
-        GBA_MEM_CLEAR(oam, memory::OAM);
         GBA_MEM_CLEAR(bg_obj_ram, memory::BG_OBJ_RAM);
         GBA_MEM_CLEAR(iwram, memory::IWRAM);
         GBA_MEM_CLEAR(wram, memory::WRAM);
 
         rom.reset();
         vram.reset();
+        oam.reset();
 
         setBiosState(Bios::BIOS_AFTER_STARTUP);
         updateWaitCycles(0);
@@ -152,12 +154,10 @@ namespace gbaemu
         delete[] wram;
         delete[] iwram;
         delete[] bg_obj_ram;
-        delete[] oam;
 
         wram = nullptr;
         iwram = nullptr;
         bg_obj_ram = nullptr;
-        oam = nullptr;
     }
 
     uint8_t Memory::read8(uint32_t addr, InstructionExecutionInfo &execInfo, bool seq) const
@@ -189,7 +189,7 @@ namespace gbaemu
                 break;
             case memory::OAM:
                 // Trivial mirroring
-                currValue = oam[(addr & memory::OAM_LIMIT) - memory::OAM_OFFSET];
+                currValue = oam.mem[(addr & memory::OAM_LIMIT) - memory::OAM_OFFSET];
                 break;
 
             case memory::EXT_ROM1:
@@ -257,7 +257,7 @@ namespace gbaemu
                 break;
             case memory::OAM:
                 // Trivial mirroring
-                currValue = le(*reinterpret_cast<uint16_t *>(oam + (addr & memory::OAM_LIMIT & ~1) - memory::OAM_OFFSET));
+                currValue = le(*reinterpret_cast<uint16_t *>(oam.mem + (addr & memory::OAM_LIMIT & ~1) - memory::OAM_OFFSET));
                 break;
 
             case memory::EXT_ROM1:
@@ -324,7 +324,7 @@ namespace gbaemu
                 break;
             case memory::OAM:
                 // Trivial mirroring
-                currValue = le(*reinterpret_cast<uint16_t *>(oam + (addr & memory::OAM_LIMIT & ~1) - memory::OAM_OFFSET));
+                currValue = le(*reinterpret_cast<uint16_t *>(oam.mem + (addr & memory::OAM_LIMIT & ~1) - memory::OAM_OFFSET));
                 break;
 
             case memory::EXT_ROM1:
@@ -391,7 +391,7 @@ namespace gbaemu
                 break;
             case memory::OAM:
                 // Trivial mirroring
-                currValue = le(*reinterpret_cast<uint16_t *>(oam + (addr & memory::OAM_LIMIT & ~1) - memory::OAM_OFFSET));
+                currValue = le(*reinterpret_cast<uint16_t *>(oam.mem + (addr & memory::OAM_LIMIT & ~1) - memory::OAM_OFFSET));
                 break;
 
             case memory::EXT_ROM1:
@@ -460,7 +460,7 @@ namespace gbaemu
                 break;
             case memory::OAM:
                 // Trivial mirroring
-                currValue = le(*reinterpret_cast<uint32_t *>(oam + (addr & memory::OAM_LIMIT & ~3) - memory::OAM_OFFSET));
+                currValue = le(*reinterpret_cast<uint32_t *>(oam.mem + (addr & memory::OAM_LIMIT & ~3) - memory::OAM_OFFSET));
                 break;
 
             case memory::EXT_ROM1:
@@ -525,7 +525,7 @@ namespace gbaemu
                 break;
             case memory::OAM:
                 // Trivial mirroring
-                currValue = le(*reinterpret_cast<uint32_t *>(oam + (addr & memory::OAM_LIMIT & ~3) - memory::OAM_OFFSET));
+                currValue = le(*reinterpret_cast<uint32_t *>(oam.mem + (addr & memory::OAM_LIMIT & ~3) - memory::OAM_OFFSET));
                 break;
 
             case memory::EXT_ROM1:
@@ -590,7 +590,7 @@ namespace gbaemu
                 break;
             case memory::OAM:
                 // Trivial mirroring
-                currValue = le(*reinterpret_cast<uint32_t *>(oam + (addr & memory::OAM_LIMIT & ~3) - memory::OAM_OFFSET));
+                currValue = le(*reinterpret_cast<uint32_t *>(oam.mem + (addr & memory::OAM_LIMIT & ~3) - memory::OAM_OFFSET));
                 break;
 
             case memory::EXT_ROM1:
@@ -696,7 +696,7 @@ namespace gbaemu
                 break;
             case memory::OAM:
                 // Trivial mirroring
-                *reinterpret_cast<uint16_t *>(oam + (addr & memory::OAM_LIMIT & ~1) - memory::OAM_OFFSET) = le(value);
+                oam.write16((addr & memory::OAM_LIMIT & ~1) - memory::OAM_OFFSET, value);
                 break;
 
             case memory::EXT_ROM3_:
@@ -749,7 +749,7 @@ namespace gbaemu
                 break;
             case memory::OAM:
                 // Trivial mirroring
-                *reinterpret_cast<uint32_t *>(oam + (addr & memory::OAM_LIMIT & ~3) - memory::OAM_OFFSET) = le(value);
+                oam.write32((addr & memory::OAM_LIMIT & ~3) - memory::OAM_OFFSET, value);
                 break;
 
             case memory::EXT_ROM3_:

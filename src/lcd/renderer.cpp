@@ -54,7 +54,7 @@ namespace gbaemu::lcd
         windowOBJLayer->prepareLoadOBJs();
 
         /* load objects */
-        const uint8_t *oamBase = memory.oam;
+        const uint8_t *oamBase = memory.oam.mem;
 
         /* All background layers can be enabled/disabled with a single flag. */
         bool masterEnObjLayer = le(regs.DISPCNT) & DISPCTL::SCREEN_DISPLAY_OBJ_MASK;
