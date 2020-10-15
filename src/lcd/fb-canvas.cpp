@@ -83,7 +83,8 @@ namespace gbaemu::lcd
     void FBCanvas::present()
     {
         currentBuf = (currentBuf + 1) & 1;
-        waitForFB.notify_one();
+        if (currentBuf)
+            waitForFB.notify_one();
     }
-}
+} // namespace gbaemu::lcd
 #endif
