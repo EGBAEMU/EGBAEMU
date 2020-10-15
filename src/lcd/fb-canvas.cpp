@@ -6,6 +6,8 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <linux/fb.h>
+#include <sys/ioctl.h>
 
 
 namespace gbaemu::lcd
@@ -14,7 +16,6 @@ namespace gbaemu::lcd
                                                    buffer({MemoryCanvas<color_t>(SCREEN_WIDTH, SCREEN_HEIGHT), MemoryCanvas<color_t>(SCREEN_WIDTH, SCREEN_HEIGHT)}),
                                                    fbCopyThread(fbCopyLoop, std::ref(waitForFB), std::ref(*this))
     {
-        size = fbWidth * fbHeight * sizeof(color16_t);
         device = open(deviceString, O_RDWR);
 
         if (device < 0) {
@@ -22,6 +23,17 @@ namespace gbaemu::lcd
             frameBuffer = nullptr;
             return;
         }
+
+        fb_var_screeninfo screeninfo;
+        ioctl(device, FBIOGET_VSCREENINFO, &screeninfo);
+
+        std::cout << "INFO: Framebuffer opened\n" <<
+            "INFO: Screen resolution is " << std::dec << screeninfo.xres << 'x' << screeninfo.yres << std::endl;
+
+        if (screeninfo.xres != fbWidth || screeninfo.yres != fbHeight)
+            throw std::runtime_error("Unsupported screen resolution");
+
+        size = fbWidth * fbHeight * sizeof(color16_t);
 
         frameBuffer = reinterpret_cast<color16_t *>(mmap(NULL, size,
             PROT_READ | PROT_WRITE,
@@ -76,7 +88,22 @@ namespace gbaemu::lcd
                 continue;
             }
             int lastBuf = (canvas.currentBuf + 1) & 1;
-            std::copy(canvas.buffer[lastBuf].pixels(), canvas.buffer[lastBuf].pixels() + size, canvas.frameBuffer);
+
+            const color_t *src = canvas.buffer[lastBuf].pixels();
+            int32_t srcWidth = canvas.buffer[lastBuf].getWidth();
+
+            color_t *dst = canvas.frameBuffer;
+            int32_t dstWidth = canvas.fbWidth;
+            int32_t dstHeight = canvas.fbHeight;
+
+            for (int32_t y = 0; y < dstHeight; ++y) {
+                int32_t srcX = srcWidth - 1 - (y * 3 / 4);
+
+                for (int32_t x = 0; x < dstWidth; ++x) {
+                    int32_t srcY = x * 2 / 3;
+                    dst[y * dstWidth + x] = src[srcY * srcWidth + srcX];
+                }
+            }
         }
     }
 
