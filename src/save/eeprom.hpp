@@ -38,7 +38,7 @@ namespace gbaemu::save
             state = IDLE;
         }
 
-        EEPROM(const char *path, bool &success, uint8_t busWidth = 6) : saveFile(path, success, (1 << busWidth) * sizeof(buffer))
+        EEPROM(const char *path, bool &success, uint8_t busWidth = 6) : saveFile(path, success, (static_cast<uint32_t>(1) << busWidth) * sizeof(buffer))
         {
             this->busWidth = saveFile.getSize() == 0x2000 ? 14 : 6;
             reset();
