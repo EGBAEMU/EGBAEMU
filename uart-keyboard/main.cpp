@@ -21,7 +21,8 @@
 using namespace chibios_rt;
 
 // Whether to use Board v3 or v4
-#define EXTENSION_BOARD_V3 // V4_5: EXTENSION_BOARD_V4_5
+// #define EXTENSION_BOARD_V3
+#define EXTENSION_BOARD_V4_5
 
 #define BUFFER_SIZE 1
 //#define BAUD_RATE 9600
@@ -52,16 +53,16 @@ using namespace chibios_rt;
 #define GPIO_5_PAD GPIOB_GPIO_5
 
 #define GPIO_6_PORT GPIOB
-#define GPIO_6_PAD GPIOB_STICK_UP
+#define GPIO_6_PAD GPIOB_STICK_LEFT
 
 #define GPIO_7_PORT GPIOB
-#define GPIO_7_PAD GPIOB_STICK_DOWN
+#define GPIO_7_PAD GPIOB_STICK_RIGHT
 
 #define GPIO_8_PORT GPIOB
-#define GPIO_8_PAD GPIOB_STICK_LEFT
+#define GPIO_8_PAD GPIOB_STICK_UP
 
 #define GPIO_9_PORT GPIOB
-#define GPIO_9_PAD GPIOB_STICK_RIGHT
+#define GPIO_9_PAD GPIOB_STICK_DOWN
 
 #elif defined(EXTENSION_BOARD_V4_5)
 
@@ -84,16 +85,16 @@ using namespace chibios_rt;
 #define GPIO_5_PAD GPIOB_GPIO_5
 
 #define GPIO_6_PORT GPIOB
-#define GPIO_6_PAD GPIOB_STICK_UP
+#define GPIO_6_PAD GPIOB_STICK_LEFT
 
 #define GPIO_7_PORT GPIOB
-#define GPIO_7_PAD GPIOB_STICK_DOWN
+#define GPIO_7_PAD GPIOB_STICK_RIGHT
 
 #define GPIO_8_PORT GPIOB
-#define GPIO_8_PAD GPIOB_STICK_LEFT
+#define GPIO_8_PAD GPIOB_STICK_UP
 
 #define GPIO_9_PORT GPIOB
-#define GPIO_9_PAD GPIOB_STICK_RIGHT
+#define GPIO_9_PAD GPIOB_STICK_DOWN
 
 #else
 #error "Unsupported board version!"
@@ -105,15 +106,25 @@ typedef struct {
 } Key;
 
 static const Key keys[] = {
+    // Key left
     {GPIO_0_PORT, GPIO_0_PAD},
+    // Key right
     {GPIO_1_PORT, GPIO_1_PAD},
+    // Key up
     {GPIO_2_PORT, GPIO_2_PAD},
+    // Key down
     {GPIO_3_PORT, GPIO_3_PAD},
+    // A button
     {GPIO_4_PORT, GPIO_4_PAD},
+    // B button
     {GPIO_5_PORT, GPIO_5_PAD},
+    // start button
     {GPIO_6_PORT, GPIO_6_PAD},
+    // select button
     {GPIO_7_PORT, GPIO_7_PAD},
+    // L button
     {GPIO_8_PORT, GPIO_8_PAD},
+    // R button
     {GPIO_9_PORT, GPIO_9_PAD}};
 
 static uint8_t prevState[sizeof(keys) / sizeof(keys[0])];
