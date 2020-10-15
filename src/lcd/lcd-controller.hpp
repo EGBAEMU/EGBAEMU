@@ -64,6 +64,7 @@ namespace gbaemu::lcd
         LCDIORegs internalRegs{0};
         /* 2/3 then x/y */
         bool bgRefPointDirty[2][2]{0};
+        bool skipFrame = false;
 
       public:
         struct

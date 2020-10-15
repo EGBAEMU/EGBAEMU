@@ -291,6 +291,7 @@ int main(int argc, char **argv)
 
 #if !defined(DEBUG_CLI) && PRINT_FPS
     auto lastFrame = std::chrono::system_clock::now() + frames{0};
+    double prevFPS = 60.0;
 #endif
 
     for (; doRun;) {
@@ -322,8 +323,10 @@ int main(int argc, char **argv)
 #if !defined(DEBUG_CLI) && PRINT_FPS
         auto currentTime = std::chrono::system_clock::now();
         auto dt = std::chrono::duration_cast<std::chrono::microseconds>(currentTime - lastFrame);
-        std::cout << "Current FPS: " << (1000000.0 / dt.count()) << " in " << std::dec << dt.count() << "us" << std::endl;
+        double currentFPS = (1000000.0 / dt.count());
+        std::cout << "Avg FPS: " << ((currentFPS + prevFPS) / 2) << " Current FPS: " << currentFPS << " in " << std::dec << dt.count() << "us" << std::endl;
         lastFrame = currentTime;
+        prevFPS = currentFPS;
 #endif
     }
 breakOuterLoop:

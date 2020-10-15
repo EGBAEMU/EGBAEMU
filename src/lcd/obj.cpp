@@ -1,9 +1,12 @@
 #include "obj.hpp"
 
 #include <sstream>
+#include <algorithm>
 
-namespace gbaemu::lcd {
-    void OBJ::writeAndDecode16(uint8_t offset, uint16_t value) {
+namespace gbaemu::lcd
+{
+    void OBJ::writeAndDecode16(uint8_t offset, uint16_t value)
+    {
         //TODO
     }
 
@@ -122,12 +125,12 @@ namespace gbaemu::lcd {
                 break;
             case HORIZONTAL:
                 width = 16 << ((size + 1) >> 1);
-                height = 8 << (size >> 1);
+                height = std::max(8, 4 << size);
                 break;
             case VERTICAL:
                 // as in HORIZONTAL but with changed variables
                 height = 16 << ((size + 1) >> 1);
-                width = 8 << (size >> 1);
+                width = std::max(8, 4 << size);
                 break;
         }
 

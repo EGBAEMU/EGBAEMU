@@ -125,6 +125,7 @@ namespace gbaemu::lcd
 #ifndef LEGACY_RENDERING
         scanline.y = 0;
 #endif
+        skipFrame = !skipFrame;
     }
 
 #ifndef LEGACY_RENDERING
@@ -141,6 +142,8 @@ namespace gbaemu::lcd
 
     void LCDController::drawScanline()
     {
+        if (skipFrame)
+            return;
         /* If this bit is set, white lines are displayed. */
         if (le(regs.DISPCNT) & DISPCTL::FORCED_BLANK_MASK) {
             color_t *outBuf = frameBuffer.pixels() + scanline.y * frameBuffer.getWidth();
