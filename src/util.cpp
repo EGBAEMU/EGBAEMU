@@ -99,6 +99,23 @@ namespace gbaemu
     }
 } // namespace gbaemu
 
+#ifdef __GNUC__
+#elif _MSC_VER
+#pragma intrinsic(_BitScanForward)
+uint8_t ctz(uint32_t value)
+{
+    unsigned long trailing_zero = 0;
+
+    _BitScanForward(&trailing_zero, value);
+    return trailing_zero;
+}
+#else
+uint8_t ctz(uint32_t x)
+{
+    return popcnt((x & -x) - 1);
+}
+#endif
+
 template uint16_t gbaemu::bitGet<uint16_t>(uint16_t, uint16_t, uint16_t);
 
 template uint64_t gbaemu::bmap<uint64_t>(bool);

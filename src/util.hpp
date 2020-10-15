@@ -103,31 +103,6 @@ namespace gbaemu
         return static_cast<T>(v * finalBitMask) >> ((sizeof(T) - 1) * 8);
     }
 
-#ifdef __GNUC__
-#define popcnt(x) __builtin_popcount(x)
-#elif _MSC_VER
-#include <intrin.h>
-#define popcnt(x) __popcnt(x)
-#else
-#define popcnt(x) countBitsSet<uint32_t>(x)
-#endif
-
-#ifdef __GNUC__
-#define ctz(x) __builtin_ctz(x)
-#elif _MSC_VER
-    uint8_t ctz(uint32_t value)
-    {
-        uint8_t trailing_zero = 0;
-        _BitScanForward(&trailing_zero, value);
-        return trailing_zero;
-    }
-#else
-    uint8_t ctz(uint32_t x)
-    {
-        return popcnt((x & -x) - 1);
-    }
-#endif
-
     template <class IntType>
     IntType fastMod(IntType value, IntType upperBound);
 
@@ -145,5 +120,27 @@ namespace gbaemu
         asm("int $3"); \
     }
 } // namespace gbaemu
+
+#ifdef __GNUC__
+#define popcnt(x) __builtin_popcount(x)
+#elif _MSC_VER
+#include <intrin.h>
+#define popcnt(x) __popcnt(x)
+#else
+#define popcnt(x) gbaemu::countBitsSet<uint32_t>(x)
+#endif
+
+#ifdef __GNUC__
+#define ctz(x) __builtin_ctz(x)
+#elif _MSC_VER
+uint8_t ctz(uint32_t value);
+#undef min
+#undef max
+#ifdef TRANSPARENT
+#undef TRANSPARENT
+#endif
+#else
+uint8_t ctz(uint32_t x);
+#endif
 
 #endif /* UTIL_HPP */
