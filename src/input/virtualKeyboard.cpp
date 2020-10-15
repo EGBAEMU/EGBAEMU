@@ -69,7 +69,7 @@ void virtualKeyboardLoop(volatile bool &run)
         // Key press is encoded as 1 & key release is encoded as 0
         uint8_t index = static_cast<uint8_t>(c) >> 1;
         if (index < sizeof(keyMapping) / sizeof(keyMapping[0])) {
-            event.type = (c & 1) ? SDL_KEYDOWN : SDL_KEYUP ;
+            event.type = (c & 1) ? SDL_KEYUP : SDL_KEYDOWN;
             event.key.keysym.sym = keyMapping[index];
             SDL_PushEvent(&event);
         }
