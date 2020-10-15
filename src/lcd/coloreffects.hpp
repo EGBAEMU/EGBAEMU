@@ -20,6 +20,7 @@ namespace gbaemu::lcd
 
       public:
         void load(const LCDIORegs &regs) noexcept;
+        template <BLDCNT::ColorSpecialEffect ColorEffect>
         std::function<color_t(color_t, color_t)> getBlendingFunction() const;
         bool secondColorRequired() const;
         BLDCNT::ColorSpecialEffect getEffect() const;

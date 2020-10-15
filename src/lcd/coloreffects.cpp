@@ -28,9 +28,10 @@ namespace gbaemu::lcd
         }
     }
 
+    template <BLDCNT::ColorSpecialEffect ColorEffect>
     std::function<color_t(color_t, color_t)> ColorEffects::getBlendingFunction() const
     {
-        switch (effect) {
+        switch (ColorEffect) {
             case BLDCNT::None:
                 return [](color_t first, color_t second) -> color_t {
                     return first;
@@ -114,4 +115,9 @@ namespace gbaemu::lcd
 
         return ss.str();
     }
+
+    template std::function<color_t(color_t, color_t)> ColorEffects::getBlendingFunction<BLDCNT::ColorSpecialEffect::AlphaBlending>() const;
+    template std::function<color_t(color_t, color_t)> ColorEffects::getBlendingFunction<BLDCNT::ColorSpecialEffect::BrightnessDecrease>() const;
+    template std::function<color_t(color_t, color_t)> ColorEffects::getBlendingFunction<BLDCNT::ColorSpecialEffect::BrightnessIncrease>() const;
+    template std::function<color_t(color_t, color_t)> ColorEffects::getBlendingFunction<BLDCNT::ColorSpecialEffect::None>() const;
 } // namespace gbaemu::lcd

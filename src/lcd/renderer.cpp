@@ -127,7 +127,9 @@ namespace gbaemu::lcd
     void Renderer::blendBrightness(int32_t y, int32_t xTo)
     {
         color_t *outBuf = target.pixels() + y * target.getWidth();
-        std::function<color_t(color_t, color_t)> applyColorEffect = colorEffects.getBlendingFunction();
+        std::function<color_t(color_t, color_t)> applyColorEffect = (colorEffects.getEffect() == BLDCNT::BrightnessIncrease) ?
+            colorEffects.getBlendingFunction<BLDCNT::BrightnessIncrease>() :
+            colorEffects.getBlendingFunction<BLDCNT::BrightnessDecrease>();
         const color_t backdrop = palette.getBackdropColor();
 
         for (int32_t x = 0; x < xTo; ++x) {
@@ -158,7 +160,7 @@ namespace gbaemu::lcd
     void Renderer::blendAlpha(int32_t y, int32_t xTo)
     {
         color_t *outBuf = target.pixels() + y * target.getWidth();
-        std::function<color_t(color_t, color_t)> applyColorEffect = colorEffects.getBlendingFunction();
+        std::function<color_t(color_t, color_t)> applyColorEffect = colorEffects.getBlendingFunction<BLDCNT::AlphaBlending>();
         const color_t backdrop = palette.getBackdropColor();
 
         for (int32_t x = 0; x < xTo; ++x) {
