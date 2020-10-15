@@ -6,6 +6,7 @@ namespace gbaemu::lcd {
     void OBJ::writeAndDecode16(uint8_t offset, uint16_t value) {
         //TODO
     }
+
     OBJAttribute OBJ::getAttribute(const uint8_t *attributes, uint32_t index)
     {
         auto uints = reinterpret_cast<const uint16_t *>(attributes + (index * 0x8));
@@ -98,9 +99,9 @@ namespace gbaemu::lcd {
 
         visible = true;
 
-        yOff = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::Y_COORD_MASK, OBJ_ATTRIBUTE::Y_COORD_OFFSET);
-        xOff = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::X_COORD_MASK, OBJ_ATTRIBUTE::X_COORD_OFFSET);
-        xOff = signExt<int32_t, uint16_t, 9>(xOff);
+        rect.top = bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::Y_COORD_MASK, OBJ_ATTRIBUTE::Y_COORD_OFFSET);
+        rect.left = signExt<int32_t, uint16_t, 9>(
+            bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::X_COORD_MASK, OBJ_ATTRIBUTE::X_COORD_OFFSET));
 
         OBJShape shape = static_cast<OBJShape>(bitGet<uint16_t>(attr.attribute[0], OBJ_ATTRIBUTE::OBJ_SHAPE_MASK, OBJ_ATTRIBUTE::OBJ_SHAPE_OFFSET));
         uint16_t size = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::OBJ_SIZE_MASK, OBJ_ATTRIBUTE::OBJ_SIZE_OFFSET);
@@ -133,37 +134,13 @@ namespace gbaemu::lcd {
         paletteNumber = bitGet<uint16_t>(attr.attribute[2], OBJ_ATTRIBUTE::PALETTE_NUMBER_MASK, OBJ_ATTRIBUTE::PALETTE_NUMBER_OFFSET);
         bool doubleSized = useRotScale && isBitSet<uint16_t, OBJ_ATTRIBUTE::DOUBLE_SIZE_OFFSET>(attr.attribute[0]);
 
-        if (useRotScale) {
-            uint16_t index = bitGet<uint16_t>(attr.attribute[1], OBJ_ATTRIBUTE::ROT_SCALE_PARAM_MASK, OBJ_ATTRIBUTE::ROT_SCALE_PARAM_OFFSET);
-            auto result = getRotScaleParameters(attributes, index);
+        if (rect.top + height * (doubleSized ? 2 : 1) > 256)
+            rect.top -= 256;
 
-            affineTransform.d = std::get<0>(result);
-            affineTransform.dm = std::get<1>(result);
-        } else {
-            affineTransform.d[0] = 1;
-            affineTransform.d[1] = 0;
-            affineTransform.dm[0] = 0;
-            affineTransform.dm[1] = 1;
-        }
+        affineTransform = getAffineTransform(attributes, attr.attribute[1], useRotScale, doubleSized);
 
-        affineTransform.origin[0] = static_cast<common::math::real_t>(width) / 2;
-        affineTransform.origin[1] = static_cast<common::math::real_t>(height) / 2;
-
-        if (yOff + height * (doubleSized ? 2 : 1) > 256)
-            yOff -= 256;
-
-        if (doubleSized) {
-            affineTransform.screenRef[0] = static_cast<common::math::real_t>(xOff + static_cast<int32_t>(width));
-            affineTransform.screenRef[1] = static_cast<common::math::real_t>(yOff + static_cast<int32_t>(height));
-        } else {
-            affineTransform.screenRef[0] = static_cast<common::math::real_t>(xOff + static_cast<int32_t>(width) / 2);
-            affineTransform.screenRef[1] = static_cast<common::math::real_t>(yOff + static_cast<int32_t>(height) / 2);
-        }
-
-        rect.left = xOff;
-        rect.top = yOff;
-        rect.right = xOff + width * (doubleSized ? 2 : 1);
-        rect.bottom = yOff + height * (doubleSized ? 2 : 1);
+        rect.right = rect.left + width * (doubleSized ? 2 : 1);
+        rect.bottom = rect.top + height * (doubleSized ? 2 : 1);
     }
 
     std::string OBJ::toString() const
@@ -233,5 +210,36 @@ namespace gbaemu::lcd {
         const bool posDot = std::any_of(dots, dots + 4, [](real_t r) { return r >= 0; });
 
         return negDot && posDot;
+    }
+
+    OBJAffineTransform OBJ::getAffineTransform(const uint8_t *attributes, uint16_t secondAttr, bool useRotScale, bool doubleSized) const
+    {
+        OBJAffineTransform trans;
+
+        if (useRotScale) {
+            uint16_t index = bitGet<uint16_t>(secondAttr, OBJ_ATTRIBUTE::ROT_SCALE_PARAM_MASK, OBJ_ATTRIBUTE::ROT_SCALE_PARAM_OFFSET);
+            auto result = getRotScaleParameters(attributes, index);
+
+            trans.d = std::get<0>(result);
+            trans.dm = std::get<1>(result);
+        } else {
+            trans.d[0] = 1;
+            trans.d[1] = 0;
+            trans.dm[0] = 0;
+            trans.dm[1] = 1;
+        }
+
+        trans.origin[0] = static_cast<common::math::real_t>(width) / 2;
+        trans.origin[1] = static_cast<common::math::real_t>(height) / 2;
+
+        if (doubleSized) {
+            trans.screenRef[0] = static_cast<common::math::real_t>(rect.left + static_cast<int32_t>(width));
+            trans.screenRef[1] = static_cast<common::math::real_t>(rect.top + static_cast<int32_t>(height));
+        } else {
+            trans.screenRef[0] = static_cast<common::math::real_t>(rect.left + static_cast<int32_t>(width) / 2);
+            trans.screenRef[1] = static_cast<common::math::real_t>(rect.top + static_cast<int32_t>(height) / 2);
+        }
+
+        return trans;
     }
 }

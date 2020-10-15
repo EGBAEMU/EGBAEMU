@@ -57,7 +57,6 @@ namespace gbaemu::lcd
         bool visible = false;
         OBJMode mode;
         uint8_t priority;
-        int32_t xOff, yOff;
         OBJAffineTransform affineTransform;
         Rect rect;
 
@@ -72,6 +71,7 @@ namespace gbaemu::lcd
         std::string toString() const;
         color_t pixelColor(int32_t sx, int32_t sy, const uint8_t *objTiles, const LCDColorPalette &palette, bool use2dMapping) const;
         bool intersectsWithScanline(real_t fy) const;
+        OBJAffineTransform getAffineTransform(const uint8_t *attributes, uint16_t secondAttr, bool useRotScale, bool doubleSized) const;
 
         void writeAndDecode16(uint8_t offset, uint16_t value);
     };
