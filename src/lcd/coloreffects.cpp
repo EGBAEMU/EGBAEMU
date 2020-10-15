@@ -67,7 +67,8 @@ namespace gbaemu::lcd
 
                     for (uint32_t i = 0; i < 3; ++i) {
                         color_t top = (first >> (i * 5)) & 0x1F;
-                        finalColor |= std::min<color_t>(top + (top * evy) / 16, 0x1F) << (i * 5);
+                        /* top - top * evy >= 0 because 0 <= evy <= 1 */
+                        finalColor |= (top - (top * evy) / 16) << (i * 5);
                     }
 
                     return finalColor;
