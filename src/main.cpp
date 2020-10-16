@@ -18,8 +18,8 @@
 #include "lcd/fb-canvas.hpp"
 #endif
 
-#define PRINT_FPS true
-#define LIMIT_FPS false
+#define PRINT_FPS false
+#define LIMIT_FPS true
 
 // #define DUMP_ROM
 
