@@ -1,5 +1,5 @@
 # Gameboy Advance Simulator
-Within the ESHO1 final project our group implemented an emulator for the Gabeboy Advance.
+Within the ESHO1 final project our group implemented an emulator for the Gameboy Advance.
 
 ## Project Status
 The current project status includes the following components:
