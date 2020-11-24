@@ -132,3 +132,9 @@ Specifics on the implementation are to be found in the subdirectory `doc`.
 - [eggvance](https://github.com/jsmolka/eggvance)
 - [no$gba](https://problemkaputt.de/gba.htm)
 - and many [more](https://www.gbadev.org/tools.php?section=Emulator)
+
+## Developers
+The original developers of this project are:
++ [7FM](https://github.com/7FM)
++ [max-schmidt-university](https://github.com/max-schmidt-university)
++ [jschj](https://github.com/jschj)
